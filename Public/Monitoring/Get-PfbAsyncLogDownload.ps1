@@ -25,12 +25,12 @@ function Get-PfbAsyncLogDownload {
 
         Downloads the log data by async log job ID.
     #>
-    [CmdletBinding(DefaultParameterSetName = 'List')]
+    [CmdletBinding()]
     param(
-        [Parameter(ParameterSetName = 'ByName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(ParameterSetName = 'ByName', Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [string[]]$Name,
 
-        [Parameter(ParameterSetName = 'ById')]
+        [Parameter(ParameterSetName = 'ById', Mandatory)]
         [string[]]$Id,
 
         [Parameter()] [PSCustomObject]$Array

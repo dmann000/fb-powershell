@@ -239,7 +239,7 @@ v2.0.0 was validated against a live FlashBlade S200R2 (Purity//FB 4.6.8, API 2.2
 | **ShouldProcess (WhatIf/Confirm)** | 283/283 mutation cmdlets verified |
 | **Naming conventions** | 496/496 follow `Verb-PfbNoun` pattern, all approved verbs |
 | **Parameter consistency** | All cmdlets have `-Array`, correct parameter sets |
-| **Live array — Get cmdlets** | 218/221 passed (3 skipped: model-specific endpoints) |
+| **Live API — read-only cmdlets** | 199/205 passed, 0 failed, 6 skipped (unconfigured features or model-specific) |
 | **Live array — mutation lifecycle** | File system + snapshot create/update/delete ✅ |
 | **Live array — Connect-PfbArray** | ApiToken, Username/Password, PSCredential, SSH fallback ✅ |
 | **Build consistency** | Built `.psm1` exports identical 496 cmdlets |
