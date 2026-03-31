@@ -1,0 +1,22 @@
+# Build output
+build/
+
+# IDE / tooling
+.claude/
+.vs/
+.vscode/
+
+# Dev-only files
+.env.ps1
+swagger.json
+test-*.ps1
+_*.ps1
+
+# PowerShell
+*.pssproj.user
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
