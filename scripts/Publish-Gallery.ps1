@@ -55,6 +55,11 @@ if (Test-Path $dstDir) { Remove-Item $dstDir -Recurse -Force }
 New-Item -ItemType Directory -Path $dstDir | Out-Null
 Copy-Item (Join-Path $srcDir "$srcName.psm1") (Join-Path $dstDir "$packageName.psm1")
 Copy-Item (Join-Path $srcDir 'LICENSE')       (Join-Path $dstDir 'LICENSE') -ErrorAction SilentlyContinue
+# Data/ holds the runtime capability + version maps (read from disk relative to the
+# module root). build.ps1 copies it into the source package; carry it into the branded
+# package too, or the API version-awareness check silently no-ops on every Gallery install.
+$dataDir = Join-Path $srcDir 'Data'
+if (Test-Path $dataDir) { Copy-Item $dataDir (Join-Path $dstDir 'Data') -Recurse }
 
 # 3. Re-brand the manifest.
 $psd1 = Get-Content (Join-Path $srcDir "$srcName.psd1") -Raw
