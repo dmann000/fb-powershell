@@ -46,9 +46,7 @@ function Get-PfbArrayNfsPerformance {
 
     process {
         $queryParams = @{}
-        if ($Filter)       { $queryParams['filter']     = $Filter }
-        if ($Sort)         { $queryParams['sort']       = $Sort }
-        if ($Limit -gt 0)  { $queryParams['limit']      = $Limit }
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
         if ($StartTime)    { $queryParams['start_time'] = $StartTime }
         if ($EndTime)      { $queryParams['end_time']   = $EndTime }
         if ($Resolution)   { $queryParams['resolution'] = $Resolution }

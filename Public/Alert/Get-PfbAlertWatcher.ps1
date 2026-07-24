@@ -44,11 +44,7 @@ function Get-PfbAlertWatcher {
 
     end {
         $queryParams = @{}
-        if ($allNames.Count -gt 0) { $queryParams['names']  = $allNames -join ',' }
-        if ($allIds.Count -gt 0)   { $queryParams['ids']    = $allIds -join ',' }
-        if ($Filter)               { $queryParams['filter'] = $Filter }
-        if ($Sort)                 { $queryParams['sort']   = $Sort }
-        if ($Limit -gt 0)         { $queryParams['limit']  = $Limit }
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
 
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'alert-watchers' -QueryParams $queryParams -AutoPaginate
     }
