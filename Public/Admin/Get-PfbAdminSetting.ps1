@@ -6,6 +6,12 @@ function Get-PfbAdminSetting {
         The Get-PfbAdminSetting cmdlet returns global administrator settings from the connected
         Pure Storage FlashBlade. These settings include lockout policy, single sign-on
         configuration, and other administrative-level options.
+    .PARAMETER Filter
+        A server-side filter expression to narrow results.
+    .PARAMETER Sort
+        Sort field and direction.
+    .PARAMETER Limit
+        Maximum number of items to return.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
@@ -23,6 +29,9 @@ function Get-PfbAdminSetting {
     #>
     [CmdletBinding()]
     param(
+        [Parameter()] [string]$Filter,
+        [Parameter()] [string]$Sort,
+        [Parameter()] [int]$Limit,
         [Parameter()] [PSCustomObject]$Array
     )
 
@@ -31,6 +40,9 @@ function Get-PfbAdminSetting {
     }
 
     process {
-        Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'admins/settings'
+        $queryParams = @{}
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
+
+        Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'admins/settings' -QueryParams $queryParams
     }
 }
