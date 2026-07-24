@@ -5,6 +5,12 @@ function Get-PfbArrayEula {
     .DESCRIPTION
         The Get-PfbArrayEula cmdlet returns the current End User License Agreement acceptance
         status from the connected Pure Storage FlashBlade. This is a singleton endpoint.
+    .PARAMETER Filter
+        A server-side filter expression to narrow results.
+    .PARAMETER Sort
+        Sort field and direction.
+    .PARAMETER Limit
+        Maximum number of items to return.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
@@ -21,7 +27,16 @@ function Get-PfbArrayEula {
         Retrieves the EULA status and displays whether it has been accepted.
     #>
     [CmdletBinding()]
-    param([Parameter()] [PSCustomObject]$Array)
+    param(
+        [Parameter()] [string]$Filter,
+        [Parameter()] [string]$Sort,
+        [Parameter()] [int]$Limit,
+        [Parameter()] [PSCustomObject]$Array
+    )
     Assert-PfbConnection -Array ([ref]$Array)
-    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'arrays/eula'
+
+    $queryParams = @{}
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
+
+    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'arrays/eula' -QueryParams $queryParams
 }
