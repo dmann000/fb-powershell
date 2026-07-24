@@ -50,13 +50,11 @@ function Get-PfbPolicyFileSystemSnapshot {
 
     process {
         $queryParams = @{}
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
         if ($PolicyName) { $queryParams['policy_names'] = $PolicyName -join ',' }
         if ($PolicyId)   { $queryParams['policy_ids']   = $PolicyId -join ',' }
         if ($MemberName) { $queryParams['member_names']  = $MemberName -join ',' }
         if ($MemberId)   { $queryParams['member_ids']    = $MemberId -join ',' }
-        if ($Filter)     { $queryParams['filter']        = $Filter }
-        if ($Sort)       { $queryParams['sort']          = $Sort }
-        if ($Limit -gt 0) { $queryParams['limit']       = $Limit }
 
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'policies/file-system-snapshots' -QueryParams $queryParams -AutoPaginate
     }
