@@ -46,11 +46,7 @@ function Get-PfbWorkload {
 
     process {
         $queryParams = @{}
-        if ($Name)      { $queryParams['names']     = $Name -join ',' }
-        if ($Id)        { $queryParams['ids']       = $Id -join ',' }
-        if ($Filter)    { $queryParams['filter']    = $Filter }
-        if ($Sort)      { $queryParams['sort']      = $Sort }
-        if ($Limit)     { $queryParams['limit']     = $Limit }
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $Name -Ids $Id
         if ($Destroyed) { $queryParams['destroyed'] = 'true' }
 
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'workloads' -QueryParams $queryParams -AutoPaginate
