@@ -5,6 +5,12 @@ function Get-PfbSyslogServerSettings {
     .DESCRIPTION
         The Get-PfbSyslogServerSettings cmdlet returns the global syslog server settings
         from the connected Pure Storage FlashBlade. This is a singleton endpoint.
+    .PARAMETER Filter
+        A server-side filter expression to narrow results.
+    .PARAMETER Sort
+        Sort field and direction.
+    .PARAMETER Limit
+        Maximum number of items to return.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
@@ -21,7 +27,22 @@ function Get-PfbSyslogServerSettings {
         Retrieves the CA certificate from the syslog settings.
     #>
     [CmdletBinding()]
-    param([Parameter()] [PSCustomObject]$Array)
+    param(
+        [Parameter()]
+        [string]$Filter,
+
+        [Parameter()]
+        [string]$Sort,
+
+        [Parameter()]
+        [ValidateRange(1, 10000)]
+        [int]$Limit,
+
+        [Parameter()]
+        [PSCustomObject]$Array
+    )
     Assert-PfbConnection -Array ([ref]$Array)
-    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'syslog-servers/settings'
+    $queryParams = @{}
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
+    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'syslog-servers/settings' -QueryParams $queryParams
 }
