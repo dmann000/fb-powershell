@@ -68,13 +68,8 @@ function Get-PfbFileSystemSnapshot {
 
     end {
         $queryParams = @{}
-        if ($allNames.Count -gt 0) { $queryParams['names']         = $allNames -join ',' }
-        if ($allIds.Count -gt 0)   { $queryParams['ids']           = $allIds -join ',' }
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
         if ($SourceName)           { $queryParams['source_names']  = $SourceName }
-        if ($Filter)               { $queryParams['filter']        = $Filter }
-        if ($Sort)                 { $queryParams['sort']          = $Sort }
-        if ($Limit -gt 0)         { $queryParams['limit']         = $Limit }
-        if ($TotalOnly)            { $queryParams['total_only']    = 'true' }
         if ($Destroyed)            { $queryParams['destroyed']     = 'true' }
 
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'file-system-snapshots' -QueryParams $queryParams -AutoPaginate
