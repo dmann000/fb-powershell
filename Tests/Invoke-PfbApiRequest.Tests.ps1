@@ -63,3 +63,70 @@ Describe 'Invoke-PfbApiRequest - HttpTimeoutMs is applied' {
         }
     }
 }
+
+Describe 'Invoke-PfbApiRequest - AutoPaginate honors -Limit' {
+    It 'stops paginating and trims results once the running total reaches the requested limit' {
+        $script:pageCallCount = 0
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            $script:pageCallCount++
+            switch ($script:pageCallCount) {
+                1 {
+                    [PSCustomObject]@{
+                        items              = @(1..6 | ForEach-Object { [PSCustomObject]@{ name = "fs$_" } })
+                        continuation_token = 'token-page-2'
+                    }
+                }
+                2 {
+                    [PSCustomObject]@{
+                        items              = @(7..12 | ForEach-Object { [PSCustomObject]@{ name = "fs$_" } })
+                        continuation_token = 'token-page-3'
+                    }
+                }
+                default {
+                    throw "Unexpected extra page request (call #$script:pageCallCount) -- the -Limit guard should have stopped pagination after call #2"
+                }
+            }
+        } -ParameterFilter { $Uri -like '*file-systems*' }
+
+        $script:result = InModuleScope PureStorageFlashBladePowerShell {
+            $array = [PSCustomObject]@{
+                Endpoint = 'fb.test'; ApiVersion = '2.26'; AuthToken = 'tok'
+                ApiToken = $null; AuthMethod = 'ApiToken'; SkipCertificateCheck = $false
+            }
+            Invoke-PfbApiRequest -Array $array -Method GET -Endpoint 'file-systems' -QueryParams @{ limit = 10 } -AutoPaginate
+        }
+
+        $script:result.Count | Should -Be 10
+        $script:pageCallCount | Should -Be 2
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod -Times 2 -Exactly -ParameterFilter { $Uri -like '*file-systems*' }
+    }
+
+    It 'still auto-paginates the full collection when no -Limit is given' {
+        $script:pageCallCount2 = 0
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            $script:pageCallCount2++
+            if ($script:pageCallCount2 -eq 1) {
+                [PSCustomObject]@{
+                    items              = @(1..6 | ForEach-Object { [PSCustomObject]@{ name = "fs$_" } })
+                    continuation_token = 'token-page-2'
+                }
+            }
+            else {
+                [PSCustomObject]@{
+                    items = @(7..9 | ForEach-Object { [PSCustomObject]@{ name = "fs$_" } })
+                }
+            }
+        } -ParameterFilter { $Uri -like '*file-systems*' }
+
+        $script:result2 = InModuleScope PureStorageFlashBladePowerShell {
+            $array = [PSCustomObject]@{
+                Endpoint = 'fb.test'; ApiVersion = '2.26'; AuthToken = 'tok'
+                ApiToken = $null; AuthMethod = 'ApiToken'; SkipCertificateCheck = $false
+            }
+            Invoke-PfbApiRequest -Array $array -Method GET -Endpoint 'file-systems' -QueryParams @{} -AutoPaginate
+        }
+
+        $script:result2.Count | Should -Be 9
+        $script:pageCallCount2 | Should -Be 2
+    }
+}
