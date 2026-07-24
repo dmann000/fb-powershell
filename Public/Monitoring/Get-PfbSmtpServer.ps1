@@ -36,7 +36,6 @@ function Get-PfbSmtpServer {
         [string]$Sort,
 
         [Parameter()]
-        [ValidateRange(1, 10000)]
         [int]$Limit,
 
         [Parameter()]

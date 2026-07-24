@@ -35,7 +35,6 @@ function Get-PfbSyslogServerSettings {
         [string]$Sort,
 
         [Parameter()]
-        [ValidateRange(1, 10000)]
         [int]$Limit,
 
         [Parameter()]

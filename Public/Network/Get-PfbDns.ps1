@@ -22,7 +22,6 @@ function Get-PfbDns {
         [string]$Sort,
 
         [Parameter()]
-        [ValidateRange(1, 10000)]
         [int]$Limit,
 
         [Parameter()] [PSCustomObject]$Array
