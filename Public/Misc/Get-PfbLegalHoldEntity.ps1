@@ -58,13 +58,11 @@ function Get-PfbLegalHoldEntity {
     Assert-PfbConnection -Array ([ref]$Array)
 
     $queryParams = @{}
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
     if ($HoldName)   { $queryParams['hold_names']   = $HoldName -join ',' }
     if ($HoldId)     { $queryParams['hold_ids']     = $HoldId -join ',' }
     if ($MemberName) { $queryParams['member_names'] = $MemberName -join ',' }
     if ($MemberId)   { $queryParams['member_ids']   = $MemberId -join ',' }
-    if ($Filter)     { $queryParams['filter']       = $Filter }
-    if ($Sort)       { $queryParams['sort']         = $Sort }
-    if ($Limit -gt 0) { $queryParams['limit']       = $Limit }
 
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'legal-holds/held-entities' -QueryParams $queryParams -AutoPaginate
 }
