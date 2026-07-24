@@ -32,8 +32,7 @@ function Get-PfbPresetWorkload {
 
     process {
         $queryParams = @{}
-        if ($Name) { $queryParams['names'] = $Name -join ',' }
-        if ($Id)   { $queryParams['ids']   = $Id -join ',' }
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $Name -Ids $Id
 
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'presets/workload' -QueryParams $queryParams
     }
