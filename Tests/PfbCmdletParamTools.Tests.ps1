@@ -359,9 +359,9 @@ function New-PfbFixtureLiteralWrapped {
 }
 '@
 
-    # Real New-PfbQuotaGroup shape: a NESTED single-key sub-object. The wire field is the
-    # OUTER key ('group'), so crediting -GroupName with the inner 'name' would both mis-name
-    # the field and collide with every other sub-object's 'name' -- must stay unresolved.
+    # Real New-PfbQuotaGroup shape: a NESTED single-key sub-object inside a hashtable-literal
+    # initializer. The wire field is the OUTER key ('group') -- never the inner 'name', which
+    # would both mis-name the field and collide with every other sub-object's 'name'.
     Set-Content -Path (Join-Path $fixtureDir 'New-PfbFixtureNestedLiteral.ps1') -Value @'
 function New-PfbFixtureNestedLiteral {
     [CmdletBinding()]
@@ -372,6 +372,37 @@ function New-PfbFixtureNestedLiteral {
     )
     $body = @{ group = @{ name = $GroupName }; quota = $Quota }
     Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'nested-literal' -Body $body
+}
+'@
+
+    # Real New-PfbBucket/New-PfbFileSystem/New-PfbServer shape: a nested single-key reference
+    # object keyed in by INDEX assignment. Covers, in order: the plain reference object; two
+    # parameters legitimately resolving to the SAME outer key ('account' addressed by name and
+    # by id -- correct, not a collision to suppress); a non-'name' inner key (real
+    # New-PfbFileSystem: eradication_config = @{ eradication_mode = ... }); a plain sibling key
+    # that must keep resolving directly; a MULTI-key sub-object, whose per-field ownership
+    # cannot be attributed to one parameter; and two levels of nesting, which is not descended.
+    Set-Content -Path (Join-Path $fixtureDir 'New-PfbFixtureNestedReference.ps1') -Value @'
+function New-PfbFixtureNestedReference {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [string]$Account,
+        [Parameter()] [string]$AccountId,
+        [Parameter()] [string]$EradicationMode,
+        [Parameter()] [string]$Versioning,
+        [Parameter()] [string]$SourceName,
+        [Parameter()] [string]$SourceId,
+        [Parameter()] [string]$Deep,
+        [Parameter()] [PSCustomObject]$Array
+    )
+    $body = @{}
+    if ($Account)         { $body['account'] = @{ name = $Account } }
+    if ($AccountId)       { $body['account'] = @{ id = $AccountId } }
+    if ($EradicationMode) { $body['eradication_config'] = @{ eradication_mode = $EradicationMode } }
+    if ($Versioning)      { $body['versioning'] = $Versioning }
+    if ($SourceName -or $SourceId) { $body['source'] = @{ name = $SourceName; id = $SourceId } }
+    if ($Deep)            { $body['outer'] = @{ middle = @{ name = $Deep } } }
+    Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'nested-reference' -Body $body
 }
 '@
 
@@ -700,10 +731,11 @@ Describe 'Hashtable-literal-initializer awareness' {
         $rec.Surface | Should -Be 'Typed'
     }
 
-    It 'does NOT descend into a nested sub-object literal (the outer key is the wire field, never guessed)' {
+    It 'credits a nested sub-object literal to its OUTER key, never the inner one' {
         $rec = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureNestedLiteral' -and $_.Parameter -eq 'GroupName' }
-        $rec.WireName | Should -BeNullOrEmpty
-        $rec.Surface | Should -Be 'TypedUnresolved'
+        $rec.WireName | Should -Be 'group'
+        $rec.WireName | Should -Not -Be 'name'
+        $rec.Surface | Should -Be 'Typed'
     }
 
     It 'still resolves a sibling top-level key in the same nested literal' {
@@ -726,6 +758,91 @@ Describe 'Hashtable-literal-initializer awareness' {
             'function Test-Fixture { param([string]$Name) $somethingElse = @{ names = $Name } }', [ref]$tokens, [ref]$errs)
         $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
         Get-PfbHashtableLiteralWireNameForParameter -FunctionAst $funcAst -ParameterName 'Name' | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Nested single-key reference-object awareness' {
+    # The API models "point this resource at that one" as {"account": {"name": "acct1"}}, and
+    # the capability map records TOP-LEVEL body properties only -- there is no `account.name`
+    # field in it -- so the wire name such a parameter covers is the OUTER key.
+    It 'resolves an index-assigned reference object to its outer key' {
+        $rec = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureNestedReference' -and $_.Parameter -eq 'Account' }
+        $rec.WireName | Should -Be 'account'
+        $rec.Surface | Should -Be 'Typed'
+        $rec.Endpoint | Should -Be 'nested-reference'
+        $rec.Method | Should -Be 'POST'
+    }
+
+    It 'lets TWO parameters resolve to the same outer key (addressing one field by name or by id is correct, not a collision)' {
+        $byName = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureNestedReference' -and $_.Parameter -eq 'Account' }
+        $byId   = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureNestedReference' -and $_.Parameter -eq 'AccountId' }
+        $byName.WireName | Should -Be 'account'
+        $byId.WireName | Should -Be 'account'
+        $byId.Surface | Should -Be 'Typed'
+    }
+
+    It 'does not require the inner key to be "name" (real New-PfbFileSystem eradication_config shape)' {
+        $rec = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureNestedReference' -and $_.Parameter -eq 'EradicationMode' }
+        $rec.WireName | Should -Be 'eradication_config'
+        $rec.Surface | Should -Be 'Typed'
+    }
+
+    It 'still resolves a plain sibling key in the same cmdlet directly' {
+        $rec = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureNestedReference' -and $_.Parameter -eq 'Versioning' }
+        $rec.WireName | Should -Be 'versioning'
+        $rec.Surface | Should -Be 'Typed'
+    }
+
+    It 'refuses a MULTI-key sub-object, whose per-field ownership cannot be attributed to one parameter' -ForEach @(
+        @{ Parameter = 'SourceName' }
+        @{ Parameter = 'SourceId' }
+    ) {
+        $rec = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureNestedReference' -and $_.Parameter -eq $Parameter }
+        $rec.WireName | Should -BeNullOrEmpty
+        $rec.Surface | Should -Be 'TypedUnresolved'
+    }
+
+    It 'descends exactly one level -- a doubly-nested sub-object stays unresolved' {
+        $rec = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureNestedReference' -and $_.Parameter -eq 'Deep' }
+        $rec.WireName | Should -BeNullOrEmpty
+        $rec.Surface | Should -Be 'TypedUnresolved'
+    }
+
+    It 'lets a DIRECT assignment win over a nested one for the same parameter, whatever the source order' {
+        # The ordering guarantee that makes this change strictly additive: nested resolution
+        # runs as its own pass after both direct-assignment passes, so it can only ever turn
+        # an unresolved parameter Typed -- never rename an already-resolved wire name.
+        $tokens = $null; $errs = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput(
+            'function Test-Fixture { param([string]$Name) $body = @{}; $body["owner"] = @{ name = $Name }; $body["name"] = $Name }', [ref]$tokens, [ref]$errs)
+        $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
+        (Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Name').WireName | Should -Be 'name'
+    }
+
+    It 'ignores a reference object keyed into an intermediate variable that is neither body nor queryParams' {
+        # Real New-PfbFileSystem $nfsBody/$smbBody: not traceable to an Invoke-PfbApiRequest
+        # call, so there is nothing to attribute the wire name to.
+        $tokens = $null; $errs = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput(
+            'function Test-Fixture { param([string]$Policy) $nfsBody = @{}; $nfsBody["export_policy"] = @{ name = $Policy } }', [ref]$tokens, [ref]$errs)
+        $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
+        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $funcAst -ParameterName 'Policy' | Should -BeNullOrEmpty
+    }
+
+    It 'refuses a nested value produced by a pipeline transform rather than referencing the parameter' {
+        $tokens = $null; $errs = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput(
+            'function Test-Fixture { param([string[]]$Servers) $body = @{}; $body["attached_servers"] = @($Servers | ForEach-Object { @{ name = $_ } }) }', [ref]$tokens, [ref]$errs)
+        $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
+        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $funcAst -ParameterName 'Servers' | Should -BeNullOrEmpty
+    }
+
+    It 'refuses a non-literal outer key' {
+        $tokens = $null; $errs = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput(
+            'function Test-Fixture { param([string]$Name, [string]$Key) $body = @{}; $body[$Key] = @{ name = $Name } }', [ref]$tokens, [ref]$errs)
+        $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
+        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $funcAst -ParameterName 'Name' | Should -BeNullOrEmpty
     }
 }
 

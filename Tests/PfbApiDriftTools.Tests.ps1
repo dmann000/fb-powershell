@@ -222,6 +222,53 @@ Describe 'Get-PfbParameterCoverageGaps' {
         $gap = $result.ParameterGaps | Where-Object { $_.Endpoint -eq 'GET /widgets' }
         $gap.MissingParameters | Should -Be @('apple', 'mango', 'zebra')
     }
+
+    Context 'a cmdlet contributing zero inventory rows is vacuously fully mapped' {
+        # Regression guard for the null-vs-empty conflation: the per-cmdlet lookup is a
+        # Group-Object -AsHashTable, which returns $null for an absent key, and @($null) is
+        # a ONE-element array whose element is $null -- so the surface loop used to run once
+        # with $row = $null, read $null.Surface -ne 'Typed' as true, and discard the whole
+        # endpoint into NotVerified. The real shape is the -Attributes-only write cmdlet
+        # (Update-PfbArray, Update-PfbPasswordPolicy, Update-PfbSupport): every parameter it
+        # declares is -Array or -Attributes, both inventory-exempt, so the inventory holds no
+        # row for it at all -- nothing contradicts full mapping.
+        BeforeAll {
+            $script:attributesOnlyCapMap = [PSCustomObject]@{
+                endpoints = [PSCustomObject]@{
+                    'PATCH /widgets' = [PSCustomObject]@{
+                        minVersion     = '2.0'
+                        parameters     = [PSCustomObject]@{}
+                        bodyProperties = [PSCustomObject]@{ banner = '2.0'; ntp_servers = '2.0' }
+                    }
+                }
+            }
+            $script:attributesOnlyEndpoints = @(
+                [PSCustomObject]@{ Key = 'PATCH /widgets'; Method = 'PATCH'; Endpoint = '/widgets'; Resolved = $true; Cmdlet = 'Update-PfbFixtureWidget'; File = 'x' }
+            )
+        }
+
+        It 'reports gaps rather than NotVerified when the inventory holds no row for the cmdlet' {
+            # Inventory deliberately non-empty but for a DIFFERENT cmdlet, so the hashtable
+            # lookup for Update-PfbFixtureWidget misses and yields $null.
+            $result = Get-PfbParameterCoverageGaps -CapabilityMap $attributesOnlyCapMap -CmdletInventory $fullyMappedInventory -CalledEndpoints $attributesOnlyEndpoints
+            $result.NotVerified | Where-Object { $_.Endpoint -eq 'PATCH /widgets' } | Should -BeNullOrEmpty
+            $gap = $result.ParameterGaps | Where-Object { $_.Endpoint -eq 'PATCH /widgets' }
+            $gap | Should -Not -BeNullOrEmpty
+            $gap.MissingParameters | Should -Be @('banner', 'ntp_servers')
+        }
+
+        It 'still reports NotVerified when a second cmdlet on the same endpoint has an unresolved surface' {
+            # The vacuous-mapping rule must not become a blanket amnesty: a real
+            # AttributesOnly/TypedUnresolved row anywhere on the endpoint still gates it.
+            $twoCmdletEndpoints = @(
+                $attributesOnlyEndpoints[0]
+                [PSCustomObject]@{ Key = 'PATCH /widgets'; Method = 'PATCH'; Endpoint = '/widgets'; Resolved = $true; Cmdlet = 'Get-PfbFixtureWidget'; File = 'x' }
+            )
+            $result = Get-PfbParameterCoverageGaps -CapabilityMap $attributesOnlyCapMap -CmdletInventory $notFullyMappedInventory -CalledEndpoints $twoCmdletEndpoints
+            $result.ParameterGaps | Where-Object { $_.Endpoint -eq 'PATCH /widgets' } | Should -BeNullOrEmpty
+            ($result.NotVerified | Where-Object { $_.Endpoint -eq 'PATCH /widgets' }).Reason | Should -Be 'has attributes/unresolved surface'
+        }
+    }
 }
 
 Describe 'Get-PfbValidateSetDrift' {

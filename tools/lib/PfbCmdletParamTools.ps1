@@ -15,6 +15,8 @@
         if ($queryParams.ContainsKey(...)) ...                  # not matched, no enum data anyway
         $queryParams['wire_name'] = $Param
         $queryParams = @{ 'wire_name' = $Param }               # hashtable-literal initializer
+        $body['wire_name'] = @{ name = $Param }                # nested single-key reference
+                                                               # object -- OUTER key wins
 
     ...plus one indirect pattern, where a shared private helper does the assignment for the
     cmdlet and the cmdlet body therefore contains no literal key at all:
@@ -34,6 +36,13 @@
     IndexExpressionAst form was ever recognized, so ~99 (cmdlet, parameter) pairs across ~82
     mostly-New-Pfb* cmdlets -- New-PfbApiClient's own -Name among them -- were reported as
     AttributesOnly/TypedUnresolved despite demonstrably reaching the wire.
+
+    The nested single-key reference object (Get-PfbNestedReferenceWireNameForParameter) is the
+    same class of blindness, one level deeper: the API models "point this resource at that
+    one" as `{"account": {"name": "acct1"}}`, and the capability map records TOP-LEVEL body
+    properties only -- there is no `account.name` in it -- so the field such a parameter
+    covers is the OUTER key. Leaving it unresolved cost 11 (cmdlet, parameter) pairs across 8
+    cmdlets, and via the notVerified gate their whole endpoints.
 
     A parameter is classified into exactly one Surface:
       - 'Typed': a wire name was resolved via a direct (optionally @()-wrapped) assignment.
@@ -375,7 +384,14 @@ function Get-PfbWireNameForParameter {
     $literalMatch = Get-PfbHashtableLiteralWireNameForParameter -FunctionAst $FunctionAst -ParameterName $ParameterName -IsSwitchParameter:$IsSwitchParameter
     if ($literalMatch) { return $literalMatch }
 
-    # No literal assignment of either shape in this function body -- but the parameter may
+    # Third idiom: a nested single-key REFERENCE OBJECT -- `$body['account'] = @{ name =
+    # $Account }` -- whose wire field is the OUTER key. Runs strictly after both direct
+    # forms above so it can only ever add a resolution, never rename one: a parameter that
+    # already resolved via a direct assignment returned before reaching here.
+    $nestedMatch = Get-PfbNestedReferenceWireNameForParameter -FunctionAst $FunctionAst -ParameterName $ParameterName -IsSwitchParameter:$IsSwitchParameter
+    if ($nestedMatch) { return $nestedMatch }
+
+    # No literal assignment of any shape in this function body -- but the parameter may
     # still reach the wire through the shared Private/Add-PfbCommonQueryParams.ps1 helper,
     # which performs the assignment on the cmdlet's behalf (issue #32/#33). Deliberately
     # LAST: a cmdlet whose Name/Id-equivalent maps to a non-generic key (policy_names,
@@ -391,13 +407,14 @@ function Get-PfbHashtableLiteralWireNameForParameter {
         parameter is given inside `$body = @{ ... }` / `$queryParams = @{ ... }`, or $null.
     .DESCRIPTION
         Only TOP-LEVEL key/value pairs of a hashtable literal assigned directly to a
-        variable named body/queryParams are considered. Nested literals are deliberately
-        NOT descended into: in `$body = @{ group = @{ name = $GroupName } }` (real:
-        New-PfbQuotaGroup) the wire field is `group`, and reporting -GroupName as exposing
-        `name` would both mis-name the field and collide with every other nested
-        sub-object's `name`. Value shapes are matched by the same
-        Test-PfbWireValueIsParameter used by the index-assignment path, so a pipeline
-        transform is still refused rather than guessed at.
+        variable named body/queryParams are considered, and a nested sub-object's INNER key
+        is never treated as the wire name: in `$body = @{ group = @{ name = $GroupName } }`
+        (real: New-PfbQuotaGroup) the wire field is `group`, so crediting -GroupName with
+        `name` would both mis-name the field and collide with every other sub-object's
+        `name`. Resolving such a parameter to its OUTER key is a separate, deliberately
+        later step -- see Get-PfbNestedReferenceWireNameForParameter. Value shapes are
+        matched by the same Test-PfbWireValueIsParameter used by the index-assignment path,
+        so a pipeline transform is still refused rather than guessed at.
     .OUTPUTS
         $null, or [PSCustomObject]@{ WireName; TargetVariable } -- same shape as
         Get-PfbWireNameForParameter.
@@ -434,6 +451,115 @@ function Get-PfbHashtableLiteralWireNameForParameter {
             if (-not $keyExpr) { continue }
 
             if (Test-PfbWireValueIsParameter -ValueAst $pair.Item2 -ParameterName $ParameterName -IsSwitchParameter:$IsSwitchParameter) {
+                return [PSCustomObject]@{
+                    WireName       = $keyExpr.Value
+                    TargetVariable = $targetVar.VariablePath.UserPath
+                }
+            }
+        }
+    }
+
+    return $null
+}
+
+function Get-PfbNestedReferenceWireNameForParameter {
+    <#
+    .SYNOPSIS
+        The nested-single-key-reference-object half of wire-name resolution: finds the OUTER
+        key of `$body['account'] = @{ name = $Account }` / `$body = @{ account = @{ name =
+        $Account } }`, or $null.
+    .DESCRIPTION
+        The REST API models a reference to another resource as a single-key sub-object
+        (`{"account": {"name": "acct1"}}`), and the capability map records TOP-LEVEL body
+        properties only -- there is no `account.name` field in it. So the wire name a
+        parameter feeding such a sub-object exposes is the outer key (`account`), and any
+        attempt to credit it with the inner key would name a field that does not exist.
+
+        Two parameters legitimately resolving to the SAME outer key is therefore correct,
+        not a collision to suppress: `-Account`/`-AccountId` both address the one `account`
+        field, and the endpoint's gap analysis only ever asks whether `account` is covered.
+
+        Never guesses, matching the rest of this file:
+          - the target variable must be body/queryParams (an intermediate like
+            New-PfbFileSystem's $nfsBody is not traceable to an Invoke-PfbApiRequest call);
+          - the outer key must be a literal string constant;
+          - the nested hashtable must have EXACTLY ONE key/value pair, itself string-keyed
+            -- a multi-key sub-object is a composite whose per-field ownership cannot be
+            attributed to one parameter;
+          - only ONE level of nesting is descended;
+          - the innermost value must satisfy the same Test-PfbWireValueIsParameter used by
+            both direct paths, so a pipeline transform (New-PfbNetworkInterface's
+            `@($AttachedServers | ForEach-Object { @{ name = $_ } })`) is still refused.
+
+        Deliberately invoked LAST of the three literal forms by
+        Get-PfbWireNameForParameter, after both direct-assignment resolvers: it can then
+        only ever turn an unresolved parameter into a Typed one, never rename an
+        already-resolved wire name.
+    .OUTPUTS
+        $null, or [PSCustomObject]@{ WireName; TargetVariable } -- same shape as
+        Get-PfbWireNameForParameter.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Language.FunctionDefinitionAst]$FunctionAst,
+
+        [Parameter(Mandatory)]
+        [string]$ParameterName,
+
+        [switch]$IsSwitchParameter
+    )
+
+    # Local predicate: is $Candidate a single-string-key hashtable literal whose one value
+    # hands $ParameterName to the wire?
+    $isReferenceObjectFor = {
+        param($Candidate)
+        $hash = (Resolve-PfbSingleExpression -Ast $Candidate) -as [System.Management.Automation.Language.HashtableAst]
+        if (-not $hash) { return $false }
+        if ($hash.KeyValuePairs.Count -ne 1) { return $false }
+        $innerPair = $hash.KeyValuePairs[0]
+        if (-not ($innerPair.Item1 -as [System.Management.Automation.Language.StringConstantExpressionAst])) { return $false }
+        return (Test-PfbWireValueIsParameter -ValueAst $innerPair.Item2 -ParameterName $ParameterName -IsSwitchParameter:$IsSwitchParameter)
+    }
+
+    $assignments = @($FunctionAst.FindAll({
+        param($node)
+        $node -is [System.Management.Automation.Language.AssignmentStatementAst]
+    }, $true))
+
+    # Index form first, then the literal-initializer form, mirroring the order
+    # Get-PfbWireNameForParameter uses for the direct shapes.
+    foreach ($assign in $assignments) {
+        $indexExpr = $assign.Left -as [System.Management.Automation.Language.IndexExpressionAst]
+        if (-not $indexExpr) { continue }
+        $targetVar = $indexExpr.Target -as [System.Management.Automation.Language.VariableExpressionAst]
+        if (-not $targetVar) { continue }
+        if ($targetVar.VariablePath.UserPath -notin @('body', 'queryParams')) { continue }
+
+        $keyExpr = $indexExpr.Index -as [System.Management.Automation.Language.StringConstantExpressionAst]
+        if (-not $keyExpr) { continue }
+
+        if (& $isReferenceObjectFor $assign.Right) {
+            return [PSCustomObject]@{
+                WireName       = $keyExpr.Value
+                TargetVariable = $targetVar.VariablePath.UserPath
+            }
+        }
+    }
+
+    foreach ($assign in $assignments) {
+        $targetVar = $assign.Left -as [System.Management.Automation.Language.VariableExpressionAst]
+        if (-not $targetVar) { continue }
+        if ($targetVar.VariablePath.UserPath -notin @('body', 'queryParams')) { continue }
+
+        $hashtable = (Resolve-PfbSingleExpression -Ast $assign.Right) -as [System.Management.Automation.Language.HashtableAst]
+        if (-not $hashtable) { continue }
+
+        foreach ($pair in $hashtable.KeyValuePairs) {
+            $keyExpr = $pair.Item1 -as [System.Management.Automation.Language.StringConstantExpressionAst]
+            if (-not $keyExpr) { continue }
+
+            if (& $isReferenceObjectFor $pair.Item2) {
                 return [PSCustomObject]@{
                     WireName       = $keyExpr.Value
                     TargetVariable = $targetVar.VariablePath.UserPath
