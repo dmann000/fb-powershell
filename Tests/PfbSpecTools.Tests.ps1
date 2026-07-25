@@ -262,6 +262,26 @@ Describe 'Get-PfbSchemaPropertyDetails' {
     It 'returns an empty list for a null schema' {
         Get-PfbSchemaPropertyDetails -Schema $null -Spec $testSpec | Should -BeNullOrEmpty
     }
+
+    It 'sorts its output by Name regardless of traversal order (the sort invariant)' {
+        # ResourcePatch's declaration/traversal order is id, name, enabled, status, ref_only --
+        # deliberately NOT alphabetical, so this assertion actually exercises the sort.
+        $schema = [PSCustomObject]@{ '$ref' = '#/components/schemas/ResourcePatch' }
+        $details = Get-PfbSchemaPropertyDetails -Schema $schema -Spec $testSpec
+
+        @($details.Name) | Should -Be (@($details.Name) | Sort-Object)
+    }
+
+    It 'Get-PfbSchemaPropertyNames (the wrapper) returns TRAVERSAL order on the same fixture, NOT sorted' {
+        # Companion to the sort-invariant test above: Get-PfbSchemaPropertyDetails sorts,
+        # Get-PfbSchemaPropertyNames deliberately does not (controller ruling -- see that
+        # function's help). Pinning both on the same non-alphabetical fixture is what stops
+        # either behaviour silently flipping later.
+        $schema = [PSCustomObject]@{ '$ref' = '#/components/schemas/ResourcePatch' }
+        $names = Get-PfbSchemaPropertyNames -Schema $schema -Spec $testSpec
+
+        @($names) | Should -Be @('id', 'name', 'enabled', 'status', 'ref_only')
+    }
 }
 
 Describe 'Get-PfbSpecCapabilities' {
@@ -384,7 +404,7 @@ Describe 'Get-PfbSpecCapabilities' {
 
         $caps = Get-PfbSpecCapabilities -Spec $conflictSpec -WarningVariable warnings -WarningAction SilentlyContinue
         $caps[0].ParameterComponents['dup'] | Should -Be 'AParam'
-        $warnings | Should -Not -BeNullOrEmpty
+        ($warnings -join ' ') | Should -Match 'multiple different components'
     }
 
     It 'returns an empty list for a spec with no paths' {

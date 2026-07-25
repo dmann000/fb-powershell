@@ -188,18 +188,22 @@ function Resolve-PfbRef {
     return $current
 }
 
-function Get-PfbSchemaDetailsWalk {
+function Add-PfbSchemaPropertyNodes {
     <#
     .SYNOPSIS
-        Internal recursive helper for Get-PfbSchemaPropertyDetails. Not intended to be
-        called directly.
+        Internal recursive helper for Get-PfbSchemaPropertyWalkAccumulators. Not intended to
+        be called directly. (Uses the "Add" verb, not "Get", because it returns nothing --
+        it mutates its two accumulator arguments in place.)
     .DESCRIPTION
         Resolves $ref/allOf chains at the *schema* level (exactly like the old
         Get-PfbSchemaPropertyNames did) and accumulates, per property name, the list of
         raw (NOT further $ref-resolved) property schema nodes seen for it, plus the union
         of every visited schema node's own "required" array. Mutates the two accumulator
         arguments in place; both are reference types (Dictionary/HashSet) so no [ref] is
-        needed.
+        needed. $PropertyNodesByName's key ENUMERATION ORDER is first-seen/traversal order
+        (insertion order on a Dictionary[TKey,TValue] with no removals) -- callers that care
+        about ordering (Get-PfbSchemaPropertyNames does; Get-PfbSchemaPropertyDetails
+        deliberately re-sorts instead) rely on that.
     #>
     [CmdletBinding()]
     param(
@@ -242,9 +246,56 @@ function Get-PfbSchemaDetailsWalk {
 
     if ($resolved.PSObject.Properties.Name -contains 'allOf' -and $resolved.allOf) {
         foreach ($branch in $resolved.allOf) {
-            Get-PfbSchemaDetailsWalk -Node $branch -Spec $Spec -MaxDepth ($MaxDepth - 1) `
+            Add-PfbSchemaPropertyNodes -Node $branch -Spec $Spec -MaxDepth ($MaxDepth - 1) `
                 -PropertyNodesByName $PropertyNodesByName -RequiredNames $RequiredNames
         }
+    }
+}
+
+function Get-PfbSchemaPropertyWalkAccumulators {
+    <#
+    .SYNOPSIS
+        Internal: runs Add-PfbSchemaPropertyNodes once over $Schema and returns its two
+        accumulators. Not intended to be called directly.
+    .DESCRIPTION
+        Shared setup for both Get-PfbSchemaPropertyDetails (reports property DETAILS, sorted
+        by Name for a stable, deterministic OUTPUT ORDER) and Get-PfbSchemaPropertyNames
+        (reports bare NAMES, in first-seen/traversal order -- see that function's help for
+        why the two deliberately differ). One schema walker (Add-PfbSchemaPropertyNodes), one
+        setup path -- this function exists so that shared setup isn't duplicated between the
+        two callers.
+    .OUTPUTS
+        [PSCustomObject]@{
+            PropertyNodesByName = Dictionary[string, List[object]]  # traversal order
+            RequiredNames       = HashSet[string]
+        }
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowNull()]
+        $Schema,
+
+        [Parameter(Mandatory)]
+        $Spec,
+
+        [int]$MaxDepth = 8
+    )
+
+    # Keyed by property name -- an API field name. Deliberately a typed Dictionary (not a
+    # plain Hashtable): a field literally named "keys"/"count"/"values" would otherwise
+    # shadow real member access on a Hashtable (a live bug elsewhere in this codebase).
+    $propertyNodesByName = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[object]]]::new()
+    $requiredNames = [System.Collections.Generic.HashSet[string]]::new()
+
+    if ($null -ne $Schema -and $MaxDepth -gt 0) {
+        Add-PfbSchemaPropertyNodes -Node $Schema -Spec $Spec -MaxDepth $MaxDepth `
+            -PropertyNodesByName $propertyNodesByName -RequiredNames $requiredNames
+    }
+
+    return [PSCustomObject]@{
+        PropertyNodesByName = $propertyNodesByName
+        RequiredNames       = $requiredNames
     }
 }
 
@@ -283,8 +334,9 @@ function Get-PfbSchemaPropertyDetails {
         across allOf branches in all of fb2.27, so this only matters for a future spec.
     .OUTPUTS
         [PSCustomObject]@{ Name; ReadOnly; Deprecated; Type; Format; Required } per
-        top-level property, sorted by Name for deterministic ordering (hashtable/dictionary
-        enumeration order is not guaranteed stable across processes).
+        top-level property, sorted by Name for deterministic OUTPUT ordering (this is
+        distinct from Get-PfbSchemaPropertyNames, which intentionally preserves traversal
+        order instead -- see that function's help).
     #>
     [CmdletBinding()]
     param(
@@ -298,16 +350,9 @@ function Get-PfbSchemaPropertyDetails {
         [int]$MaxDepth = 8
     )
 
-    if ($null -eq $Schema -or $MaxDepth -le 0) { return @() }
-
-    # Keyed by property name -- an API field name. Deliberately a typed Dictionary (not a
-    # plain Hashtable): a field literally named "keys"/"count"/"values" would otherwise
-    # shadow real member access on a Hashtable (a live bug elsewhere in this codebase).
-    $propertyNodesByName = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[object]]]::new()
-    $requiredNames = [System.Collections.Generic.HashSet[string]]::new()
-
-    Get-PfbSchemaDetailsWalk -Node $Schema -Spec $Spec -MaxDepth $MaxDepth `
-        -PropertyNodesByName $propertyNodesByName -RequiredNames $requiredNames
+    $walk = Get-PfbSchemaPropertyWalkAccumulators -Schema $Schema -Spec $Spec -MaxDepth $MaxDepth
+    $propertyNodesByName = $walk.PropertyNodesByName
+    $requiredNames = $walk.RequiredNames
 
     $details = [System.Collections.Generic.List[object]]::new()
     foreach ($name in $propertyNodesByName.get_Keys()) {
@@ -318,6 +363,14 @@ function Get-PfbSchemaPropertyDetails {
         $format = $null
         foreach ($node in $nodes) {
             if ($null -eq $node) { continue }
+            # $node.PSObject.Properties.Name -contains 'readOnly' only finds a REAL property
+            # literally named 'readOnly' when $node is a PSCustomObject -- exactly what
+            # ConvertFrom-Json always produces for a real spec. On a plain Hashtable/@{}
+            # (easy to reach for in an ad hoc test fixture), PSObject.Properties.Name instead
+            # exposes the DICTIONARY's own members (Keys, Values, Count, ...) and will never
+            # find a key named 'readOnly', no matter what the hashtable actually contains.
+            # Every fixture for this function must use [PSCustomObject], never @{}, for
+            # exactly this reason.
             if ($node.PSObject.Properties.Name -contains 'readOnly' -and $node.readOnly) { $readOnly = $true }
             if ($node.PSObject.Properties.Name -contains 'deprecated' -and $node.deprecated) { $deprecated = $true }
             if ($null -eq $type -and $node.PSObject.Properties.Name -contains 'type') { $type = $node.type }
@@ -343,11 +396,24 @@ function Get-PfbSchemaPropertyNames {
         Returns the set of top-level property names for a (possibly $ref'd / allOf'd)
         request-body schema.
     .DESCRIPTION
-        Thin wrapper over Get-PfbSchemaPropertyDetails (decision: one schema walker, not
-        two -- this function's only callers are Get-PfbSpecCapabilities, in this same
-        file, and its own Pester tests; nothing else in the repo needs a second, parallel
-        allOf/$ref walker that would drift from the first). Public contract and existing
-        tests are unchanged: still returns bare, de-duplicated property name strings.
+        Shares its walk with Get-PfbSchemaPropertyDetails via
+        Get-PfbSchemaPropertyWalkAccumulators (decision: one schema walker, not two -- this
+        function's only callers are Get-PfbSpecCapabilities, in this same file, and its own
+        Pester tests; nothing else in the repo needs a second, parallel allOf/$ref walker
+        that would drift from the first). Public contract and existing tests are unchanged:
+        still returns bare, de-duplicated property name strings.
+
+        Deliberately returns names in TRAVERSAL order (== Dictionary insertion order), NOT
+        sorted like Get-PfbSchemaPropertyDetails's output is. Controller ruling: this
+        function feeds tools/Build-PfbCapabilityMap.ps1's BodyProperties, which inserts into
+        an [ordered]@{} in exactly this order, and 124 of 632 endpoints in the committed
+        Data/PfbCapabilityMap.json already have non-alphabetical bodyProperties -- sorting
+        here would churn ~1100 keys in a tracked file for zero behavioural benefit, burying
+        a later additive change in reordering noise. This is NOT a determinism regression:
+        the randomization hazard this codebase guards against is Hashtable/@{} ENUMERATION
+        order (a per-process randomized hash seed), not a Dictionary[TKey,TValue]'s
+        insertion-order enumeration, which is stable here (no removals ever occur). Do not
+        "fix" this back to Sort-Object.
     #>
     [CmdletBinding()]
     param(
@@ -361,8 +427,8 @@ function Get-PfbSchemaPropertyNames {
         [int]$MaxDepth = 8
     )
 
-    return @(Get-PfbSchemaPropertyDetails -Schema $Schema -Spec $Spec -MaxDepth $MaxDepth |
-            Select-Object -ExpandProperty Name | Select-Object -Unique)
+    $walk = Get-PfbSchemaPropertyWalkAccumulators -Schema $Schema -Spec $Spec -MaxDepth $MaxDepth
+    return @($walk.PropertyNodesByName.get_Keys())
 }
 
 function Get-PfbSpecCapabilities {
@@ -443,7 +509,12 @@ function Get-PfbSpecCapabilities {
             }
 
             $paramComponents = [System.Collections.Generic.Dictionary[string, string]]::new()
-            foreach ($paramName in $paramComponentCandidates.get_Keys()) {
+            # Populate in sorted-key order explicitly. Dictionary[TKey,TValue] enumeration
+            # happens to preserve insertion order in practice (relied on elsewhere in this
+            # file -- see Get-PfbSchemaPropertyNames), but that is a .NET implementation
+            # detail, not a contract, and this map gets serialized into a tracked JSON file
+            # downstream -- make the ordering explicit rather than incidental.
+            foreach ($paramName in ($paramComponentCandidates.get_Keys() | Sort-Object)) {
                 $candidates = @($paramComponentCandidates[$paramName] | Select-Object -Unique)
                 if ($candidates.Count -gt 1) {
                     $sortedCandidates = @($candidates | Sort-Object)
