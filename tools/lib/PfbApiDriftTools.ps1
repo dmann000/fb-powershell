@@ -243,7 +243,18 @@ function Get-PfbParameterCoverageGaps {
         $fullyMapped = $true
         $exposedWireNames = [System.Collections.Generic.HashSet[string]]::new()
         foreach ($cmdletName in $cmdlets) {
-            $rows = @($inventoryByCmdlet[$cmdletName])
+            # The Where-Object is load-bearing, not defensive noise: Group-Object
+            # -AsHashTable yields $null for an absent key, and @($null) is a ONE-element
+            # array whose single element is $null -- not the empty array it reads as. The
+            # loop below therefore used to run once with $row = $null, evaluate
+            # $null.Surface -ne 'Typed' as TRUE, and discard the endpoint into $notVerified.
+            # A cmdlet contributes zero inventory rows when every parameter it declares is
+            # inventory-exempt (-Array/-Attributes are plumbing, never inventoried -- see
+            # Get-PfbCmdletParameterInventory), which is exactly the shape of the
+            # -Attributes-only write cmdlets (Update-PfbArray, Update-PfbPasswordPolicy,
+            # Update-PfbSupport, ...). No rows means nothing contradicts full mapping, so
+            # such a cmdlet is VACUOUSLY fully mapped, not unmappable.
+            $rows = @($inventoryByCmdlet[$cmdletName] | Where-Object { $null -ne $_ })
             foreach ($row in $rows) {
                 if ($row.Surface -ne 'Typed') { $fullyMapped = $false; continue }
                 if ($row.WireName) { [void]$exposedWireNames.Add($row.WireName) }
