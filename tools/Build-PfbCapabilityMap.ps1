@@ -23,14 +23,27 @@
 .PARAMETER OutputPath
     Where to write the manifest. Defaults to Data/PfbCapabilityMap.json relative to the
     repo root (one level up from tools/).
+.PARAMETER MaxVersion
+    Optional inclusive upper bound on REST version to ingest, e.g. '2.27'. Compared
+    numerically (Major, then Minor as integers) using the same parsing already used to
+    sort $specFiles below -- NOT a string compare, since '2.9' sorts above '2.27' as a
+    string. Defaults to $null, meaning no cap: every cached spec under -SpecsDirectory is
+    ingested (unchanged default behaviour, so CI is unaffected). Exists so a rebuild can be
+    pinned to a known spec set without deleting newer files out of tools/specs/ --
+    adopting a newly-cached version's data is a separate, deliberate decision, not a side
+    effect of this script simply seeing a new file on disk.
 .EXAMPLE
     ./tools/Build-PfbCapabilityMap.ps1
+.EXAMPLE
+    ./tools/Build-PfbCapabilityMap.ps1 -MaxVersion 2.27
 #>
 [CmdletBinding()]
 param(
     [string]$SpecsDirectory,
 
-    [string]$OutputPath
+    [string]$OutputPath,
+
+    [string]$MaxVersion
 )
 
 $ErrorActionPreference = 'Stop'
@@ -66,6 +79,21 @@ $specFiles = $specFiles | ForEach-Object {
     }
 } | Where-Object { $_ } | Sort-Object Major, Minor
 
+if ($MaxVersion) {
+    if ($MaxVersion -notmatch '^(\d+)\.(\d+)$') {
+        throw "-MaxVersion must be in 'Major.Minor' form (e.g. '2.27'), got '$MaxVersion'."
+    }
+    # Reuse the same Major/Minor int parsing as the sort above -- a string compare would
+    # wrongly place e.g. '2.9' above '2.27' (this exact bug has been found twice already).
+    $capMajor = [int]$Matches[1]
+    $capMinor = [int]$Matches[2]
+    $beforeCount = @($specFiles).Count
+    $specFiles = @($specFiles | Where-Object {
+            $_.Major -lt $capMajor -or ($_.Major -eq $capMajor -and $_.Minor -le $capMinor)
+        })
+    Write-Host "MaxVersion $MaxVersion applied: including $($specFiles.Count) of $beforeCount cached specs." -ForegroundColor Yellow
+}
+
 $endpoints = [ordered]@{}
 $processedVersions = [System.Collections.Generic.List[string]]::new()
 
@@ -97,6 +125,68 @@ foreach ($entry in $specFiles) {
             if (-not $entryRecord.bodyProperties.Contains($propName)) {
                 $entryRecord.bodyProperties[$propName] = $version
             }
+        }
+
+        # Decision 1 -- readOnly is NOT monotonic across versions: 58 of 1264 analysed
+        # (endpoint, body-field) pairs flip their readOnly flag somewhere in fb2.0-2.27,
+        # and most flips go read-only -> writable. Unlike parameters/bodyProperties above
+        # (genuinely monotonic "introduced in version X", correctly guarded by first-sight
+        # above), readOnlyBodyProperties must be assigned UNCONDITIONALLY every iteration
+        # so the newest-processed spec always wins -- never guarded by "only if not
+        # already present". Persisting first-sight here would silently suppress
+        # genuinely settable fields from the actionable gap list -- e.g.
+        # PATCH /api-clients|max_role, read-only in older specs and writable in 2.27 --
+        # and a missing gap is far worse than a noisy one. Because $specFiles is
+        # processed in ascending version order, "unconditional" is simply "overwrite each
+        # time"; an endpoint absent from a later spec is simply not visited that
+        # iteration, so it naturally keeps its last-seen value for free.
+        # Emitted only when non-empty (same "keep the manifest lean" rule as deprecated
+        # below): most operations have no read-only body fields at all, and writing
+        # "readOnlyBodyProperties": [] on all ~520 of them would roughly 14x the actual
+        # ~15KB growth budget for zero information gain. Absence IS the empty-set here.
+        if ($cap.ReadOnlyBodyProperties -and @($cap.ReadOnlyBodyProperties).Count -gt 0) {
+            $entryRecord.readOnlyBodyProperties = @($cap.ReadOnlyBodyProperties | Sort-Object)
+        }
+        elseif ($entryRecord.Contains('readOnlyBodyProperties')) {
+            $entryRecord.Remove('readOnlyBodyProperties')
+        }
+
+        # deprecated: emit the key only when non-empty (true for zero top-level
+        # request-body properties across all 28 analysed specs today -- the sole
+        # "deprecated" occurrence in the whole surface is a nested, readOnly,
+        # response-only field -- so this key will not appear in today's manifest at all,
+        # which is correct). Same last-seen-wins reasoning as readOnly: if the
+        # newest-seen version for this endpoint has no deprecated fields, remove any
+        # stale key from an earlier version rather than leaving it behind.
+        if ($cap.DeprecatedBodyProperties -and @($cap.DeprecatedBodyProperties).Count -gt 0) {
+            $entryRecord.deprecatedBodyProperties = @($cap.DeprecatedBodyProperties | Sort-Object)
+        }
+        elseif ($entryRecord.Contains('deprecatedBodyProperties')) {
+            $entryRecord.Remove('deprecatedBodyProperties')
+        }
+
+        # parameterComponents: which $ref component backs each parameter (e.g.
+        # context_names -> Context_names_get). This describes the CURRENT wire shape, not
+        # "introduced in version X" -- a version number attached to it would be
+        # meaningless at best -- so it gets the same unconditional last-seen-wins
+        # treatment as readOnlyBodyProperties, not the first-sight guard.
+        # $cap.ParameterComponents is a typed Dictionary[string,string] (API parameter
+        # names as keys) -- .get_Keys() avoids the live Hashtable-shadowing bug elsewhere
+        # in this codebase (a key literally named "keys"/"count"/"values" hijacking
+        # member access), and is used defensively even though a typed Dictionary does not
+        # actually exhibit that shadowing the way a plain Hashtable does.
+        # Emitted only when non-empty, same lean-manifest reasoning as readOnly above: a
+        # parameter contributes an entry here only if it was declared via a "$ref" to a
+        # components/parameters/* component -- plenty of endpoints have none.
+        $paramComponents = [ordered]@{}
+        foreach ($paramName in ($cap.ParameterComponents.get_Keys() | Sort-Object)) {
+            $paramComponents[$paramName] = $cap.ParameterComponents[$paramName]
+        }
+        if ($paramComponents.Count -gt 0) {
+            $entryRecord.parameterComponents = $paramComponents
+        }
+        elseif ($entryRecord.Contains('parameterComponents')) {
+            $entryRecord.Remove('parameterComponents')
         }
     }
 

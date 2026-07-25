@@ -148,6 +148,182 @@ Describe 'Build-PfbCapabilityMap: manifest shape' -Skip:($PSVersionTable.PSVersi
     }
 }
 
+Describe 'Build-PfbCapabilityMap: readOnly/deprecated last-seen-wins and parameterComponents' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    BeforeAll {
+        New-Item -ItemType Directory -Path 'TestDrive:\roSpecs' -Force | Out-Null
+
+        # v9.0 (older): 'name' is readOnly, 'category' is writable. 'legacy-endpoint' exists
+        # with a readOnly 'oldFlag' and is REMOVED entirely from v9.1 (tests "endpoint
+        # disappears from later specs keeps its last-seen readOnly value"). No deprecated
+        # fields anywhere yet. GET /widgets has a $ref'd 'filter' query parameter.
+        $specV1 = [ordered]@{
+            openapi    = '3.0.1'
+            info       = @{ version = '9.0' }
+            paths      = [ordered]@{
+                '/api/9.0/widgets'          = [ordered]@{
+                    get   = @{
+                        parameters = @(@{ '$ref' = '#/components/parameters/Widget_filter' })
+                    }
+                    patch = @{
+                        requestBody = @{
+                            content = @{
+                                'application/json' = @{
+                                    schema = @{
+                                        type       = 'object'
+                                        properties = [ordered]@{
+                                            name     = @{ type = 'string'; readOnly = $true }
+                                            category = @{ type = 'string' }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                '/api/9.0/legacy-endpoint'  = [ordered]@{
+                    patch = @{
+                        requestBody = @{
+                            content = @{
+                                'application/json' = @{
+                                    schema = @{
+                                        type       = 'object'
+                                        properties = [ordered]@{
+                                            oldFlag = @{ type = 'string'; readOnly = $true }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            components = [ordered]@{
+                parameters = [ordered]@{
+                    Widget_filter = [ordered]@{ name = 'filter'; 'in' = 'query'; schema = @{ type = 'string' } }
+                }
+            }
+        }
+
+        # v9.1 (newer): 'name' flips to writable, 'category' flips to readOnly, and a brand
+        # new 'secretNote' field is deprecated. 'legacy-endpoint' is gone entirely.
+        $specV2 = [ordered]@{
+            openapi    = '3.0.1'
+            info       = @{ version = '9.1' }
+            paths      = [ordered]@{
+                '/api/9.1/widgets' = [ordered]@{
+                    get   = @{
+                        parameters = @(@{ '$ref' = '#/components/parameters/Widget_filter' })
+                    }
+                    patch = @{
+                        requestBody = @{
+                            content = @{
+                                'application/json' = @{
+                                    schema = @{
+                                        type       = 'object'
+                                        properties = [ordered]@{
+                                            name       = @{ type = 'string' }
+                                            category   = @{ type = 'string'; readOnly = $true }
+                                            secretNote = @{ type = 'string'; deprecated = $true }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            components = [ordered]@{
+                parameters = [ordered]@{
+                    Widget_filter = [ordered]@{ name = 'filter'; 'in' = 'query'; schema = @{ type = 'string' } }
+                }
+            }
+        }
+
+        $specV1 | ConvertTo-Json -Depth 20 | Set-Content -Path 'TestDrive:\roSpecs\fb9.0.json'
+        $specV2 | ConvertTo-Json -Depth 20 | Set-Content -Path 'TestDrive:\roSpecs\fb9.1.json'
+
+        & $builderScript -SpecsDirectory 'TestDrive:\roSpecs' -OutputPath 'TestDrive:\roOutput\manifest.json'
+        $script:roManifest = Get-Content -Path 'TestDrive:\roOutput\manifest.json' -Raw | ConvertFrom-Json -Depth 20
+    }
+
+    It 'the decision-1 regression: a field readOnly in the older version and writable in the newer ends up ABSENT from readOnlyBodyProperties' {
+        $roManifest.endpoints.'PATCH /widgets'.readOnlyBodyProperties | Should -Not -Contain 'name'
+    }
+
+    It 'the mirror case: a field writable in the older version and readOnly in the newer ends up PRESENT in readOnlyBodyProperties' {
+        $roManifest.endpoints.'PATCH /widgets'.readOnlyBodyProperties | Should -Contain 'category'
+    }
+
+    It 'an endpoint that disappears from later specs keeps its last-seen readOnlyBodyProperties value' {
+        $roManifest.endpoints.'PATCH /legacy-endpoint'.readOnlyBodyProperties | Should -Be @('oldFlag')
+    }
+
+    It 'omits deprecatedBodyProperties entirely when empty' {
+        $roManifest.endpoints.'PATCH /legacy-endpoint'.PSObject.Properties.Name | Should -Not -Contain 'deprecatedBodyProperties'
+    }
+
+    It 'includes deprecatedBodyProperties when non-empty' {
+        $roManifest.endpoints.'PATCH /widgets'.deprecatedBodyProperties | Should -Be @('secretNote')
+    }
+
+    It 'emits parameterComponents per endpoint with the { paramName: componentName } shape' {
+        $roManifest.endpoints.'GET /widgets'.parameterComponents.filter | Should -Be 'Widget_filter'
+    }
+
+    It 'leaves the pre-existing minVersion/parameters/bodyProperties keys unaffected by the new keys' {
+        $entry = $roManifest.endpoints.'PATCH /widgets'
+        $entry.minVersion | Should -Be '9.0'
+        $entry.bodyProperties.name | Should -Be '9.0'
+        $entry.bodyProperties.category | Should -Be '9.0'
+        $entry.bodyProperties.secretNote | Should -Be '9.1'
+    }
+}
+
+Describe 'Build-PfbCapabilityMap: -MaxVersion cap' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    BeforeAll {
+        New-Item -ItemType Directory -Path 'TestDrive:\capSpecs' -Force | Out-Null
+
+        $specV1 = [ordered]@{
+            openapi = '3.0.1'
+            info    = @{ version = '9.0' }
+            paths   = [ordered]@{ '/api/9.0/widgets' = [ordered]@{ get = @{} } }
+        }
+        $specV2 = [ordered]@{
+            openapi = '3.0.1'
+            info    = @{ version = '9.1' }
+            paths   = [ordered]@{ '/api/9.1/widgets' = [ordered]@{ get = @{} } }
+        }
+        # A newer version that must be excluded by the cap -- adds a brand-new endpoint.
+        $specV3 = [ordered]@{
+            openapi = '3.0.1'
+            info    = @{ version = '9.2' }
+            paths   = [ordered]@{
+                '/api/9.2/widgets'  = [ordered]@{ get = @{} }
+                '/api/9.2/newthing' = [ordered]@{ get = @{} }
+            }
+        }
+
+        $specV1 | ConvertTo-Json -Depth 20 | Set-Content -Path 'TestDrive:\capSpecs\fb9.0.json'
+        $specV2 | ConvertTo-Json -Depth 20 | Set-Content -Path 'TestDrive:\capSpecs\fb9.1.json'
+        $specV3 | ConvertTo-Json -Depth 20 | Set-Content -Path 'TestDrive:\capSpecs\fb9.2.json'
+
+        & $builderScript -SpecsDirectory 'TestDrive:\capSpecs' -OutputPath 'TestDrive:\capOutput\manifest.json' -MaxVersion '9.1'
+        $script:capManifest = Get-Content -Path 'TestDrive:\capOutput\manifest.json' -Raw | ConvertFrom-Json -Depth 20
+    }
+
+    It 'excludes a cached spec newer than -MaxVersion from generatedFrom' {
+        $capManifest.generatedFrom | Should -Be @('9.0', '9.1')
+    }
+
+    It 'excludes an endpoint that only exists in a version newer than -MaxVersion' {
+        $capManifest.endpoints.PSObject.Properties.Name | Should -Not -Contain 'GET /newthing'
+    }
+
+    It 'still includes endpoints from versions at or below -MaxVersion' {
+        $capManifest.endpoints.PSObject.Properties.Name | Should -Contain 'GET /widgets'
+    }
+}
+
 Describe 'Real committed capability map (skips gracefully if not yet generated)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
     BeforeAll {
         $repoRoot = Split-Path -Parent $PSScriptRoot
