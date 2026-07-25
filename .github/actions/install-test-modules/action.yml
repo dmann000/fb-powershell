@@ -44,11 +44,23 @@ runs:
   using: composite
   steps:
     # Two Windows jobs (pwsh and Windows PowerShell 5.1) intentionally share one cache
-    # key -- the saved files are identical. If both miss and both try to save,
-    # actions/cache logs "Cache already exists"; that is a warning, not a failure.
+    # key -- the saved files are identical, and this was confirmed in CI: the pwsh job
+    # restored a cache written by the 5.1 job and imported from it cleanly.
+    #
+    # Consequence, verified on run 30169601354: when both jobs miss and both try to save,
+    # the loser logs
+    #     Failed to save: Unable to reserve cache with key
+    #     psmodules-Windows-..., another job may be creating this cache.
+    # That reads like a fault but is expected and non-fatal -- the job still succeeds, and
+    # the winner's cache is what later runs restore. Do NOT "fix" it by adding the shell or
+    # edition to the key; that would double the cache footprint to store identical files.
+    #
+    # v6 (not v4) because v5+ runs on the node24 runtime -- v4 emits a Node 20 deprecation
+    # warning on every step. There is no actions/cache@v7; v6 is the latest major, even
+    # though actions/checkout is on v7.
     - name: Cache test modules
       id: psmodules-cache
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: .psmodules
         key: psmodules-${{ runner.os }}-pester-${{ inputs.pester-version }}-poshssh-${{ inputs.posh-ssh-version }}
