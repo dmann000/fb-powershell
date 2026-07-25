@@ -216,6 +216,166 @@ function Get-PfbFixtureSharedAccumulator {
 }
 '@
 
+    # --- Add-PfbCommonQueryParams (issue #32/#33) fixtures -----------------------------
+    # Real Get-PfbBucketPerformance shape: -Name/-Id handed straight to the shared helper,
+    # and -Filter/-Sort/-Limit/-TotalOnly reaching the wire only via $PSBoundParameters.
+    Set-Content -Path (Join-Path $fixtureDir 'Get-PfbFixtureHelperDirect.ps1') -Value @'
+function Get-PfbFixtureHelperDirect {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [PSCustomObject]$Array,
+        [Parameter()] [string[]]$Name,
+        [Parameter()] [string[]]$Id,
+        [Parameter()] [string]$Filter,
+        [Parameter()] [string]$Sort,
+        [Parameter()] [int]$Limit,
+        [Parameter()] [switch]$TotalOnly
+    )
+    $queryParams = @{}
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $Name -Ids $Id
+    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'helper-direct' -QueryParams $queryParams -AutoPaginate
+}
+'@
+
+    # Real Get-PfbFileSystem shape: the helper receives the `process`-block accumulators,
+    # not the parameters -- so resolution must go parameter -> accumulator -> helper argument.
+    Set-Content -Path (Join-Path $fixtureDir 'Get-PfbFixtureHelperAccumulator.ps1') -Value @'
+function Get-PfbFixtureHelperAccumulator {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [PSCustomObject]$Array,
+        [Parameter(ValueFromPipeline)] [string[]]$Name,
+        [Parameter()] [string[]]$Id
+    )
+    begin {
+        $allNames = [System.Collections.Generic.List[string]]::new()
+        $allIds = [System.Collections.Generic.List[string]]::new()
+    }
+    process {
+        if ($Name) { foreach ($n in $Name) { $allNames.Add($n) } }
+        if ($Id)   { foreach ($i in $Id)   { $allIds.Add($i) } }
+    }
+    end {
+        $queryParams = @{}
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
+        Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'helper-accumulator' -QueryParams $queryParams -AutoPaginate
+    }
+}
+'@
+
+    # Real Get-PfbObjectStoreAccessPolicyRule shape: the genuinely MIXED case. -Name goes
+    # through the helper's generic 'names', while -PolicyName deliberately kept its own
+    # explicit non-generic 'policy_names' line after the helper call (issue #32's design).
+    # Both must resolve, and the explicit line must not be shadowed by the helper.
+    Set-Content -Path (Join-Path $fixtureDir 'Get-PfbFixtureHelperMixed.ps1') -Value @'
+function Get-PfbFixtureHelperMixed {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [PSCustomObject]$Array,
+        [Parameter(ValueFromPipeline)] [string[]]$PolicyName,
+        [Parameter()] [string[]]$Name,
+        [Parameter()] [string]$Filter
+    )
+    begin {
+        $allPolicyNames = [System.Collections.Generic.List[string]]::new()
+        $allNames = [System.Collections.Generic.List[string]]::new()
+    }
+    process {
+        if ($PolicyName) { foreach ($n in $PolicyName) { $allPolicyNames.Add($n) } }
+        if ($Name)       { foreach ($n in $Name)       { $allNames.Add($n) } }
+    }
+    end {
+        $queryParams = @{}
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames
+        if ($allPolicyNames.Count -gt 0) { $queryParams['policy_names'] = $allPolicyNames -join ',' }
+        Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'helper-mixed' -QueryParams $queryParams -AutoPaginate
+    }
+}
+'@
+
+    # Negative guard: the ByParameterName half of the mapping is only true because the helper
+    # reads the CALLER's $PSBoundParameters. A call that does not forward it cannot be assumed
+    # to map -Filter, so -Filter must stay unresolved rather than be credited to 'filter'.
+    Set-Content -Path (Join-Path $fixtureDir 'Get-PfbFixtureHelperNoBoundParams.ps1') -Value @'
+function Get-PfbFixtureHelperNoBoundParams {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [PSCustomObject]$Array,
+        [Parameter()] [string]$Filter
+    )
+    $queryParams = @{}
+    $someOtherDictionary = @{}
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $someOtherDictionary
+    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'helper-no-bound' -QueryParams $queryParams -AutoPaginate
+}
+'@
+
+    # --- Hashtable-literal-initializer fixtures ---------------------------------------
+    # Real New-PfbApiClient/New-PfbObjectStoreAccount shape: the wire key exists ONLY inside
+    # a hashtable literal, never as a later $queryParams['names'] = ... index assignment.
+    Set-Content -Path (Join-Path $fixtureDir 'New-PfbFixtureLiteralOnly.ps1') -Value @'
+function New-PfbFixtureLiteralOnly {
+    [CmdletBinding()]
+    param(
+        [Parameter(Position = 0)] [string]$Name,
+        [Parameter()] [PSCustomObject]$Array
+    )
+    $queryParams = @{ 'names' = $Name }
+    Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'literal-only' -QueryParams $queryParams
+}
+'@
+
+    # Real New-PfbBucket/New-PfbFileSystem shape: a literal initializer AND later index
+    # assignments into $body coexist in one cmdlet, against two different target variables.
+    # Both key sets must resolve, each to its own target variable.
+    Set-Content -Path (Join-Path $fixtureDir 'New-PfbFixtureLiteralMixed.ps1') -Value @'
+function New-PfbFixtureLiteralMixed {
+    [CmdletBinding()]
+    param(
+        [Parameter(Position = 0)] [string]$Name,
+        [Parameter()] [string]$NewName,
+        [Parameter()] [string]$Hostname,
+        [Parameter()] [PSCustomObject]$Array
+    )
+    $queryParams = @{ 'names' = $Name }
+    $body = @{ 'name' = $NewName }
+    if ($Hostname) { $body['host_name'] = $Hostname }
+    Invoke-PfbApiRequest -Array $Array -Method PATCH -Endpoint 'literal-mixed' -Body $body -QueryParams $queryParams
+}
+'@
+
+    # Real New-PfbWorkload/Remove-PfbWorkloadTag shape: the literal's value is an EXPRESSION
+    # wrapping the parameter (@(...) or -join), not a bare variable reference.
+    Set-Content -Path (Join-Path $fixtureDir 'New-PfbFixtureLiteralWrapped.ps1') -Value @'
+function New-PfbFixtureLiteralWrapped {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [string[]]$Name,
+        [Parameter()] [string[]]$Key,
+        [Parameter()] [PSCustomObject]$Array
+    )
+    $queryParams = @{ 'names' = @($Name); 'keys' = $Key -join ',' }
+    Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'literal-wrapped' -QueryParams $queryParams
+}
+'@
+
+    # Real New-PfbQuotaGroup shape: a NESTED single-key sub-object. The wire field is the
+    # OUTER key ('group'), so crediting -GroupName with the inner 'name' would both mis-name
+    # the field and collide with every other sub-object's 'name' -- must stay unresolved.
+    Set-Content -Path (Join-Path $fixtureDir 'New-PfbFixtureNestedLiteral.ps1') -Value @'
+function New-PfbFixtureNestedLiteral {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [string]$GroupName,
+        [Parameter()] [int64]$Quota,
+        [Parameter()] [PSCustomObject]$Array
+    )
+    $body = @{ group = @{ name = $GroupName }; quota = $Quota }
+    Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'nested-literal' -Body $body
+}
+'@
+
+    $script:helperPath = Join-Path $repoRoot 'Private/Add-PfbCommonQueryParams.ps1'
     $script:inventory = Get-PfbCmdletParameterInventory -PublicDirectory $fixtureDir
 }
 
@@ -355,6 +515,217 @@ Describe 'Endpoint/Method resolution (Get-PfbEndpointForVariable, via the invent
             'function Test-Fixture { param([string]$Unused) $queryParams = @{} }', [ref]$tokens, [ref]$errs)
         $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
         Get-PfbEndpointForVariable -FunctionAst $funcAst -TargetVariable 'queryParams' | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Add-PfbCommonQueryParams awareness (issue #32/#33)' {
+    It 'resolves -Name/-Id handed straight to the helper as names/ids' {
+        $name = $inventory | Where-Object { $_.Cmdlet -eq 'Get-PfbFixtureHelperDirect' -and $_.Parameter -eq 'Name' }
+        $name.WireName | Should -Be 'names'
+        $name.Surface | Should -Be 'Typed'
+        $id = $inventory | Where-Object { $_.Cmdlet -eq 'Get-PfbFixtureHelperDirect' -and $_.Parameter -eq 'Id' }
+        $id.WireName | Should -Be 'ids'
+        $id.Surface | Should -Be 'Typed'
+    }
+
+    It 'resolves -Filter/-Sort/-Limit/-TotalOnly by PARAMETER NAME, since the helper reads them from $PSBoundParameters' -ForEach @(
+        @{ Parameter = 'Filter';    WireName = 'filter' }
+        @{ Parameter = 'Sort';      WireName = 'sort' }
+        @{ Parameter = 'Limit';     WireName = 'limit' }
+        @{ Parameter = 'TotalOnly'; WireName = 'total_only' }
+    ) {
+        $rec = $inventory | Where-Object { $_.Cmdlet -eq 'Get-PfbFixtureHelperDirect' -and $_.Parameter -eq $Parameter }
+        $rec.WireName | Should -Be $WireName
+        $rec.Surface | Should -Be 'Typed'
+    }
+
+    It 'still resolves the -Into variable to its Invoke-PfbApiRequest endpoint' {
+        $rec = $inventory | Where-Object { $_.Cmdlet -eq 'Get-PfbFixtureHelperDirect' -and $_.Parameter -eq 'Filter' }
+        $rec.Endpoint | Should -Be 'helper-direct'
+        $rec.Method | Should -Be 'GET'
+    }
+
+    It 'resolves the accumulator pattern (-Names $allNames where $allNames builds from $Name)' {
+        $name = $inventory | Where-Object { $_.Cmdlet -eq 'Get-PfbFixtureHelperAccumulator' -and $_.Parameter -eq 'Name' }
+        $name.WireName | Should -Be 'names'
+        $name.Surface | Should -Be 'Typed'
+        $name.Endpoint | Should -Be 'helper-accumulator'
+        $id = $inventory | Where-Object { $_.Cmdlet -eq 'Get-PfbFixtureHelperAccumulator' -and $_.Parameter -eq 'Id' }
+        $id.WireName | Should -Be 'ids'
+        $id.Surface | Should -Be 'Typed'
+    }
+
+    It 'resolves a mixed cmdlet: the helper-routed generic param AND its own explicit non-generic line' {
+        $policy = $inventory | Where-Object { $_.Cmdlet -eq 'Get-PfbFixtureHelperMixed' -and $_.Parameter -eq 'PolicyName' }
+        $policy.WireName | Should -Be 'policy_names'
+        $policy.Surface | Should -Be 'Typed'
+        $name = $inventory | Where-Object { $_.Cmdlet -eq 'Get-PfbFixtureHelperMixed' -and $_.Parameter -eq 'Name' }
+        $name.WireName | Should -Be 'names'
+        $name.Surface | Should -Be 'Typed'
+        $filter = $inventory | Where-Object { $_.Cmdlet -eq 'Get-PfbFixtureHelperMixed' -and $_.Parameter -eq 'Filter' }
+        $filter.WireName | Should -Be 'filter'
+    }
+
+    It 'does NOT credit -Filter when the call does not forward $PSBoundParameters' {
+        $rec = $inventory | Where-Object { $_.Cmdlet -eq 'Get-PfbFixtureHelperNoBoundParams' -and $_.Parameter -eq 'Filter' }
+        $rec.WireName | Should -BeNullOrEmpty
+        $rec.Surface | Should -Be 'TypedUnresolved'
+    }
+
+    It 'returns $null from Get-PfbCommonQueryParamHelperWireName when -Into is not a plain variable' {
+        $tokens = $null; $errs = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput(
+            'function Test-Fixture { param([string]$Filter) Add-PfbCommonQueryParams -Into @{} -BoundParameters $PSBoundParameters }', [ref]$tokens, [ref]$errs)
+        $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
+        Get-PfbCommonQueryParamHelperWireName -FunctionAst $funcAst -ParameterName 'Filter' | Should -BeNullOrEmpty
+    }
+
+    It 'returns $null from Get-PfbCommonQueryParamHelperWireName when the function never calls the helper' {
+        $tokens = $null; $errs = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput(
+            'function Test-Fixture { param([string]$Filter) $queryParams = @{} }', [ref]$tokens, [ref]$errs)
+        $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
+        Get-PfbCommonQueryParamHelperWireName -FunctionAst $funcAst -ParameterName 'Filter' | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Get-PfbCommonQueryParamMap stays in sync with Private/Add-PfbCommonQueryParams.ps1' {
+    # Guards the one hazard of hardcoding the mapping: the helper gains, loses, or renames a
+    # key and this tools/ mirror silently keeps reporting the old contract. Derives the truth
+    # from the helper's own AST and compares, so drift fails the build instead of quietly
+    # dropping endpoints back out of gap analysis.
+    BeforeAll {
+        $script:derivedByParameterName = @{}
+        $script:derivedByHelperArgument = @{}
+        $script:derivedHelperName = $null
+
+        $tokens = $null; $errs = $null
+        $helperAst = [System.Management.Automation.Language.Parser]::ParseFile($helperPath, [ref]$tokens, [ref]$errs)
+        $script:derivedHelperName = ($helperAst.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) |
+            Select-Object -First 1).Name
+
+        $assignments = @($helperAst.FindAll({
+            param($n)
+            $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+            $n.Left -is [System.Management.Automation.Language.IndexExpressionAst]
+        }, $true)) | Where-Object {
+            $t = $_.Left.Target -as [System.Management.Automation.Language.VariableExpressionAst]
+            $t -and $t.VariablePath.UserPath -eq 'Into'
+        }
+
+        foreach ($assign in $assignments) {
+            $wireKey = ($assign.Left.Index -as [System.Management.Automation.Language.StringConstantExpressionAst]).Value
+
+            # Every assignment in the helper sits inside a one-clause `if`; the clause's
+            # condition is what says WHERE the value came from.
+            $node = $assign.Parent
+            while ($node -and $node -isnot [System.Management.Automation.Language.IfStatementAst]) { $node = $node.Parent }
+            $condition = ''
+            if ($node) {
+                foreach ($clause in $node.Clauses) {
+                    if (@($clause.Item2.FindAll({ param($n) $n -eq $assign }, $true)).Count -gt 0) {
+                        $condition = $clause.Item1.Extent.Text.Trim()
+                    }
+                }
+            }
+
+            if ($condition -match '^\$BoundParameters\.ContainsKey\((?:''|")(\w+)(?:''|")\)$') {
+                $derivedByParameterName[$Matches[1]] = $wireKey
+            }
+            elseif ($condition -match '^\$(\w+)$') {
+                $derivedByHelperArgument[$Matches[1]] = $wireKey
+            }
+            else {
+                throw "Unrecognized guard shape around `$Into['$wireKey'] in $helperPath : '$condition'. Get-PfbCommonQueryParamMap's detection rules may no longer describe this helper."
+            }
+        }
+    }
+
+    It 'reads a non-empty mapping out of the real helper (guards against a vacuous pass)' {
+        $derivedByParameterName.Count | Should -BeGreaterThan 0
+        $derivedByHelperArgument.Count | Should -BeGreaterThan 0
+    }
+
+    It 'names the same helper the real file defines' {
+        (Get-PfbCommonQueryParamMap).HelperName | Should -Be $derivedHelperName
+    }
+
+    It 'mirrors the helper $PSBoundParameters-driven keys exactly' {
+        $map = Get-PfbCommonQueryParamMap
+        @($map.ByParameterName.Keys) | Sort-Object | Should -Be (@($derivedByParameterName.Keys) | Sort-Object)
+        foreach ($k in $derivedByParameterName.Keys) {
+            $map.ByParameterName[$k] | Should -Be $derivedByParameterName[$k] -Because "the helper assigns `$Into['$($derivedByParameterName[$k])'] for -$k"
+        }
+    }
+
+    It 'mirrors the helper own-argument keys exactly' {
+        $map = Get-PfbCommonQueryParamMap
+        @($map.ByHelperArgument.Keys) | Sort-Object | Should -Be (@($derivedByHelperArgument.Keys) | Sort-Object)
+        foreach ($k in $derivedByHelperArgument.Keys) {
+            $map.ByHelperArgument[$k] | Should -Be $derivedByHelperArgument[$k] -Because "the helper assigns `$Into['$($derivedByHelperArgument[$k])'] from its own -$k argument"
+        }
+    }
+}
+
+Describe 'Hashtable-literal-initializer awareness' {
+    It 'resolves a wire key that exists only inside a $queryParams = @{ ... } literal' {
+        $rec = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureLiteralOnly' -and $_.Parameter -eq 'Name' }
+        $rec.WireName | Should -Be 'names'
+        $rec.Surface | Should -Be 'Typed'
+        $rec.Endpoint | Should -Be 'literal-only'
+        $rec.Method | Should -Be 'POST'
+    }
+
+    It 'resolves a literal assigned to $body, and reports body (not queryParams) as the target' {
+        $rec = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureLiteralMixed' -and $_.Parameter -eq 'NewName' }
+        $rec.WireName | Should -Be 'name'
+        $rec.Surface | Should -Be 'Typed'
+        $rec.Endpoint | Should -Be 'literal-mixed'
+    }
+
+    It 'resolves BOTH halves of a cmdlet that uses a literal initializer and index assignments' {
+        $fromLiteral = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureLiteralMixed' -and $_.Parameter -eq 'Name' }
+        $fromLiteral.WireName | Should -Be 'names'
+        $fromIndex = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureLiteralMixed' -and $_.Parameter -eq 'Hostname' }
+        $fromIndex.WireName | Should -Be 'host_name'
+        @($fromLiteral, $fromIndex).Surface | Should -Be @('Typed', 'Typed')
+    }
+
+    It 'resolves a literal value that wraps the parameter in an expression rather than referencing it bare' -ForEach @(
+        @{ Parameter = 'Name'; WireName = 'names' }   # @($Name)
+        @{ Parameter = 'Key';  WireName = 'keys' }    # $Key -join ','
+    ) {
+        $rec = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureLiteralWrapped' -and $_.Parameter -eq $Parameter }
+        $rec.WireName | Should -Be $WireName
+        $rec.Surface | Should -Be 'Typed'
+    }
+
+    It 'does NOT descend into a nested sub-object literal (the outer key is the wire field, never guessed)' {
+        $rec = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureNestedLiteral' -and $_.Parameter -eq 'GroupName' }
+        $rec.WireName | Should -BeNullOrEmpty
+        $rec.Surface | Should -Be 'TypedUnresolved'
+    }
+
+    It 'still resolves a sibling top-level key in the same nested literal' {
+        $rec = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureNestedLiteral' -and $_.Parameter -eq 'Quota' }
+        $rec.WireName | Should -Be 'quota'
+        $rec.Surface | Should -Be 'Typed'
+    }
+
+    It 'does NOT match a literal value that merely mentions the parameter inside a pipeline transform' {
+        $tokens = $null; $errs = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput(
+            'function Test-Fixture { param([string[]]$Servers) $body = @{ attached_servers = @($Servers | ForEach-Object { @{ name = $_ } }) } }', [ref]$tokens, [ref]$errs)
+        $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
+        Get-PfbHashtableLiteralWireNameForParameter -FunctionAst $funcAst -ParameterName 'Servers' | Should -BeNullOrEmpty
+    }
+
+    It 'ignores a hashtable literal assigned to a variable that is neither body nor queryParams' {
+        $tokens = $null; $errs = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput(
+            'function Test-Fixture { param([string]$Name) $somethingElse = @{ names = $Name } }', [ref]$tokens, [ref]$errs)
+        $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
+        Get-PfbHashtableLiteralWireNameForParameter -FunctionAst $funcAst -ParameterName 'Name' | Should -BeNullOrEmpty
     }
 }
 
