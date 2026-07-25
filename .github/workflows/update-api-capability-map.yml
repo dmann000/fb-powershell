@@ -43,7 +43,7 @@ jobs:
           "versions=$($versions -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Restore cached spec files
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: tools/specs
           key: pfb-specs-${{ github.run_id }}
@@ -55,7 +55,7 @@ jobs:
         run: ./tools/Update-PfbApiSpecs.ps1
 
       - name: Save spec cache
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         if: always()
         with:
           path: tools/specs
@@ -85,16 +85,18 @@ jobs:
         shell: pwsh
         run: ./tools/Build-PfbApiDriftReport.ps1
 
+      # Pinned + cached, with retry on the gallery path; see
+      # .github/actions/install-test-modules/action.yml (including why Posh-SSH is
+      # needed at all -- Pester can only mock a resolvable command).
+      - name: Install test dependencies
+        uses: ./.github/actions/install-test-modules
+        with:
+          shell: pwsh
+
       - name: Run tests
         shell: pwsh
         run: |
-          Install-Module -Name Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser
           Import-Module Pester -MinimumVersion 5.0 -Force
-          # Posh-SSH is an optional runtime dependency (see Private/Get-PfbApiTokenViaSsh.ps1),
-          # but Get-PfbApiTokenViaSsh.Tests.ps1 mocks its cmdlets (New-SSHSession, etc.) --
-          # Pester can only mock a command that's resolvable, so it must be installed here
-          # even though the module under test never actually opens an SSH connection.
-          Install-Module -Name Posh-SSH -Force -SkipPublisherCheck -Scope CurrentUser
           Import-Module Posh-SSH -Force
           $cfg = New-PesterConfiguration
           $cfg.Run.Path = 'Tests'
@@ -127,7 +129,11 @@ jobs:
 
       - name: Open pull request
         if: steps.diff.outputs.changed == 'true' && github.repository == 'dmann000/fb-powershell'
-        uses: peter-evans/create-pull-request@v6
+        # v8 for the node24 runtime (v6 and v7 both run on node20 and emit a deprecation
+        # warning). Safe jump despite skipping a major: v7's only breaking changes were
+        # renaming the `git-token` input to `branch-token` and removing the deprecated
+        # PULL_REQUEST_NUMBER output env var, neither of which this step uses.
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: 'Update API capability map'
           title: "Update API capability map${{ steps.summary.outputs.new_versions && format(' (new REST versions: {0})', steps.summary.outputs.new_versions) || '' }}"
