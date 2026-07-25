@@ -129,7 +129,11 @@ jobs:
 
       - name: Open pull request
         if: steps.diff.outputs.changed == 'true' && github.repository == 'dmann000/fb-powershell'
-        uses: peter-evans/create-pull-request@v6
+        # v8 for the node24 runtime (v6 and v7 both run on node20 and emit a deprecation
+        # warning). Safe jump despite skipping a major: v7's only breaking changes were
+        # renaming the `git-token` input to `branch-token` and removing the deprecated
+        # PULL_REQUEST_NUMBER output env var, neither of which this step uses.
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: 'Update API capability map'
           title: "Update API capability map${{ steps.summary.outputs.new_versions && format(' (new REST versions: {0})', steps.summary.outputs.new_versions) || '' }}"
