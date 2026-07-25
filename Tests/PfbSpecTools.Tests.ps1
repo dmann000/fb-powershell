@@ -164,6 +164,106 @@ Describe 'Get-PfbSchemaPropertyNames' {
     }
 }
 
+Describe 'Get-PfbSchemaPropertyDetails' {
+    BeforeAll {
+        $script:testSpec = [PSCustomObject]@{
+            components = [PSCustomObject]@{
+                schemas = [PSCustomObject]@{
+                    # PIN fixture: itself readOnly, but only reachable through a property
+                    # that is a BARE $ref (no sibling keys) -- must not leak through.
+                    _readOnlyLeaf = [PSCustomObject]@{
+                        type     = 'string'
+                        readOnly = $true
+                    }
+                    BaseResource  = [PSCustomObject]@{
+                        type       = 'object'
+                        required   = @('id')
+                        properties = [PSCustomObject]@{
+                            id   = [PSCustomObject]@{ type = 'string' }
+                            name = [PSCustomObject]@{ type = 'string'; format = 'name-format' }
+                        }
+                    }
+                    ResourcePatch = [PSCustomObject]@{
+                        allOf = @(
+                            [PSCustomObject]@{ '$ref' = '#/components/schemas/BaseResource' }
+                            [PSCustomObject]@{
+                                type       = 'object'
+                                required   = @('enabled')
+                                properties = [PSCustomObject]@{
+                                    enabled  = [PSCustomObject]@{ type = 'boolean'; readOnly = $true }
+                                    status   = [PSCustomObject]@{ type = 'string'; deprecated = $true }
+                                    ref_only = [PSCustomObject]@{ '$ref' = '#/components/schemas/_readOnlyLeaf' }
+                                }
+                            }
+                        )
+                    }
+                    # Merge-rule fixture: 'shared' declared in two allOf branches of the
+                    # SAME schema, read-only in only one of them.
+                    MergeConflict = [PSCustomObject]@{
+                        allOf = @(
+                            [PSCustomObject]@{
+                                type       = 'object'
+                                properties = [PSCustomObject]@{ shared = [PSCustomObject]@{ type = 'string' } }
+                            }
+                            [PSCustomObject]@{
+                                type       = 'object'
+                                properties = [PSCustomObject]@{ shared = [PSCustomObject]@{ type = 'string'; readOnly = $true } }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    It 'resolves ReadOnly and Deprecated through an allOf/$ref chain' {
+        $schema = [PSCustomObject]@{ '$ref' = '#/components/schemas/ResourcePatch' }
+        $details = Get-PfbSchemaPropertyDetails -Schema $schema -Spec $testSpec
+
+        ($details | Where-Object Name -eq 'enabled').ReadOnly | Should -Be $true
+        ($details | Where-Object Name -eq 'status').Deprecated | Should -Be $true
+        ($details | Where-Object Name -eq 'id').ReadOnly | Should -Be $false
+    }
+
+    It 'merge rule: a property marked read-only in one allOf branch and not another comes out read-only' {
+        $schema = [PSCustomObject]@{ '$ref' = '#/components/schemas/MergeConflict' }
+        $details = Get-PfbSchemaPropertyDetails -Schema $schema -Spec $testSpec
+
+        ($details | Where-Object Name -eq 'shared').ReadOnly | Should -Be $true
+    }
+
+    It 'PIN: does not follow a property''s own $ref to a read-only-bearing schema' {
+        # ref_only's own node is a bare '$ref' to _readOnlyLeaf, which IS readOnly:true.
+        # Resolving into it would (wrongly) report ref_only as read-only.
+        $schema = [PSCustomObject]@{ '$ref' = '#/components/schemas/ResourcePatch' }
+        $details = Get-PfbSchemaPropertyDetails -Schema $schema -Spec $testSpec
+
+        ($details | Where-Object Name -eq 'ref_only').ReadOnly | Should -Be $false
+    }
+
+    It 'populates Type and Format from the property''s own node' {
+        $schema = [PSCustomObject]@{ '$ref' = '#/components/schemas/BaseResource' }
+        $details = Get-PfbSchemaPropertyDetails -Schema $schema -Spec $testSpec
+
+        ($details | Where-Object Name -eq 'name').Type | Should -Be 'string'
+        ($details | Where-Object Name -eq 'name').Format | Should -Be 'name-format'
+    }
+
+    It 'collects Required across allOf branches' {
+        $schema = [PSCustomObject]@{ '$ref' = '#/components/schemas/ResourcePatch' }
+        $details = Get-PfbSchemaPropertyDetails -Schema $schema -Spec $testSpec
+
+        ($details | Where-Object Name -eq 'id').Required | Should -Be $true
+        ($details | Where-Object Name -eq 'enabled').Required | Should -Be $true
+        ($details | Where-Object Name -eq 'name').Required | Should -Be $false
+        ($details | Where-Object Name -eq 'status').Required | Should -Be $false
+    }
+
+    It 'returns an empty list for a null schema' {
+        Get-PfbSchemaPropertyDetails -Schema $null -Spec $testSpec | Should -BeNullOrEmpty
+    }
+}
+
 Describe 'Get-PfbSpecCapabilities' {
     BeforeAll {
         $script:testSpec = [PSCustomObject]@{
@@ -173,6 +273,9 @@ Describe 'Get-PfbSpecCapabilities' {
                     get                              = [PSCustomObject]@{
                         parameters = @(
                             [PSCustomObject]@{ '$ref' = '#/components/parameters/Filter' }
+                            # Inline, no $ref -- must contribute to Parameters but have no
+                            # entry in ParameterComponents at all (not null/'').
+                            [PSCustomObject]@{ name = 'raw_only'; in = 'query' }
                         )
                     }
                     post                             = [PSCustomObject]@{
@@ -193,7 +296,12 @@ Describe 'Get-PfbSpecCapabilities' {
                 schemas    = [PSCustomObject]@{
                     WidgetPost = [PSCustomObject]@{
                         type       = 'object'
-                        properties = [PSCustomObject]@{ name = @{ type = 'string' }; color = @{ type = 'string' } }
+                        properties = [PSCustomObject]@{
+                            name   = [PSCustomObject]@{ type = 'string' }
+                            color  = [PSCustomObject]@{ type = 'string' }
+                            id     = [PSCustomObject]@{ type = 'string'; readOnly = $true }
+                            status = [PSCustomObject]@{ type = 'string'; deprecated = $true }
+                        }
                     }
                 }
             }
@@ -223,6 +331,60 @@ Describe 'Get-PfbSpecCapabilities' {
         $postCap = $caps | Where-Object Method -eq 'POST'
         $postCap.BodyProperties | Should -Contain 'name'
         $postCap.BodyProperties | Should -Contain 'color'
+    }
+
+    It 'populates BodyPropertyDetails for a mix of read-only, deprecated and plain properties' {
+        $caps = Get-PfbSpecCapabilities -Spec $testSpec
+        $postCap = $caps | Where-Object Method -eq 'POST'
+        $postCap.BodyPropertyDetails.Count | Should -Be 4
+        ($postCap.BodyPropertyDetails | Where-Object Name -eq 'name').ReadOnly | Should -Be $false
+        ($postCap.BodyPropertyDetails | Where-Object Name -eq 'id').ReadOnly | Should -Be $true
+        ($postCap.BodyPropertyDetails | Where-Object Name -eq 'status').Deprecated | Should -Be $true
+    }
+
+    It 'projects ReadOnlyBodyProperties and DeprecatedBodyProperties' {
+        $caps = Get-PfbSpecCapabilities -Spec $testSpec
+        $postCap = $caps | Where-Object Method -eq 'POST'
+        $postCap.ReadOnlyBodyProperties | Should -Be @('id')
+        $postCap.DeprecatedBodyProperties | Should -Be @('status')
+    }
+
+    It 'populates ParameterComponents with the $ref''d parameter''s component name' {
+        $caps = Get-PfbSpecCapabilities -Spec $testSpec
+        $getCap = $caps | Where-Object Method -eq 'GET'
+        $getCap.ParameterComponents['filter'] | Should -Be 'Filter'
+    }
+
+    It 'omits the ParameterComponents key entirely for an inline (no $ref) parameter' {
+        $caps = Get-PfbSpecCapabilities -Spec $testSpec
+        $getCap = $caps | Where-Object Method -eq 'GET'
+        $getCap.Parameters | Should -Contain 'raw_only'
+        $getCap.ParameterComponents.ContainsKey('raw_only') | Should -Be $false
+    }
+
+    It 'deterministically resolves (and warns on) a parameter name that resolves to two different components' {
+        $conflictSpec = [PSCustomObject]@{
+            paths      = [PSCustomObject]@{
+                '/api/9.9/conflict' = [PSCustomObject]@{
+                    get = [PSCustomObject]@{
+                        parameters = @(
+                            [PSCustomObject]@{ '$ref' = '#/components/parameters/ZParam' }
+                            [PSCustomObject]@{ '$ref' = '#/components/parameters/AParam' }
+                        )
+                    }
+                }
+            }
+            components = [PSCustomObject]@{
+                parameters = [PSCustomObject]@{
+                    ZParam = [PSCustomObject]@{ name = 'dup'; in = 'query' }
+                    AParam = [PSCustomObject]@{ name = 'dup'; in = 'query' }
+                }
+            }
+        }
+
+        $caps = Get-PfbSpecCapabilities -Spec $conflictSpec -WarningVariable warnings -WarningAction SilentlyContinue
+        $caps[0].ParameterComponents['dup'] | Should -Be 'AParam'
+        $warnings | Should -Not -BeNullOrEmpty
     }
 
     It 'returns an empty list for a spec with no paths' {
