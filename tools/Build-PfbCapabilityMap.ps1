@@ -18,6 +18,30 @@
     Also NOT included (deferred, see plan): endpoint/field deprecation or removal
     tracking, and hardware-model (//S vs //E) capability — that is a separate axis from
     REST version and is handled in a later phase from a different data source.
+
+    Each endpoint also carries, where non-empty, readOnlyBodyProperties and
+    deprecatedBodyProperties (string arrays) -- both last-seen-wins (the newest spec that
+    mentions the endpoint always wins), NOT first-sight like minVersion/parameters/
+    bodyProperties, because readOnly is not monotonic across versions (a field can go
+    read-only -> writable, and about half the observed flips in fb2.0-2.27 do exactly
+    that; persisting first-sight would silently hide genuinely settable fields).
+
+    parameterComponentDefaults/parameterComponentOverrides resolution contract (also
+    documented in tools/README.md): the component backing a given (endpoint, parameter)
+    is looked up as (1) the endpoint's parameterComponentOverrides value for that
+    parameter name if present -- which may be JSON null, meaning "this endpoint's
+    parameter has no component" -- otherwise (2) the top-level parameterComponentDefaults
+    value for that parameter name if present, otherwise (3) no known component. Split
+    into a global table plus per-endpoint overrides (rather than one full map per
+    endpoint) because the vast majority of parameters share a small set of common
+    components: measured across fb2.0-2.27, 4102 total (endpoint, parameter) -> component
+    pairs collapse to just 224 distinct pairs and 179 distinct parameter names. Defaults
+    are chosen by frequency (most common component per parameter name across all
+    endpoints), ties broken ALPHABETICALLY by component name for determinism regardless
+    of endpoint processing order. The explicit-null-override case matters: a parameter
+    declared inline (no "$ref", so no component) whose NAME happens to coincide with a
+    $ref'd component elsewhere must get an explicit null override, or "absent from
+    overrides" would wrongly make it inherit that unrelated default.
 .PARAMETER SpecsDirectory
     Where cached spec JSON files live. Defaults to tools/specs relative to this script.
 .PARAMETER OutputPath
@@ -165,39 +189,136 @@ foreach ($entry in $specFiles) {
             $entryRecord.Remove('deprecatedBodyProperties')
         }
 
-        # parameterComponents: which $ref component backs each parameter (e.g.
-        # context_names -> Context_names_get). This describes the CURRENT wire shape, not
-        # "introduced in version X" -- a version number attached to it would be
-        # meaningless at best -- so it gets the same unconditional last-seen-wins
-        # treatment as readOnlyBodyProperties, not the first-sight guard.
+        # parameterComponents bookkeeping -- which $ref component backs each parameter
+        # (e.g. context_names -> Context_names_get) for the CURRENT (last-seen) version of
+        # this endpoint, plus which of this endpoint's CURRENT parameters have NO
+        # component at all (declared inline, no "$ref"). This describes the CURRENT wire
+        # shape, not "introduced in version X" -- a version number attached to it would be
+        # meaningless at best -- so both are overwritten UNCONDITIONALLY every iteration,
+        # same last-seen-wins treatment as readOnlyBodyProperties above, not the
+        # first-sight guard.
+        #
+        # These two "_current*" keys are TEMPORARY per-build bookkeeping, not part of the
+        # manifest's public shape: a full per-endpoint component map would be ~90% pure
+        # duplication (measured: 4102 total (parameter, component) pairs across fb2.0-2.27
+        # but only 224 distinct pairs and 179 distinct parameter names -- most endpoints
+        # just reuse the same shared "Filter"/"Limit"/"Sort"/etc. components), which blew
+        # the manifest's lean-growth budget ~12x when first tried. The second pass below
+        # (after every spec is processed) deduplicates this into a single
+        # parameterComponentDefaults table plus minimal per-endpoint
+        # parameterComponentOverrides, then strips these bookkeeping keys back out.
+        #
         # $cap.ParameterComponents is a typed Dictionary[string,string] (API parameter
         # names as keys) -- .get_Keys() avoids the live Hashtable-shadowing bug elsewhere
-        # in this codebase (a key literally named "keys"/"count"/"values" hijacking
-        # member access), and is used defensively even though a typed Dictionary does not
-        # actually exhibit that shadowing the way a plain Hashtable does.
-        # Emitted only when non-empty, same lean-manifest reasoning as readOnly above: a
-        # parameter contributes an entry here only if it was declared via a "$ref" to a
-        # components/parameters/* component -- plenty of endpoints have none.
-        $paramComponents = [ordered]@{}
+        # in this codebase (a key literally named "keys"/"count"/"values" hijacking member
+        # access), used defensively even though a typed Dictionary does not actually
+        # exhibit that shadowing the way a plain Hashtable/OrderedDictionary does.
+        $currentParamComponents = [System.Collections.Generic.Dictionary[string, string]]::new()
         foreach ($paramName in ($cap.ParameterComponents.get_Keys() | Sort-Object)) {
-            $paramComponents[$paramName] = $cap.ParameterComponents[$paramName]
+            $currentParamComponents[$paramName] = $cap.ParameterComponents[$paramName]
         }
-        if ($paramComponents.Count -gt 0) {
-            $entryRecord.parameterComponents = $paramComponents
+        $entryRecord['_currentParamComponents'] = $currentParamComponents
+
+        $currentParamsWithoutComponent = [System.Collections.Generic.HashSet[string]]::new()
+        foreach ($paramName in ($cap.Parameters | Select-Object -Unique)) {
+            if (-not $currentParamComponents.ContainsKey($paramName)) {
+                [void]$currentParamsWithoutComponent.Add($paramName)
+            }
         }
-        elseif ($entryRecord.Contains('parameterComponents')) {
-            $entryRecord.Remove('parameterComponents')
-        }
+        $entryRecord['_currentParamsWithoutComponent'] = $currentParamsWithoutComponent
     }
 
     $processedVersions.Add($version)
 }
 
+# ---- Second pass: deduplicate parameterComponents into a global defaults table plus
+# minimal per-endpoint overrides ----
+#
+# Resolution contract (also documented in tools/README.md): for a given (endpoint,
+# parameter), the effective component is:
+#   1. If the endpoint's parameterComponentOverrides contains the parameter name, use
+#      that value -- which may be JSON null, meaning "this endpoint's parameter has no
+#      component" (see below). This takes precedence over the default.
+#   2. Otherwise, if parameterComponentDefaults contains the parameter name, use that
+#      value.
+#   3. Otherwise, the parameter has no known component.
+#
+# Deterministic default selection: for each parameter name, count how often each
+# component name occurs across every endpoint's CURRENT (last-seen) mapping, and pick
+# the MOST FREQUENT; ties are broken ALPHABETICALLY by component name. This must be
+# fully deterministic across builds regardless of endpoint processing order -- frequency
+# counting alone is not enough when two components are equally common for a parameter
+# name (this happens; do not assume it can't).
+$componentCountsByParam = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.Dictionary[string, int]]]::new()
+foreach ($epKey in $endpoints.get_Keys()) {
+    $paramComponents = $endpoints[$epKey]['_currentParamComponents']
+    foreach ($paramName in $paramComponents.get_Keys()) {
+        if (-not $componentCountsByParam.ContainsKey($paramName)) {
+            $componentCountsByParam[$paramName] = [System.Collections.Generic.Dictionary[string, int]]::new()
+        }
+        $componentName = $paramComponents[$paramName]
+        $counts = $componentCountsByParam[$paramName]
+        if (-not $counts.ContainsKey($componentName)) { $counts[$componentName] = 0 }
+        $counts[$componentName]++
+    }
+}
+
+$parameterComponentDefaults = [ordered]@{}
+foreach ($paramName in ($componentCountsByParam.get_Keys() | Sort-Object)) {
+    $counts = $componentCountsByParam[$paramName]
+    $best = $counts.get_Keys() |
+        Sort-Object @{ Expression = { $counts[$_] }; Descending = $true }, @{ Expression = { $_ }; Descending = $false } |
+        Select-Object -First 1
+    $parameterComponentDefaults[$paramName] = $best
+}
+
+# Per-endpoint overrides: emitted only where this endpoint's CURRENT value differs from
+# the global default for that parameter name, OR where this endpoint's parameter
+# currently has NO component (inline, no "$ref") but the parameter NAME does have a
+# global default from some other endpoint -- an explicit JSON null override records "no
+# component here", distinguishing it from "absent", which would otherwise silently
+# resolve to the (wrong) default under the lookup contract above. This is the subtle
+# case: only 7 of 4109 parameter declarations in fb2.27 are inline/no-$ref, but every one
+# whose name collides with a global default MUST get a null override or it would
+# misreport a component it does not actually have.
+foreach ($epKey in $endpoints.get_Keys()) {
+    $rec = $endpoints[$epKey]
+    $paramComponents = $rec['_currentParamComponents']
+    $paramsWithoutComponent = $rec['_currentParamsWithoutComponent']
+
+    $overrides = [ordered]@{}
+    foreach ($paramName in $paramComponents.get_Keys()) {
+        $componentName = $paramComponents[$paramName]
+        if ($componentName -ne $parameterComponentDefaults[$paramName]) {
+            $overrides[$paramName] = $componentName
+        }
+    }
+    foreach ($paramName in $paramsWithoutComponent) {
+        if ($parameterComponentDefaults.Contains($paramName)) {
+            $overrides[$paramName] = $null
+        }
+    }
+
+    if ($overrides.Count -gt 0) {
+        # Re-sort: the two loops above each insert in their own sorted order, but their
+        # combination is not necessarily sorted overall.
+        $sortedOverrides = [ordered]@{}
+        foreach ($paramName in ($overrides.get_Keys() | Sort-Object)) {
+            $sortedOverrides[$paramName] = $overrides[$paramName]
+        }
+        $rec.parameterComponentOverrides = $sortedOverrides
+    }
+
+    $rec.Remove('_currentParamComponents')
+    $rec.Remove('_currentParamsWithoutComponent')
+}
+
 $manifest = [ordered]@{
-    schemaVersion  = 1
-    generatedFrom  = $processedVersions
-    endpointCount  = $endpoints.Count
-    endpoints      = $endpoints
+    schemaVersion              = 1
+    generatedFrom              = $processedVersions
+    endpointCount              = $endpoints.Count
+    parameterComponentDefaults = $parameterComponentDefaults
+    endpoints                  = $endpoints
 }
 
 $outputDir = Split-Path -Parent $OutputPath

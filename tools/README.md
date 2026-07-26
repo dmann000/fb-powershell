@@ -42,6 +42,55 @@ Run in this order:
    ./tools/Build-PfbCapabilityMap.ps1
    ```
 
+   Accepts `-MaxVersion '2.27'` to cap ingestion at a numerically-compared REST version
+   (`Major`/`Minor` as integers, never a string compare — `'2.9'` sorts above `'2.27'` as
+   a string) even if `tools/specs/` has newer cached files on disk. Defaults to `$null`
+   (no cap, ingest everything cached). Use this when a newer spec has been fetched but not
+   yet deliberately adopted — every acceptance number this toolchain's plan work is
+   calibrated against assumes a specific version ceiling, and an uncapped rebuild would
+   silently move those numbers.
+
+   Besides `minVersion`/`parameters`/`bodyProperties` (each `{ name: introducedInVersion }`,
+   monotonic first-sight), each endpoint also carries, where non-empty:
+   - `readOnlyBodyProperties` / `deprecatedBodyProperties` (string arrays) — **last-seen-wins**,
+     not first-sight: unlike "introduced in version X", `readOnly` is not monotonic (a
+     field can go from read-only to writable across versions, and about half of the flips
+     in fb2.0-2.27 do exactly that), so these always reflect the newest spec that mentions
+     the endpoint, never the oldest.
+   - `parameterComponentOverrides` (`{ paramName: componentName }`, sorted by key) — see
+     below.
+
+   **`parameterComponentDefaults`/`parameterComponentOverrides` resolution contract:**
+   which named OpenAPI `components/parameters/*` component backs a given
+   `(endpoint, parameter)` pair is recorded across two places instead of once per
+   endpoint, because the vast majority of parameters share one of a small set of common
+   components (`Filter`, `Limit`, `Sort`, …) — measured on fb2.0-2.27: 4102 total
+   `(endpoint, parameter) -> component` pairs, but only 224 distinct pairs and 179
+   distinct parameter names, so a naive full per-endpoint map is ~90% duplication. To
+   resolve the component for a given `(endpoint, parameter)`:
+   1. If the endpoint's `parameterComponentOverrides` contains the parameter name, use
+      that value — which **may be a JSON `null`**, meaning "this endpoint's parameter has
+      no component" (see below). An override, `null` or not, always wins over the default.
+   2. Otherwise, if the manifest's top-level `parameterComponentDefaults` contains the
+      parameter name, use that value.
+   3. Otherwise, the parameter has no known component at all.
+
+   `parameterComponentDefaults` is built once, globally: for each parameter name, the
+   most frequently associated component name across every endpoint's current mapping,
+   ties broken **alphabetically** by component name (deterministic regardless of endpoint
+   processing order — required, since the weekly CI job opens a PR on any diff and an
+   unstable tie-break would spuriously fire it). `parameterComponentOverrides` then holds
+   only the endpoints where the current component differs from that default.
+
+   The explicit-`null`-override case is the one to know about: a parameter declared
+   **inline** (no `$ref`) has no component at all — rare (7 of 4109 parameter
+   declarations in fb2.27), but if that parameter's *name* happens to also be a `$ref`'d
+   component elsewhere (and so has a global default), silently omitting it from
+   `parameterComponentOverrides` would make it wrongly inherit that default under the
+   resolution contract above. The builder emits an explicit `null` override for exactly
+   this case so "absent" (→ check the default) and "explicitly none" (→ `null`) stay
+   distinguishable.
+
 3. **`Update-PfbVersionMap.ps1`** — builds `Data/PfbVersionMap.json`, the REST-version to
    Purity//FB-version pairing, from a single internal SSOT (Single Source of Truth) API
    call that returns the full REST<->Purity//FB mapping table for every version in one
