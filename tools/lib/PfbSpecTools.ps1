@@ -402,9 +402,11 @@ function Get-PfbSchemaPropertyDetails {
         interchangeable: $null means "no named owner exists", '' would be indistinguishable
         from a bug that failed to populate the field, so this function never emits ''.
         Multi-owner rule: if more than one named component in the chain directly declares
-        the same property name (0 occurrences measured across all of fb2.27 -- see the
-        real-spec verification in this repo's task notes; the rule is close to academic
-        today but is a real, reachable case for a future spec), the OUTERMOST one wins,
+        the same property name (2 occurrences measured across all of fb2.27: `POST
+        /array-connections`' `encrypted` and `throttle` properties, each with candidate
+        owners `ArrayConnection` and `ArrayConnectionPost` -- see the real-spec
+        verification in this repo's task notes; the rule is close to academic today but is
+        a real, reachable case for a future spec), the OUTERMOST one wins,
         i.e. the declaration closest to the operation's own body schema. Because a node's
         own direct properties are recorded before its allOf branches are recursed into,
         and siblings are visited in array order, "outermost" is simply "first-seen" in
