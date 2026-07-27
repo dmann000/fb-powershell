@@ -921,8 +921,16 @@ Describe 'Get-PfbDriftAnnotations / Find-PfbDriftAnnotation (Task 6: recorded de
     }
 
     It 'loads the file and finds a field-keyed annotation by exact wire name' {
+        # @(...) wraps the call itself, not just its consumption -- a single-match result
+        # is a bare PSCustomObject crossing the function-call boundary (PowerShell always
+        # unwraps a one-element pipeline result on return, @() inside the function's own
+        # `return` notwithstanding). PowerShell 7+ masks this with an automatic .Count/
+        # .Length property on every object, so `$found.Count` reads 1 there regardless --
+        # but Windows PowerShell 5.1 has no such property and .Count silently returns
+        # $null on a bare object. Confirmed live under real 5.1: without this wrap here,
+        # this exact assertion fails with "Expected 1, but got $null."
         $annotations = Get-PfbDriftAnnotations -Path $annotationsFixturePath
-        $found = Find-PfbDriftAnnotation -Annotations $annotations -FieldName 'context_names'
+        $found = @(Find-PfbDriftAnnotation -Annotations $annotations -FieldName 'context_names')
         $found.Count | Should -Be 1
         $found[0].kind | Should -Be 'designDecision'
         $found[0].reference | Should -Be 'docs/design/fusion-context-injection.md'
@@ -937,7 +945,7 @@ Describe 'Get-PfbDriftAnnotations / Find-PfbDriftAnnotation (Task 6: recorded de
 
     It 'finds an endpoint-keyed annotation via case-insensitive substring match against the endpoint key' {
         $annotations = Get-PfbDriftAnnotations -Path $annotationsFixturePath
-        $found = Find-PfbDriftAnnotation -Annotations $annotations -Endpoint 'POST /management-access-policies'
+        $found = @(Find-PfbDriftAnnotation -Annotations $annotations -Endpoint 'POST /management-access-policies')
         $found.Count | Should -Be 1
         $found[0].kind | Should -Be 'liveTestingHazard'
         $found[0].note | Should -Match '403'
@@ -963,14 +971,16 @@ Describe 'Get-PfbDriftAnnotations / Find-PfbDriftAnnotation (Task 6: recorded de
 '@
         $annotations = Get-PfbDriftAnnotations -Path $wildcardFixturePath
 
-        # Endpoint contains the literal substring "widgets*prod" -- must match.
-        (Find-PfbDriftAnnotation -Annotations $annotations -Endpoint 'GET /widgets*prod-fixture').Count | Should -Be 1
+        # Endpoint contains the literal substring "widgets*prod" -- must match. @(...)
+        # wraps the call itself -- see the file-keyed test above for why a bare single-match
+        # result silently fails .Count on Windows PowerShell 5.1.
+        @(Find-PfbDriftAnnotation -Annotations $annotations -Endpoint 'GET /widgets*prod-fixture').Count | Should -Be 1
 
         # Endpoint contains "widgets" ... "prod" but NOT the literal "widgets*prod"
         # substring -- an unescaped -like ("*widgets*prod*") would still match this (the
         # '*' matching "anything" in between), so a miss here proves the match string is
         # treated as a literal substring, not a wildcard pattern.
-        (Find-PfbDriftAnnotation -Annotations $annotations -Endpoint 'GET /widgets-are-in-prod').Count | Should -Be 0
+        @(Find-PfbDriftAnnotation -Annotations $annotations -Endpoint 'GET /widgets-are-in-prod').Count | Should -Be 0
     }
 
     It 'treats a literal "[" in an endpoint annotation''s match value as a literal character, not a live -like character class' {
@@ -988,14 +998,16 @@ Describe 'Get-PfbDriftAnnotations / Find-PfbDriftAnnotation (Task 6: recorded de
 '@
         $annotations = Get-PfbDriftAnnotations -Path $wildcardFixturePath
 
-        # Endpoint contains the literal substring "prod[0]" -- must match.
-        (Find-PfbDriftAnnotation -Annotations $annotations -Endpoint 'GET /prod[0]-real').Count | Should -Be 1
+        # Endpoint contains the literal substring "prod[0]" -- must match. @(...) wraps
+        # the call itself -- see the file-keyed test above for why a bare single-match
+        # result silently fails .Count on Windows PowerShell 5.1.
+        @(Find-PfbDriftAnnotation -Annotations $annotations -Endpoint 'GET /prod[0]-real').Count | Should -Be 1
 
         # Endpoint contains "prod" immediately followed by "0" (no brackets) -- an
         # unescaped -like would still match this (the "[0]" character class matching that
         # literal '0'), so a miss here proves the match string is treated as a literal
         # substring, not a wildcard pattern.
-        (Find-PfbDriftAnnotation -Annotations $annotations -Endpoint 'GET /prod0-fixture').Count | Should -Be 0
+        @(Find-PfbDriftAnnotation -Annotations $annotations -Endpoint 'GET /prod0-fixture').Count | Should -Be 0
     }
 
     It 'returns $null (never throws) when -Path does not exist' {
@@ -1009,10 +1021,12 @@ Describe 'Get-PfbDriftAnnotations / Find-PfbDriftAnnotation (Task 6: recorded de
     It 'the real checked-in docs/drift-annotations.json loads and carries both required seed entries' {
         $realPath = Join-Path $repoRoot 'docs/drift-annotations.json'
         Test-Path $realPath | Should -BeTrue
+        # @(...) wraps each call itself -- see the file-keyed test above for why a bare
+        # single-match result silently fails .Count on Windows PowerShell 5.1.
         $realAnnotations = Get-PfbDriftAnnotations -Path $realPath
-        (Find-PfbDriftAnnotation -Annotations $realAnnotations -FieldName 'context_names').Count | Should -Be 1
-        (Find-PfbDriftAnnotation -Annotations $realAnnotations -FieldName 'allow_errors').Count | Should -Be 1
-        (Find-PfbDriftAnnotation -Annotations $realAnnotations -Endpoint 'DELETE /management-access-policies').Count | Should -Be 1
+        @(Find-PfbDriftAnnotation -Annotations $realAnnotations -FieldName 'context_names').Count | Should -Be 1
+        @(Find-PfbDriftAnnotation -Annotations $realAnnotations -FieldName 'allow_errors').Count | Should -Be 1
+        @(Find-PfbDriftAnnotation -Annotations $realAnnotations -Endpoint 'DELETE /management-access-policies').Count | Should -Be 1
     }
 }
 
