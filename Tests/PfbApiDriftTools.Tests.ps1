@@ -508,3 +508,263 @@ Describe 'Get-PfbValidateSetDrift' {
         $drift | Should -BeNullOrEmpty
     }
 }
+
+Describe 'Get-PfbSuggestedPowerShellType (Task 5 suggestedPowerShellType mapping)' {
+    It 'maps integer + format int64 to [long] -- the 37-real-field truncation-risk case' {
+        Get-PfbSuggestedPowerShellType -Type 'integer' -Format 'int64' | Should -Be '[long]'
+    }
+
+    It 'maps integer + format int32 to [int]' {
+        Get-PfbSuggestedPowerShellType -Type 'integer' -Format 'int32' | Should -Be '[int]'
+    }
+
+    It 'maps integer + format uint32 to [int]' {
+        Get-PfbSuggestedPowerShellType -Type 'integer' -Format 'uint32' | Should -Be '[int]'
+    }
+
+    It 'maps a bare integer with no format to [int], never silently to [long]' {
+        Get-PfbSuggestedPowerShellType -Type 'integer' -Format $null | Should -Be '[int]'
+    }
+
+    It 'maps number (any format) to [double]' {
+        Get-PfbSuggestedPowerShellType -Type 'number' -Format 'double' | Should -Be '[double]'
+        Get-PfbSuggestedPowerShellType -Type 'number' -Format 'float' | Should -Be '[double]'
+        Get-PfbSuggestedPowerShellType -Type 'number' -Format $null | Should -Be '[double]'
+    }
+
+    It 'maps string to [string]' {
+        Get-PfbSuggestedPowerShellType -Type 'string' | Should -Be '[string]'
+    }
+
+    It 'maps boolean to [bool]' {
+        Get-PfbSuggestedPowerShellType -Type 'boolean' | Should -Be '[bool]'
+    }
+
+    It 'maps array of string to [string[]]' {
+        Get-PfbSuggestedPowerShellType -Type 'array' -ItemType 'string' | Should -Be '[string[]]'
+    }
+
+    It 'maps array of integer/int64 to [long[]]' {
+        Get-PfbSuggestedPowerShellType -Type 'array' -ItemType 'integer' -ItemFormat 'int64' | Should -Be '[long[]]'
+    }
+
+    It 'falls back to [object[]] for an array whose element type could not be resolved' {
+        Get-PfbSuggestedPowerShellType -Type 'array' -ItemType $null | Should -Be '[object[]]'
+    }
+
+    It 'falls back to [object] for $null/unrecognised/object types, never a guessed scalar type' {
+        Get-PfbSuggestedPowerShellType -Type $null | Should -Be '[object]'
+        Get-PfbSuggestedPowerShellType -Type '' | Should -Be '[object]'
+        Get-PfbSuggestedPowerShellType -Type 'object' | Should -Be '[object]'
+    }
+}
+
+Describe 'Get-PfbBodyPropertyArrayItemType / Get-PfbBodyPropertySynopsis (direct, non-recursive schema lookups)' {
+    BeforeAll {
+        $script:enrichmentSpec = [PSCustomObject]@{
+            components = [PSCustomObject]@{
+                schemas = [PSCustomObject]@{
+                    Widget     = [PSCustomObject]@{
+                        type       = 'object'
+                        properties = [PSCustomObject]@{
+                            color    = [PSCustomObject]@{ type = 'string'; description = 'The widget color. Valid values are `red`, `blue`, and `green`.' }
+                            count    = [PSCustomObject]@{ type = 'integer'; format = 'int64'; description = "Count of widgets available`nin this pool. Additional prose about counting follows here." }
+                            tags     = [PSCustomObject]@{ type = 'array'; items = [PSCustomObject]@{ type = 'string' }; description = 'Tag list. Additional prose about tags follows this first sentence.' }
+                            ref_tags = [PSCustomObject]@{ type = 'array'; items = [PSCustomObject]@{ '$ref' = '#/components/schemas/_tagRef' } }
+                            linked   = [PSCustomObject]@{ '$ref' = '#/components/schemas/_linkedRef' }
+                            bare     = [PSCustomObject]@{ type = 'string' }
+                        }
+                    }
+                    _linkedRef = [PSCustomObject]@{ type = 'string'; description = 'Should never be read directly off Widget.linked (PIN: this function reads only the OWNER schema''s own declared property node, never following the property''s own $ref).' }
+                }
+            }
+        }
+    }
+
+    It 'Get-PfbBodyPropertyArrayItemType resolves an inline items.type/format' {
+        $result = Get-PfbBodyPropertyArrayItemType -Spec $enrichmentSpec -OwnerSchema 'Widget' -FieldName 'tags'
+        $result.Type | Should -Be 'string'
+    }
+
+    It 'Get-PfbBodyPropertyArrayItemType returns $null when items is itself an unresolved $ref with no inline type (never follows it -- one walker, not two)' {
+        $result = Get-PfbBodyPropertyArrayItemType -Spec $enrichmentSpec -OwnerSchema 'Widget' -FieldName 'ref_tags'
+        $result | Should -BeNullOrEmpty
+    }
+
+    It 'Get-PfbBodyPropertyArrayItemType returns $null for a non-array field' {
+        Get-PfbBodyPropertyArrayItemType -Spec $enrichmentSpec -OwnerSchema 'Widget' -FieldName 'color' | Should -BeNullOrEmpty
+    }
+
+    It 'Get-PfbBodyPropertyArrayItemType returns $null when -OwnerSchema is $null (no named owner to look up)' {
+        Get-PfbBodyPropertyArrayItemType -Spec $enrichmentSpec -OwnerSchema $null -FieldName 'tags' | Should -BeNullOrEmpty
+    }
+
+    It 'Get-PfbBodyPropertySynopsis returns only the FIRST sentence, not the trailing enum sentence' {
+        Get-PfbBodyPropertySynopsis -Spec $enrichmentSpec -OwnerSchema 'Widget' -FieldName 'color' | Should -Be 'The widget color.'
+    }
+
+    It 'Get-PfbBodyPropertySynopsis newline-normalises an embedded line wrap before extracting the first sentence' {
+        # The raw description wraps mid-SENTENCE ("...available\nin this pool.") -- real
+        # spec prose does this (e.g. "...`all-squash`, and\n`no-root-squash`."). The
+        # newline must become a space BEFORE the first-sentence regex runs, and only that
+        # first sentence is returned -- the second sentence ("Additional prose...") must
+        # NOT appear in the result.
+        Get-PfbBodyPropertySynopsis -Spec $enrichmentSpec -OwnerSchema 'Widget' -FieldName 'count' | Should -Be 'Count of widgets available in this pool.'
+    }
+
+    It 'Get-PfbBodyPropertySynopsis returns the whole (short) description when it has no sentence terminator at all' {
+        # 'bare' has type=string but a description with no trigger sentence -- add one with
+        # no terminating punctuation to prove the regex-miss fallback path (whole normalised
+        # string) rather than throwing or returning $null.
+        $specWithNoTerminator = [PSCustomObject]@{
+            components = [PSCustomObject]@{
+                schemas = [PSCustomObject]@{
+                    Widget = [PSCustomObject]@{
+                        properties = [PSCustomObject]@{
+                            untamed = [PSCustomObject]@{ type = 'string'; description = 'no terminator here' }
+                        }
+                    }
+                }
+            }
+        }
+        Get-PfbBodyPropertySynopsis -Spec $specWithNoTerminator -OwnerSchema 'Widget' -FieldName 'untamed' | Should -Be 'no terminator here'
+    }
+
+    It 'Get-PfbBodyPropertySynopsis returns $null when -OwnerSchema is $null (fully inline body, no named owner -- never re-walks to find one)' {
+        Get-PfbBodyPropertySynopsis -Spec $enrichmentSpec -OwnerSchema $null -FieldName 'color' | Should -BeNullOrEmpty
+    }
+
+    It 'Get-PfbBodyPropertySynopsis returns $null when the named owner schema does not declare the field' {
+        Get-PfbBodyPropertySynopsis -Spec $enrichmentSpec -OwnerSchema 'Widget' -FieldName 'nonexistent' | Should -BeNullOrEmpty
+    }
+
+    It 'Get-PfbBodyPropertySynopsis returns $null when the property has no description at all' {
+        Get-PfbBodyPropertySynopsis -Spec $enrichmentSpec -OwnerSchema 'Widget' -FieldName 'ref_tags' | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Find-PfbOwnSchemaPropertyNode / Get-PfbOwnerSchemaPropertyNode (REGRESSION: OwnerSchema is usually allOf-composed on real data)' {
+    BeforeAll {
+        # Real-data shape (measured against fb2.27, 2026-07-26): _certificateBase,
+        # NfsExportPolicyRuleBase, ActiveDirectoryPatch, and SmbSharePolicyRule -- 4 of 4
+        # sampled real OwnerSchema values -- carry NO "properties" directly at their own
+        # top level; the field lives one level down inside an ANONYMOUS allOf branch. A
+        # naive single-hop `schema.properties.$FieldName` lookup returns $null for nearly
+        # every real match. This fixture reproduces that exact shape.
+        $script:allOfOwnerSpec = [PSCustomObject]@{
+            components = [PSCustomObject]@{
+                schemas = [PSCustomObject]@{
+                    _certificateBase = [PSCustomObject]@{
+                        allOf = @(
+                            [PSCustomObject]@{ '$ref' = '#/components/schemas/_wrongOwner' }
+                            [PSCustomObject]@{
+                                type       = 'object'
+                                properties = [PSCustomObject]@{
+                                    certificate_type = [PSCustomObject]@{ type = 'string'; description = 'The type of the certificate. Valid values are `appliance` and `external`.' }
+                                    tags             = [PSCustomObject]@{ type = 'array'; items = [PSCustomObject]@{ type = 'string' }; description = 'Certificate tags.' }
+                                }
+                            }
+                        )
+                    }
+                    _wrongOwner      = [PSCustomObject]@{
+                        properties = [PSCustomObject]@{
+                            certificate_type = [PSCustomObject]@{ type = 'string'; description = 'WRONG -- this is a different schema''s field of the same name and must never be read.' }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    It 'finds a field declared inside an ANONYMOUS allOf branch of the owner, not just the owner''s own top-level properties' {
+        $node = Get-PfbOwnerSchemaPropertyNode -Spec $allOfOwnerSpec -OwnerSchema '_certificateBase' -FieldName 'certificate_type'
+        $node | Should -Not -BeNullOrEmpty
+        $node.description | Should -Match '^The type of the certificate\.'
+    }
+
+    It 'never crosses into a $ref-branch of the owner to find the field (that branch belongs to a DIFFERENT named schema)' {
+        # _certificateBase's allOf[0] is a $ref to _wrongOwner, which ALSO declares
+        # certificate_type (with a description that would be an obvious tell if read). The
+        # real field must resolve to the allOf[1] (anonymous) branch's description, never
+        # _wrongOwner's.
+        $node = Get-PfbOwnerSchemaPropertyNode -Spec $allOfOwnerSpec -OwnerSchema '_certificateBase' -FieldName 'certificate_type'
+        $node.description | Should -Not -Match 'WRONG'
+    }
+
+    It 'Get-PfbBodyPropertySynopsis resolves through the allOf-composed owner correctly' {
+        Get-PfbBodyPropertySynopsis -Spec $allOfOwnerSpec -OwnerSchema '_certificateBase' -FieldName 'certificate_type' | Should -Be 'The type of the certificate.'
+    }
+
+    It 'Get-PfbBodyPropertyArrayItemType resolves an array field declared inside an allOf-composed owner' {
+        $result = Get-PfbBodyPropertyArrayItemType -Spec $allOfOwnerSpec -OwnerSchema '_certificateBase' -FieldName 'tags'
+        $result.Type | Should -Be 'string'
+    }
+
+    It 'returns $null for a field the owner (searched through its own allOf) never declares at all' {
+        Get-PfbOwnerSchemaPropertyNode -Spec $allOfOwnerSpec -OwnerSchema '_certificateBase' -FieldName 'nonexistent' | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Get-PfbBodyPropertyEnrichment (Task 5: composed enum join + type + synopsis)' {
+    BeforeAll {
+        $script:enrichmentHistory = [ordered]@{
+            'Widget.color'      = [ordered]@{ Name = 'color'; Kind = 'schema'; MinVersion = '2.0'; CurrentValues = @('red', 'blue', 'green'); DistinctValueSets = [System.Collections.Generic.HashSet[string]]::new([string[]]@('blue,green,red')) }
+            'OtherSchema.color' = [ordered]@{ Name = 'color'; Kind = 'schema'; MinVersion = '2.0'; CurrentValues = @('x', 'y'); DistinctValueSets = [System.Collections.Generic.HashSet[string]]::new([string[]]@('x,y')) }
+        }
+    }
+
+    It 'resolves EnumStatus matched and EnumValues via OwnerSchema as the resource hint' {
+        $result = Get-PfbBodyPropertyEnrichment -FieldName 'color' -Type 'string' -Format $null -OwnerSchema 'Widget' `
+            -Spec $enrichmentSpec -Endpoint 'widgets' -Method 'PATCH' -History $enrichmentHistory -OldestVersion '2.0'
+        $result.EnumStatus | Should -Be 'matched'
+        $result.EnumValues | Should -Be @('red', 'blue', 'green')
+        $result.Synopsis | Should -Be 'The widget color.'
+        $result.SuggestedPowerShellType | Should -Be '[string]'
+    }
+
+    It 'never lets a $null OwnerSchema wildcard-match every same-named schema-kind history entry -- resolves not-found-in-resource, not a false matched/collision' {
+        # WireName 'color' exists in history under TWO different owners with DIFFERENT
+        # value sets (Widget.color, OtherSchema.color). With OwnerSchema $null (this
+        # specific gap has no named owner), the sentinel resource hint must prefix-match
+        # NEITHER of them -- proving '' is never substituted for the sentinel (a '' hint
+        # would wildcard-match both and yield 'collision' instead).
+        $result = Get-PfbBodyPropertyEnrichment -FieldName 'color' -Type 'string' -Format $null -OwnerSchema $null `
+            -Spec $enrichmentSpec -Endpoint 'widgets' -Method 'PATCH' -History $enrichmentHistory -OldestVersion '2.0'
+        $result.EnumStatus | Should -Be 'not-found-in-resource'
+        $result.EnumValues | Should -BeNullOrEmpty
+        $result.Synopsis | Should -BeNullOrEmpty
+    }
+
+    It 'resolves EnumStatus no-spec-enum-found for a field absent from History entirely' {
+        $result = Get-PfbBodyPropertyEnrichment -FieldName 'nonexistent_field' -Type 'string' -Format $null -OwnerSchema 'Widget' `
+            -Spec $enrichmentSpec -Endpoint 'widgets' -Method 'PATCH' -History $enrichmentHistory -OldestVersion '2.0'
+        $result.EnumStatus | Should -Be 'no-spec-enum-found'
+        $result.EnumValues | Should -BeNullOrEmpty
+    }
+
+    It 'derives SuggestedPowerShellType for an array field via the array-item-type lookup' {
+        $result = Get-PfbBodyPropertyEnrichment -FieldName 'tags' -Type 'array' -Format $null -OwnerSchema 'Widget' `
+            -Spec $enrichmentSpec -Endpoint 'widgets' -Method 'PATCH' -History $enrichmentHistory -OldestVersion '2.0'
+        $result.SuggestedPowerShellType | Should -Be '[string[]]'
+    }
+
+    It 'derives SuggestedPowerShellType [long] for an int64 field, never the truncating [int]' {
+        $result = Get-PfbBodyPropertyEnrichment -FieldName 'count' -Type 'integer' -Format 'int64' -OwnerSchema 'Widget' `
+            -Spec $enrichmentSpec -Endpoint 'widgets' -Method 'PATCH' -History $enrichmentHistory -OldestVersion '2.0'
+        $result.SuggestedPowerShellType | Should -Be '[long]'
+    }
+
+    It 'EnumValues is always an array, never $null, even when EnumStatus is not matched' {
+        # Deliberately NOT `$result.EnumValues | Should -BeOfType ...` -- piping a
+        # genuinely EMPTY array to Should never invokes the assertion with a real value at
+        # all (Pester's pipeline binding sees zero objects go by and reports $null), which
+        # would make this test pass or fail for the wrong reason regardless of the actual
+        # array-vs-$null distinction it exists to check. Capture into a scalar first.
+        $result = Get-PfbBodyPropertyEnrichment -FieldName 'nonexistent_field' -Type 'string' -Format $null -OwnerSchema 'Widget' `
+            -Spec $enrichmentSpec -Endpoint 'widgets' -Method 'PATCH' -History $enrichmentHistory -OldestVersion '2.0'
+        $isNull = ($null -eq $result.EnumValues)
+        $isNull | Should -BeFalse
+        $countIsZero = (@($result.EnumValues).Count -eq 0)
+        $countIsZero | Should -BeTrue
+    }
+}

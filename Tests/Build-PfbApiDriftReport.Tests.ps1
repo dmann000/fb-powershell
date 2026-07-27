@@ -31,6 +31,43 @@ function Get-PfbFixtureArrayPerformance {
 }
 '@
 
+    # Task 5 fixture: a fully-typed (high-confidence) write cmdlet whose endpoint has real
+    # addable body-property gaps (color/count/tags) enriched with type/synopsis/enum/target.
+    # -Label IS resolved (index-form `$body['label'] = $Label`), establishing 'index' as
+    # this cmdlet's own dominant AssignmentStyle for Task 5's target coordinates.
+    Set-Content -Path (Join-Path $publicDir 'Update-PfbFixtureWidget.ps1') -Value @'
+function Update-PfbFixtureWidget {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [PSCustomObject]$Array,
+        [Parameter(Mandatory)] [string]$Name,
+        [Parameter()] [string]$Label
+    )
+    $queryParams = @{}
+    $queryParams['names'] = $Name
+    $body = @{}
+    if ($Label) { $body['label'] = $Label }
+    Invoke-PfbApiRequest -Array $Array -Method PATCH -Endpoint 'widgets' -Body $body -QueryParams $queryParams
+}
+'@
+
+    # Task 5 fixture: a PARTIAL-confidence write cmdlet (an unresolved -Tags parameter with
+    # a real -Attributes escape hatch) whose endpoint ALSO has an addable body-property gap
+    # ('label') -- this gap must stay a bare string, never enriched, per this task's
+    # confidence-gating design (see Build-PfbApiDriftReport.ps1's own .NOTES).
+    Set-Content -Path (Join-Path $publicDir 'Update-PfbFixtureGizmo.ps1') -Value @'
+function Update-PfbFixtureGizmo {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [PSCustomObject]$Array,
+        [Parameter()] [string[]]$Tags,
+        [Parameter(Mandatory)] [hashtable]$Attributes
+    )
+    if ($Tags) { Write-Verbose ($Tags -join ',') }
+    Invoke-PfbApiRequest -Array $Array -Method PATCH -Endpoint 'gizmos' -Body $Attributes
+}
+'@
+
     # v1: Protocol has 4 values, matching the fixture cmdlet's ValidateSet exactly. Also
     # declares 'region' (matching the capability map's claim it's introduced at 9.0) so
     # Build-PfbApiDriftReport.ps1's phantom-field cross-check (against the SINGLE newest
@@ -54,7 +91,9 @@ function Get-PfbFixtureArrayPerformance {
     # v2: spec adds 'all' -- the real Get-PfbArrayPerformance -Protocol bug shape. Also
     # carries 'region' and 'timezone' forward (see specV1's note above) -- this is the
     # NEWEST analysed spec (capability map's generatedFrom ends at 9.1), so it's the one
-    # Build-PfbApiDriftReport.ps1 actually re-parses for phantom-field exclusion.
+    # Build-PfbApiDriftReport.ps1 actually re-parses for phantom-field exclusion AND (Task
+    # 5) for enrichment's synopsis/type/array-item lookups and the enum join's schema-kind
+    # history.
     $specV2 = [ordered]@{
         openapi = '3.0.1'; info = @{ version = '9.1' }
         paths = [ordered]@{
@@ -68,8 +107,45 @@ function Get-PfbFixtureArrayPerformance {
                 }
             }
             '/gadgets' = [ordered]@{ get = [ordered]@{ parameters = @() } }
+            '/widgets' = [ordered]@{
+                patch = [ordered]@{
+                    requestBody = [ordered]@{
+                        content = [ordered]@{
+                            'application/json' = [ordered]@{ schema = [ordered]@{ '$ref' = '#/components/schemas/WidgetPatch' } }
+                        }
+                    }
+                }
+            }
+            '/gizmos' = [ordered]@{
+                patch = [ordered]@{
+                    # Deliberately fully INLINE (no $ref anywhere in the chain) -- exercises
+                    # OwnerSchema = $null (Task 5's Get-PfbBodyPropertySynopsis/array-item
+                    # lookups both return $null for this field, by design).
+                    requestBody = [ordered]@{
+                        content = [ordered]@{
+                            'application/json' = [ordered]@{
+                                schema = [ordered]@{
+                                    type       = 'object'
+                                    properties = [ordered]@{ label = [ordered]@{ type = 'string'; description = 'The gizmo label.' } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-        components = [ordered]@{ schemas = [ordered]@{} }
+        components = [ordered]@{
+            schemas = [ordered]@{
+                WidgetPatch = [ordered]@{
+                    type       = 'object'
+                    properties = [ordered]@{
+                        color = [ordered]@{ type = 'string'; description = 'The fixture widget color. Valid values are `red`, `blue`, and `green`.' }
+                        count = [ordered]@{ type = 'integer'; format = 'int64'; description = 'Number of fixture widgets.' }
+                        tags  = [ordered]@{ type = 'array'; items = [ordered]@{ type = 'string' }; description = 'Fixture widget tags.' }
+                    }
+                }
+            }
+        }
     }
     $specV1 | ConvertTo-Json -Depth 20 | Set-Content -Path (Join-Path $specsDir 'fb9.0.json')
     $specV2 | ConvertTo-Json -Depth 20 | Set-Content -Path (Join-Path $specsDir 'fb9.1.json')
@@ -82,6 +158,8 @@ function Get-PfbFixtureArrayPerformance {
             'GET /arrays/performance' = [ordered]@{ minVersion = '9.0'; parameters = [ordered]@{ protocol = '9.0'; region = '9.0'; timezone = '9.1'; 'X-Request-ID' = '9.0'; continuation_token = '9.0'; offset = '9.0' }; bodyProperties = [ordered]@{} }
             'GET /gadgets'            = [ordered]@{ minVersion = '9.1'; parameters = [ordered]@{}; bodyProperties = [ordered]@{} }
             'GET /widgets'            = [ordered]@{ minVersion = '9.0'; parameters = [ordered]@{}; bodyProperties = [ordered]@{} }
+            'PATCH /widgets'          = [ordered]@{ minVersion = '9.0'; parameters = [ordered]@{}; bodyProperties = [ordered]@{ color = '9.0'; count = '9.0'; tags = '9.0' } }
+            'PATCH /gizmos'           = [ordered]@{ minVersion = '9.1'; parameters = [ordered]@{}; bodyProperties = [ordered]@{ label = '9.1' } }
         }
     } | ConvertTo-Json -Depth 20 | Set-Content -Path $capabilityMapPath
 
@@ -147,6 +225,93 @@ Describe 'Build-PfbApiDriftReport' -Skip:($PSVersionTable.PSVersion.Major -lt 7)
         $gap.missingQueryParameters | Should -Not -Contain 'continuation_token'
         $gap.missingQueryParameters | Should -Not -Contain 'offset'
         $gap.missingQueryParameters | Should -Contain 'region'
+    }
+
+    Context 'Task 5: enrichment + enum join on a high-confidence endpoint (PATCH /widgets)' {
+        BeforeAll {
+            $script:widgetGap = $manifest.parameterGaps | Where-Object { $_.endpoint -eq 'PATCH /widgets' }
+            $script:colorRecord = $widgetGap.missingBodyProperties | Where-Object { $_.name -eq 'color' }
+            $script:countRecord = $widgetGap.missingBodyProperties | Where-Object { $_.name -eq 'count' }
+            $script:tagsRecord = $widgetGap.missingBodyProperties | Where-Object { $_.name -eq 'tags' }
+        }
+
+        It 'is high-confidence (fully typed cmdlet, no unresolved surface)' {
+            $widgetGap.confidence.level | Should -Be 'high'
+        }
+
+        It 'turns each addable body-property gap into a RECORD, not a bare string' {
+            $colorRecord | Should -Not -BeNullOrEmpty
+            $colorRecord.name | Should -Be 'color'
+            $colorRecord.type | Should -Be 'string'
+        }
+
+        It 'resolves enumStatus matched and enumValues via the real Resolve-PfbFieldValueEnum join (not a bare-name lookup)' {
+            $colorRecord.enumStatus | Should -Be 'matched'
+            $colorRecord.enumValues | Should -Be @('red', 'blue', 'green')
+        }
+
+        It 'extracts synopsis as the first sentence only, newline-normalised' {
+            $colorRecord.synopsis | Should -Be 'The fixture widget color.'
+        }
+
+        It 'maps type:integer,format:int64 to suggestedPowerShellType [long], never the truncating [int]' {
+            $countRecord.format | Should -Be 'int64'
+            $countRecord.suggestedPowerShellType | Should -Be '[long]'
+        }
+
+        It 'maps type:array with inline items.type:string to suggestedPowerShellType [string[]]' {
+            $tagsRecord.type | Should -Be 'array'
+            $tagsRecord.suggestedPowerShellType | Should -Be '[string[]]'
+        }
+
+        It 'never maps specRequired to [Parameter(Mandatory)] -- specRequired is present as plain metadata only' {
+            $colorRecord.PSObject.Properties.Name | Should -Contain 'specRequired'
+            $colorRecord.specRequired | Should -Be $false
+        }
+
+        It 'carries target insertion-point coordinates matching this cmdlet''s own dominant (index) assignment style' {
+            $colorRecord.target.file | Should -Match 'Update-PfbFixtureWidget\.ps1$'
+            $colorRecord.target.payloadVariable | Should -Be 'body'
+            $colorRecord.target.assignmentStyle | Should -Be 'index'
+            $colorRecord.target.hasAttributes | Should -BeFalse
+            $colorRecord.target.paramBlockLine | Should -BeGreaterThan 0
+        }
+    }
+
+    It 'REGRESSION: a high-confidence endpoint with an EMPTY MissingBodyProperties serializes as [] in JSON, never a phantom one-element array with a blank name' {
+        # Real-data-only bug, invisible to any in-memory-only check: a query-only
+        # high-confidence gap (GET /arrays/performance has body-property gaps at all here)
+        # -- `$missingBodyProperties = if (...) {...} else {...}` (missing an outer @()
+        # around the WHOLE if/else, only wrapping each branch's own content) let an empty
+        # result collapse to a value that read as 0 elements in-memory but round-tripped
+        # through ConvertTo-Json/ConvertFrom-Json into a 1-element array containing a
+        # single $null -- inflating the high-confidence addable-gap total from 402 to 682
+        # on the real capability map. $manifest here is loaded from the actual JSON FILE
+        # this script wrote (see BeforeAll), not the in-memory array, so this test would
+        # NOT have caught the bug if it only inspected pre-serialization objects.
+        $perfGap = $manifest.parameterGaps | Where-Object { $_.endpoint -eq 'GET /arrays/performance' }
+        $perfGap.confidence.level | Should -Be 'high'
+        @($perfGap.missingBodyProperties).Count | Should -Be 0
+    }
+
+    Context 'Task 5: the query-vs-body vs. confidence-level enrichment asymmetry' {
+        BeforeAll {
+            $script:gizmoGap = $manifest.parameterGaps | Where-Object { $_.endpoint -eq 'PATCH /gizmos' }
+        }
+
+        It 'PATCH /gizmos is partial-confidence (an unresolved -Tags parameter with an -Attributes escape hatch)' {
+            $gizmoGap.confidence.level | Should -Be 'partial'
+        }
+
+        It 'leaves a partial-confidence endpoint''s missingBodyProperties as BARE STRINGS, never enriched records' {
+            $gizmoGap.missingBodyProperties | Should -Contain 'label'
+            ($gizmoGap.missingBodyProperties | Where-Object { $_ -is [string] }) | Should -Be @('label')
+        }
+
+        It 'leaves missingQueryParameters as bare strings on a high-confidence endpoint too (query gaps are never enriched, regardless of confidence)' {
+            $arraysPerfGap = $manifest.parameterGaps | Where-Object { $_.endpoint -eq 'GET /arrays/performance' }
+            ($arraysPerfGap.missingQueryParameters | ForEach-Object { $_ -is [string] }) | Should -Not -Contain $false
+        }
     }
 }
 

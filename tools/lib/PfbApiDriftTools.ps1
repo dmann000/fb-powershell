@@ -474,3 +474,366 @@ function Get-PfbValidateSetDrift {
         }
     }
 }
+
+# --- Task 5: per-field enrichment + enum join for MissingBodyProperties -----------------
+#
+# Consumed by tools/Build-PfbApiDriftReport.ps1, which ONLY calls this enrichment path for
+# an endpoint whose Confidence.Level is 'high' -- a 'partial'-confidence endpoint's
+# MissingBodyProperties list can contain false positives (see Get-PfbParameterCoverageGaps's
+# own .OUTPUTS help: an unresolved parameter may already cover an apparent gap through a
+# path this AST-only inventory cannot see), and handing a human a fully-worked-out
+# suggestedPowerShellType/target/enumValues for a field that might not even be a real gap
+# would overstate the confidence the endpoint's own `confidence.caveat` is explicitly
+# telling them NOT to have. This is NOT a suppression (design decision 5 still holds --
+# every field name still appears, unchanged, in a partial-confidence endpoint's list): it
+# only withholds this task's EXTRA metadata layer, never the gap itself.
+#
+# This gating is not a guess -- it is what makes this task's own pinned acceptance numbers
+# reproducible. Measured against the real capability map + specs (2026-07-26): 402 addable
+# MissingBodyProperties entries on 'high'-confidence endpoints vs. 605 across BOTH
+# confidence levels. The enum-join split this task's acceptance is pinned to -- 33 matched /
+# 43 not-found-in-resource / 326 no-spec-enum-found -- reproduces EXACTLY over the
+# high-confidence-only 402, and does NOT reproduce over the combined 605 (which instead
+# gives 43 matched / 66 not-found-in-resource / 496 no-spec-enum-found) -- confirming the
+# gate is the intended scope, not an afterthought.
+
+# Sentinel -ResourceHint passed to Resolve-PfbFieldValueEnum when a body property's
+# OwnerSchema is $null (no named component encloses its declaration -- see
+# Get-PfbSchemaPropertyDetails's OwnerSchema doc in tools/lib/PfbSpecTools.ps1).
+# Resolve-PfbFieldValueEnum matches -ResourceHint with "-like `"$ResourceHint*`"" against
+# schema-kind history keys, so passing '' would degrade to a bare '*' wildcard that matches
+# EVERY schema-kind entry in the whole history -- exactly wrong for "there is no owner to
+# hint at". This sentinel starts with a character ('(') no real OpenAPI schema name in this
+# spec uses, so it is guaranteed to prefix-match zero real history keys, correctly forcing
+# the hinted-schema candidate set to stay empty rather than accidentally matching
+# everything. Only 1 of the 402 real high-confidence addable body-property gaps hits this
+# (POST /keytabs/upload|keytab_file -- a fully inline request body with no named schema
+# anywhere in its chain) -- confirmed by real-data verification.
+$script:PfbNoOwnerSchemaResourceHint = '(no-owner-schema)'
+
+function Get-PfbSuggestedPowerShellType {
+    <#
+    .SYNOPSIS
+        Maps an OpenAPI {type, format} pair (plus, for an array, its element {type, format})
+        to a suggested PowerShell parameter type literal, e.g. '[string]', '[long]',
+        '[string[]]'.
+    .DESCRIPTION
+        Table (verbatim from the drift-report-actionable-plan brief):
+          integer + format 'int64'             -> [long]
+          integer + format 'int32'/'uint32'/''  -> [int]   (also the fallback for any OTHER
+                                                             unrecognised integer format,
+                                                             since [int]/Int32 is the
+                                                             OpenAPI/JSON-Schema default
+                                                             width for "integer" when format
+                                                             is absent)
+          number  (any format, incl. 'double'/'float'/none) -> [double]
+          string  (any format)                  -> [string]
+          boolean                                -> [bool]
+          array                                  -> "[<element>[]]", element mapped by a
+                                                     RECURSIVE call against -ItemType/
+                                                     -ItemFormat (falls back to [object] if
+                                                     the item type could not be resolved --
+                                                     e.g. OwnerSchema was $null, or the
+                                                     array's own "items" node is itself an
+                                                     unresolved $ref with no inline "type",
+                                                     which this function deliberately does
+                                                     NOT follow -- see
+                                                     Get-PfbBodyPropertyArrayItemType)
+          anything else ($null, '', 'object', or an unrecognised type string) -> [object],
+              a deliberately honest fallback, never a guessed scalar type. This function's
+              caller always ALSO emits the raw type/format alongside this suggestion (see
+              Build-PfbApiDriftReport.ps1), so a human overriding a wrong/absent guess has
+              the real spec facts to work from, not just this function's guess.
+
+        Branches on FORMAT, not just TYPE, for integers specifically because silently is
+        the dangerous failure mode here: 37 of the 402 real high-confidence addable
+        body-property fields are `type: integer, format: int64` (measured against the real
+        capability map + fb2.27 spec, 2026-07-26 -- NOT the 230 the original brief
+        speculated; that figure was investigated and could not be reproduced against any of
+        six candidate populations, see tools/README.md). Mapping bare `"type": "integer"`
+        to `[int]` (Int32) without checking `format` would silently truncate every one of
+        those 37 real fields the first time a caller supplied a value above 2^31-1.
+    .OUTPUTS
+        String, e.g. '[string]', '[long]', '[string[]]'. Never $null or ''.
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowNull()] [string]$Type,
+        [AllowNull()] [string]$Format,
+        [AllowNull()] [string]$ItemType,
+        [AllowNull()] [string]$ItemFormat
+    )
+
+    switch ($Type) {
+        'integer' {
+            if ($Format -eq 'int64') { return '[long]' }
+            return '[int]'
+        }
+        'number' { return '[double]' }
+        'string' { return '[string]' }
+        'boolean' { return '[bool]' }
+        'array' {
+            $inner = Get-PfbSuggestedPowerShellType -Type $ItemType -Format $ItemFormat
+            # Strip exactly the OUTERMOST leading '[' / trailing ']' via anchored regex
+            # (never Trim(), which strips every matching char from each end and would
+            # over-strip a nested array-of-array's inner brackets too, e.g. Trim('[',']')
+            # on '[string[]]' yields 'string', not the intended 'string[]').
+            $innerBare = $inner -replace '^\[', '' -replace '\]$', ''
+            return "[$innerBare[]]"
+        }
+        default { return '[object]' }
+    }
+}
+
+function Find-PfbOwnSchemaPropertyNode {
+    <#
+    .SYNOPSIS
+        Internal helper for Get-PfbBodyPropertyArrayItemType/Get-PfbBodyPropertySynopsis:
+        finds -FieldName's own (raw, un-resolved-further) property node within ONE already-
+        identified named schema (-SchemaNode), searching its OWN inline "allOf" branches
+        but never crossing into a "$ref" branch.
+    .DESCRIPTION
+        Real-data correction (measured against fb2.27, 2026-07-26): the majority of real
+        OwnerSchema values -- e.g. `_certificateBase`, `NfsExportPolicyRuleBase`,
+        `ActiveDirectoryPatch`, `SmbSharePolicyRule` -- carry NO "properties" key directly
+        at their own top level; the schema is `{ allOf: [ {$ref: ...}, {properties: {...}} ] }`
+        and the field lives in the anonymous SECOND branch's own "properties". This is
+        exactly the shape Get-PfbSchemaPropertyDetails's OwnerSchema attribution already
+        anticipates ("OwnerSchema is the nearest enclosing NAMED component whose properties
+        block directly declares this property" -- an ANONYMOUS inline allOf branch is never
+        itself an owner, so its declared properties are attributed to the nearest NAMED
+        ancestor, i.e. THIS schema, even though they physically live one level down inside
+        its own allOf). A single-hop `schema.properties.$FieldName` lookup (the original,
+        too-naive implementation) therefore returned $null for nearly every real match,
+        silently defeating both `synopsis` and the array-item-type lookup.
+
+        This is still NOT "a second schema walker" in the decision-3 sense: it only
+        descends into -SchemaNode's OWN anonymous ("allOf" with no "$ref") branches --
+        never crosses into a "$ref" branch (that branch's properties belong to a DIFFERENT
+        named schema, whatever OwnerSchema attribution assigned it there -- searching into
+        it here would either find the wrong owner's field, or, worse, silently succeed for
+        the wrong reason if two schemas happen to share a field name) -- and never resolves
+        a property's OWN "$ref" or descends into ITS body (same top-level-only boundary
+        Get-PfbSchemaPropertyDetails's PIN already establishes). The recursion is bounded
+        and terminates naturally: it can only ever re-enter THIS one schema's own inline
+        branches, never a different named schema.
+    .OUTPUTS
+        The raw property node (PSCustomObject), or $null.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowNull()]
+        $SchemaNode,
+
+        [Parameter(Mandatory)]
+        [string]$FieldName
+    )
+
+    if ($null -eq $SchemaNode) { return $null }
+
+    if ($SchemaNode.PSObject.Properties.Name -contains 'properties' -and $SchemaNode.properties -and
+        $SchemaNode.properties.PSObject.Properties.Name -contains $FieldName) {
+        return $SchemaNode.properties.$FieldName
+    }
+
+    if ($SchemaNode.PSObject.Properties.Name -contains 'allOf' -and $SchemaNode.allOf) {
+        foreach ($branch in $SchemaNode.allOf) {
+            if ($branch.PSObject.Properties.Name -contains '$ref') { continue }
+            $found = Find-PfbOwnSchemaPropertyNode -SchemaNode $branch -FieldName $FieldName
+            if ($null -ne $found) { return $found }
+        }
+    }
+
+    return $null
+}
+
+function Get-PfbOwnerSchemaPropertyNode {
+    <#
+    .SYNOPSIS
+        Resolves -FieldName's own raw property node under -OwnerSchema in -Spec, or $null.
+        Shared by Get-PfbBodyPropertyArrayItemType and Get-PfbBodyPropertySynopsis so both
+        apply the exact same "which named schema, which branch" resolution -- see
+        Find-PfbOwnSchemaPropertyNode for why a single top-level dictionary hop is not
+        enough on real data.
+    .OUTPUTS
+        The raw property node (PSCustomObject), or $null.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] $Spec,
+        [AllowNull()] [string]$OwnerSchema,
+        [Parameter(Mandatory)] [string]$FieldName
+    )
+
+    if (-not $OwnerSchema) { return $null }
+    if (-not $Spec.components -or -not $Spec.components.schemas) { return $null }
+    if ($Spec.components.schemas.PSObject.Properties.Name -notcontains $OwnerSchema) { return $null }
+
+    $schema = $Spec.components.schemas.$OwnerSchema
+    return Find-PfbOwnSchemaPropertyNode -SchemaNode $schema -FieldName $FieldName
+}
+
+function Get-PfbBodyPropertyArrayItemType {
+    <#
+    .SYNOPSIS
+        For an array-typed body property, returns its element {Type, Format} via a DIRECT
+        lookup of the property's own node under -OwnerSchema (see
+        Get-PfbOwnerSchemaPropertyNode/Find-PfbOwnSchemaPropertyNode) -- never a second
+        schema walker in the decision-3 sense (it never crosses into a DIFFERENT named
+        schema or resolves any "$ref"). Reads exactly one property hop beyond that node:
+        its own "items" sibling key (see Get-PfbSchemaPropertyDetails's PIN: it never
+        follows a property's own "$ref" or descends further, and this respects the same
+        boundary for "items").
+    .DESCRIPTION
+        $null when -OwnerSchema is $null (no named component encloses the property's
+        declaration -- this function does not attempt to re-derive one by walking the
+        operation's own inline body schema), when the named schema (searched through its
+        own inline allOf branches, never a $ref'd one) doesn't declare -FieldName at all,
+        or when the property has no "items" node (not actually an array, or "items" is
+        itself an unresolved $ref with no inline "type"/"format" sibling -- deliberately
+        not resolved, same "top-level only" rule Get-PfbSchemaPropertyDetails already
+        applies one level up).
+    .OUTPUTS
+        [PSCustomObject]@{ Type; Format }, or $null.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] $Spec,
+        [AllowNull()] [string]$OwnerSchema,
+        [Parameter(Mandatory)] [string]$FieldName
+    )
+
+    $propNode = Get-PfbOwnerSchemaPropertyNode -Spec $Spec -OwnerSchema $OwnerSchema -FieldName $FieldName
+    if ($null -eq $propNode) { return $null }
+    if ($propNode.PSObject.Properties.Name -notcontains 'items' -or -not $propNode.items) { return $null }
+
+    $itemsNode = $propNode.items
+    $itemType = if ($itemsNode.PSObject.Properties.Name -contains 'type') { $itemsNode.type } else { $null }
+    $itemFormat = if ($itemsNode.PSObject.Properties.Name -contains 'format') { $itemsNode.format } else { $null }
+
+    # An "items" node that is itself an unresolved $ref (e.g. { "$ref": "#/components/schemas/_tagRef" })
+    # carries neither -- deliberately NOT followed (would be resolving one level further
+    # than this function's own direct-lookup contract allows). Return $null overall in
+    # that case, same as "no items node at all", rather than a half-populated record with
+    # both fields $null -- the caller (Get-PfbBodyPropertyEnrichment) only ever checks
+    # truthiness of this function's result before reading .Type/.Format.
+    if (-not $itemType -and -not $itemFormat) { return $null }
+
+    return [PSCustomObject]@{ Type = $itemType; Format = $itemFormat }
+}
+
+function Get-PfbBodyPropertySynopsis {
+    <#
+    .SYNOPSIS
+        First sentence of a body property's own `description`, newline-normalised -- a
+        DIRECT lookup of the property's own node under -OwnerSchema (see
+        Get-PfbOwnerSchemaPropertyNode), never a second schema walker in the decision-3
+        sense (never crosses into a different named schema or resolves a "$ref").
+        Get-PfbSchemaPropertyDetails (tools/lib/PfbSpecTools.ps1) already did the hard part
+        -- resolving the property's OWNING named schema through the allOf/$ref chain across
+        MULTIPLE schemas; finding that one field's own node inside the schema already
+        identified as its owner is a bounded, much smaller problem, so it does not earn a
+        second walker.
+    .DESCRIPTION
+        $null when -OwnerSchema is $null (no named component encloses the property's
+        declaration -- the operation's entire body schema was written fully inline with no
+        $ref anywhere in its chain). This function does NOT attempt to re-derive an owner by
+        re-walking the operation's own inline body schema (that would be a second walker).
+        Also $null when the named schema (searched through its own inline allOf branches,
+        never a $ref'd one -- see Find-PfbOwnSchemaPropertyNode) doesn't declare -FieldName
+        at all, or declares it with no (or empty) "description" -- surfaced as $null rather
+        than a wrong guess in every case, never a silently-empty string standing in for "no
+        synopsis available".
+        "First sentence": newlines are first replaced with a single space (these
+        descriptions wrap mid-sentence in the raw spec text), then the result up to and
+        including the first '.', '!', or '?' that is followed by whitespace or the end of
+        the string is taken. Sampled real fb2.27 descriptions do not use a
+        sentence-ending-like abbreviation before the field's own first true sentence break,
+        so this simple split is not a compromise for that data -- but it IS naive prose
+        parsing, not a guarantee for arbitrary future spec text.
+    .OUTPUTS
+        String, or $null.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] $Spec,
+        [AllowNull()] [string]$OwnerSchema,
+        [Parameter(Mandatory)] [string]$FieldName
+    )
+
+    $propNode = Get-PfbOwnerSchemaPropertyNode -Spec $Spec -OwnerSchema $OwnerSchema -FieldName $FieldName
+    if ($null -eq $propNode) { return $null }
+    if ($propNode.PSObject.Properties.Name -notcontains 'description' -or -not $propNode.description) { return $null }
+
+    $normalised = ($propNode.description -replace '\r?\n', ' ').Trim()
+    $m = [regex]::Match($normalised, '^.*?[.!?](?=\s|$)')
+    if ($m.Success) { return $m.Value.Trim() }
+    return $normalised
+}
+
+function Get-PfbBodyPropertyEnrichment {
+    <#
+    .SYNOPSIS
+        Composes every per-field enrichment fact Task 5 adds for ONE addable
+        missing-body-property gap: synopsis, suggested PowerShell type, and the
+        Resolve-PfbFieldValueEnum join.
+    .DESCRIPTION
+        The enum join always goes through Resolve-PfbFieldValueEnum, NEVER a bare wire-name
+        lookup -- bare-name lookup is exactly the collision class (43 of the 402 real
+        high-confidence addable gaps) this function exists to resolve correctly instead of
+        guessing. -OwnerSchema (from Get-PfbSchemaPropertyDetails, via the caller's own
+        BodyPropertyDetails lookup) is passed as -ResourceHint -- NOT the older
+        cmdlet-name-derived Get-PfbResourceHint, which only reaches 14 of the 33 real
+        matches (verified: Update-PfbNfsExportRule's derived hint 'NfsExportRule' does not
+        prefix-match the real owning schema 'NfsExportPolicyRuleBase' at all). When
+        -OwnerSchema is $null, $script:PfbNoOwnerSchemaResourceHint is substituted so the
+        hint can never accidentally wildcard-match every schema-kind entry (see that
+        variable's own comment).
+    .OUTPUTS
+        [PSCustomObject]@{ Synopsis; SuggestedPowerShellType; EnumValues; EnumStatus }.
+        EnumStatus is always one of Resolve-PfbFieldValueEnum's own literal values --
+        'matched' / 'collision' / 'not-found-in-resource' / 'no-spec-enum-found' -- passed
+        through VERBATIM, never renamed or coerced. (Note for anyone cross-referencing the
+        drift-report-actionable-plan's decisions register: its prose invents a 'collision'
+        bucket meaning "collision-class", but the real function returns
+        'not-found-in-resource' for that entire population in real data -- 0 real
+        'collision' results occur among the 402 high-confidence addable gaps. This function
+        still passes 'collision' through unchanged on the rare/future occasion
+        Resolve-PfbFieldValueEnum actually returns it, rather than hardcoding it away.)
+        EnumValues is always an array, empty (never $null) unless EnumStatus is 'matched'.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [string]$FieldName,
+        [AllowNull()] [string]$Type,
+        [AllowNull()] [string]$Format,
+        [AllowNull()] [string]$OwnerSchema,
+        [Parameter(Mandatory)] $Spec,
+        [string]$Endpoint,
+        [string]$Method,
+        [Parameter(Mandatory)] $History,
+        [Parameter(Mandatory)] [string]$OldestVersion
+    )
+
+    $synopsis = Get-PfbBodyPropertySynopsis -Spec $Spec -OwnerSchema $OwnerSchema -FieldName $FieldName
+
+    $itemType = $null
+    $itemFormat = $null
+    if ($Type -eq 'array') {
+        $items = Get-PfbBodyPropertyArrayItemType -Spec $Spec -OwnerSchema $OwnerSchema -FieldName $FieldName
+        if ($items) { $itemType = $items.Type; $itemFormat = $items.Format }
+    }
+    $suggestedType = Get-PfbSuggestedPowerShellType -Type $Type -Format $Format -ItemType $itemType -ItemFormat $itemFormat
+
+    $hint = if ($OwnerSchema) { $OwnerSchema } else { $script:PfbNoOwnerSchemaResourceHint }
+    $resolution = Resolve-PfbFieldValueEnum -WireName $FieldName -ResourceHint $hint -Endpoint $Endpoint -Method $Method -History $History -OldestVersion $OldestVersion
+    $enumValues = @(if ($resolution.Status -eq 'matched') { $resolution.SpecValues } else { @() })
+
+    return [PSCustomObject]@{
+        Synopsis                = $synopsis
+        SuggestedPowerShellType = $suggestedType
+        EnumValues              = $enumValues
+        EnumStatus              = $resolution.Status
+    }
+}

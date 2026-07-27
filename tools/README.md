@@ -144,6 +144,86 @@ Run in this order:
    `X-Request-ID`, `continuation_token`, `offset`) -- these are declared on nearly every
    endpoint and would otherwise drown out real gaps.
 
+   **`missingBodyProperties` enrichment (addable body-property gaps only).** On an
+   endpoint whose `confidence.level` is `'high'`, each `missingBodyProperties` entry is a
+   record, not a bare string:
+
+   ```jsonc
+   { "name": "certificate_type", "type": "string", "format": null, "specRequired": false,
+     "synopsis": "The type of the certificate.",
+     "suggestedPowerShellType": "[string]",
+     "enumValues": ["appliance", "external"], "enumStatus": "matched",
+     "target": { "file": "Public/Certificate/Update-PfbCertificate.ps1",
+                 "paramBlockLine": 37, "payloadVariable": "Attributes",
+                 "assignmentStyle": "attributesOnly", "hasAttributes": true } }
+   ```
+
+   - **`missingQueryParameters` and `readOnlyFields` are NEVER enriched this way, and
+     never will be for the same reason on both** -- `readOnlyFields` are not addable at
+     all (nothing to build type/target coordinates FOR), and query-parameter gaps stay
+     bare name strings on purpose: ~896 enriched query-gap records would roughly double
+     this artifact's size for no consumer today (nothing downstream reads enriched
+     query-gap detail). Deliberate, documented asymmetry -- not an inconsistency.
+   - **Enrichment itself is gated on `confidence.level -eq 'high'`.** A
+     `'partial'`-confidence endpoint's `missingBodyProperties` stays bare strings, exactly
+     like before this feature existed. This is NOT a suppression -- every field name still
+     appears, unchanged -- it only withholds the extra metadata layer. Reason: a
+     partial-confidence endpoint's gap list can contain false positives (an unresolved
+     parameter may already cover the field through a path the AST-only inventory can't
+     see), and handing a human a fully-worked-out type/synopsis/enum/target for a field
+     that might not even be a real gap would overstate a confidence the endpoint's own
+     `confidence.caveat` is explicitly telling them not to have. Measured against the real
+     capability map + specs (2026-07-26): 402 addable gaps on high-confidence endpoints vs.
+     605 across both confidence levels combined -- the two populations produce genuinely
+     different enum-join results (see below), confirming the gate is intentional scope,
+     not an oversight.
+   - **`suggestedPowerShellType`** comes from a fixed table: `integer`+`int64` -> `[long]`;
+     `integer`+`int32`/`uint32`/no format -> `[int]`; `number` (any format) -> `[double]`;
+     `string` -> `[string]`; `boolean` -> `[bool]`; `array` -> `[<element>[]]` (element
+     mapped recursively, falling back to `[object[]]` when the element type can't be
+     resolved); anything else -> `[object]`. This branches on `format`, not just `type`,
+     because the failure mode is silent: **37 of the 402** real high-confidence addable
+     fields are `type: integer, format: int64` (measured 2026-07-26 -- NOT the 230 once
+     speculated for this figure; that number was investigated and could not be reproduced
+     against any of six candidate populations tried). Mapping bare `"type": "integer"` to
+     `[int]` without checking `format` would silently truncate every one of those 37
+     fields. The raw `type`/`format` are always emitted alongside so a human can override.
+   - **`specRequired` is the OpenAPI spec's own `required:` flag for that field -- it must
+     NEVER be read as "make this a `[Parameter(Mandatory)]`".** This module has a recorded
+     hazard: a `Mandatory` parameter tested via `Should -Throw` hangs the terminal on
+     PowerShell's own "Supply values for parameters" interactive prompt; the convention
+     here is an optional parameter with an explicit `throw`. Keep it that way even for a
+     `specRequired: true` field.
+   - **`enumValues`/`enumStatus`** come from `Resolve-PfbFieldValueEnum`
+     (`tools/lib/PfbValueEnumTools.ps1`), never a bare wire-name lookup, keyed by the
+     field's `OwnerSchema` (from `Get-PfbSchemaPropertyDetails`,
+     `tools/lib/PfbSpecTools.ps1`) as `-ResourceHint` -- not the older cmdlet-name-derived
+     `Get-PfbResourceHint`, which only reaches 14 of the 33 real matches (e.g.
+     `Update-PfbNfsExportRule`'s derived hint `NfsExportRule` does not prefix-match the
+     real owning schema `NfsExportPolicyRuleBase` at all). `enumStatus` is always one of
+     that function's own literal values (`matched`/`collision`/`not-found-in-resource`/
+     `no-spec-enum-found`), passed through verbatim. Measured over the 402 real
+     high-confidence addable gaps: **33 matched / 43 not-found-in-resource / 326
+     no-spec-enum-found** (0 real `collision` results in this dataset, though the status
+     itself is never hardcoded away).
+   - **`target`** carries insertion-point COORDINATES ONLY -- `{ file, paramBlockLine,
+     payloadVariable, assignmentStyle, hasAttributes }` -- never a diff/patch: a patch goes
+     stale the moment the file is next touched and cannot see mutual-exclusivity/
+     parameter-set constraints a human editing by hand must respect.
+     `payloadVariable`/`assignmentStyle`/`hasAttributes` describe what the target cmdlet's
+     OWN function body already does for its other body fields (see
+     `Get-PfbCmdletBodyInsertionTarget` in `tools/lib/PfbCmdletParamTools.ps1`), so a human
+     adding one more field matches the file's existing convention: `assignmentStyle` is
+     `'index'` for `$body['x'] = ...`, `'literal'` for a hashtable-literal initializer that
+     declares at least one key, `'attributesOnly'` when the request body is fed directly
+     by the cmdlet's own `-Attributes` parameter (there is no per-field line to imitate --
+     adding a typed parameter here means introducing the first one), or `'unknown'` when
+     the payload variable resolves but this AST-only inspector can't find any assignment
+     into it at all (e.g. built by a private helper). When more than one cmdlet already
+     calls the same endpoint (5 real cases today), the alphabetically first cmdlet name is
+     picked as the one target, deterministically -- a human should still check for sibling
+     cmdlets on the same endpoint.
+
 ## What's deliberately NOT in the capability map
 
 The FlashBlade OpenAPI spec has no structural JSON Schema `enum` anywhere — verified
