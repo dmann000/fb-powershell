@@ -192,31 +192,76 @@ function Get-PfbEndpointCoverageGaps {
 function Get-PfbParameterCoverageGaps {
     <#
     .SYNOPSIS
-        Category 2: for each endpoint an existing cmdlet already calls, flags a
-        capability-map-known parameter/body-field the cmdlet doesn't expose as a typed
-        parameter -- but ONLY for "fully mapped" cmdlets (every Public/ parameter on
-        every cmdlet calling this endpoint resolved Surface -eq 'Typed'; zero
-        AttributesOnly/TypedUnresolved anywhere). A cmdlet with any AttributesOnly/
-        TypedUnresolved parameter may already expose a "new" field through a path this
-        AST-only inventory can't see, so its endpoint gets a not-verified entry instead
-        of a guessed gap.
+        Category 2: for each endpoint an existing cmdlet already calls, flags
+        capability-map-known query parameters and request-body properties the cmdlet
+        doesn't expose as a typed parameter. Gaps are ALWAYS computed -- there is no
+        longer an all-or-nothing gate that discards an endpoint's real gaps just because
+        ONE parameter on it has an unresolved surface (design decision 5: the old
+        `$fullyMapped` gate's failure mode was silence -- ~70% of its non-Typed
+        classifications turned out to be tool blindness, not real gaps, and none of it
+        was visible because the report simply got quieter). Uncertainty from an
+        unresolved (AttributesOnly/TypedUnresolved) parameter is instead carried
+        per-endpoint as `Confidence` (see .OUTPUTS): such a parameter may already cover
+        an apparent gap through a path this AST-only inventory can't see, so the gap
+        lists can contain false positives on a 'partial'-confidence endpoint -- but they
+        are never silently emptied because of that uncertainty.
+
+        Output is split three ways instead of one flat list:
+          - MissingQueryParameters: capability-map `parameters` the cmdlet doesn't expose.
+          - MissingBodyProperties: capability-map `bodyProperties` the cmdlet doesn't
+            expose AND that are NOT read-only in the newest ANALYSED spec (addable).
+          - ReadOnlyFields: the same source, but read-only in the newest ANALYSED spec
+            (not addable -- reported separately, never merged into MissingBodyProperties).
+        Only 1 of 632 real endpoints has the same field name land in both the query and
+        body lists (POST /workloads/placement-recommendations|placement_names) -- no
+        dedup machinery is applied between them.
     .PARAMETER SinceVersion
-        When given, a gap's MissingParameters is filtered down to only fields whose
+        When given, a gap's missing-field lists are filtered down to only fields whose
         capability-map version is strictly newer than this REST version -- e.g.
         -SinceVersion '2.26' isolates fields introduced by 2.27 only. An endpoint whose
-        every missing field predates -SinceVersion is dropped from ParameterGaps
-        entirely (not emitted with an empty MissingParameters list).
+        every missing field predates -SinceVersion is dropped entirely (not emitted with
+        empty lists).
     .PARAMETER ExcludedFields
         Field names never reported as a missing parameter, regardless of version --
-        e.g. $script:PfbNonActionableParameters. For fields with no functional gap worth
-        reporting (request-tracing headers, pagination internals already handled by
-        -AutoPaginate, etc.) that would otherwise appear on nearly every gap and drown out
-        real ones. An endpoint whose every missing field is excluded is dropped from
-        ParameterGaps entirely (not emitted with an empty MissingParameters list).
+        e.g. $script:PfbNonActionableParameters. Applied to BOTH
+        MissingQueryParameters and MissingBodyProperties: every field in that allowlist
+        happens to be query-side today, but nothing about the mechanism is query-only,
+        so a future body-side addition is not silently ignored. An endpoint whose every
+        missing field is excluded is dropped entirely (not emitted with empty lists).
+    .PARAMETER CurrentSpecCapabilities
+        Optional. Get-PfbSpecCapabilities's output for ONLY the single newest ANALYSED
+        spec -- i.e. tools/specs/fb<value>.json where <value> is
+        $CapabilityMap.generatedFrom[-1] -- never whatever happens to be newest on disk
+        under tools/specs/, which can be ahead of the map (e.g. specs refreshed to 2.28
+        without rebuilding a 2.27 map produces annotations that can't be reconciled with
+        the gaps they sit next to). $CapabilityMap's own `parameters`/`bodyProperties`
+        dictionaries accumulate every field ever seen across every ingested version and
+        never record removal (Build-PfbCapabilityMap.ps1 is first-sight for both), so a
+        field withdrawn from the API in a later spec still lingers there forever -- a
+        "phantom". Without this parameter phantom fields are NOT filtered (a safe no-op
+        default so unit tests built on synthetic capability maps, never cross-checked
+        against a real spec, are unaffected); with it, a candidate missing field absent
+        from the endpoint's CURRENT parameter/body-property set is dropped from every
+        list rather than reported as an addable/read-only/query gap it does not actually
+        exist to be. 13 real (endpoint, field) pairs hit this against fb2.27 today, all
+        body-side (e.g. `PATCH /certificates|id` -- read-only 2.0-2.19, removed 2.20+).
     .OUTPUTS
-        [PSCustomObject]@{ ParameterGaps; NotVerified }. ParameterGaps is
-        [PSCustomObject]@{ Endpoint; Cmdlets; MissingParameters }[]. NotVerified is
-        [PSCustomObject]@{ Endpoint; Cmdlets; Reason }[].
+        [PSCustomObject]@{ Endpoint; Cmdlets; MissingQueryParameters; MissingBodyProperties;
+        ReadOnlyFields; Confidence }[], one entry per endpoint where at least one of the
+        three field lists is non-empty. `notVerified` no longer exists anywhere in this
+        shape -- not as a field, not as a bucket. Confidence is
+        [PSCustomObject]@{ Level; UnresolvedParameters; EscapeHatchOnly; Caveat }:
+          - Level is 'high' iff UnresolvedParameters is empty, else 'partial'.
+          - UnresolvedParameters is [PSCustomObject]@{ Parameter; Surface; File; Line }[]
+            -- every non-Typed (AttributesOnly or TypedUnresolved) parameter on any
+            cmdlet calling this endpoint, Line coming from
+            Get-PfbCmdletParameterInventory's Line field
+            ($p.Extent.StartLineNumber) so every caveat is a click-through.
+          - EscapeHatchOnly is the subset of UnresolvedParameters' Parameter names whose
+            Surface is 'AttributesOnly' (a real -Attributes escape hatch exists --
+            'TypedUnresolved' has none at all).
+          - Caveat is a human-readable summary of what the confidence gap means for this
+            endpoint's lists, or '' when Level is 'high'.
     #>
     [CmdletBinding()]
     param(
@@ -224,14 +269,26 @@ function Get-PfbParameterCoverageGaps {
         [Parameter(Mandatory)] [object[]]$CmdletInventory,
         [Parameter(Mandatory)] [object[]]$CalledEndpoints,
         [string]$SinceVersion,
-        [string[]]$ExcludedFields = @()
+        [string[]]$ExcludedFields = @(),
+        [object[]]$CurrentSpecCapabilities = @()
     )
 
     $inventoryByCmdlet = $CmdletInventory | Group-Object -Property Cmdlet -AsHashTable -AsString
     $endpointGroups = @($CalledEndpoints | Where-Object { $_.Resolved } | Group-Object -Property Key)
 
-    $parameterGaps = [System.Collections.Generic.List[object]]::new()
-    $notVerified = [System.Collections.Generic.List[object]]::new()
+    # Endpoint key ("<METHOD> /<path>", matching Data/PfbCapabilityMap.json's own key
+    # format) -> the Get-PfbSpecCapabilities record for that endpoint in the single
+    # newest ANALYSED spec, used only for phantom-field exclusion (see
+    # -CurrentSpecCapabilities above). A typed Dictionary, not a Hashtable: endpoint keys
+    # are not API field names so this one specifically isn't exposed to the
+    # .Keys-shadowing bug this function is otherwise built around avoiding, but nothing
+    # in this task trusts that reasoning per-callsite.
+    $currentByEndpoint = [System.Collections.Generic.Dictionary[string, object]]::new()
+    foreach ($cap in $CurrentSpecCapabilities) {
+        $currentByEndpoint["$($cap.Method) $($cap.Path)"] = $cap
+    }
+
+    $gaps = [System.Collections.Generic.List[object]]::new()
 
     foreach ($group in $endpointGroups) {
         $key = $group.Name
@@ -240,57 +297,134 @@ function Get-PfbParameterCoverageGaps {
 
         $cmdlets = @($group.Group.Cmdlet | Select-Object -Unique)
 
-        $fullyMapped = $true
         $exposedWireNames = [System.Collections.Generic.HashSet[string]]::new()
+        $unresolved = [System.Collections.Generic.List[object]]::new()
         foreach ($cmdletName in $cmdlets) {
             # The Where-Object is load-bearing, not defensive noise: Group-Object
             # -AsHashTable yields $null for an absent key, and @($null) is a ONE-element
-            # array whose single element is $null -- not the empty array it reads as. The
-            # loop below therefore used to run once with $row = $null, evaluate
-            # $null.Surface -ne 'Typed' as TRUE, and discard the endpoint into $notVerified.
-            # A cmdlet contributes zero inventory rows when every parameter it declares is
-            # inventory-exempt (-Array/-Attributes are plumbing, never inventoried -- see
-            # Get-PfbCmdletParameterInventory), which is exactly the shape of the
-            # -Attributes-only write cmdlets (Update-PfbArray, Update-PfbPasswordPolicy,
-            # Update-PfbSupport, ...). No rows means nothing contradicts full mapping, so
-            # such a cmdlet is VACUOUSLY fully mapped, not unmappable.
+            # array whose single element is $null -- not the empty array it reads as.
+            # Without it, this loop would run once with $row = $null and throw evaluating
+            # $null.Surface. A cmdlet contributes zero inventory rows when every
+            # parameter it declares is inventory-exempt (-Array/-Attributes are
+            # plumbing, never inventoried -- see Get-PfbCmdletParameterInventory), which
+            # is exactly the shape of the -Attributes-only write cmdlets (Update-PfbArray,
+            # Update-PfbPasswordPolicy, Update-PfbSupport, ...). No rows means nothing to
+            # report as unresolved for that cmdlet.
             $rows = @($inventoryByCmdlet[$cmdletName] | Where-Object { $null -ne $_ })
             foreach ($row in $rows) {
-                if ($row.Surface -ne 'Typed') { $fullyMapped = $false; continue }
+                if ($row.Surface -ne 'Typed') {
+                    $unresolved.Add([PSCustomObject]@{
+                        Parameter = $row.Parameter
+                        Surface   = $row.Surface
+                        File      = $row.File
+                        Line      = $row.Line
+                    })
+                    continue
+                }
                 if ($row.WireName) { [void]$exposedWireNames.Add($row.WireName) }
             }
         }
 
-        if (-not $fullyMapped) {
-            $notVerified.Add([PSCustomObject]@{ Endpoint = $key; Cmdlets = $cmdlets; Reason = 'has attributes/unresolved surface' })
-            continue
-        }
+        $currentCap = $null
+        if ($currentByEndpoint.ContainsKey($key)) { $currentCap = $currentByEndpoint[$key] }
+        $currentQueryNames = if ($currentCap) { [System.Collections.Generic.HashSet[string]]::new([string[]]@($currentCap.Parameters)) } else { $null }
+        $currentBodyNames = if ($currentCap) { [System.Collections.Generic.HashSet[string]]::new([string[]]@($currentCap.BodyProperties)) } else { $null }
 
-        $fieldVersions = @{}
-        if ($entry.parameters) { foreach ($p in $entry.parameters.PSObject.Properties) { $fieldVersions[$p.Name] = $p.Value } }
-        if ($entry.bodyProperties) { foreach ($p in $entry.bodyProperties.PSObject.Properties) { $fieldVersions[$p.Name] = $p.Value } }
+        # Typed Dictionary[string,string] for each of query/body, NOT a plain Hashtable --
+        # this is the generalised fix for the keys-shadowing bug (a field literally named
+        # "keys"/"count"/"values" hijacking .Keys/.Count/.Values member access on a
+        # Hashtable/PSCustomObject-backed IDictionary). A real field named "keys" exists
+        # today (DELETE /workloads/tags), and .get_Keys() below is real-member access on a
+        # typed generic Dictionary, immune to that adapter trick (verified: a Hashtable
+        # key literally named "keys" shadows .Keys and returns the key's VALUE instead of
+        # the key collection; a Dictionary[string,string] with the same key does not).
+        $queryFieldVersions = [System.Collections.Generic.Dictionary[string, string]]::new()
+        if ($entry.parameters) { foreach ($p in $entry.parameters.PSObject.Properties) { $queryFieldVersions[$p.Name] = $p.Value } }
+        $bodyFieldVersions = [System.Collections.Generic.Dictionary[string, string]]::new()
+        if ($entry.bodyProperties) { foreach ($p in $entry.bodyProperties.PSObject.Properties) { $bodyFieldVersions[$p.Name] = $p.Value } }
 
-        $knownFieldNames = [System.Collections.Generic.List[string]]::new()
-        $knownFieldNames.AddRange([string[]]@($fieldVersions.Keys))
+        # @(...) wraps the WHOLE if/else, not just its true branch -- assigning an
+        # if/else expression straight to a variable collapses an EMPTY array result
+        # (the else branch, on every endpoint with no read-only body fields) to a bare
+        # $null instead of an empty array (confirmed live: `$x = if ($false) {@(1)}
+        # else {@()}` leaves $x -eq $null, not an empty array) -- the same family of
+        # "assigning a statement's output straight to a variable silently unwraps it"
+        # hazard already documented in tools/Build-PfbApiDriftReport.ps1 for a
+        # single-element ForEach-Object result, just the zero-element counterpart here.
+        $readOnlyList = @(if ($entry.readOnlyBodyProperties) { $entry.readOnlyBodyProperties } else { @() })
+        $readOnlyNames = [System.Collections.Generic.HashSet[string]]::new([string[]]$readOnlyList)
 
-        # Sort-Object here is load-bearing, not cosmetic: $fieldVersions above is a plain
-        # Hashtable, whose .Keys enumeration order depends on .NET's per-process-randomized
-        # string hash codes -- without this sort, MissingParameters silently reorders itself
-        # run-to-run on identical input (confirmed live: regenerating the drift report twice
-        # produced two byte-different files for the same underlying content).
-        $missing = @($knownFieldNames | Select-Object -Unique | Where-Object { -not $exposedWireNames.Contains($_) } | Sort-Object)
+        # Sort-Object on all three emitted lists below is load-bearing, not cosmetic: the
+        # Dictionary[string,string]s above preserve insertion order, but that order comes
+        # from $entry.parameters/$entry.bodyProperties, which were themselves deserialized
+        # from JSON -- .NET's JSON property enumeration is documented as insertion order
+        # for System.Text.Json but PSCustomObject's own PSObject.Properties enumeration is
+        # NOT guaranteed to match it, and (independent of that) two Hashtable-staged
+        # candidate sets built earlier in this file's history silently reordered
+        # run-to-run on identical input purely from .NET's per-process-randomized string
+        # hash codes (confirmed live: regenerating the drift report twice produced two
+        # byte-different files for the same underlying content). Sorting explicitly here
+        # is what makes MissingQueryParameters/MissingBodyProperties/ReadOnlyFields
+        # deterministic regardless of any of that.
+        $missingQuery = @($queryFieldVersions.get_Keys() |
+                Where-Object { -not $exposedWireNames.Contains($_) } |
+                Where-Object { -not $currentQueryNames -or $currentQueryNames.Contains($_) })
         if ($SinceVersion) {
-            $missing = @($missing | Where-Object { Test-PfbApiVersionNewerThan -Version $fieldVersions[$_] -Baseline $SinceVersion })
+            $missingQuery = @($missingQuery | Where-Object { Test-PfbApiVersionNewerThan -Version $queryFieldVersions[$_] -Baseline $SinceVersion })
         }
         if ($ExcludedFields) {
-            $missing = @($missing | Where-Object { $ExcludedFields -notcontains $_ })
+            $missingQuery = @($missingQuery | Where-Object { $ExcludedFields -notcontains $_ })
         }
-        if ($missing.Count -gt 0) {
-            $parameterGaps.Add([PSCustomObject]@{ Endpoint = $key; Cmdlets = $cmdlets; MissingParameters = $missing })
+        $missingQuery = @($missingQuery | Sort-Object)
+
+        $missingBodyCandidates = @($bodyFieldVersions.get_Keys() |
+                Where-Object { -not $exposedWireNames.Contains($_) } |
+                Where-Object { -not $currentBodyNames -or $currentBodyNames.Contains($_) })
+        if ($SinceVersion) {
+            $missingBodyCandidates = @($missingBodyCandidates | Where-Object { Test-PfbApiVersionNewerThan -Version $bodyFieldVersions[$_] -Baseline $SinceVersion })
         }
+        if ($ExcludedFields) {
+            $missingBodyCandidates = @($missingBodyCandidates | Where-Object { $ExcludedFields -notcontains $_ })
+        }
+
+        $readOnlyFields = @($missingBodyCandidates | Where-Object { $readOnlyNames.Contains($_) } | Sort-Object)
+        $missingBody = @($missingBodyCandidates | Where-Object { -not $readOnlyNames.Contains($_) } | Sort-Object)
+
+        if ($missingQuery.Count -eq 0 -and $missingBody.Count -eq 0 -and $readOnlyFields.Count -eq 0) { continue }
+
+        $escapeHatchOnly = @($unresolved | Where-Object { $_.Surface -eq 'AttributesOnly' } | ForEach-Object { $_.Parameter } | Sort-Object -Unique)
+        $hasBareUnresolved = [bool]($unresolved | Where-Object { $_.Surface -eq 'TypedUnresolved' })
+        $level = if ($unresolved.Count -eq 0) { 'high' } else { 'partial' }
+        $caveat =
+        if ($level -eq 'high') { '' }
+        elseif ($escapeHatchOnly.Count -gt 0 -and -not $hasBareUnresolved) {
+            'body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability'
+        }
+        elseif ($escapeHatchOnly.Count -eq 0 -and $hasBareUnresolved) {
+            'one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability'
+        }
+        else {
+            'body reachable via -Attributes for some parameters and untraceable for others; lists reflect typed-parameter coverage only, not full wire reachability'
+        }
+
+        $confidence = [PSCustomObject]@{
+            Level                = $level
+            UnresolvedParameters = @($unresolved | Sort-Object Parameter, File, Line)
+            EscapeHatchOnly      = $escapeHatchOnly
+            Caveat               = $caveat
+        }
+
+        $gaps.Add([PSCustomObject]@{
+                Endpoint              = $key
+                Cmdlets               = $cmdlets
+                MissingQueryParameters = $missingQuery
+                MissingBodyProperties  = $missingBody
+                ReadOnlyFields         = $readOnlyFields
+                Confidence             = $confidence
+            })
     }
 
-    return [PSCustomObject]@{ ParameterGaps = $parameterGaps.ToArray(); NotVerified = $notVerified.ToArray() }
+    return $gaps.ToArray()
 }
 
 function Get-PfbValidateSetDrift {

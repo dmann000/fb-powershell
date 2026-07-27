@@ -75,6 +75,26 @@ $fieldCmdletMap = Get-Content -Path $FieldCmdletMapPath -Raw | ConvertFrom-Json 
 $inventory = Get-PfbCmdletParameterInventory -PublicDirectory $PublicDirectory
 $calledEndpoints = Get-PfbModuleCalledEndpoints -PublicDirectory $PublicDirectory -PrivateDirectory $PrivateDirectory
 
+# "Newest spec" for read-only/phantom resolution is pinned to the capability map's OWN
+# analysed set ($capabilityMap.generatedFrom[-1]), never whatever file happens to be
+# newest under -SpecsDirectory -- the two diverge as soon as specs are refreshed without
+# rebuilding the map (see this repo's drift-report-actionable plan, Task 7's
+# generatedFrom item, for the verified case: specs at 2.28, map at 2.27). Only this ONE
+# spec is re-parsed here, purely to give Get-PfbParameterCoverageGaps the CURRENT
+# (phantom-free) parameter/body-property set per endpoint -- see that function's
+# -CurrentSpecCapabilities help for why the capability map's own accumulated
+# parameters/bodyProperties dictionaries can't answer that question by themselves.
+$newestAnalysedVersion = $capabilityMap.generatedFrom | Select-Object -Last 1
+$currentSpecCapabilities = @()
+if ($newestAnalysedVersion) {
+    $newestSpecPath = Join-Path $SpecsDirectory "fb$newestAnalysedVersion.json"
+    if (-not (Test-Path $newestSpecPath)) {
+        throw "Newest analysed spec 'fb$newestAnalysedVersion.json' (per capability map's generatedFrom) not found under '$SpecsDirectory'. Run Update-PfbApiSpecs.ps1 first, or rebuild the capability map against the specs on disk."
+    }
+    $newestSpec = Get-Content -Path $newestSpecPath -Raw | ConvertFrom-Json -Depth 64
+    $currentSpecCapabilities = @(Get-PfbSpecCapabilities -Spec $newestSpec)
+}
+
 # --- Category 1 ---
 # The outer @(...) wraps the WHOLE pipeline (input AND ForEach-Object projection), not
 # just the input side -- assigning a pipeline's output straight to a variable silently
@@ -89,9 +109,26 @@ $uncoveredEndpoints = @(Get-PfbEndpointCoverageGaps -CapabilityMap $capabilityMa
     ForEach-Object { [ordered]@{ endpoint = $_.Endpoint; minVersion = $_.MinVersion } })
 
 # --- Category 2 ---
-$category2 = Get-PfbParameterCoverageGaps -CapabilityMap $capabilityMap -CmdletInventory $inventory -CalledEndpoints $calledEndpoints -SinceVersion $SinceVersion -ExcludedFields $script:PfbNonActionableParameters
-$parameterGaps = @($category2.ParameterGaps | ForEach-Object { [ordered]@{ endpoint = $_.Endpoint; cmdlets = @($_.Cmdlets); missingParameters = @($_.MissingParameters) } })
-$notVerifiedEndpoints = @($category2.NotVerified | ForEach-Object { [ordered]@{ endpoint = $_.Endpoint; cmdlets = @($_.Cmdlets); reason = $_.Reason } })
+# No more notVerifiedEndpoints bucket: Get-PfbParameterCoverageGaps always computes
+# gaps now and carries per-parameter confidence on each row instead (design decision 5).
+$parameterGaps = @(Get-PfbParameterCoverageGaps -CapabilityMap $capabilityMap -CmdletInventory $inventory -CalledEndpoints $calledEndpoints -SinceVersion $SinceVersion -ExcludedFields $script:PfbNonActionableParameters -CurrentSpecCapabilities $currentSpecCapabilities |
+    ForEach-Object {
+        [ordered]@{
+            endpoint                = $_.Endpoint
+            cmdlets                 = @($_.Cmdlets)
+            missingQueryParameters   = @($_.MissingQueryParameters)
+            missingBodyProperties    = @($_.MissingBodyProperties)
+            readOnlyFields           = @($_.ReadOnlyFields)
+            confidence               = [ordered]@{
+                level                = $_.Confidence.Level
+                unresolvedParameters = @($_.Confidence.UnresolvedParameters | ForEach-Object {
+                        [ordered]@{ parameter = $_.Parameter; surface = $_.Surface; file = $_.File; line = $_.Line }
+                    })
+                escapeHatchOnly      = @($_.Confidence.EscapeHatchOnly)
+                caveat               = $_.Confidence.Caveat
+            }
+        }
+    })
 
 # --- Category 3 ---
 $historyResult = Get-PfbValueEnumHistory -SpecsDirectory $SpecsDirectory
@@ -117,7 +154,6 @@ $manifest = [ordered]@{
     sinceVersion              = if ($SinceVersion) { $SinceVersion } else { $null }
     uncoveredEndpoints        = $uncoveredEndpoints
     parameterGaps             = $parameterGaps
-    notVerifiedEndpoints      = $notVerifiedEndpoints
     validateSetDrift          = $validateSetDrift
     newValidateSetCandidates  = $newValidateSetCandidates
 }
@@ -137,11 +173,16 @@ if ($SinceVersion) {
     $mdLines.Add("Uncovered endpoints and parameter gaps are filtered to items introduced after REST $SinceVersion. ValidateSet drift and new ValidateSet candidates are not filtered (no per-value introduced-version data to filter on).")
     $mdLines.Add('')
 }
+$partialConfidenceCount = @($parameterGaps | Where-Object { $_.confidence.level -eq 'partial' }).Count
+
 $mdLines.Add('## Summary')
 $mdLines.Add('')
 $mdLines.Add("- Uncovered endpoints: $($uncoveredEndpoints.Count)")
-$mdLines.Add("- Parameter gaps: $($parameterGaps.Count)")
-$mdLines.Add("- Not-verified endpoints (has attributes/unresolved surface): $($notVerifiedEndpoints.Count)")
+$mdLines.Add("- Endpoints with parameter gaps: $($parameterGaps.Count)")
+$mdLines.Add("- Missing query parameters: $((@($parameterGaps.missingQueryParameters) | Measure-Object).Count)")
+$mdLines.Add("- Missing body properties (addable): $((@($parameterGaps.missingBodyProperties) | Measure-Object).Count)")
+$mdLines.Add("- Read-only body fields (not addable): $((@($parameterGaps.readOnlyFields) | Measure-Object).Count)")
+$mdLines.Add("- Partial-confidence endpoints (has attributes/unresolved surface -- see each row's ``confidence``): $partialConfidenceCount")
 $mdLines.Add("- ValidateSet drift: $($validateSetDrift.Count)")
 $mdLines.Add("- New ValidateSet candidates: $($newValidateSetCandidates.Count)")
 
@@ -152,8 +193,8 @@ if ($uncoveredEndpoints.Count -gt 0) {
 }
 if ($parameterGaps.Count -gt 0) {
     $mdLines.Add(''); $mdLines.Add('## Parameter gaps'); $mdLines.Add('')
-    $mdLines.Add('| Endpoint | Cmdlets | Missing parameters |'); $mdLines.Add('|---|---|---|')
-    foreach ($g in $parameterGaps) { $mdLines.Add("| ``$($g.endpoint)`` | $($g.cmdlets -join ', ') | $($g.missingParameters -join ', ') |") }
+    $mdLines.Add('| Endpoint | Cmdlets | Missing query parameters | Missing body properties | Read-only fields | Confidence |'); $mdLines.Add('|---|---|---|---|---|---|')
+    foreach ($g in $parameterGaps) { $mdLines.Add("| ``$($g.endpoint)`` | $($g.cmdlets -join ', ') | $($g.missingQueryParameters -join ', ') | $($g.missingBodyProperties -join ', ') | $($g.readOnlyFields -join ', ') | $($g.confidence.level) |") }
 }
 if ($validateSetDrift.Count -gt 0) {
     $mdLines.Add(''); $mdLines.Add('## ValidateSet drift'); $mdLines.Add('')

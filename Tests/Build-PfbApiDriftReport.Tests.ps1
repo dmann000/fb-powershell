@@ -31,7 +31,12 @@ function Get-PfbFixtureArrayPerformance {
 }
 '@
 
-    # v1: Protocol has 4 values, matching the fixture cmdlet's ValidateSet exactly.
+    # v1: Protocol has 4 values, matching the fixture cmdlet's ValidateSet exactly. Also
+    # declares 'region' (matching the capability map's claim it's introduced at 9.0) so
+    # Build-PfbApiDriftReport.ps1's phantom-field cross-check (against the SINGLE newest
+    # analysed spec -- see Get-PfbParameterCoverageGaps's -CurrentSpecCapabilities) doesn't
+    # treat it as withdrawn-from-the-API just because this fixture spec's JSON and the
+    # hand-written capability map fixture would otherwise disagree.
     $specV1 = [ordered]@{
         openapi = '3.0.1'; info = @{ version = '9.0' }
         paths = [ordered]@{
@@ -39,13 +44,17 @@ function Get-PfbFixtureArrayPerformance {
                 get = [ordered]@{
                     parameters = @(
                         [ordered]@{ name = 'protocol'; 'in' = 'query'; schema = [ordered]@{ type = 'string' }; description = 'Valid values are `nfs`, `smb`, `http`, and `s3`.' }
+                        [ordered]@{ name = 'region'; 'in' = 'query'; schema = [ordered]@{ type = 'string' } }
                     )
                 }
             }
         }
         components = [ordered]@{ schemas = [ordered]@{} }
     }
-    # v2: spec adds 'all' -- the real Get-PfbArrayPerformance -Protocol bug shape.
+    # v2: spec adds 'all' -- the real Get-PfbArrayPerformance -Protocol bug shape. Also
+    # carries 'region' and 'timezone' forward (see specV1's note above) -- this is the
+    # NEWEST analysed spec (capability map's generatedFrom ends at 9.1), so it's the one
+    # Build-PfbApiDriftReport.ps1 actually re-parses for phantom-field exclusion.
     $specV2 = [ordered]@{
         openapi = '3.0.1'; info = @{ version = '9.1' }
         paths = [ordered]@{
@@ -53,6 +62,8 @@ function Get-PfbFixtureArrayPerformance {
                 get = [ordered]@{
                     parameters = @(
                         [ordered]@{ name = 'protocol'; 'in' = 'query'; schema = [ordered]@{ type = 'string' }; description = 'Valid values are `all`, `nfs`, `smb`, `http`, and `s3`.' }
+                        [ordered]@{ name = 'region'; 'in' = 'query'; schema = [ordered]@{ type = 'string' } }
+                        [ordered]@{ name = 'timezone'; 'in' = 'query'; schema = [ordered]@{ type = 'string' } }
                     )
                 }
             }
@@ -125,17 +136,17 @@ Describe 'Build-PfbApiDriftReport' -Skip:($PSVersionTable.PSVersion.Major -lt 7)
         ($manifest.uncoveredEndpoints | Where-Object { $_.endpoint -eq 'GET /widgets' }) | Should -Not -BeNullOrEmpty
     }
 
-    It 'never reports X-Request-ID as a missing parameter, even though the fixture endpoint has it' {
+    It 'never reports X-Request-ID as a missing query parameter, even though the fixture endpoint has it' {
         $gap = $manifest.parameterGaps | Where-Object { $_.endpoint -eq 'GET /arrays/performance' }
-        $gap.missingParameters | Should -Not -Contain 'X-Request-ID'
-        $gap.missingParameters | Should -Contain 'region'
+        $gap.missingQueryParameters | Should -Not -Contain 'X-Request-ID'
+        $gap.missingQueryParameters | Should -Contain 'region'
     }
 
-    It 'never reports continuation_token or offset as a missing parameter, even though the fixture endpoint has both' {
+    It 'never reports continuation_token or offset as a missing query parameter, even though the fixture endpoint has both' {
         $gap = $manifest.parameterGaps | Where-Object { $_.endpoint -eq 'GET /arrays/performance' }
-        $gap.missingParameters | Should -Not -Contain 'continuation_token'
-        $gap.missingParameters | Should -Not -Contain 'offset'
-        $gap.missingParameters | Should -Contain 'region'
+        $gap.missingQueryParameters | Should -Not -Contain 'continuation_token'
+        $gap.missingQueryParameters | Should -Not -Contain 'offset'
+        $gap.missingQueryParameters | Should -Contain 'region'
     }
 }
 
@@ -164,7 +175,7 @@ Describe 'Build-PfbApiDriftReport -SinceVersion filter' -Skip:($PSVersionTable.P
 
     It 'filters a parameter gap down to only fields introduced after -SinceVersion' {
         $gap = $filteredManifest.parameterGaps | Where-Object { $_.endpoint -eq 'GET /arrays/performance' }
-        $gap.missingParameters | Should -Be @('timezone')
+        $gap.missingQueryParameters | Should -Be @('timezone')
     }
 
     It 'notes the SinceVersion filter in the Markdown report' {
