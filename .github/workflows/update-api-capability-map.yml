@@ -123,8 +123,17 @@ jobs:
           $newlyAdded = $newManifest.generatedFrom | Where-Object { $oldVersions -notcontains $_ }
           "new_versions=$($newlyAdded -join ', ')" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
+          # $drift.parameterGaps.Count counts ENDPOINTS that have at least one gap, not
+          # individual fields -- it was mislabeled "parameter gaps" here, which read as a
+          # field-level count. Query/body/read-only are separate categories on the report
+          # (see tools/Build-PfbApiDriftReport.ps1), so the field-level total is the sum of
+          # each category's own field count, computed honestly from the report rather than
+          # re-using the endpoint count under a field-shaped label.
           $drift = Get-Content 'Reports/PfbApiDriftReport.json' -Raw | ConvertFrom-Json -Depth 20
-          $driftSummary = "$($drift.uncoveredEndpoints.Count) uncovered endpoints, $($drift.parameterGaps.Count) parameter gaps, $($drift.validateSetDrift.Count) ValidateSet drift findings, $($drift.newValidateSetCandidates.Count) new ValidateSet candidates"
+          $queryFieldCount = (@($drift.parameterGaps.missingQueryParameters) | Measure-Object).Count
+          $bodyFieldCount = (@($drift.parameterGaps.missingBodyProperties) | Measure-Object).Count
+          $readOnlyFieldCount = (@($drift.parameterGaps.readOnlyFields) | Measure-Object).Count
+          $driftSummary = "$($drift.uncoveredEndpoints.Count) uncovered endpoints, $($drift.parameterGaps.Count) endpoints with parameter gaps ($queryFieldCount missing query fields, $bodyFieldCount missing body fields, $readOnlyFieldCount read-only fields), $($drift.systemicGaps.Count) systemic gaps, $($drift.validateSetDrift.Count) ValidateSet drift findings, $($drift.newValidateSetCandidates.Count) new ValidateSet candidates"
           "drift_summary=$driftSummary" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Open pull request

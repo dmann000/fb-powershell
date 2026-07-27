@@ -1,0 +1,27 @@
+{
+  "schema": "One entry per annotation. matchType 'field' matches 'match' exactly against a wire field name (as it appears in MissingQueryParameters/MissingBodyProperties); matchType 'endpoint' matches 'match' as a case-insensitive SUBSTRING of an endpoint key ('<METHOD> /<path>', e.g. 'GET /management-access-policies'). kind is one of: designDecision (a recorded, already-made design decision -- e.g. a field intentionally not yet wired up), priorConclusion (a conclusion an earlier investigation already reached, so it isn't re-litigated), liveTestingHazard (a note that live-array testing behaves in a way that is NOT an implementation bug -- e.g. a permissions/authorization quirk). note is a short, deliberately non-authoritative human-readable string -- it must never assert or imply a behavioral decision that has not actually been made elsewhere. reference is a repo-relative path to further detail, or null. See tools/lib/PfbApiDriftTools.ps1's Get-PfbDriftAnnotations/Find-PfbDriftAnnotation for the loader/lookup functions that read this file; consumers should use those rather than parsing this JSON directly. Add more entries by appending to 'annotations' -- no code change is needed for a new entry using an existing kind/matchType.",
+  "schemaVersion": 1,
+  "annotations": [
+    {
+      "matchType": "field",
+      "match": "context_names",
+      "kind": "designDecision",
+      "note": "not yet implemented",
+      "reference": "docs/design/fusion-context-injection.md"
+    },
+    {
+      "matchType": "field",
+      "match": "allow_errors",
+      "kind": "designDecision",
+      "note": "not yet implemented",
+      "reference": "docs/design/fusion-context-injection.md"
+    },
+    {
+      "matchType": "endpoint",
+      "match": "management-access-policies",
+      "kind": "liveTestingHazard",
+      "note": "POST/PATCH/DELETE return 403 regardless of account; not an implementation bug",
+      "reference": null
+    }
+  ]
+}

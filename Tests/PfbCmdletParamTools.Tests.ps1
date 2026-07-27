@@ -431,6 +431,16 @@ Describe 'Get-PfbCmdletParameterInventory' {
         $rec.Surface | Should -Be 'Typed'
     }
 
+    It 'carries each parameter''s own declaration line ($p.Extent.StartLineNumber), alongside its File, so a caveat is a click-through' {
+        # New-PfbFixtureAlertWatcher.ps1 is written verbatim from the here-string above (see
+        # BeforeAll): line 1 is 'function ...', and -MinimumSeverity's own declaration --
+        # attributes included, since ParameterAst.Extent spans the whole parameter, not just
+        # the bare variable -- starts at line 7 ('[Parameter()]').
+        $rec = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureAlertWatcher' -and $_.Parameter -eq 'MinimumSeverity' }
+        $rec.File | Should -Be (Join-Path $fixtureDir 'New-PfbFixtureAlertWatcher.ps1')
+        $rec.Line | Should -Be 7
+    }
+
     It 'resolves a simple $queryParams[wire_name] = $Param assignment' {
         $rec = $inventory | Where-Object { $_.Cmdlet -eq 'Get-PfbFixtureArrayPerformance' -and $_.Parameter -eq 'Protocol' }
         $rec.WireName | Should -Be 'protocol'
@@ -869,5 +879,136 @@ Describe 'Find-PfbAccumulatorVariable' {
             'function Test-Fixture { param([string[]]$Name) $names = [System.Collections.Generic.List[string]]::new(); foreach ($n in $Name) { $names.Add($n) } }', [ref]$tokens, [ref]$errs)
         $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
         Find-PfbAccumulatorVariable -FunctionAst $funcAst -ParameterName 'Name' | Should -Be 'names'
+    }
+}
+
+Describe 'Get-PfbCmdletBodyInsertionTarget (Task 5 -- insertion-point coordinates, decision 12)' {
+    BeforeAll {
+        function script:Get-PfbTestFunctionAst {
+            param([string]$Source)
+            $tokens = $null; $errs = $null
+            $ast = [System.Management.Automation.Language.Parser]::ParseInput($Source, [ref]$tokens, [ref]$errs)
+            return $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
+        }
+    }
+
+    It 'returns $null for a function with no param() block at all' {
+        $funcAst = Get-PfbTestFunctionAst 'function Test-Fixture { Write-Host "no params" }'
+        Get-PfbCmdletBodyInsertionTarget -FunctionAst $funcAst | Should -BeNullOrEmpty
+    }
+
+    It 'detects the index-assignment style ($body[''key''] = ...) as the dominant AssignmentStyle' {
+        $funcAst = Get-PfbTestFunctionAst @'
+function Test-FixtureIndex {
+    param([Parameter()] [PSCustomObject]$Array, [Parameter()] [string]$Name)
+    $body = @{}
+    if ($Name) { $body['name'] = $Name }
+    Invoke-PfbApiRequest -Array $Array -Method PATCH -Endpoint 'fixtures' -Body $body
+}
+'@
+        $result = Get-PfbCmdletBodyInsertionTarget -FunctionAst $funcAst
+        $result.PayloadVariable | Should -Be 'body'
+        $result.AssignmentStyle | Should -Be 'index'
+        $result.HasAttributes | Should -BeFalse
+    }
+
+    It 'detects the hashtable-literal-initializer style as the dominant AssignmentStyle when it has more key/value pairs than index-form assignments' {
+        $funcAst = Get-PfbTestFunctionAst @'
+function Test-FixtureLiteral {
+    param([Parameter()] [PSCustomObject]$Array, [Parameter()] [string]$Name, [Parameter()] [string]$Kind)
+    $body = @{ name = $Name; kind = $Kind }
+    Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'fixtures' -Body $body
+}
+'@
+        $result = Get-PfbCmdletBodyInsertionTarget -FunctionAst $funcAst
+        $result.PayloadVariable | Should -Be 'body'
+        $result.AssignmentStyle | Should -Be 'literal'
+    }
+
+    It 'reports AssignmentStyle ''attributesOnly'' when -Body is fed directly by the cmdlet''s own -Attributes parameter' {
+        $funcAst = Get-PfbTestFunctionAst @'
+function Update-FixtureCertificate {
+    param([Parameter(Mandatory)] [string]$Name, [Parameter(Mandatory)] [hashtable]$Attributes, [Parameter()] [PSCustomObject]$Array)
+    Invoke-PfbApiRequest -Array $Array -Method PATCH -Endpoint 'fixtures' -Body $Attributes
+}
+'@
+        $result = Get-PfbCmdletBodyInsertionTarget -FunctionAst $funcAst
+        $result.PayloadVariable | Should -Be 'Attributes'
+        $result.AssignmentStyle | Should -Be 'attributesOnly'
+        $result.HasAttributes | Should -BeTrue
+    }
+
+    It 'reports AssignmentStyle ''unknown'' when PayloadVariable resolves but nothing in this function assigns into it' {
+        $funcAst = Get-PfbTestFunctionAst @'
+function Test-FixtureHelperBuilt {
+    param([Parameter()] [PSCustomObject]$Array, [Parameter()] [string]$Name)
+    $body = Get-FixtureBodyFromHelper -Name $Name
+    Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'fixtures' -Body $body
+}
+'@
+        $result = Get-PfbCmdletBodyInsertionTarget -FunctionAst $funcAst
+        $result.PayloadVariable | Should -Be 'body'
+        $result.AssignmentStyle | Should -Be 'unknown'
+    }
+
+    It 'leaves PayloadVariable/AssignmentStyle $null when two Invoke-PfbApiRequest calls disagree on the -Body variable (never guesses)' {
+        $funcAst = Get-PfbTestFunctionAst @'
+function Test-FixtureAmbiguousBody {
+    param([Parameter()] [PSCustomObject]$Array, [Parameter()] [string]$Name)
+    $body = @{}
+    $altBody = @{}
+    if ($Name) {
+        Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'fixtures' -Body $body
+    } else {
+        Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'fixtures' -Body $altBody
+    }
+}
+'@
+        $result = Get-PfbCmdletBodyInsertionTarget -FunctionAst $funcAst
+        $result.PayloadVariable | Should -BeNullOrEmpty
+        $result.AssignmentStyle | Should -BeNullOrEmpty
+    }
+
+    It 'computes ParamBlockLine as the line of the LAST declared parameter' {
+        $funcAst = Get-PfbTestFunctionAst @'
+function Test-FixtureParamLine {
+    param(
+        [Parameter()] [PSCustomObject]$Array,
+        [Parameter()] [string]$Name,
+        [Parameter()] [string]$Kind
+    )
+    $body = @{}
+    if ($Name) { $body['name'] = $Name }
+    Invoke-PfbApiRequest -Array $Array -Method PATCH -Endpoint 'fixtures' -Body $body
+}
+'@
+        $result = Get-PfbCmdletBodyInsertionTarget -FunctionAst $funcAst
+        # Line 1 is 'function ...', line 2 'param(', 3 Array, 4 Name, 5 Kind, 6 ')'.
+        $result.ParamBlockLine | Should -Be 5
+    }
+
+    It 'falls back to the param block''s own opening line when it declares zero parameters' {
+        $funcAst = Get-PfbTestFunctionAst @'
+function Test-FixtureNoParams {
+    param()
+    $body = @{}
+    Invoke-PfbApiRequest -Method GET -Endpoint 'fixtures' -Body $body
+}
+'@
+        $result = Get-PfbCmdletBodyInsertionTarget -FunctionAst $funcAst
+        $result.ParamBlockLine | Should -Be 2
+    }
+
+    It 'reports HasAttributes $false when the cmdlet declares no -Attributes parameter at all' {
+        $funcAst = Get-PfbTestFunctionAst @'
+function Test-FixtureNoAttributes {
+    param([Parameter()] [PSCustomObject]$Array, [Parameter()] [string]$Name)
+    $body = @{}
+    if ($Name) { $body['name'] = $Name }
+    Invoke-PfbApiRequest -Array $Array -Method PATCH -Endpoint 'fixtures' -Body $body
+}
+'@
+        $result = Get-PfbCmdletBodyInsertionTarget -FunctionAst $funcAst
+        $result.HasAttributes | Should -BeFalse
     }
 }

@@ -728,18 +728,160 @@ function Get-PfbEndpointForVariable {
     return [PSCustomObject]@{ Method = $parts[0]; Endpoint = $parts[1] }
 }
 
+function Get-PfbCmdletBodyInsertionTarget {
+    <#
+    .SYNOPSIS
+        Insertion-point coordinates (drift-report-actionable-plan decision 12) for adding a
+        typed parameter to -FunctionAst for a currently-missing body-property gap -- NEVER
+        a diff/patch: a patch goes stale the moment the file is next touched and cannot see
+        mutual-exclusivity/parameter-set constraints a human editing by hand must respect.
+    .DESCRIPTION
+        PayloadVariable/AssignmentStyle describe what THIS cmdlet's function body already
+        does for its OTHER body fields, so a human adding one more matches the file's own
+        convention instead of inventing a new one:
+          - PayloadVariable is the literal variable name every `-Body <var>` argument on
+            this function's Invoke-PfbApiRequest call(s) agrees on (never guessed when
+            calls disagree, or an argument isn't a plain variable -- same "only ever ADD a
+            resolution, never guess" discipline as every other function in this file).
+          - If PayloadVariable is this cmdlet's OWN -Attributes parameter (the common
+            "-Body $Attributes" shape for write cmdlets with no typed body parameters at
+            all, e.g. Update-PfbCertificate), AssignmentStyle is 'attributesOnly': there is
+            no existing per-field assignment line to imitate, because the caller supplies
+            the whole hashtable directly -- adding a typed parameter here means introducing
+            the FIRST one, not extending an established pattern.
+          - Otherwise AssignmentStyle counts existing assignments INTO PayloadVariable using
+            the same two literal-assignment idioms Get-PfbWireNameForParameter already
+            recognizes: `$var['key'] = ...` (index form) vs. `$var = @{ 'key' = ... }`
+            (hashtable-literal-initializer form, counted only when it declares at least ONE
+            key/value pair -- an EMPTY `$var = @{}` bootstrap is the standard first line of
+            the INDEX idiom too and must not be miscounted as 'literal'). Whichever has MORE
+            occurrences in this function wins; a single non-empty literal initializer (even
+            with zero further index-form assignments after it) still counts as 'literal',
+            since it establishes every key at once. 'unknown' when PayloadVariable resolved
+            but this function contains no assignment into it at all (e.g. populated by a
+            private helper this AST-only inspector does not trace) -- surfaced rather than
+            guessed, per this file's "never guess" convention.
+        ParamBlockLine is the line of the LAST existing parameter in the param() block (or
+        the block's own opening line if it declares none) -- inserting a new parameter
+        after that line keeps it inside the existing block, below whatever
+        identity/ParameterSet parameters the cmdlet already declares, matching every
+        hand-written cmdlet in this module.
+        HasAttributes reuses the exact detection Get-PfbCmdletParameterInventory already
+        uses (`$_.Name.VariablePath.UserPath -eq 'Attributes'`), so this never disagrees
+        with the cmdlet-inventory's own AttributesOnly/EscapeHatchOnly classification.
+    .OUTPUTS
+        [PSCustomObject]@{ ParamBlockLine; PayloadVariable; AssignmentStyle; HasAttributes }
+        -- $null if -FunctionAst has no param() block at all (a function with no
+        parameters cannot be an Invoke-PfbApiRequest-calling cmdlet in this module, so this
+        should not occur for any cmdlet name sourced from Get-PfbModuleCalledEndpoints).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Language.FunctionDefinitionAst]$FunctionAst
+    )
+
+    $paramBlock = $FunctionAst.Body.ParamBlock
+    if (-not $paramBlock) { return $null }
+
+    $hasAttributesParam = [bool]($paramBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'Attributes' })
+
+    $paramBlockLine = if ($paramBlock.Parameters.Count -gt 0) {
+        ($paramBlock.Parameters | Select-Object -Last 1).Extent.EndLineNumber
+    }
+    else {
+        $paramBlock.Extent.StartLineNumber
+    }
+
+    $bodyCalls = @($FunctionAst.FindAll({
+                param($n)
+                $n -is [System.Management.Automation.Language.CommandAst] -and
+                $n.GetCommandName() -eq 'Invoke-PfbApiRequest'
+            }, $true))
+
+    $bodyVarNames = [System.Collections.Generic.List[string]]::new()
+    foreach ($cmd in $bodyCalls) {
+        $elements = $cmd.CommandElements
+        for ($i = 0; $i -lt $elements.Count; $i++) {
+            $el = $elements[$i]
+            if ($el -isnot [System.Management.Automation.Language.CommandParameterAst]) { continue }
+            if ($el.ParameterName -ne 'Body') { continue }
+            $argExpr = if ($el.Argument) { $el.Argument } elseif ($i + 1 -lt $elements.Count) { $elements[$i + 1] } else { $null }
+            $argVar = $argExpr -as [System.Management.Automation.Language.VariableExpressionAst]
+            if ($argVar) { $bodyVarNames.Add($argVar.VariablePath.UserPath) }
+        }
+    }
+    $distinctBodyVars = @($bodyVarNames | Select-Object -Unique)
+    $payloadVariable = if ($distinctBodyVars.Count -eq 1) { $distinctBodyVars[0] } else { $null }
+
+    $assignmentStyle = $null
+    if ($payloadVariable -eq 'Attributes') {
+        $assignmentStyle = 'attributesOnly'
+    }
+    elseif ($payloadVariable) {
+        $indexAssignments = @($FunctionAst.FindAll({
+                    param($n)
+                    $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+                    $n.Left -is [System.Management.Automation.Language.IndexExpressionAst] -and
+                    ($n.Left.Target -as [System.Management.Automation.Language.VariableExpressionAst]) -and
+                    ($n.Left.Target).VariablePath.UserPath -eq $payloadVariable
+                }, $true))
+
+        $literalCandidates = @($FunctionAst.FindAll({
+                    param($n)
+                    $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+                    $n.Left -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                    $n.Left.VariablePath.UserPath -eq $payloadVariable
+                }, $true))
+        # An EMPTY hashtable-literal bootstrap (`$body = @{}`) does not count as 'literal'
+        # style -- it establishes zero keys and is the standard first line of the 'index'
+        # idiom too (`$body = @{}` followed by `$body['x'] = ...`). Only a literal that
+        # actually declares at least one key/value pair reflects the "establish every key
+        # at once" convention this style name describes.
+        $literalAssignments = @($literalCandidates | Where-Object {
+                $hash = (Resolve-PfbSingleExpression -Ast $_.Right) -as [System.Management.Automation.Language.HashtableAst]
+                $hash -and $hash.KeyValuePairs.Count -gt 0
+            })
+
+        # A genuine TIE (indexAssignments.Count -eq literalAssignments.Count, both > 0)
+        # falls through to this 'literal' branch silently -- there is no distinct 'tie'
+        # outcome. Measured across the real high-confidence gap population: 274
+        # attributesOnly / 95 unknown / 25 index / 1 literal / 7 unresolved, i.e. a true
+        # tie is essentially unreachable in practice today. That is a measured-safe
+        # observation about current data, not a design guarantee -- a future cmdlet could
+        # legitimately produce a tie, and it would resolve to 'literal' without any flag
+        # that the detection was actually ambiguous.
+        if ($indexAssignments.Count -gt $literalAssignments.Count) { $assignmentStyle = 'index' }
+        elseif ($literalAssignments.Count -gt 0) { $assignmentStyle = 'literal' }
+        else { $assignmentStyle = 'unknown' }
+    }
+
+    return [PSCustomObject]@{
+        ParamBlockLine  = $paramBlockLine
+        PayloadVariable = $payloadVariable
+        AssignmentStyle = $assignmentStyle
+        HasAttributes   = $hasAttributesParam
+    }
+}
+
 function Get-PfbCmdletParameterInventory {
     <#
     .SYNOPSIS
         Inventories every typed parameter (excluding -Array/-Attributes themselves)
         across every function defined under -PublicDirectory.
     .OUTPUTS
-        [PSCustomObject]@{ File; Cmdlet; Parameter; HasValidateSet; ValidateSetValues;
+        [PSCustomObject]@{ File; Line; Cmdlet; Parameter; HasValidateSet; ValidateSetValues;
         WireName; Surface; Endpoint; Method }
 
         Endpoint/Method are $null unless the parameter's wire-name assignment resolved
         to exactly one Invoke-PfbApiRequest call's endpoint (see
         Get-PfbEndpointForVariable) -- never guessed.
+
+        Line is the parameter's own declaration line ($p.Extent.StartLineNumber),
+        alongside the File it already carried -- so a consumer reporting on a
+        non-'Typed' Surface (Get-PfbParameterCoverageGaps's `confidence.unresolvedParameters`
+        in tools/lib/PfbApiDriftTools.ps1) can point a reader at an exact file:line rather
+        than making them search the whole file for the parameter name.
     #>
     [CmdletBinding()]
     param(
@@ -792,6 +934,7 @@ function Get-PfbCmdletParameterInventory {
 
                 $results.Add([PSCustomObject]@{
                     File              = $file.FullName
+                    Line              = $p.Extent.StartLineNumber
                     Cmdlet            = $funcAst.Name
                     Parameter         = $paramName
                     HasValidateSet    = [bool]$validateSetValues

@@ -148,6 +148,457 @@ Describe 'Build-PfbCapabilityMap: manifest shape' -Skip:($PSVersionTable.PSVersi
     }
 }
 
+Describe 'Build-PfbCapabilityMap: readOnly/deprecated last-seen-wins' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    BeforeAll {
+        New-Item -ItemType Directory -Path 'TestDrive:\roSpecs' -Force | Out-Null
+
+        # v9.0 (older): 'name' is readOnly, 'category' is writable. 'legacy-endpoint' exists
+        # with a readOnly 'oldFlag' and is REMOVED entirely from v9.1 (tests "endpoint
+        # disappears from later specs keeps its last-seen readOnly value"). No deprecated
+        # fields anywhere yet. GET /widgets has a $ref'd 'filter' query parameter.
+        $specV1 = [ordered]@{
+            openapi    = '3.0.1'
+            info       = @{ version = '9.0' }
+            paths      = [ordered]@{
+                '/api/9.0/widgets'          = [ordered]@{
+                    get   = @{
+                        parameters = @(@{ '$ref' = '#/components/parameters/Widget_filter' })
+                    }
+                    patch = @{
+                        requestBody = @{
+                            content = @{
+                                'application/json' = @{
+                                    schema = @{
+                                        type       = 'object'
+                                        properties = [ordered]@{
+                                            name     = @{ type = 'string'; readOnly = $true }
+                                            category = @{ type = 'string' }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                '/api/9.0/legacy-endpoint'  = [ordered]@{
+                    patch = @{
+                        requestBody = @{
+                            content = @{
+                                'application/json' = @{
+                                    schema = @{
+                                        type       = 'object'
+                                        properties = [ordered]@{
+                                            oldFlag = @{ type = 'string'; readOnly = $true }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            components = [ordered]@{
+                parameters = [ordered]@{
+                    Widget_filter = [ordered]@{ name = 'filter'; 'in' = 'query'; schema = @{ type = 'string' } }
+                }
+            }
+        }
+
+        # v9.1 (newer): 'name' flips to writable, 'category' flips to readOnly, and a brand
+        # new 'secretNote' field is deprecated. 'legacy-endpoint' is gone entirely.
+        $specV2 = [ordered]@{
+            openapi    = '3.0.1'
+            info       = @{ version = '9.1' }
+            paths      = [ordered]@{
+                '/api/9.1/widgets' = [ordered]@{
+                    get   = @{
+                        parameters = @(@{ '$ref' = '#/components/parameters/Widget_filter' })
+                    }
+                    patch = @{
+                        requestBody = @{
+                            content = @{
+                                'application/json' = @{
+                                    schema = @{
+                                        type       = 'object'
+                                        properties = [ordered]@{
+                                            name       = @{ type = 'string' }
+                                            category   = @{ type = 'string'; readOnly = $true }
+                                            secretNote = @{ type = 'string'; deprecated = $true }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            components = [ordered]@{
+                parameters = [ordered]@{
+                    Widget_filter = [ordered]@{ name = 'filter'; 'in' = 'query'; schema = @{ type = 'string' } }
+                }
+            }
+        }
+
+        $specV1 | ConvertTo-Json -Depth 20 | Set-Content -Path 'TestDrive:\roSpecs\fb9.0.json'
+        $specV2 | ConvertTo-Json -Depth 20 | Set-Content -Path 'TestDrive:\roSpecs\fb9.1.json'
+
+        & $builderScript -SpecsDirectory 'TestDrive:\roSpecs' -OutputPath 'TestDrive:\roOutput\manifest.json'
+        $script:roManifest = Get-Content -Path 'TestDrive:\roOutput\manifest.json' -Raw | ConvertFrom-Json -Depth 20
+    }
+
+    It 'the decision-1 regression: a field readOnly in the older version and writable in the newer ends up ABSENT from readOnlyBodyProperties' {
+        $roManifest.endpoints.'PATCH /widgets'.readOnlyBodyProperties | Should -Not -Contain 'name'
+    }
+
+    It 'the mirror case: a field writable in the older version and readOnly in the newer ends up PRESENT in readOnlyBodyProperties' {
+        $roManifest.endpoints.'PATCH /widgets'.readOnlyBodyProperties | Should -Contain 'category'
+    }
+
+    It 'an endpoint that disappears from later specs keeps its last-seen readOnlyBodyProperties value' {
+        $roManifest.endpoints.'PATCH /legacy-endpoint'.readOnlyBodyProperties | Should -Be @('oldFlag')
+    }
+
+    It 'omits deprecatedBodyProperties entirely when empty' {
+        $roManifest.endpoints.'PATCH /legacy-endpoint'.PSObject.Properties.Name | Should -Not -Contain 'deprecatedBodyProperties'
+    }
+
+    It 'includes deprecatedBodyProperties when non-empty' {
+        $roManifest.endpoints.'PATCH /widgets'.deprecatedBodyProperties | Should -Be @('secretNote')
+    }
+
+    It 'resolves a $ref-backed parameter to its component via the new parameterComponentDefaults table (single-component case: default is trivially that one component)' {
+        $roManifest.parameterComponentDefaults.filter | Should -Be 'Widget_filter'
+    }
+
+    It 'does NOT emit the old (pre-dedup) per-endpoint parameterComponents key' {
+        $roManifest.endpoints.'GET /widgets'.PSObject.Properties.Name | Should -Not -Contain 'parameterComponents'
+    }
+
+    It 'leaves the pre-existing minVersion/parameters/bodyProperties keys unaffected by the new keys' {
+        $entry = $roManifest.endpoints.'PATCH /widgets'
+        $entry.minVersion | Should -Be '9.0'
+        $entry.bodyProperties.name | Should -Be '9.0'
+        $entry.bodyProperties.category | Should -Be '9.0'
+        $entry.bodyProperties.secretNote | Should -Be '9.1'
+    }
+}
+
+Describe 'Build-PfbCapabilityMap: parameterComponentDefaults/Overrides' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    BeforeAll {
+        New-Item -ItemType Directory -Path 'TestDrive:\pcSpecs' -Force | Out-Null
+
+        # Single-version fixture (the dedup/defaults/overrides logic is a pure
+        # post-processing pass over each endpoint's already-resolved CURRENT
+        # parameterComponents state, which the readOnly/deprecated Describe block above
+        # already separately proves is last-seen-wins across versions -- no need to
+        # duplicate that here).
+        #
+        # 'region' is declared via $ref on 3 endpoints (majority component 'Region' on
+        # alpha+bravo, minority 'RegionAlt' on charlie -- NOT a tie, so this proves plain
+        # frequency-based selection) and declared INLINE (no $ref at all) on 'delta' --
+        # this is the explicit-null-override case: 'region' has a global default from
+        # other endpoints, so delta's inline (component-less) 'region' must get an
+        # explicit null override, or it would silently inherit that unrelated default.
+        #
+        # 'sortkey' is declared via $ref on exactly 2 endpoints with two DIFFERENT
+        # components used exactly once each (alpha -> component 'SortKeyBeta', echo ->
+        # component 'SortKeyAlpha') -- an exact 1-1 tie, proving the alphabetical
+        # tie-break ('SortKeyAlpha' < 'SortKeyBeta').
+        $spec = [ordered]@{
+            openapi    = '3.0.1'
+            info       = @{ version = '9.0' }
+            paths      = [ordered]@{
+                '/api/9.0/alpha'   = [ordered]@{
+                    get = @{
+                        parameters = @(
+                            @{ '$ref' = '#/components/parameters/Region' }
+                            @{ '$ref' = '#/components/parameters/SortKeyBeta' }
+                        )
+                    }
+                }
+                '/api/9.0/bravo'   = [ordered]@{
+                    get = @{ parameters = @(@{ '$ref' = '#/components/parameters/Region' }) }
+                }
+                '/api/9.0/charlie' = [ordered]@{
+                    get = @{ parameters = @(@{ '$ref' = '#/components/parameters/RegionAlt' }) }
+                }
+                '/api/9.0/delta'   = [ordered]@{
+                    # 'region' declared INLINE -- no "$ref", so no component at all.
+                    get = @{
+                        parameters = @(@{ name = 'region'; 'in' = 'query'; schema = @{ type = 'string' } })
+                    }
+                }
+                '/api/9.0/echo'    = [ordered]@{
+                    get = @{ parameters = @(@{ '$ref' = '#/components/parameters/SortKeyAlpha' }) }
+                }
+            }
+            components = [ordered]@{
+                parameters = [ordered]@{
+                    Region       = [ordered]@{ name = 'region'; 'in' = 'query'; schema = @{ type = 'string' } }
+                    RegionAlt    = [ordered]@{ name = 'region'; 'in' = 'query'; schema = @{ type = 'string' } }
+                    SortKeyBeta  = [ordered]@{ name = 'sortkey'; 'in' = 'query'; schema = @{ type = 'string' } }
+                    SortKeyAlpha = [ordered]@{ name = 'sortkey'; 'in' = 'query'; schema = @{ type = 'string' } }
+                }
+            }
+        }
+        $spec | ConvertTo-Json -Depth 20 | Set-Content -Path 'TestDrive:\pcSpecs\fb9.0.json'
+
+        & $builderScript -SpecsDirectory 'TestDrive:\pcSpecs' -OutputPath 'TestDrive:\pcOutput\manifest.json'
+        $script:pcManifest = Get-Content -Path 'TestDrive:\pcOutput\manifest.json' -Raw | ConvertFrom-Json -Depth 20
+
+        # The known-correct (endpoint, param) -> component ground truth, from the fixture
+        # above, used by the round-trip test. $null means "no component" (delta/region).
+        $script:pcExpectedPairs = [ordered]@{
+            'GET /alpha|region'    = 'Region'
+            'GET /alpha|sortkey'   = 'SortKeyBeta'
+            'GET /bravo|region'    = 'Region'
+            'GET /charlie|region'  = 'RegionAlt'
+            'GET /delta|region'    = $null
+            'GET /echo|sortkey'    = 'SortKeyAlpha'
+        }
+    }
+
+    It 'picks the most frequent component as the default (region: 2x Region vs 1x RegionAlt)' {
+        $pcManifest.parameterComponentDefaults.region | Should -Be 'Region'
+    }
+
+    It 'breaks an exact frequency tie alphabetically (sortkey: 1x SortKeyAlpha vs 1x SortKeyBeta)' {
+        $pcManifest.parameterComponentDefaults.sortkey | Should -Be 'SortKeyAlpha'
+    }
+
+    It 'sorts parameterComponentDefaults keys' {
+        $keys = $pcManifest.parameterComponentDefaults.PSObject.Properties.Name
+        $keys | Should -Be ($keys | Sort-Object)
+    }
+
+    It 'omits an endpoint from parameterComponentOverrides when its component matches the default' {
+        $pcManifest.endpoints.'GET /bravo'.PSObject.Properties.Name | Should -Not -Contain 'parameterComponentOverrides'
+        $pcManifest.endpoints.'GET /echo'.PSObject.Properties.Name | Should -Not -Contain 'parameterComponentOverrides'
+    }
+
+    It 'records a non-default component as an override' {
+        $pcManifest.endpoints.'GET /charlie'.parameterComponentOverrides.region | Should -Be 'RegionAlt'
+        $pcManifest.endpoints.'GET /alpha'.parameterComponentOverrides.sortkey | Should -Be 'SortKeyBeta'
+    }
+
+    It 'does NOT override alpha''s region (it matches the default, only its sortkey differs)' {
+        $pcManifest.endpoints.'GET /alpha'.parameterComponentOverrides.PSObject.Properties.Name | Should -Not -Contain 'region'
+    }
+
+    It 'the decision-1-style regression: an inline (no $ref) parameter whose name has a global default gets an explicit JSON null override, not silence' {
+        $entry = $pcManifest.endpoints.'GET /delta'
+        $entry.PSObject.Properties.Name | Should -Contain 'parameterComponentOverrides'
+        $entry.parameterComponentOverrides.PSObject.Properties.Name | Should -Contain 'region'
+        $entry.parameterComponentOverrides.region | Should -BeNullOrEmpty
+    }
+
+    It 'round-trips: reconstructing every (endpoint, param) -> component from defaults + overrides reproduces the fixture exactly (same pairs, same values, no additions, no losses)' {
+        $reconstructed = [ordered]@{}
+        foreach ($epName in $pcManifest.endpoints.PSObject.Properties.Name) {
+            $ep = $pcManifest.endpoints.$epName
+            $overrides = $ep.parameterComponentOverrides
+            $paramNames = $ep.parameters.PSObject.Properties.Name
+            foreach ($paramName in $paramNames) {
+                $key = "$epName|$paramName"
+                if ($overrides -and ($overrides.PSObject.Properties.Name -contains $paramName)) {
+                    # An explicit override -- which may itself be JSON null, meaning "no
+                    # component" -- always wins over the default.
+                    $reconstructed[$key] = $overrides.$paramName
+                }
+                elseif ($pcManifest.parameterComponentDefaults.PSObject.Properties.Name -contains $paramName) {
+                    $reconstructed[$key] = $pcManifest.parameterComponentDefaults.$paramName
+                }
+                else {
+                    $reconstructed[$key] = $null
+                }
+            }
+        }
+
+        # Only compare the pairs this fixture actually declares a component-bearing
+        # parameter for (pcExpectedPairs) -- every one must reconstruct to the exact same
+        # value, with no extra keys and no missing keys.
+        foreach ($key in $pcExpectedPairs.Keys) {
+            $reconstructed.Contains($key) | Should -BeTrue -Because "reconstructed set is missing '$key'"
+            $reconstructed[$key] | Should -Be $pcExpectedPairs[$key] -Because "'$key' should reconstruct to '$($pcExpectedPairs[$key])'"
+        }
+        ($reconstructed.Keys | Sort-Object) | Should -Be ($pcExpectedPairs.Keys | Sort-Object) -Because 'no additional or missing (endpoint, param) pairs vs. the fixture ground truth'
+    }
+
+    It 'never leaves the internal _currentParamComponents/_currentParamsWithoutComponent bookkeeping keys in the final serialized manifest' {
+        # These two keys are used internally to compute parameterComponentDefaults/
+        # Overrides above, then removed before the manifest is written -- this fixture
+        # exercises exactly that code path (region/sortkey components), so it is a real
+        # assertion, not a vacuous one.
+        $pcManifestRaw = Get-Content -Path 'TestDrive:\pcOutput\manifest.json' -Raw
+        $pcManifestRaw | Should -Not -Match '_currentParamComponents'
+        $pcManifestRaw | Should -Not -Match '_currentParamsWithoutComponent'
+
+        foreach ($epName in $pcManifest.endpoints.PSObject.Properties.Name) {
+            $propNames = $pcManifest.endpoints.$epName.PSObject.Properties.Name
+            $propNames | Should -Not -Contain '_currentParamComponents'
+            $propNames | Should -Not -Contain '_currentParamsWithoutComponent'
+        }
+    }
+
+    # Regression for the hashtable .Count-shadowing bug class: 'count' is a REAL
+    # query-parameter name in this API (parameterComponentDefaults.count = 'Ping_count' in
+    # the committed manifest). A key literally named 'count' inside the per-endpoint
+    # $overrides ordered hashtable shadows the .Count MEMBER -- it returns that key's
+    # VALUE instead of the number of entries -- which is exactly why the script uses
+    # get_Count()/get_Keys() defensively elsewhere in this same function. This fixture
+    # forces that shape directly: 'alpha'/'bravo' establish 'Count' as the global default
+    # component for parameter name 'count', and 'charlie' declares 'count' INLINE (no
+    # $ref, so no component) -- so charlie's ONLY override entry is { count = $null },
+    # the worst case for the shadowing bug: $null -gt 0 is False, so a buggy
+    # `$overrides.Count -gt 0` guard would silently skip attaching
+    # parameterComponentOverrides to charlie at all, even though a real override exists.
+    Context 'hashtable .Count shadowing regression (override key literally "count")' {
+        BeforeAll {
+            New-Item -ItemType Directory -Path 'TestDrive:\pcSpecsCount' -Force | Out-Null
+
+            $specCount = [ordered]@{
+                openapi    = '3.0.1'
+                info       = @{ version = '9.0' }
+                paths      = [ordered]@{
+                    '/api/9.0/alpha'   = [ordered]@{
+                        get = @{ parameters = @(@{ '$ref' = '#/components/parameters/Count' }) }
+                    }
+                    '/api/9.0/bravo'   = [ordered]@{
+                        get = @{ parameters = @(@{ '$ref' = '#/components/parameters/Count' }) }
+                    }
+                    '/api/9.0/charlie' = [ordered]@{
+                        # 'count' declared INLINE -- no "$ref", so no component at all.
+                        get = @{
+                            parameters = @(@{ name = 'count'; 'in' = 'query'; schema = @{ type = 'integer' } })
+                        }
+                    }
+                }
+                components = [ordered]@{
+                    parameters = [ordered]@{
+                        Count = [ordered]@{ name = 'count'; 'in' = 'query'; schema = @{ type = 'integer' } }
+                    }
+                }
+            }
+            $specCount | ConvertTo-Json -Depth 20 | Set-Content -Path 'TestDrive:\pcSpecsCount\fb9.0.json'
+
+            & $builderScript -SpecsDirectory 'TestDrive:\pcSpecsCount' -OutputPath 'TestDrive:\pcOutputCount\manifest.json'
+            $script:pcCountManifest = Get-Content -Path 'TestDrive:\pcOutputCount\manifest.json' -Raw | ConvertFrom-Json -Depth 20
+        }
+
+        It 'establishes Count as the global default for parameter name "count"' {
+            $pcCountManifest.parameterComponentDefaults.count | Should -Be 'Count'
+        }
+
+        It 'does NOT silently drop parameterComponentOverrides on the endpoint whose only override key is literally "count"' {
+            $entry = $pcCountManifest.endpoints.'GET /charlie'
+            $entry.PSObject.Properties.Name | Should -Contain 'parameterComponentOverrides'
+        }
+
+        It 'records an explicit null override for the inline "count" parameter, not silence' {
+            $entry = $pcCountManifest.endpoints.'GET /charlie'
+            $entry.parameterComponentOverrides.PSObject.Properties.Name | Should -Contain 'count'
+            $entry.parameterComponentOverrides.count | Should -BeNullOrEmpty
+        }
+    }
+}
+
+Describe 'Build-PfbCapabilityMap: -MaxVersion cap' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    BeforeAll {
+        New-Item -ItemType Directory -Path 'TestDrive:\capSpecs' -Force | Out-Null
+
+        $specV1 = [ordered]@{
+            openapi = '3.0.1'
+            info    = @{ version = '9.0' }
+            paths   = [ordered]@{ '/api/9.0/widgets' = [ordered]@{ get = @{} } }
+        }
+        $specV2 = [ordered]@{
+            openapi = '3.0.1'
+            info    = @{ version = '9.1' }
+            paths   = [ordered]@{ '/api/9.1/widgets' = [ordered]@{ get = @{} } }
+        }
+        # A newer version that must be excluded by the cap -- adds a brand-new endpoint.
+        $specV3 = [ordered]@{
+            openapi = '3.0.1'
+            info    = @{ version = '9.2' }
+            paths   = [ordered]@{
+                '/api/9.2/widgets'  = [ordered]@{ get = @{} }
+                '/api/9.2/newthing' = [ordered]@{ get = @{} }
+            }
+        }
+
+        $specV1 | ConvertTo-Json -Depth 20 | Set-Content -Path 'TestDrive:\capSpecs\fb9.0.json'
+        $specV2 | ConvertTo-Json -Depth 20 | Set-Content -Path 'TestDrive:\capSpecs\fb9.1.json'
+        $specV3 | ConvertTo-Json -Depth 20 | Set-Content -Path 'TestDrive:\capSpecs\fb9.2.json'
+
+        & $builderScript -SpecsDirectory 'TestDrive:\capSpecs' -OutputPath 'TestDrive:\capOutput\manifest.json' -MaxVersion '9.1'
+        $script:capManifest = Get-Content -Path 'TestDrive:\capOutput\manifest.json' -Raw | ConvertFrom-Json -Depth 20
+    }
+
+    It 'excludes a cached spec newer than -MaxVersion from generatedFrom' {
+        $capManifest.generatedFrom | Should -Be @('9.0', '9.1')
+    }
+
+    It 'excludes an endpoint that only exists in a version newer than -MaxVersion' {
+        $capManifest.endpoints.PSObject.Properties.Name | Should -Not -Contain 'GET /newthing'
+    }
+
+    It 'still includes endpoints from versions at or below -MaxVersion' {
+        $capManifest.endpoints.PSObject.Properties.Name | Should -Contain 'GET /widgets'
+    }
+
+    # The 9.0/9.1/9.2 fixture above cannot distinguish a correct numeric Major/Minor
+    # comparison from a buggy string comparison, because single-digit minors sort
+    # identically either way. '2.9' vs '2.10' do NOT: '2.9' sorts ABOVE '2.10' as a
+    # string (since '9' > '1' lexically) but numerically 2.9 < 2.10. This exact string-
+    # vs-numeric confusion has bitten this effort twice already (see the script's own
+    # -MaxVersion parameter help), so it needs its own regression case distinct from the
+    # coarser 9.0/9.1/9.2 test above.
+    Context 'numeric vs. string comparison (2.9 vs 2.10)' {
+        BeforeAll {
+            New-Item -ItemType Directory -Path 'TestDrive:\capSpecsNumeric' -Force | Out-Null
+
+            $specNumericV1 = [ordered]@{
+                openapi = '3.0.1'
+                info    = @{ version = '2.9' }
+                paths   = [ordered]@{ '/api/2.9/alpha' = [ordered]@{ get = @{} } }
+            }
+            # A newer minor version that a string compare would wrongly treat as OLDER
+            # than 2.9 (because '2.10' < '2.9' lexically) and therefore wrongly include
+            # under -MaxVersion '2.9'. A correct numeric compare must exclude it.
+            $specNumericV2 = [ordered]@{
+                openapi = '3.0.1'
+                info    = @{ version = '2.10' }
+                paths   = [ordered]@{
+                    '/api/2.10/alpha'     = [ordered]@{ get = @{} }
+                    '/api/2.10/newnumeric' = [ordered]@{ get = @{} }
+                }
+            }
+
+            $specNumericV1 | ConvertTo-Json -Depth 20 | Set-Content -Path 'TestDrive:\capSpecsNumeric\fb2.9.json'
+            $specNumericV2 | ConvertTo-Json -Depth 20 | Set-Content -Path 'TestDrive:\capSpecsNumeric\fb2.10.json'
+
+            & $builderScript -SpecsDirectory 'TestDrive:\capSpecsNumeric' -OutputPath 'TestDrive:\capOutputNumeric\manifest.json' -MaxVersion '2.9'
+            $script:capManifestNumeric = Get-Content -Path 'TestDrive:\capOutputNumeric\manifest.json' -Raw | ConvertFrom-Json -Depth 20
+        }
+
+        It 'includes 2.9 in generatedFrom' {
+            $capManifestNumeric.generatedFrom | Should -Contain '2.9'
+        }
+
+        It 'excludes 2.10 from generatedFrom even though it sorts below "2.9" as a string' {
+            $capManifestNumeric.generatedFrom | Should -Not -Contain '2.10'
+        }
+
+        It 'excludes an endpoint that only exists in 2.10' {
+            $capManifestNumeric.endpoints.PSObject.Properties.Name | Should -Not -Contain 'GET /newnumeric'
+        }
+
+        It 'still includes an endpoint present at or below the 2.9 cap' {
+            $capManifestNumeric.endpoints.PSObject.Properties.Name | Should -Contain 'GET /alpha'
+        }
+    }
+}
+
 Describe 'Real committed capability map (skips gracefully if not yet generated)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
     BeforeAll {
         $repoRoot = Split-Path -Parent $PSScriptRoot
