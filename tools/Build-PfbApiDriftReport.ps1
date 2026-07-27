@@ -307,8 +307,22 @@ $canEnrichBodyProperties = [bool]$newestSpec
 # continuation_token is reflected here automatically instead of silently going stale.
 $nonActionableParameters = Get-PfbNonActionableParameters -PrivateDirectory $PrivateDirectory
 
-$parameterGaps = @(Get-PfbParameterCoverageGaps -CapabilityMap $capabilityMap -CmdletInventory $inventory -CalledEndpoints $calledEndpoints -SinceVersion $SinceVersion -ExcludedFields $nonActionableParameters -CurrentSpecCapabilities $currentSpecCapabilities |
-    ForEach-Object {
+# Task 7: docs/drift-annotations.json -- Get-PfbDriftAnnotations returns $null gracefully
+# when the file is absent (never throws), so every Find-PfbDriftAnnotation lookup below
+# degrades to "no annotations" rather than failing report generation.
+$driftAnnotationsPath = Join-Path $repoRoot 'docs/drift-annotations.json'
+$driftAnnotations = Get-PfbDriftAnnotations -Path $driftAnnotationsPath
+
+# Captured as its own variable rather than piped straight into the ForEach-Object
+# projection below -- Task 6's Get-PfbSystemicGaps wiring and this task's own phantom-
+# field transparency count (further down) both need the SAME raw, pre-projection gap
+# objects Get-PfbParameterCoverageGaps returns. Calling the function twice for two
+# different purposes would risk the two views drifting apart if -SinceVersion/
+# -ExcludedFields ever diverged between call sites; capturing once and reusing avoids
+# that entirely.
+$parameterGapsRaw = @(Get-PfbParameterCoverageGaps -CapabilityMap $capabilityMap -CmdletInventory $inventory -CalledEndpoints $calledEndpoints -SinceVersion $SinceVersion -ExcludedFields $nonActionableParameters -CurrentSpecCapabilities $currentSpecCapabilities)
+
+$parameterGaps = @($parameterGapsRaw | ForEach-Object {
         $gapRaw = $_
         $endpointParts = $gapRaw.Endpoint -split ' ', 2
         $method = $endpointParts[0]
@@ -378,8 +392,112 @@ $parameterGaps = @(Get-PfbParameterCoverageGaps -CapabilityMap $capabilityMap -C
                 escapeHatchOnly      = @($gapRaw.Confidence.EscapeHatchOnly)
                 caveat               = $gapRaw.Confidence.Caveat
             }
+            # Task 7: endpoint-matched entries from docs/drift-annotations.json (e.g. the
+            # management-access-policies POST/PATCH/DELETE-403 liveTestingHazard note) --
+            # matchType 'field' annotations are surfaced separately, per-name, on
+            # `systemicGaps` below (Find-PfbDriftAnnotation -FieldName), not here.
+            annotations              = @(Find-PfbDriftAnnotation -Annotations $driftAnnotations -Endpoint $gapRaw.Endpoint | ForEach-Object {
+                    [ordered]@{ matchType = $_.matchType; match = $_.match; kind = $_.kind; note = $_.note; reference = $_.reference }
+                })
         }
     })
+
+# --- Task 6 wiring: systemic gaps + convention strength (this task's own job) ---
+# Aggregated ONLY over 'high'-confidence gaps: a 'partial'-confidence endpoint's gap lists
+# can contain false positives (an unresolved parameter may already cover the apparent gap
+# through a path this AST-only inventory can't see -- see Get-PfbParameterCoverageGaps's
+# own Confidence.Caveat), so folding it into a systemic FINDING would overstate a
+# confidence the endpoint's own row already warns against. This mirrors the precedent this
+# task's own pinned acceptance figures (context_names 253 / allow_errors 109) were
+# verified against in Tests/PfbApiDriftTools.Tests.ps1's 'Task 6 real-data acceptance
+# figures' Describe block -- reproducing those figures here requires the same filter.
+$highConfidenceGapsRaw = @($parameterGapsRaw | Where-Object { $_.Confidence.Level -eq 'high' })
+$systemicGapsRaw = @(Get-PfbSystemicGaps -Gaps $highConfidenceGapsRaw)
+
+$systemicGaps = @($systemicGapsRaw | ForEach-Object {
+        $finding = $_
+        [ordered]@{
+            name               = $finding.Name
+            endpointCount      = $finding.EndpointCount
+            queryEndpointCount = $finding.QueryEndpointCount
+            bodyEndpointCount  = $finding.BodyEndpointCount
+            endpoints          = @($finding.Endpoints)
+            # Task 6's acceptance criterion: "the systemic section shows context_names at
+            # its endpoint count with its annotation" -- matchType 'field' lookup by this
+            # finding's own Name (never $null; Find-PfbDriftAnnotation always returns []).
+            annotations        = @(Find-PfbDriftAnnotation -Annotations $driftAnnotations -FieldName $finding.Name | ForEach-Object {
+                    [ordered]@{ matchType = $_.matchType; match = $_.match; kind = $_.kind; note = $_.note; reference = $_.reference }
+                })
+        }
+    })
+
+# No cap on -Names: Get-PfbConventionStrength is a cheap per-name dictionary lookup against
+# a table built ONCE (Get-PfbWireNameCmdletCounts), so every systemic-gap name gets ranked
+# here -- nothing is silently dropped from this list. Re-sorted by CmdletCount descending
+# (Get-PfbConventionStrength itself preserves -Names' input order, ranking is this script's
+# own choice) since a mechanical batch-fix candidate (high CmdletCount, e.g. `names` at
+# 306) and an architectural gap (zero CmdletCount, e.g. `context_names`) are the two ends
+# of this ranking a reader most wants surfaced first/last.
+$conventionStrengthRaw = @(if ($systemicGapsRaw.Count -gt 0) { Get-PfbConventionStrength -CmdletInventory $inventory -Names @($systemicGapsRaw.Name) } else { @() })
+$conventionStrength = @($conventionStrengthRaw | Sort-Object -Property @{ Expression = 'CmdletCount'; Descending = $true }, Name |
+        ForEach-Object { [ordered]@{ name = $_.Name; cmdletCount = $_.CmdletCount; cmdlets = @($_.Cmdlets) } })
+
+# --- Task 7: phantom-field transparency ---
+# How many (endpoint, field) pairs were silently dropped from every gap list because
+# Get-PfbParameterCoverageGaps's own -CurrentSpecCapabilities phantom-field exclusion (see
+# that function's own .PARAMETER help) found them accumulated in the capability map but
+# absent from the newest ANALYSED spec (fb$newestAnalysedVersion.json) -- e.g. a field
+# withdrawn from the API after the version that first added it. Computed by calling the
+# SAME function a second time WITHOUT -CurrentSpecCapabilities (its own documented "safe
+# no-op default", i.e. no phantom filtering) and diffing the resulting (endpoint, list,
+# field) triples against $parameterGapsRaw (the real, phantom-filtered run) -- never a
+# re-derivation of the phantom-detection logic itself, so this can't silently drift from
+# what Get-PfbParameterCoverageGaps actually does.
+function Get-PfbGapFieldTripleSet {
+    <#
+    .SYNOPSIS
+        Internal helper: every "<endpoint>|<list>|<field>" triple across -Gaps (one of
+        Get-PfbParameterCoverageGaps's own raw outputs), used only to diff two runs of that
+        function (with vs. without -CurrentSpecCapabilities) for the phantom-field count
+        below. Not a general-purpose utility -- deliberately local to this script.
+    #>
+    param([object[]]$Gaps)
+    $set = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($g in $Gaps) {
+        foreach ($f in @($g.MissingQueryParameters)) { [void]$set.Add("$($g.Endpoint)|query|$f") }
+        foreach ($f in @($g.MissingBodyProperties)) { [void]$set.Add("$($g.Endpoint)|body|$f") }
+        foreach ($f in @($g.ReadOnlyFields)) { [void]$set.Add("$($g.Endpoint)|readOnly|$f") }
+    }
+    return $set
+}
+$parameterGapsRawUnfiltered = @(Get-PfbParameterCoverageGaps -CapabilityMap $capabilityMap -CmdletInventory $inventory -CalledEndpoints $calledEndpoints -SinceVersion $SinceVersion -ExcludedFields $nonActionableParameters)
+$phantomFilteredTripleSet = Get-PfbGapFieldTripleSet -Gaps $parameterGapsRaw
+$phantomUnfilteredTripleSet = Get-PfbGapFieldTripleSet -Gaps $parameterGapsRawUnfiltered
+$phantomFieldCount = @($phantomUnfilteredTripleSet | Where-Object { -not $phantomFilteredTripleSet.Contains($_) }).Count
+
+# --- Task 7: generatedFrom split ---
+# `generatedFrom` over-claimed what the report actually analysed: it was populated from the
+# tools/specs/ directory scan (Get-PfbValueEnumHistory's own $historyResult.ProcessedVersions),
+# not from Data/PfbCapabilityMap.json's OWN generatedFrom -- the versions that actually drive
+# every gap/phantom-field category above. The two are normally in step, which is why this
+# was invisible, but they are independent inputs that drift the moment specs are refreshed
+# without rebuilding the map (verified 2026-07-25 on bdf9d67: specs at 2.0-2.28, map still at
+# 2.0-2.27 -- the report would have claimed 2.28 coverage while analysing nothing from it).
+# Emitted as two separate, distinctly-named keys instead of one ambiguous `generatedFrom`:
+#   - analysedVersions:      $CapabilityMap.generatedFrom -- what every gap category (and
+#     the phantom-field filter above) is actually scoped against.
+#   - availableSpecVersions: $historyResult.ProcessedVersions -- every spec on disk under
+#     -SpecsDirectory, which Task 5's enum join and category 3 (ValidateSet drift) DO read
+#     fresher-than-analysedVersions data from (see $historyResult's own construction
+#     comment above) -- so this fact stays load-bearing, never silently dropped.
+$analysedVersions = @($capabilityMap.generatedFrom)
+$availableSpecVersions = @($historyResult.ProcessedVersions)
+$versionDiffCount = @(Compare-Object -ReferenceObject $analysedVersions -DifferenceObject $availableSpecVersions).Count
+$versionSetsDiverge = $versionDiffCount -gt 0
+$versionDivergenceWarning = if ($versionSetsDiverge) {
+    "analysedVersions ($($analysedVersions.Count) versions, through $($analysedVersions[-1])) and availableSpecVersions ($($availableSpecVersions.Count) versions, through $($availableSpecVersions[-1])) disagree -- rebuild Data/PfbCapabilityMap.json (tools/Build-PfbCapabilityMap.ps1) to bring the analysed set back in step with the specs on disk. Every gap/phantom-field/systemic-gap category in this report is scoped to analysedVersions; validateSetDrift and newValidateSetCandidates (Task 5's enum join) use availableSpecVersions, the fresher on-disk set."
+}
+else { $null }
 
 # --- Category 3 ---
 # $historyResult was computed earlier (before category 1) so category 2's enrichment above
@@ -404,10 +522,18 @@ $newValidateSetCandidates = @($fieldCmdletMap.entries | Where-Object { $_.status
 
 $manifest = [ordered]@{
     schemaVersion             = 1
-    generatedFrom             = $historyResult.ProcessedVersions
+    # See the generatedFrom-split block above: two distinctly-named keys instead of one
+    # ambiguous `generatedFrom`, plus a warning (never $null-vs-absent-silent) when they
+    # disagree.
+    analysedVersions          = $analysedVersions
+    availableSpecVersions     = $availableSpecVersions
+    versionDivergenceWarning  = $versionDivergenceWarning
     sinceVersion              = if ($SinceVersion) { $SinceVersion } else { $null }
+    phantomFieldCount         = $phantomFieldCount
     uncoveredEndpoints        = $uncoveredEndpoints
     parameterGaps             = $parameterGaps
+    systemicGaps              = $systemicGaps
+    conventionStrength        = $conventionStrength
     validateSetDrift          = $validateSetDrift
     newValidateSetCandidates  = $newValidateSetCandidates
 }
@@ -416,10 +542,14 @@ $outputDir = Split-Path -Parent $OutputPath
 if (-not (Test-Path $outputDir)) { New-Item -ItemType Directory -Path $outputDir -Force | Out-Null }
 $manifest | ConvertTo-Json -Depth 20 | Set-Content -Path $OutputPath -Encoding UTF8
 
+# --- Markdown report ---
+# Section order (this task's brief): How to read this report -> Summary -> Systemic gaps
+# -> Parameter gaps (query/body as separate columns) -> Read-only fields (not addressable)
+# -> Uncovered endpoints -> ValidateSet drift -> New ValidateSet candidates.
 $mdLines = [System.Collections.Generic.List[string]]::new()
 $mdLines.Add('# API Drift Report')
 $mdLines.Add('')
-$mdLines.Add("Generated by ``tools/Build-PfbApiDriftReport.ps1`` ($($historyResult.ProcessedVersions.Count) REST versions).")
+$mdLines.Add("Generated by ``tools/Build-PfbApiDriftReport.ps1`` ($($analysedVersions.Count) analysed REST versions; $($availableSpecVersions.Count) available on disk under ``tools/specs/``).")
 $mdLines.Add('')
 $mdLines.Add('Reporting only -- no `Public/` cmdlet is edited by this script.')
 $mdLines.Add('')
@@ -427,27 +557,64 @@ if ($SinceVersion) {
     $mdLines.Add("Uncovered endpoints and parameter gaps are filtered to items introduced after REST $SinceVersion. ValidateSet drift and new ValidateSet candidates are not filtered (no per-value introduced-version data to filter on).")
     $mdLines.Add('')
 }
+if ($versionSetsDiverge) {
+    $mdLines.Add("**Warning:** $versionDivergenceWarning")
+    $mdLines.Add('')
+}
 $partialConfidenceCount = @($parameterGaps | Where-Object { $_.confidence.level -eq 'partial' }).Count
 
-$mdLines.Add('## Summary')
+# "How to read this report" -- the decision-6 false-positive procedure, verbatim (see
+# docs/superpowers/plans/drift-report-readonly-deprecated-fix-brief.md lines 249-283).
+$mdLines.Add('## How to read this report')
 $mdLines.Add('')
+$mdLines.Add('This report accepts **false positives in order to eliminate false negatives**. A field is listed as missing even though the module can already set it, when a parameter covering it could not be traced to a wire name.')
+$mdLines.Add('')
+$mdLines.Add('**Detection.** Only possible where `confidence.level` is `partial`. When it is `high` (`unresolvedParameters` empty), the row carries no false-positive risk from this mechanism.')
+$mdLines.Add('')
+$mdLines.Add('**Resolution procedure:**')
+$mdLines.Add('1. Open the named parameter at the given `file:line` and follow where its value goes.')
+$mdLines.Add('2. If it reaches the wire under the same name as the reported gap -> the gap is a false positive AND a tooling bug: the parser does not recognise that idiom. File it as a parser gap and fix the parser.')
+$mdLines.Add('3. If it reaches the wire under a different name -> the reported gap may still be real; check that field against the spec.')
+$mdLines.Add('4. If it never reaches the wire -> the gap is real.')
+$mdLines.Add('')
+$mdLines.Add('**Why this trade is right:** a false positive costs a reader one `file:line` lookup; a false negative costs an undetected gap indefinitely. Every false positive here is a parser-gap detector -- it either fixes the tool permanently for every endpoint, or confirms a real gap.')
+
+$mdLines.Add(''); $mdLines.Add('## Summary'); $mdLines.Add('')
 $mdLines.Add("- Uncovered endpoints: $($uncoveredEndpoints.Count)")
 $mdLines.Add("- Endpoints with parameter gaps: $($parameterGaps.Count)")
-$mdLines.Add("- Missing query parameters: $((@($parameterGaps.missingQueryParameters) | Measure-Object).Count)")
 $mdLines.Add("- Missing body properties (addable): $((@($parameterGaps.missingBodyProperties) | Measure-Object).Count)")
-$mdLines.Add("- Read-only body fields (not addable): $((@($parameterGaps.readOnlyFields) | Measure-Object).Count)")
-$mdLines.Add("- Partial-confidence endpoints (has attributes/unresolved surface -- see each row's ``confidence``): $partialConfidenceCount")
+$mdLines.Add("- Missing query parameters (addable): $((@($parameterGaps.missingQueryParameters) | Measure-Object).Count)")
+$mdLines.Add("- Read-only body fields (not addable -- see the Read-only fields section below): $((@($parameterGaps.readOnlyFields) | Measure-Object).Count)")
+$mdLines.Add("- Phantom fields silently excluded (accumulated in the capability map, absent from the newest analysed spec): $phantomFieldCount")
+$mdLines.Add("- Partial-confidence endpoints (see ``How to read this report`` above, and each row's marker in the Parameter gaps table): $partialConfidenceCount")
+$mdLines.Add("- Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): $($systemicGaps.Count)")
 $mdLines.Add("- ValidateSet drift: $($validateSetDrift.Count)")
 $mdLines.Add("- New ValidateSet candidates: $($newValidateSetCandidates.Count)")
 
-if ($uncoveredEndpoints.Count -gt 0) {
-    $mdLines.Add(''); $mdLines.Add('## Uncovered endpoints'); $mdLines.Add('')
-    $mdLines.Add('| Endpoint | Introduced in |'); $mdLines.Add('|---|---|')
-    foreach ($e in $uncoveredEndpoints) { $mdLines.Add("| ``$($e.endpoint)`` | $($e.minVersion) |") }
+if ($systemicGaps.Count -gt 0) {
+    $mdLines.Add(''); $mdLines.Add('## Systemic gaps'); $mdLines.Add('')
+    $mdLines.Add('One finding per distinct wire field name, collapsed across every endpoint where a high-confidence gap exists (decision 7) -- turns hundreds of per-endpoint rows into a handful of real, actionable decisions. "Cmdlets already using this name" is decision 8''s convention-strength ranking: a high count means closing the remaining gaps for this name is a mechanical batch fix; zero means no established convention exists to extend at all -- closing it is an architectural decision, not a mechanical one.')
+    $mdLines.Add('')
+    $systemicTopN = 25
+    $systemicShown = @($systemicGaps | Select-Object -First $systemicTopN)
+    if ($systemicGaps.Count -gt $systemicTopN) {
+        $mdLines.Add("Showing the top $systemicTopN of $($systemicGaps.Count) findings by endpoint count -- the full list is in the JSON manifest's ``systemicGaps``, nothing is dropped there.")
+        $mdLines.Add('')
+    }
+    $mdLines.Add('| Field name | Endpoints | Query | Body | Cmdlets already using this name | Annotation |'); $mdLines.Add('|---|---|---|---|---|---|')
+    foreach ($s in $systemicShown) {
+        $strength = $conventionStrength | Where-Object { $_.name -eq $s.name } | Select-Object -First 1
+        $cmdletCount = if ($strength) { $strength.cmdletCount } else { 0 }
+        $annotationNote = if (@($s.annotations).Count -gt 0) { ($s.annotations | ForEach-Object { $_.note }) -join '; ' } else { '' }
+        $mdLines.Add("| ``$($s.name)`` | $($s.endpointCount) | $($s.queryEndpointCount) | $($s.bodyEndpointCount) | $cmdletCount | $annotationNote |")
+    }
 }
+
 if ($parameterGaps.Count -gt 0) {
     $mdLines.Add(''); $mdLines.Add('## Parameter gaps'); $mdLines.Add('')
-    $mdLines.Add('| Endpoint | Cmdlets | Missing query parameters | Missing body properties | Read-only fields | Confidence |'); $mdLines.Add('|---|---|---|---|---|---|')
+    $mdLines.Add('Endpoints an existing cmdlet already calls, where the capability map knows of a query parameter or addable body property the cmdlet does not yet expose. Read-only fields (never addable, regardless of confidence) are reported separately below, never blended into either column here.')
+    $mdLines.Add('')
+    $mdLines.Add('| Endpoint | Cmdlets | Missing query parameters | Missing body properties | Confidence | Notes |'); $mdLines.Add('|---|---|---|---|---|---|')
     foreach ($g in $parameterGaps) {
         # missingBodyProperties is a MIX of bare strings (partial-confidence endpoints,
         # unchanged from before this task) and enriched [ordered]@{} records (high-confidence
@@ -455,8 +622,43 @@ if ($parameterGaps.Count -gt 0) {
         # back to the string itself; on an enriched record it reads the 'name' key. Either
         # way the Markdown table shows just the field name, never a stringified hashtable.
         $bodyPropNames = ($g.missingBodyProperties | ForEach-Object { if ($_ -is [string]) { $_ } else { $_.name } }) -join ', '
-        $mdLines.Add("| ``$($g.endpoint)`` | $($g.cmdlets -join ', ') | $($g.missingQueryParameters -join ', ') | $bodyPropNames | $($g.readOnlyFields -join ', ') | $($g.confidence.level) |")
+        $confidenceCell = if ($g.confidence.level -eq 'partial') {
+            $unresolvedCount = @($g.confidence.unresolvedParameters).Count
+            $plural = if ($unresolvedCount -eq 1) { '' } else { 's' }
+            "``partial`` -- /!\ $unresolvedCount unresolved param$plural (see Partial-confidence detail below)"
+        }
+        else { '`high`' }
+        $notes = if (@($g.annotations).Count -gt 0) { ($g.annotations | ForEach-Object { $_.note }) -join '; ' } else { '' }
+        $mdLines.Add("| ``$($g.endpoint)`` | $($g.cmdlets -join ', ') | $($g.missingQueryParameters -join ', ') | $bodyPropNames | $confidenceCell | $notes |")
     }
+
+    $partialGaps = @($parameterGaps | Where-Object { $_.confidence.level -eq 'partial' })
+    if ($partialGaps.Count -gt 0) {
+        $mdLines.Add(''); $mdLines.Add('### Partial-confidence detail'); $mdLines.Add('')
+        $mdLines.Add('Per the decision-6 procedure above: open each parameter at its `file:line` and follow where its value goes.')
+        $mdLines.Add('')
+        $mdLines.Add('| Endpoint | Parameter | Surface | File:Line | Caveat |'); $mdLines.Add('|---|---|---|---|---|')
+        foreach ($g in $partialGaps) {
+            foreach ($u in $g.confidence.unresolvedParameters) {
+                $mdLines.Add("| ``$($g.endpoint)`` | ``-$($u.parameter)`` | $($u.surface) | ``$($u.file):$($u.line)`` | $($g.confidence.caveat) |")
+            }
+        }
+    }
+}
+
+$readOnlyRows = @($parameterGaps | Where-Object { @($_.readOnlyFields).Count -gt 0 })
+if ($readOnlyRows.Count -gt 0) {
+    $mdLines.Add(''); $mdLines.Add('## Read-only fields (not addressable)'); $mdLines.Add('')
+    $mdLines.Add('The capability map knows these body properties exist, but the newest analysed spec marks them read-only -- no `Public/` cmdlet can ever set them, on any confidence level. Listed for completeness only; never merged into the Parameter gaps table above.')
+    $mdLines.Add('')
+    $mdLines.Add('| Endpoint | Cmdlets | Read-only fields |'); $mdLines.Add('|---|---|---|')
+    foreach ($g in $readOnlyRows) { $mdLines.Add("| ``$($g.endpoint)`` | $($g.cmdlets -join ', ') | $($g.readOnlyFields -join ', ') |") }
+}
+
+if ($uncoveredEndpoints.Count -gt 0) {
+    $mdLines.Add(''); $mdLines.Add('## Uncovered endpoints'); $mdLines.Add('')
+    $mdLines.Add('| Endpoint | Introduced in |'); $mdLines.Add('|---|---|')
+    foreach ($e in $uncoveredEndpoints) { $mdLines.Add("| ``$($e.endpoint)`` | $($e.minVersion) |") }
 }
 if ($validateSetDrift.Count -gt 0) {
     $mdLines.Add(''); $mdLines.Add('## ValidateSet drift'); $mdLines.Add('')
