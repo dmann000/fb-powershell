@@ -193,17 +193,39 @@ function Add-PfbSchemaPropertyNodes {
     .SYNOPSIS
         Internal recursive helper for Get-PfbSchemaPropertyWalkAccumulators. Not intended to
         be called directly. (Uses the "Add" verb, not "Get", because it returns nothing --
-        it mutates its two accumulator arguments in place.)
+        it mutates its three accumulator arguments in place.)
     .DESCRIPTION
         Resolves $ref/allOf chains at the *schema* level (exactly like the old
         Get-PfbSchemaPropertyNames did) and accumulates, per property name, the list of
         raw (NOT further $ref-resolved) property schema nodes seen for it, plus the union
-        of every visited schema node's own "required" array. Mutates the two accumulator
-        arguments in place; both are reference types (Dictionary/HashSet) so no [ref] is
+        of every visited schema node's own "required" array. Mutates the three accumulator
+        arguments in place; all are reference types (Dictionary/HashSet) so no [ref] is
         needed. $PropertyNodesByName's key ENUMERATION ORDER is first-seen/traversal order
         (insertion order on a Dictionary[TKey,TValue] with no removals) -- callers that care
         about ordering (Get-PfbSchemaPropertyNames does; Get-PfbSchemaPropertyDetails
         deliberately re-sorts instead) rely on that.
+
+        Owner tracking (feeds Get-PfbSchemaPropertyDetails's OwnerSchema field): as the
+        walk descends, -OwnerName carries "the nearest named component ($ref'd from
+        #/components/schemas/<Name>) enclosing the node currently being visited",
+        inherited unmodified across anonymous/inline allOf branches. Each call re-derives
+        its OWN local owner from $Node's OWN raw "$ref" (the ref this specific recursive
+        call was reached through) -- NOT from $resolved, and NOT by following anything
+        inside the resolved node's properties (that would revisit the PIN below at the
+        schema level instead of the property level, but the principle is the same: owner
+        comes from the chain being walked INTO, never from dereferencing further once
+        there). If $Node has no own "$ref", the inherited -OwnerName passes through
+        unchanged -- this is exactly "an anonymous inline branch is not an owner; its
+        properties belong to the nearest enclosing NAMED ancestor". Every property added
+        to $PropertyNodesByName at this call site is paired 1:1 (same list index) with the
+        local owner in $PropertyOwnersByName, a $null entry meaning "no named component
+        enclosed this declaration" (e.g. the operation's entire body schema is written
+        fully inline with no $ref anywhere in its chain). Because a node's own direct
+        "properties" are recorded before recursing into its "allOf" branches, and allOf
+        branches are visited in array order, the FIRST entry appended for a given property
+        name is always the OUTERMOST (closest-to-the-operation) declaration -- this is the
+        tie-break Get-PfbSchemaPropertyDetails uses for the rare case where more than one
+        named component in the chain declares the same property name.
     #>
     [CmdletBinding()]
     param(
@@ -221,10 +243,34 @@ function Add-PfbSchemaPropertyNodes {
 
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
-        [System.Collections.Generic.HashSet[string]]$RequiredNames
+        [System.Collections.Generic.HashSet[string]]$RequiredNames,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[object]]]$PropertyOwnersByName,
+
+        # Deliberately UNTYPED (not [string]) -- PowerShell's [string] type converter
+        # coerces a $null argument to '' on parameter binding even under [AllowNull()],
+        # which would silently destroy the null-vs-"" distinction this walk depends on
+        # (a bare `[AllowNull()][string]$OwnerName = $null` parameter is NEVER actually
+        # $null inside the function body; it is always at least ''). Leaving this
+        # untyped preserves a real $null all the way through the recursion.
+        [AllowNull()]
+        $OwnerName = $null
     )
 
     if ($null -eq $Node -or $MaxDepth -le 0) { return }
+
+    # The owner for THIS call's own directly-declared properties (and, unless overridden
+    # again deeper down, everything reached through its "allOf" branches): if $Node
+    # itself is a $ref to a named component (#/components/schemas/<Name>), that name
+    # wins; otherwise the owner inherited from the caller passes through unchanged.
+    # Deliberately inspects $Node (the raw, pre-resolution argument), never $resolved --
+    # see the .DESCRIPTION above and the PIN in Get-PfbSchemaPropertyDetails's help.
+    $ownerForThis = $OwnerName
+    if ($Node.PSObject.Properties.Name -contains '$ref' -and $Node.'$ref' -match '^#/components/schemas/(.+)$') {
+        $ownerForThis = $Matches[1]
+    }
 
     $resolved = Resolve-PfbRef -Node $Node -Spec $Spec
     if ($null -eq $resolved) { return }
@@ -237,17 +283,20 @@ function Add-PfbSchemaPropertyNodes {
         foreach ($propName in $resolved.properties.PSObject.Properties.Name) {
             if (-not $PropertyNodesByName.ContainsKey($propName)) {
                 $PropertyNodesByName[$propName] = [System.Collections.Generic.List[object]]::new()
+                $PropertyOwnersByName[$propName] = [System.Collections.Generic.List[object]]::new()
             }
             # Deliberately store the RAW property node (no Resolve-PfbRef here) -- see
             # the PIN in Get-PfbSchemaPropertyDetails's help for why.
             $PropertyNodesByName[$propName].Add($resolved.properties.$propName)
+            $PropertyOwnersByName[$propName].Add($ownerForThis)
         }
     }
 
     if ($resolved.PSObject.Properties.Name -contains 'allOf' -and $resolved.allOf) {
         foreach ($branch in $resolved.allOf) {
             Add-PfbSchemaPropertyNodes -Node $branch -Spec $Spec -MaxDepth ($MaxDepth - 1) `
-                -PropertyNodesByName $PropertyNodesByName -RequiredNames $RequiredNames
+                -PropertyNodesByName $PropertyNodesByName -RequiredNames $RequiredNames `
+                -PropertyOwnersByName $PropertyOwnersByName -OwnerName $ownerForThis
         }
     }
 }
@@ -255,7 +304,7 @@ function Add-PfbSchemaPropertyNodes {
 function Get-PfbSchemaPropertyWalkAccumulators {
     <#
     .SYNOPSIS
-        Internal: runs Add-PfbSchemaPropertyNodes once over $Schema and returns its two
+        Internal: runs Add-PfbSchemaPropertyNodes once over $Schema and returns its three
         accumulators. Not intended to be called directly.
     .DESCRIPTION
         Shared setup for both Get-PfbSchemaPropertyDetails (reports property DETAILS, sorted
@@ -266,8 +315,14 @@ function Get-PfbSchemaPropertyWalkAccumulators {
         two callers.
     .OUTPUTS
         [PSCustomObject]@{
-            PropertyNodesByName = Dictionary[string, List[object]]  # traversal order
-            RequiredNames       = HashSet[string]
+            PropertyNodesByName  = Dictionary[string, List[object]]  # traversal order
+            RequiredNames        = HashSet[string]
+            PropertyOwnersByName = Dictionary[string, List[object]]  # parallel to
+                                                                      # PropertyNodesByName;
+                                                                      # each entry is a
+                                                                      # nullable owner-name
+                                                                      # string, same index
+                                                                      # per occurrence.
         }
     #>
     [CmdletBinding()]
@@ -287,15 +342,18 @@ function Get-PfbSchemaPropertyWalkAccumulators {
     # shadow real member access on a Hashtable (a live bug elsewhere in this codebase).
     $propertyNodesByName = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[object]]]::new()
     $requiredNames = [System.Collections.Generic.HashSet[string]]::new()
+    $propertyOwnersByName = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[object]]]::new()
 
     if ($null -ne $Schema -and $MaxDepth -gt 0) {
         Add-PfbSchemaPropertyNodes -Node $Schema -Spec $Spec -MaxDepth $MaxDepth `
-            -PropertyNodesByName $propertyNodesByName -RequiredNames $requiredNames
+            -PropertyNodesByName $propertyNodesByName -RequiredNames $requiredNames `
+            -PropertyOwnersByName $propertyOwnersByName
     }
 
     return [PSCustomObject]@{
-        PropertyNodesByName = $propertyNodesByName
-        RequiredNames       = $requiredNames
+        PropertyNodesByName  = $propertyNodesByName
+        RequiredNames        = $requiredNames
+        PropertyOwnersByName = $propertyOwnersByName
     }
 }
 
@@ -303,7 +361,7 @@ function Get-PfbSchemaPropertyDetails {
     <#
     .SYNOPSIS
         Returns per-top-level-property schema details (ReadOnly, Deprecated, Type, Format,
-        Required) for a (possibly $ref'd / allOf'd) request-body schema.
+        Required, OwnerSchema) for a (possibly $ref'd / allOf'd) request-body schema.
     .DESCRIPTION
         Walks the same $ref/allOf resolution Get-PfbSchemaPropertyNames always has (the
         common "<Resource>Patch: allOf [BaseResource, {extra properties}]" pattern in these
@@ -332,9 +390,29 @@ function Get-PfbSchemaPropertyDetails {
         every visited node's own `required: [...]` array. Type/Format use the first
         non-null value encountered in traversal order. Verified: 0 real name collisions
         across allOf branches in all of fb2.27, so this only matters for a future spec.
+
+        OwnerSchema: the name of the nearest enclosing NAMED component -- a schema reached
+        via "#/components/schemas/<Name>" -- whose own "properties" block directly
+        declares this property. An anonymous/inline allOf branch is never itself an
+        owner: a property declared there is attributed to the nearest named ancestor
+        enclosing that branch (tracked via Add-PfbSchemaPropertyNodes's -OwnerName
+        inheritance). If no named component encloses the declaration anywhere in the
+        chain (the operation's entire body schema is written fully inline with no $ref
+        at all), OwnerSchema is explicitly $null -- never ''. The two are NOT
+        interchangeable: $null means "no named owner exists", '' would be indistinguishable
+        from a bug that failed to populate the field, so this function never emits ''.
+        Multi-owner rule: if more than one named component in the chain directly declares
+        the same property name (0 occurrences measured across all of fb2.27 -- see the
+        real-spec verification in this repo's task notes; the rule is close to academic
+        today but is a real, reachable case for a future spec), the OUTERMOST one wins,
+        i.e. the declaration closest to the operation's own body schema. Because a node's
+        own direct properties are recorded before its allOf branches are recursed into,
+        and siblings are visited in array order, "outermost" is simply "first-seen" in
+        Add-PfbSchemaPropertyNodes's traversal order -- consistent with how Type/Format
+        already resolve ties in this same function.
     .OUTPUTS
-        [PSCustomObject]@{ Name; ReadOnly; Deprecated; Type; Format; Required } per
-        top-level property, sorted by Name for deterministic OUTPUT ordering (this is
+        [PSCustomObject]@{ Name; ReadOnly; Deprecated; Type; Format; Required; OwnerSchema }
+        per top-level property, sorted by Name for deterministic OUTPUT ordering (this is
         distinct from Get-PfbSchemaPropertyNames, which intentionally preserves traversal
         order instead -- see that function's help).
     #>
@@ -353,6 +431,7 @@ function Get-PfbSchemaPropertyDetails {
     $walk = Get-PfbSchemaPropertyWalkAccumulators -Schema $Schema -Spec $Spec -MaxDepth $MaxDepth
     $propertyNodesByName = $walk.PropertyNodesByName
     $requiredNames = $walk.RequiredNames
+    $propertyOwnersByName = $walk.PropertyOwnersByName
 
     $details = [System.Collections.Generic.List[object]]::new()
     foreach ($name in $propertyNodesByName.get_Keys()) {
@@ -377,13 +456,26 @@ function Get-PfbSchemaPropertyDetails {
             if ($null -eq $format -and $node.PSObject.Properties.Name -contains 'format') { $format = $node.format }
         }
 
+        # Outermost-wins: the first entry recorded for this property name is always the
+        # shallowest (closest to the operation's own body schema) -- see the ordering
+        # guarantee documented on Add-PfbSchemaPropertyNodes. $null here is a legitimate
+        # value (no named component enclosed the declaration), never coerced to ''.
+        # NOTE: deliberately `$null -ne $owners`, NOT the bare-truthy `$owners`/`if ($owners)`
+        # -- a single-element collection whose only element is itself $null (exactly the
+        # "fully inline, no owner" case) evaluates as FALSE under PowerShell's
+        # single-item-array boolean coercion, which would take this down the wrong branch
+        # for the right-looking-by-coincidence reason.
+        $owners = $propertyOwnersByName[$name]
+        $ownerSchema = if ($null -ne $owners -and $owners.Count -gt 0) { $owners[0] } else { $null }
+
         $details.Add([PSCustomObject]@{
-            Name       = $name
-            ReadOnly   = $readOnly
-            Deprecated = $deprecated
-            Type       = $type
-            Format     = $format
-            Required   = $requiredNames.Contains($name)
+            Name        = $name
+            ReadOnly    = $readOnly
+            Deprecated  = $deprecated
+            Type        = $type
+            Format      = $format
+            Required    = $requiredNames.Contains($name)
+            OwnerSchema = $ownerSchema
         })
     }
 
@@ -441,7 +533,8 @@ function Get-PfbSpecCapabilities {
         Additive outputs alongside the original Parameters/BodyProperties (unchanged in
         name, type, and contents):
           - BodyPropertyDetails: the full per-property detail records (Name, ReadOnly,
-            Deprecated, Type, Format, Required) from Get-PfbSchemaPropertyDetails.
+            Deprecated, Type, Format, Required, OwnerSchema) from
+            Get-PfbSchemaPropertyDetails.
           - ReadOnlyBodyProperties / DeprecatedBodyProperties: string[] convenience
             projections of the above, sorted for determinism.
           - ParameterComponents: a { paramName: componentName } map

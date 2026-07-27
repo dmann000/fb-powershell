@@ -211,6 +211,69 @@ Describe 'Get-PfbSchemaPropertyDetails' {
                             }
                         )
                     }
+
+                    # OwnerSchema fixture, shaped like the brief's worked example:
+                    # CertificatePatch = allOf[ _certificateBase, {inline: days,...} ]
+                    # _certificateBase = allOf[ _realmsReference, {inline: certificate_type,...} ]
+                    # Three tiers -> three different expected owners.
+                    _realmsReference  = [PSCustomObject]@{
+                        type       = 'object'
+                        properties = [PSCustomObject]@{ realms = [PSCustomObject]@{ type = 'array' } }
+                    }
+                    _certificateBase  = [PSCustomObject]@{
+                        allOf = @(
+                            [PSCustomObject]@{ '$ref' = '#/components/schemas/_realmsReference' }
+                            [PSCustomObject]@{
+                                type       = 'object'
+                                properties = [PSCustomObject]@{
+                                    certificate_type = [PSCustomObject]@{ type = 'string' }
+                                    issued_by        = [PSCustomObject]@{ type = 'string' }
+                                }
+                            }
+                        )
+                    }
+                    CertificatePatch  = [PSCustomObject]@{
+                        allOf = @(
+                            [PSCustomObject]@{ '$ref' = '#/components/schemas/_certificateBase' }
+                            [PSCustomObject]@{
+                                type       = 'object'
+                                properties = [PSCustomObject]@{
+                                    days       = [PSCustomObject]@{ type = 'integer' }
+                                    passphrase = [PSCustomObject]@{ type = 'string' }
+                                }
+                            }
+                        )
+                    }
+
+                    # Outermost-wins fixture: 'dup' declared directly by TWO different named
+                    # components in the same chain -- OwnerSchema must pick the shallower one
+                    # (OuterOwner, declared inline directly under OuterOwner's own allOf), not
+                    # the deeper one reached through a further nested $ref (InnerOwner). The
+                    # inline (OuterOwner-owned) branch is listed FIRST in the allOf array so
+                    # this is unambiguous under the "first-seen in traversal order" tie-break
+                    # documented on Add-PfbSchemaPropertyNodes (own/inherited-owner properties
+                    # are always recorded before a sibling branch's nested named $ref is
+                    # walked into).
+                    InnerOwner        = [PSCustomObject]@{
+                        type       = 'object'
+                        properties = [PSCustomObject]@{ dup = [PSCustomObject]@{ type = 'string' } }
+                    }
+                    OuterOwner        = [PSCustomObject]@{
+                        allOf = @(
+                            [PSCustomObject]@{
+                                type       = 'object'
+                                properties = [PSCustomObject]@{ dup = [PSCustomObject]@{ type = 'string' } }
+                            }
+                            [PSCustomObject]@{ '$ref' = '#/components/schemas/InnerOwner' }
+                        )
+                    }
+
+                    # Fully inline fixture: no $ref anywhere in the chain -- OwnerSchema must
+                    # come out $null (explicitly, not '').
+                    FullyInline       = [PSCustomObject]@{
+                        type       = 'object'
+                        properties = [PSCustomObject]@{ freeform = [PSCustomObject]@{ type = 'string' } }
+                    }
                 }
             }
         }
@@ -239,6 +302,68 @@ Describe 'Get-PfbSchemaPropertyDetails' {
         $details = Get-PfbSchemaPropertyDetails -Schema $schema -Spec $testSpec
 
         ($details | Where-Object Name -eq 'ref_only').ReadOnly | Should -Be $false
+    }
+
+    It 'PIN regression: ref_only still resolves ReadOnly=$false AND now also carries its correct OwnerSchema' {
+        # Adding OwnerSchema tracking touches the same ref-resolution code path as the PIN
+        # above -- this is exactly where a regression would hide. Re-assert both facts
+        # together: the owner is recorded from the CHAIN being walked into (the allOf
+        # branch of ResourcePatch that declares ref_only), never from resolving ref_only's
+        # own '$ref' value (which would incorrectly suggest an owner of '_readOnlyLeaf').
+        $schema = [PSCustomObject]@{ '$ref' = '#/components/schemas/ResourcePatch' }
+        $details = Get-PfbSchemaPropertyDetails -Schema $schema -Spec $testSpec
+
+        $refOnly = $details | Where-Object Name -eq 'ref_only'
+        $refOnly.ReadOnly | Should -Be $false
+        $refOnly.OwnerSchema | Should -Be 'ResourcePatch'
+    }
+
+    It 'OwnerSchema resolves to the nearest named component through an allOf + $ref chain (three tiers)' {
+        # Mirrors the brief's PATCH /certificates worked example exactly:
+        # CertificatePatch = allOf[ _certificateBase, {inline: days, passphrase} ]
+        # _certificateBase = allOf[ _realmsReference, {inline: certificate_type, issued_by} ]
+        $schema = [PSCustomObject]@{ '$ref' = '#/components/schemas/CertificatePatch' }
+        $details = Get-PfbSchemaPropertyDetails -Schema $schema -Spec $testSpec
+
+        ($details | Where-Object Name -eq 'days').OwnerSchema | Should -Be 'CertificatePatch'
+        ($details | Where-Object Name -eq 'passphrase').OwnerSchema | Should -Be 'CertificatePatch'
+        ($details | Where-Object Name -eq 'certificate_type').OwnerSchema | Should -Be '_certificateBase'
+        ($details | Where-Object Name -eq 'issued_by').OwnerSchema | Should -Be '_certificateBase'
+        ($details | Where-Object Name -eq 'realms').OwnerSchema | Should -Be '_realmsReference'
+    }
+
+    It 'attributes a property declared in an anonymous inline branch to the nearest NAMED ancestor, not the branch itself' {
+        # 'days' is declared in CertificatePatch's own anonymous inline allOf branch --
+        # there is no schema named after that branch; the only correct owner is the
+        # nearest enclosing NAMED component, CertificatePatch itself.
+        $schema = [PSCustomObject]@{ '$ref' = '#/components/schemas/CertificatePatch' }
+        $details = Get-PfbSchemaPropertyDetails -Schema $schema -Spec $testSpec
+
+        ($details | Where-Object Name -eq 'days').OwnerSchema | Should -Be 'CertificatePatch'
+        ($details | Where-Object Name -eq 'days').OwnerSchema | Should -Not -Be $null
+    }
+
+    It 'a fully inline body with no $ref anywhere yields OwnerSchema $null, explicitly (not '''')' {
+        # Deliberately pass the schema NODE ITSELF, not a '$ref' wrapper around it -- this
+        # simulates an operation whose request body is written fully inline in the spec
+        # (no $ref anywhere in its chain), the only case where OwnerSchema is $null.
+        $schema = $testSpec.components.schemas.FullyInline
+        $details = Get-PfbSchemaPropertyDetails -Schema $schema -Spec $testSpec
+
+        $freeform = $details | Where-Object Name -eq 'freeform'
+        $freeform.OwnerSchema | Should -BeNullOrEmpty
+        $null -eq $freeform.OwnerSchema | Should -Be $true
+        $freeform.OwnerSchema -eq '' | Should -Be $false
+    }
+
+    It 'outermost-wins: when two named schemas declare the same property, the shallower one wins' {
+        # OuterOwner = allOf[ {inline: dup}, InnerOwner ] -- 'dup' is declared both directly
+        # (inline, owned by OuterOwner itself) and via a nested named $ref to InnerOwner.
+        # The outer (closer to the operation's own body schema) declaration must win.
+        $schema = [PSCustomObject]@{ '$ref' = '#/components/schemas/OuterOwner' }
+        $details = Get-PfbSchemaPropertyDetails -Schema $schema -Spec $testSpec
+
+        ($details | Where-Object Name -eq 'dup').OwnerSchema | Should -Be 'OuterOwner'
     }
 
     It 'populates Type and Format from the property''s own node' {
