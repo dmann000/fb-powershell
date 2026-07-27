@@ -431,6 +431,16 @@ Describe 'Get-PfbCmdletParameterInventory' {
         $rec.Surface | Should -Be 'Typed'
     }
 
+    It 'carries each parameter''s own declaration line ($p.Extent.StartLineNumber), alongside its File, so a caveat is a click-through' {
+        # New-PfbFixtureAlertWatcher.ps1 is written verbatim from the here-string above (see
+        # BeforeAll): line 1 is 'function ...', and -MinimumSeverity's own declaration --
+        # attributes included, since ParameterAst.Extent spans the whole parameter, not just
+        # the bare variable -- starts at line 7 ('[Parameter()]').
+        $rec = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureAlertWatcher' -and $_.Parameter -eq 'MinimumSeverity' }
+        $rec.File | Should -Be (Join-Path $fixtureDir 'New-PfbFixtureAlertWatcher.ps1')
+        $rec.Line | Should -Be 7
+    }
+
     It 'resolves a simple $queryParams[wire_name] = $Param assignment' {
         $rec = $inventory | Where-Object { $_.Cmdlet -eq 'Get-PfbFixtureArrayPerformance' -and $_.Parameter -eq 'Protocol' }
         $rec.WireName | Should -Be 'protocol'

@@ -734,12 +734,18 @@ function Get-PfbCmdletParameterInventory {
         Inventories every typed parameter (excluding -Array/-Attributes themselves)
         across every function defined under -PublicDirectory.
     .OUTPUTS
-        [PSCustomObject]@{ File; Cmdlet; Parameter; HasValidateSet; ValidateSetValues;
+        [PSCustomObject]@{ File; Line; Cmdlet; Parameter; HasValidateSet; ValidateSetValues;
         WireName; Surface; Endpoint; Method }
 
         Endpoint/Method are $null unless the parameter's wire-name assignment resolved
         to exactly one Invoke-PfbApiRequest call's endpoint (see
         Get-PfbEndpointForVariable) -- never guessed.
+
+        Line is the parameter's own declaration line ($p.Extent.StartLineNumber),
+        alongside the File it already carried -- so a consumer reporting on a
+        non-'Typed' Surface (Get-PfbParameterCoverageGaps's `confidence.unresolvedParameters`
+        in tools/lib/PfbApiDriftTools.ps1) can point a reader at an exact file:line rather
+        than making them search the whole file for the parameter name.
     #>
     [CmdletBinding()]
     param(
@@ -792,6 +798,7 @@ function Get-PfbCmdletParameterInventory {
 
                 $results.Add([PSCustomObject]@{
                     File              = $file.FullName
+                    Line              = $p.Extent.StartLineNumber
                     Cmdlet            = $funcAst.Name
                     Parameter         = $paramName
                     HasValidateSet    = [bool]$validateSetValues
