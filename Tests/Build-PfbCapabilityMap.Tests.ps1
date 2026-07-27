@@ -423,6 +423,67 @@ Describe 'Build-PfbCapabilityMap: parameterComponentDefaults/Overrides' -Skip:($
         }
         ($reconstructed.Keys | Sort-Object) | Should -Be ($pcExpectedPairs.Keys | Sort-Object) -Because 'no additional or missing (endpoint, param) pairs vs. the fixture ground truth'
     }
+
+    # Regression for the hashtable .Count-shadowing bug class: 'count' is a REAL
+    # query-parameter name in this API (parameterComponentDefaults.count = 'Ping_count' in
+    # the committed manifest). A key literally named 'count' inside the per-endpoint
+    # $overrides ordered hashtable shadows the .Count MEMBER -- it returns that key's
+    # VALUE instead of the number of entries -- which is exactly why the script uses
+    # get_Count()/get_Keys() defensively elsewhere in this same function. This fixture
+    # forces that shape directly: 'alpha'/'bravo' establish 'Count' as the global default
+    # component for parameter name 'count', and 'charlie' declares 'count' INLINE (no
+    # $ref, so no component) -- so charlie's ONLY override entry is { count = $null },
+    # the worst case for the shadowing bug: $null -gt 0 is False, so a buggy
+    # `$overrides.Count -gt 0` guard would silently skip attaching
+    # parameterComponentOverrides to charlie at all, even though a real override exists.
+    Context 'hashtable .Count shadowing regression (override key literally "count")' {
+        BeforeAll {
+            New-Item -ItemType Directory -Path 'TestDrive:\pcSpecsCount' -Force | Out-Null
+
+            $specCount = [ordered]@{
+                openapi    = '3.0.1'
+                info       = @{ version = '9.0' }
+                paths      = [ordered]@{
+                    '/api/9.0/alpha'   = [ordered]@{
+                        get = @{ parameters = @(@{ '$ref' = '#/components/parameters/Count' }) }
+                    }
+                    '/api/9.0/bravo'   = [ordered]@{
+                        get = @{ parameters = @(@{ '$ref' = '#/components/parameters/Count' }) }
+                    }
+                    '/api/9.0/charlie' = [ordered]@{
+                        # 'count' declared INLINE -- no "$ref", so no component at all.
+                        get = @{
+                            parameters = @(@{ name = 'count'; 'in' = 'query'; schema = @{ type = 'integer' } })
+                        }
+                    }
+                }
+                components = [ordered]@{
+                    parameters = [ordered]@{
+                        Count = [ordered]@{ name = 'count'; 'in' = 'query'; schema = @{ type = 'integer' } }
+                    }
+                }
+            }
+            $specCount | ConvertTo-Json -Depth 20 | Set-Content -Path 'TestDrive:\pcSpecsCount\fb9.0.json'
+
+            & $builderScript -SpecsDirectory 'TestDrive:\pcSpecsCount' -OutputPath 'TestDrive:\pcOutputCount\manifest.json'
+            $script:pcCountManifest = Get-Content -Path 'TestDrive:\pcOutputCount\manifest.json' -Raw | ConvertFrom-Json -Depth 20
+        }
+
+        It 'establishes Count as the global default for parameter name "count"' {
+            $pcCountManifest.parameterComponentDefaults.count | Should -Be 'Count'
+        }
+
+        It 'does NOT silently drop parameterComponentOverrides on the endpoint whose only override key is literally "count"' {
+            $entry = $pcCountManifest.endpoints.'GET /charlie'
+            $entry.PSObject.Properties.Name | Should -Contain 'parameterComponentOverrides'
+        }
+
+        It 'records an explicit null override for the inline "count" parameter, not silence' {
+            $entry = $pcCountManifest.endpoints.'GET /charlie'
+            $entry.parameterComponentOverrides.PSObject.Properties.Name | Should -Contain 'count'
+            $entry.parameterComponentOverrides.count | Should -BeNullOrEmpty
+        }
+    }
 }
 
 Describe 'Build-PfbCapabilityMap: -MaxVersion cap' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
@@ -467,6 +528,58 @@ Describe 'Build-PfbCapabilityMap: -MaxVersion cap' -Skip:($PSVersionTable.PSVers
 
     It 'still includes endpoints from versions at or below -MaxVersion' {
         $capManifest.endpoints.PSObject.Properties.Name | Should -Contain 'GET /widgets'
+    }
+
+    # The 9.0/9.1/9.2 fixture above cannot distinguish a correct numeric Major/Minor
+    # comparison from a buggy string comparison, because single-digit minors sort
+    # identically either way. '2.9' vs '2.10' do NOT: '2.9' sorts ABOVE '2.10' as a
+    # string (since '9' > '1' lexically) but numerically 2.9 < 2.10. This exact string-
+    # vs-numeric confusion has bitten this effort twice already (see the script's own
+    # -MaxVersion parameter help), so it needs its own regression case distinct from the
+    # coarser 9.0/9.1/9.2 test above.
+    Context 'numeric vs. string comparison (2.9 vs 2.10)' {
+        BeforeAll {
+            New-Item -ItemType Directory -Path 'TestDrive:\capSpecsNumeric' -Force | Out-Null
+
+            $specNumericV1 = [ordered]@{
+                openapi = '3.0.1'
+                info    = @{ version = '2.9' }
+                paths   = [ordered]@{ '/api/2.9/alpha' = [ordered]@{ get = @{} } }
+            }
+            # A newer minor version that a string compare would wrongly treat as OLDER
+            # than 2.9 (because '2.10' < '2.9' lexically) and therefore wrongly include
+            # under -MaxVersion '2.9'. A correct numeric compare must exclude it.
+            $specNumericV2 = [ordered]@{
+                openapi = '3.0.1'
+                info    = @{ version = '2.10' }
+                paths   = [ordered]@{
+                    '/api/2.10/alpha'     = [ordered]@{ get = @{} }
+                    '/api/2.10/newnumeric' = [ordered]@{ get = @{} }
+                }
+            }
+
+            $specNumericV1 | ConvertTo-Json -Depth 20 | Set-Content -Path 'TestDrive:\capSpecsNumeric\fb2.9.json'
+            $specNumericV2 | ConvertTo-Json -Depth 20 | Set-Content -Path 'TestDrive:\capSpecsNumeric\fb2.10.json'
+
+            & $builderScript -SpecsDirectory 'TestDrive:\capSpecsNumeric' -OutputPath 'TestDrive:\capOutputNumeric\manifest.json' -MaxVersion '2.9'
+            $script:capManifestNumeric = Get-Content -Path 'TestDrive:\capOutputNumeric\manifest.json' -Raw | ConvertFrom-Json -Depth 20
+        }
+
+        It 'includes 2.9 in generatedFrom' {
+            $capManifestNumeric.generatedFrom | Should -Contain '2.9'
+        }
+
+        It 'excludes 2.10 from generatedFrom even though it sorts below "2.9" as a string' {
+            $capManifestNumeric.generatedFrom | Should -Not -Contain '2.10'
+        }
+
+        It 'excludes an endpoint that only exists in 2.10' {
+            $capManifestNumeric.endpoints.PSObject.Properties.Name | Should -Not -Contain 'GET /newnumeric'
+        }
+
+        It 'still includes an endpoint present at or below the 2.9 cap' {
+            $capManifestNumeric.endpoints.PSObject.Properties.Name | Should -Contain 'GET /alpha'
+        }
     }
 }
 

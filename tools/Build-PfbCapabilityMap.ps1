@@ -299,7 +299,7 @@ foreach ($epKey in $endpoints.get_Keys()) {
         }
     }
 
-    if ($overrides.Count -gt 0) {
+    if ($overrides.get_Count() -gt 0) {
         # Re-sort: the two loops above each insert in their own sorted order, but their
         # combination is not necessarily sorted overall.
         $sortedOverrides = [ordered]@{}
