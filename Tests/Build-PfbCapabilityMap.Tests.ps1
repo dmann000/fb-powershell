@@ -424,6 +424,22 @@ Describe 'Build-PfbCapabilityMap: parameterComponentDefaults/Overrides' -Skip:($
         ($reconstructed.Keys | Sort-Object) | Should -Be ($pcExpectedPairs.Keys | Sort-Object) -Because 'no additional or missing (endpoint, param) pairs vs. the fixture ground truth'
     }
 
+    It 'never leaves the internal _currentParamComponents/_currentParamsWithoutComponent bookkeeping keys in the final serialized manifest' {
+        # These two keys are used internally to compute parameterComponentDefaults/
+        # Overrides above, then removed before the manifest is written -- this fixture
+        # exercises exactly that code path (region/sortkey components), so it is a real
+        # assertion, not a vacuous one.
+        $pcManifestRaw = Get-Content -Path 'TestDrive:\pcOutput\manifest.json' -Raw
+        $pcManifestRaw | Should -Not -Match '_currentParamComponents'
+        $pcManifestRaw | Should -Not -Match '_currentParamsWithoutComponent'
+
+        foreach ($epName in $pcManifest.endpoints.PSObject.Properties.Name) {
+            $propNames = $pcManifest.endpoints.$epName.PSObject.Properties.Name
+            $propNames | Should -Not -Contain '_currentParamComponents'
+            $propNames | Should -Not -Contain '_currentParamsWithoutComponent'
+        }
+    }
+
     # Regression for the hashtable .Count-shadowing bug class: 'count' is a REAL
     # query-parameter name in this API (parameterComponentDefaults.count = 'Ping_count' in
     # the committed manifest). A key literally named 'count' inside the per-endpoint

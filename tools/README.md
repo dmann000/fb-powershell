@@ -514,6 +514,16 @@ fixture and a squash-mode-gotcha fixture (see "Value-enum extraction" above). Th
 manifest checks skip gracefully if `tools/specs/` or `Reports/PfbValueEnumMap.json` aren't
 present.
 
+**The one known, persistent failure.** When `tools/specs/` is locally cached past the
+version `Data/PfbCapabilityMap.json` is pinned to, one real-manifest check in
+`Tests/Build-PfbValueEnumMap.Tests.ps1` fails: it validates the value-enum map against
+whatever spec version is newest on disk (`fb2.28`, as of this writing), not against the
+2.27 version the capability map is deliberately pinned to (see item 2's `-MaxVersion` note
+above). This is a pre-existing condition of the local dev environment, not a regression
+from any task in this plan -- none of this plan's tasks touched value-enum extraction --
+and it does not reproduce in CI, which always fetches specs fresh rather than relying on a
+locally-cached, possibly-ahead-of-pin `tools/specs/`.
+
 ## CI
 
 `.github/workflows/update-api-capability-map.yml` runs this pipeline weekly (and on

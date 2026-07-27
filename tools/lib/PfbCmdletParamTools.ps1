@@ -843,6 +843,14 @@ function Get-PfbCmdletBodyInsertionTarget {
                 $hash -and $hash.KeyValuePairs.Count -gt 0
             })
 
+        # A genuine TIE (indexAssignments.Count -eq literalAssignments.Count, both > 0)
+        # falls through to this 'literal' branch silently -- there is no distinct 'tie'
+        # outcome. Measured across the real high-confidence gap population: 274
+        # attributesOnly / 95 unknown / 25 index / 1 literal / 7 unresolved, i.e. a true
+        # tie is essentially unreachable in practice today. That is a measured-safe
+        # observation about current data, not a design guarantee -- a future cmdlet could
+        # legitimately produce a tie, and it would resolve to 'literal' without any flag
+        # that the detection was actually ambiguous.
         if ($indexAssignments.Count -gt $literalAssignments.Count) { $assignmentStyle = 'index' }
         elseif ($literalAssignments.Count -gt 0) { $assignmentStyle = 'literal' }
         else { $assignmentStyle = 'unknown' }

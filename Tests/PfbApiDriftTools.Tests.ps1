@@ -90,6 +90,31 @@ function Invoke-PfbFixtureInternalHelper {
     $script:driftInventory = @(
         [PSCustomObject]@{ Cmdlet = 'Get-PfbArrayPerformance'; Parameter = 'Protocol'; Surface = 'Typed'; WireName = 'protocol'; HasValidateSet = $true; ValidateSetValues = @('nfs', 'smb', 'http', 's3'); Endpoint = 'arrays/performance'; Method = 'GET' }
     )
+
+    # Hoisted to file scope (not a per-Describe BeforeAll) because it is consumed by TWO
+    # separate Describe blocks below (the array-item-type/synopsis tests and the
+    # Get-PfbBodyPropertyEnrichment tests) -- a Describe-local BeforeAll only runs before
+    # its OWN Describe's tests, so the other Describe block would see a $null
+    # $enrichmentSpec whenever it runs without the first Describe having already executed
+    # in the same session (e.g. `-Filter.FullName` isolating just one Describe).
+    $script:enrichmentSpec = [PSCustomObject]@{
+        components = [PSCustomObject]@{
+            schemas = [PSCustomObject]@{
+                Widget     = [PSCustomObject]@{
+                    type       = 'object'
+                    properties = [PSCustomObject]@{
+                        color    = [PSCustomObject]@{ type = 'string'; description = 'The widget color. Valid values are `red`, `blue`, and `green`.' }
+                        count    = [PSCustomObject]@{ type = 'integer'; format = 'int64'; description = "Count of widgets available`nin this pool. Additional prose about counting follows here." }
+                        tags     = [PSCustomObject]@{ type = 'array'; items = [PSCustomObject]@{ type = 'string' }; description = 'Tag list. Additional prose about tags follows this first sentence.' }
+                        ref_tags = [PSCustomObject]@{ type = 'array'; items = [PSCustomObject]@{ '$ref' = '#/components/schemas/_tagRef' } }
+                        linked   = [PSCustomObject]@{ '$ref' = '#/components/schemas/_linkedRef' }
+                        bare     = [PSCustomObject]@{ type = 'string' }
+                    }
+                }
+                _linkedRef = [PSCustomObject]@{ type = 'string'; description = 'Should never be read directly off Widget.linked (PIN: this function reads only the OWNER schema''s own declared property node, never following the property''s own $ref).' }
+            }
+        }
+    }
 }
 
 Describe 'Get-PfbModuleCalledEndpoints' {
@@ -316,6 +341,40 @@ Describe 'Get-PfbParameterCoverageGaps' {
             $gap | Should -Not -BeNullOrEmpty
             $gap.MissingBodyProperties | Should -BeNullOrEmpty
             $gap.ReadOnlyFields | Should -Be @('owner')
+        }
+    }
+
+    Context '-SinceVersion on the BODY/read-only side ($bodyFieldVersions is separate code from the query-side $queryFieldVersions lookup -- mirrors the query-side -SinceVersion tests above)' {
+        BeforeAll {
+            $script:bodySinceCapMap = [PSCustomObject]@{
+                endpoints = [PSCustomObject]@{
+                    'PATCH /since-fixture' = [PSCustomObject]@{
+                        minVersion             = '2.0'
+                        parameters             = [PSCustomObject]@{}
+                        bodyProperties         = [PSCustomObject]@{ old_field = '2.0'; new_body_field = '2.27'; new_ro_field = '2.27' }
+                        readOnlyBodyProperties = @('new_ro_field')
+                    }
+                }
+            }
+            $script:bodySinceEndpoints = @([PSCustomObject]@{ Key = 'PATCH /since-fixture'; Method = 'PATCH'; Endpoint = '/since-fixture'; Resolved = $true; Cmdlet = 'Update-PfbFixtureSince'; File = 'x' })
+        }
+
+        It 'with -SinceVersion, keeps a missing body property AND a read-only field introduced after that version' {
+            $result = Get-PfbParameterCoverageGaps -CapabilityMap $bodySinceCapMap -CmdletInventory $noopInventory -CalledEndpoints $bodySinceEndpoints -SinceVersion '2.0'
+            $gap = $result | Where-Object { $_.Endpoint -eq 'PATCH /since-fixture' }
+            $gap.MissingBodyProperties | Should -Contain 'new_body_field'
+            $gap.ReadOnlyFields | Should -Contain 'new_ro_field'
+        }
+
+        It 'with -SinceVersion, drops a gap whose only missing body/read-only fields were introduced at or before that version' {
+            $result = Get-PfbParameterCoverageGaps -CapabilityMap $bodySinceCapMap -CmdletInventory $noopInventory -CalledEndpoints $bodySinceEndpoints -SinceVersion '2.27'
+            $gap = $result | Where-Object { $_.Endpoint -eq 'PATCH /since-fixture' }
+            $gap.MissingBodyProperties | Should -Not -Contain 'new_body_field'
+            $gap.ReadOnlyFields | Should -Not -Contain 'new_ro_field'
+            # old_field (2.0) is not newer than the 2.27 baseline either, so the whole gap
+            # for this endpoint disappears entirely -- same "endpoint dropped, not emitted
+            # empty" contract as the query-side equivalent test above.
+            $gap | Should -BeNullOrEmpty
         }
     }
 
@@ -559,26 +618,8 @@ Describe 'Get-PfbSuggestedPowerShellType (Task 5 suggestedPowerShellType mapping
 }
 
 Describe 'Get-PfbBodyPropertyArrayItemType / Get-PfbBodyPropertySynopsis (direct, non-recursive schema lookups)' {
-    BeforeAll {
-        $script:enrichmentSpec = [PSCustomObject]@{
-            components = [PSCustomObject]@{
-                schemas = [PSCustomObject]@{
-                    Widget     = [PSCustomObject]@{
-                        type       = 'object'
-                        properties = [PSCustomObject]@{
-                            color    = [PSCustomObject]@{ type = 'string'; description = 'The widget color. Valid values are `red`, `blue`, and `green`.' }
-                            count    = [PSCustomObject]@{ type = 'integer'; format = 'int64'; description = "Count of widgets available`nin this pool. Additional prose about counting follows here." }
-                            tags     = [PSCustomObject]@{ type = 'array'; items = [PSCustomObject]@{ type = 'string' }; description = 'Tag list. Additional prose about tags follows this first sentence.' }
-                            ref_tags = [PSCustomObject]@{ type = 'array'; items = [PSCustomObject]@{ '$ref' = '#/components/schemas/_tagRef' } }
-                            linked   = [PSCustomObject]@{ '$ref' = '#/components/schemas/_linkedRef' }
-                            bare     = [PSCustomObject]@{ type = 'string' }
-                        }
-                    }
-                    _linkedRef = [PSCustomObject]@{ type = 'string'; description = 'Should never be read directly off Widget.linked (PIN: this function reads only the OWNER schema''s own declared property node, never following the property''s own $ref).' }
-                }
-            }
-        }
-    }
+    # $enrichmentSpec is set in the file-level BeforeAll (top of file) -- it is shared with
+    # the Get-PfbBodyPropertyEnrichment Describe below, so it must not be re-declared here.
 
     It 'Get-PfbBodyPropertyArrayItemType resolves an inline items.type/format' {
         $result = Get-PfbBodyPropertyArrayItemType -Spec $enrichmentSpec -OwnerSchema 'Widget' -FieldName 'tags'
@@ -905,6 +946,56 @@ Describe 'Get-PfbDriftAnnotations / Find-PfbDriftAnnotation (Task 6: recorded de
     It 'returns an empty array (never $null/error) for a name/endpoint with no annotation' {
         $annotations = Get-PfbDriftAnnotations -Path $annotationsFixturePath
         @(Find-PfbDriftAnnotation -Annotations $annotations -FieldName 'no_such_field').Count | Should -Be 0
+    }
+
+    It 'treats a literal "*" in an endpoint annotation''s match value as a literal character, not a live -like wildcard' {
+        # A future endpoint-type annotation could legitimately contain a literal '*'. An
+        # unescaped `-like "*$($_.match)*"` would treat it as "match anything" instead of
+        # a literal asterisk character.
+        $wildcardFixturePath = Join-Path $TestDrive 'drift-annotations-wildcard-star.fixture.json'
+        Set-Content -Path $wildcardFixturePath -Value @'
+{
+  "schemaVersion": 1,
+  "annotations": [
+    { "matchType": "endpoint", "match": "widgets*prod", "kind": "liveTestingHazard", "note": "literal-asterisk regression fixture", "reference": null }
+  ]
+}
+'@
+        $annotations = Get-PfbDriftAnnotations -Path $wildcardFixturePath
+
+        # Endpoint contains the literal substring "widgets*prod" -- must match.
+        (Find-PfbDriftAnnotation -Annotations $annotations -Endpoint 'GET /widgets*prod-fixture').Count | Should -Be 1
+
+        # Endpoint contains "widgets" ... "prod" but NOT the literal "widgets*prod"
+        # substring -- an unescaped -like ("*widgets*prod*") would still match this (the
+        # '*' matching "anything" in between), so a miss here proves the match string is
+        # treated as a literal substring, not a wildcard pattern.
+        (Find-PfbDriftAnnotation -Annotations $annotations -Endpoint 'GET /widgets-are-in-prod').Count | Should -Be 0
+    }
+
+    It 'treats a literal "[" in an endpoint annotation''s match value as a literal character, not a live -like character class' {
+        # An unescaped `-like "*$($_.match)*"` would treat "[0]" as a character class
+        # (matching a single literal '0' character) rather than the literal 3-character
+        # text "[0]".
+        $wildcardFixturePath = Join-Path $TestDrive 'drift-annotations-wildcard-bracket.fixture.json'
+        Set-Content -Path $wildcardFixturePath -Value @'
+{
+  "schemaVersion": 1,
+  "annotations": [
+    { "matchType": "endpoint", "match": "prod[0]", "kind": "liveTestingHazard", "note": "literal-bracket regression fixture", "reference": null }
+  ]
+}
+'@
+        $annotations = Get-PfbDriftAnnotations -Path $wildcardFixturePath
+
+        # Endpoint contains the literal substring "prod[0]" -- must match.
+        (Find-PfbDriftAnnotation -Annotations $annotations -Endpoint 'GET /prod[0]-real').Count | Should -Be 1
+
+        # Endpoint contains "prod" immediately followed by "0" (no brackets) -- an
+        # unescaped -like would still match this (the "[0]" character class matching that
+        # literal '0'), so a miss here proves the match string is treated as a literal
+        # substring, not a wildcard pattern.
+        (Find-PfbDriftAnnotation -Annotations $annotations -Endpoint 'GET /prod0-fixture').Count | Should -Be 0
     }
 
     It 'returns $null (never throws) when -Path does not exist' {

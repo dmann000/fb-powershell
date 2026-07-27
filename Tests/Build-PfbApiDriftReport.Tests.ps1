@@ -840,6 +840,8 @@ function Get-PfbFixtureGamma {
         $t7ReportText | Should -Match 'This report accepts \*\*false positives in order to eliminate false negatives\*\*'
         $t7ReportText | Should -Match 'Open the named parameter at the given `file:line` and follow where its value goes\.'
         $t7ReportText | Should -Match 'the gap is a false positive AND a tooling bug'
+        $t7ReportText | Should -Match 'If it reaches the wire under a different name'
+        $t7ReportText | Should -Match 'the reported gap may still be real; check that field against the spec'
         $t7ReportText | Should -Match 'If it never reaches the wire'
         $t7ReportText | Should -Match 'a false positive costs a reader one `file:line` lookup; a false negative costs an undetected gap indefinitely'
     }

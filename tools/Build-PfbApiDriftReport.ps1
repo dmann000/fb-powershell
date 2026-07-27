@@ -495,7 +495,7 @@ $availableSpecVersions = @($historyResult.ProcessedVersions)
 $versionDiffCount = @(Compare-Object -ReferenceObject $analysedVersions -DifferenceObject $availableSpecVersions).Count
 $versionSetsDiverge = $versionDiffCount -gt 0
 $versionDivergenceWarning = if ($versionSetsDiverge) {
-    "analysedVersions ($($analysedVersions.Count) versions, through $($analysedVersions[-1])) and availableSpecVersions ($($availableSpecVersions.Count) versions, through $($availableSpecVersions[-1])) disagree -- rebuild Data/PfbCapabilityMap.json (tools/Build-PfbCapabilityMap.ps1) to bring the analysed set back in step with the specs on disk. Every gap/phantom-field/systemic-gap category in this report is scoped to analysedVersions; validateSetDrift and newValidateSetCandidates (Task 5's enum join) use availableSpecVersions, the fresher on-disk set."
+    "analysedVersions ($($analysedVersions.Count) versions, through $($analysedVersions[-1])) and availableSpecVersions ($($availableSpecVersions.Count) versions, through $($availableSpecVersions[-1])) disagree -- this is expected while Data/PfbCapabilityMap.json is deliberately pinned to a specific REST version; rebuild it (tools/Build-PfbCapabilityMap.ps1) only when intentionally adopting the newer spec. Every gap/phantom-field/systemic-gap category in this report is scoped to analysedVersions; validateSetDrift and newValidateSetCandidates (Task 5's enum join) use availableSpecVersions, the fresher on-disk set."
 }
 else { $null }
 
