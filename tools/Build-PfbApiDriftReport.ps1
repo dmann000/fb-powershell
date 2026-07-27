@@ -300,7 +300,14 @@ $uncoveredEndpoints = @(Get-PfbEndpointCoverageGaps -CapabilityMap $capabilityMa
 # but degrading to the pre-enrichment bare-string shape is safer than throwing.
 $canEnrichBodyProperties = [bool]$newestSpec
 
-$parameterGaps = @(Get-PfbParameterCoverageGaps -CapabilityMap $capabilityMap -CmdletInventory $inventory -CalledEndpoints $calledEndpoints -SinceVersion $SinceVersion -ExcludedFields $script:PfbNonActionableParameters -CurrentSpecCapabilities $currentSpecCapabilities |
+# Task 6: $script:PfbNonActionableParameters no longer carries continuation_token by hand
+# -- Get-PfbNonActionableParameters derives it (plus the still-hardcoded X-Request-ID/
+# offset, neither of which has any Private/ injection site) from a live AST scan of
+# -PrivateDirectory, so a future change to how Invoke-PfbApiRequest.ps1 injects
+# continuation_token is reflected here automatically instead of silently going stale.
+$nonActionableParameters = Get-PfbNonActionableParameters -PrivateDirectory $PrivateDirectory
+
+$parameterGaps = @(Get-PfbParameterCoverageGaps -CapabilityMap $capabilityMap -CmdletInventory $inventory -CalledEndpoints $calledEndpoints -SinceVersion $SinceVersion -ExcludedFields $nonActionableParameters -CurrentSpecCapabilities $currentSpecCapabilities |
     ForEach-Object {
         $gapRaw = $_
         $endpointParts = $gapRaw.Endpoint -split ' ', 2
