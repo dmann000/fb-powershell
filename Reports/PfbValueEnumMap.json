@@ -28,10 +28,11 @@
     "2.24",
     "2.25",
     "2.26",
-    "2.27"
+    "2.27",
+    "2.28"
   ],
-  "entryCount": 256,
-  "unparsedCount": 171,
+  "entryCount": 301,
+  "unparsedCount": 127,
   "entries": {
     "Alert.severity": {
       "values": [
@@ -159,6 +160,7 @@
       "values": [
         "promoted",
         "demoted",
+        "demoting",
         "promoting"
       ],
       "minVersion": "2.0",
@@ -380,6 +382,25 @@
       "kind": "schema",
       "name": "smb_mode"
     },
+    "ObjectStoreAccessPolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.2",
+      "kind": "schema",
+      "name": "policy_type"
+    },
     "ObjectStoreAccessPolicyRule.effect": {
       "values": [
         "allow"
@@ -387,6 +408,44 @@
       "minVersion": "2.2",
       "kind": "schema",
       "name": "effect"
+    },
+    "Policy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.2",
+      "kind": "schema",
+      "name": "policy_type"
+    },
+    "PolicyBase.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.2",
+      "kind": "schema",
+      "name": "policy_type"
     },
     "GET policies/members#member_types": {
       "values": [
@@ -409,6 +468,25 @@
       "minVersion": "2.2",
       "kind": "inline-parameter",
       "name": "member_types"
+    },
+    "NfsExportPolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.3",
+      "kind": "schema",
+      "name": "policy_type"
     },
     "NfsExportPolicyRule.access": {
       "values": [
@@ -560,6 +638,25 @@
       "kind": "schema",
       "name": "protocol"
     },
+    "SmbClientPolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.10",
+      "kind": "schema",
+      "name": "policy_type"
+    },
     "SmbClientPolicyRule.permission": {
       "values": [
         "rw",
@@ -568,6 +665,25 @@
       "minVersion": "2.10",
       "kind": "schema",
       "name": "permission"
+    },
+    "SmbSharePolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.10",
+      "kind": "schema",
+      "name": "policy_type"
     },
     "SmbSharePolicyRule.change": {
       "values": [
@@ -634,6 +750,44 @@
       "kind": "schema",
       "name": "public_status"
     },
+    "BucketAccessPolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.12",
+      "kind": "schema",
+      "name": "policy_type"
+    },
+    "CrossOriginResourceSharingPolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.12",
+      "kind": "schema",
+      "name": "policy_type"
+    },
     "FileSystem.group_ownership": {
       "values": [
         "creator",
@@ -642,6 +796,25 @@
       "minVersion": "2.13",
       "kind": "schema",
       "name": "group_ownership"
+    },
+    "NetworkAccessPolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.13",
+      "kind": "schema",
+      "name": "policy_type"
     },
     "NetworkAccessPolicyRule.effect": {
       "values": [
@@ -688,6 +861,25 @@
       "kind": "schema",
       "name": "algorithm"
     },
+    "SshCertificateAuthorityPolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.14",
+      "kind": "schema",
+      "name": "policy_type"
+    },
     "SyslogServer.services": {
       "values": [
         "data-audit",
@@ -731,6 +923,25 @@
       "minVersion": "2.16",
       "kind": "schema",
       "name": "status"
+    },
+    "PasswordPolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.16",
+      "kind": "schema",
+      "name": "policy_type"
     },
     "SoftwareChecks.status": {
       "values": [
@@ -777,6 +988,63 @@
       "minVersion": "2.17",
       "kind": "schema",
       "name": "effect"
+    },
+    "AuditFileSystemsPolicyNoContext.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.17",
+      "kind": "schema",
+      "name": "policy_type"
+    },
+    "PolicyBaseContext.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.17",
+      "kind": "schema",
+      "name": "policy_type"
+    },
+    "AuditFileSystemsPoliciesPost.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.17",
+      "kind": "schema",
+      "name": "policy_type"
     },
     "NfsExportPolicyRuleInPolicy.access": {
       "values": [
@@ -954,6 +1222,44 @@
       "kind": "schema",
       "name": "effect"
     },
+    "SmbClientPolicyPost.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.17",
+      "kind": "schema",
+      "name": "policy_type"
+    },
+    "QosPolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.17",
+      "kind": "schema",
+      "name": "policy_type"
+    },
     "SnmpManagerPost.notification": {
       "values": [
         "inform",
@@ -1017,6 +1323,25 @@
       "kind": "schema",
       "name": "effect"
     },
+    "SshCertificateAuthorityPolicyPost.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.17",
+      "kind": "schema",
+      "name": "policy_type"
+    },
     "FileSystemPatch.promotion_status": {
       "values": [
         "promoted",
@@ -1073,6 +1398,25 @@
       "kind": "schema",
       "name": "encryption_types"
     },
+    "SmbSharePolicyPost.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.17",
+      "kind": "schema",
+      "name": "policy_type"
+    },
     "NetworkAccessPolicyRuleInPolicy.interfaces": {
       "values": [
         "management-ssh",
@@ -1103,6 +1447,25 @@
       "kind": "schema",
       "name": "retention_lock"
     },
+    "AuditFileSystemsPoliciesPatch.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.17",
+      "kind": "schema",
+      "name": "policy_type"
+    },
     "_reference.resource_type": {
       "values": [
         "hosts",
@@ -1124,6 +1487,25 @@
       "kind": "schema",
       "name": "resource_type"
     },
+    "PolicyBaseRenameable.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.17",
+      "kind": "schema",
+      "name": "policy_type"
+    },
     "SmbClientPolicyRulePostBase.encryption": {
       "values": [
         "required",
@@ -1142,6 +1524,25 @@
       "minVersion": "2.17",
       "kind": "schema",
       "name": "permission"
+    },
+    "AuditFileSystemsPolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.17",
+      "kind": "schema",
+      "name": "policy_type"
     },
     "_snmp_v3.auth_protocol": {
       "values": [
@@ -1229,6 +1630,63 @@
       "kind": "schema",
       "name": "manual_eradication"
     },
+    "TlsPolicyPost.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.17",
+      "kind": "schema",
+      "name": "policy_type"
+    },
+    "TlsPolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.17",
+      "kind": "schema",
+      "name": "policy_type"
+    },
+    "NfsExportPolicyPost.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.17",
+      "kind": "schema",
+      "name": "policy_type"
+    },
     "ActiveDirectoryPost.encryption_types": {
       "values": [
         "aes256-cts-hmac-sha1-96",
@@ -1238,6 +1696,25 @@
       "minVersion": "2.17",
       "kind": "schema",
       "name": "encryption_types"
+    },
+    "ObjectStoreTrustPolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.17",
+      "kind": "schema",
+      "name": "policy_type"
     },
     "FileSystemPost.requested_promotion_state": {
       "values": [
@@ -1745,6 +2222,25 @@
       "kind": "schema",
       "name": "control_type"
     },
+    "StorageClassTieringPolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.18",
+      "kind": "schema",
+      "name": "policy_type"
+    },
     "AuditFileSystemsPoliciesPost.control_type": {
       "values": [
         "policy",
@@ -1793,6 +2289,25 @@
       "kind": "schema",
       "name": "status"
     },
+    "AuditFileSystemsPolicyPatchBase.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.18",
+      "kind": "schema",
+      "name": "policy_type"
+    },
     "Protocol_clients": {
       "values": [
         "NFS",
@@ -1801,6 +2316,63 @@
       "minVersion": "2.18",
       "kind": "parameter",
       "name": "protocol"
+    },
+    "ManagementAccessPolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.19",
+      "kind": "schema",
+      "name": "policy_type"
+    },
+    "ManagementAccessPolicyPost.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.19",
+      "kind": "schema",
+      "name": "policy_type"
+    },
+    "S3ExportPolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.20",
+      "kind": "schema",
+      "name": "policy_type"
     },
     "CertificatePatch.certificate_type": {
       "values": [
@@ -1820,6 +2392,44 @@
       "kind": "schema",
       "name": "status"
     },
+    "AuditObjectStorePoliciesPost.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.20",
+      "kind": "schema",
+      "name": "policy_type"
+    },
+    "AuditObjectStorePoliciesPatch.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.20",
+      "kind": "schema",
+      "name": "policy_type"
+    },
     "_certificateBase.certificate_type": {
       "values": [
         "appliance",
@@ -1837,6 +2447,63 @@
       "minVersion": "2.20",
       "kind": "schema",
       "name": "status"
+    },
+    "AuditObjectStorePolicyWithWritableReference.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.20",
+      "kind": "schema",
+      "name": "policy_type"
+    },
+    "AuditObjectStorePolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.20",
+      "kind": "schema",
+      "name": "policy_type"
+    },
+    "AuditObjectStorePolicyWithContext.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.20",
+      "kind": "schema",
+      "name": "policy_type"
     },
     "_networkInterfaceNeighborNeighborChassisId.type": {
       "values": [
@@ -1864,6 +2531,101 @@
       "kind": "schema",
       "name": "type"
     },
+    "DataEvictionPolicyPost.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.21",
+      "kind": "schema",
+      "name": "policy_type"
+    },
+    "DataEvictionPolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.21",
+      "kind": "schema",
+      "name": "policy_type"
+    },
+    "ManagementAuthenticationPolicyPost.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.22",
+      "kind": "schema",
+      "name": "policy_type"
+    },
+    "ManagementAuthenticationPolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.22",
+      "kind": "schema",
+      "name": "policy_type"
+    },
+    "NfsExportPolicyPatch.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.22",
+      "kind": "schema",
+      "name": "policy_type"
+    },
     "NfsExportPolicyRulePatch.access": {
       "values": [
         "root-squash",
@@ -1882,6 +2644,25 @@
       "minVersion": "2.22",
       "kind": "schema",
       "name": "permission"
+    },
+    "PolicyPost.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.22",
+      "kind": "schema",
+      "name": "policy_type"
     },
     "PolicyPost.retention_lock": {
       "values": [
@@ -1909,6 +2690,44 @@
       "minVersion": "2.22",
       "kind": "schema",
       "name": "retention_lock"
+    },
+    "SmbClientPolicyPatch.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.22",
+      "kind": "schema",
+      "name": "policy_type"
+    },
+    "SmbSharePolicyPatch.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.22",
+      "kind": "schema",
+      "name": "policy_type"
     },
     "NfsExportPolicyPatchRuleInPolicy.access": {
       "values": [
@@ -2470,6 +3289,44 @@
       "kind": "schema",
       "name": "control_type"
     },
+    "UserGroupQuotaPolicyPost.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.25",
+      "kind": "schema",
+      "name": "policy_type"
+    },
+    "UserGroupQuotaPolicy.policy_type": {
+      "values": [
+        "alert",
+        "audit",
+        "bucket-access",
+        "cross-origin-resource-sharing",
+        "network-access",
+        "nfs",
+        "object-access",
+        "s3-export",
+        "smb-client",
+        "smb-share",
+        "ssh-certificate-authority",
+        "telemetry-metrics"
+      ],
+      "minVersion": "2.25",
+      "kind": "schema",
+      "name": "policy_type"
+    },
     "UserGroupQuotaPolicyRulePost.notifications": {
       "values": [
         "None",
@@ -2692,34 +3549,6 @@
       "triggerText": "Valid values are\nin the range of 300000 and 10800000."
     },
     {
-      "key": "ObjectStoreAccessPolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.2",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "Policy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.2",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "PolicyBase.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.2",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "NfsExportPolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.3",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
       "key": "GET network-interfaces/ping#component_name",
       "kind": "inline-parameter",
       "name": "component_name",
@@ -2741,55 +3570,6 @@
       "triggerText": "Valid values include `NLM`, `NFSv4."
     },
     {
-      "key": "SmbClientPolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.10",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "SmbSharePolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.10",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "BucketAccessPolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.12",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "CrossOriginResourceSharingPolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.12",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "NetworkAccessPolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.13",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "SshCertificateAuthorityPolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.14",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "PasswordPolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.16",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
       "key": "GET arrays/space/storage-classes#storage_class_names",
       "kind": "inline-parameter",
       "name": "storage_class_names",
@@ -2797,32 +3577,11 @@
       "triggerText": "Valid values include 'S500X-S' and 'S500X-A'."
     },
     {
-      "key": "AuditFileSystemsPolicyNoContext.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.17",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "PolicyBaseContext.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.17",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
       "key": "PolicyBaseContext.context",
       "kind": "schema",
       "name": "context",
       "version": "2.17",
       "triggerText": "Valid values include a reference to any array which is a member of the same fleet\nor to the fleet itself."
-    },
-    {
-      "key": "AuditFileSystemsPoliciesPost.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.17",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
     },
     {
       "key": "_fixedReferenceWithIsLocal.resource_type",
@@ -2909,13 +3668,6 @@
       "triggerText": "Valid values include a reference to any array which is a member of the same fleet\nor to the fleet itself."
     },
     {
-      "key": "SmbClientPolicyPost.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.17",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
       "key": "FileSystemReplicaLink.context",
       "kind": "schema",
       "name": "context",
@@ -2928,13 +3680,6 @@
       "name": "context",
       "version": "2.17",
       "triggerText": "Valid values include a reference to any array which is a member of the same fleet\nor to the fleet itself."
-    },
-    {
-      "key": "QosPolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.17",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
     },
     {
       "key": "GroupQuota.context",
@@ -3014,20 +3759,6 @@
       "triggerText": "Valid values include a reference to any array which is a member of the same fleet\nor to the fleet itself."
     },
     {
-      "key": "SshCertificateAuthorityPolicyPost.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.17",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "SmbSharePolicyPost.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.17",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
       "key": "PolicyPatch.policy_type",
       "kind": "schema",
       "name": "policy_type",
@@ -3047,27 +3778,6 @@
       "name": "context",
       "version": "2.17",
       "triggerText": "Valid values include a reference to any array which is a member of the same fleet\nor to the fleet itself."
-    },
-    {
-      "key": "AuditFileSystemsPoliciesPatch.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.17",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "PolicyBaseRenameable.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.17",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "AuditFileSystemsPolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.17",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
     },
     {
       "key": "AuditFileSystemsPolicy.context",
@@ -3098,13 +3808,6 @@
       "triggerText": "Valid values include a reference to any array which is a member of the same fleet\nor to the fleet itself."
     },
     {
-      "key": "TlsPolicyPost.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.17",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
       "key": "TlsPolicyPost.min_tls_version",
       "kind": "schema",
       "name": "min_tls_version",
@@ -3119,32 +3822,11 @@
       "triggerText": "Valid values include a reference to any array which is a member of the same fleet\nor to the fleet itself."
     },
     {
-      "key": "TlsPolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.17",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
       "key": "TlsPolicy.min_tls_version",
       "kind": "schema",
       "name": "min_tls_version",
       "version": "2.17",
       "triggerText": "Valid values include `default`, `TLSv1."
-    },
-    {
-      "key": "NfsExportPolicyPost.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.17",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "ObjectStoreTrustPolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.17",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
     },
     {
       "key": "ObjectStoreTrustPolicy.context",
@@ -3336,13 +4018,6 @@
       "triggerText": "Valid values are controllers\nand blades from hardware list."
     },
     {
-      "key": "StorageClassTieringPolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.18",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
       "key": "AuditFileSystemsPolicyRuleInPolicy.op_status",
       "kind": "schema",
       "name": "op_status",
@@ -3350,32 +4025,11 @@
       "triggerText": "Valid values include 'success' or failure'."
     },
     {
-      "key": "AuditFileSystemsPolicyPatchBase.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.18",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
       "key": "AuditFileSystemsPolicyRuleBase.op_status",
       "kind": "schema",
       "name": "op_status",
       "version": "2.18",
       "triggerText": "Valid values include 'success' or failure'."
-    },
-    {
-      "key": "ManagementAccessPolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.19",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "ManagementAccessPolicyPost.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.19",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
     },
     {
       "key": "ObjectStoreAccountExport.context",
@@ -3392,13 +4046,6 @@
       "triggerText": "Valid values include a reference to any array which is a member of the same fleet\nor to the fleet itself."
     },
     {
-      "key": "S3ExportPolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.20",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
       "key": "S3ExportPolicy.context",
       "kind": "schema",
       "name": "context",
@@ -3413,20 +4060,6 @@
       "triggerText": "Valid values include a reference to any array which is a member of the same fleet\nor to the fleet itself."
     },
     {
-      "key": "AuditObjectStorePoliciesPost.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.20",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "AuditObjectStorePoliciesPatch.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.20",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
       "key": "LogTargetsObjectStoreWithContext.context",
       "kind": "schema",
       "name": "context",
@@ -3434,32 +4067,11 @@
       "triggerText": "Valid values include a reference to any array which is a member of the same fleet\nor to the fleet itself."
     },
     {
-      "key": "AuditObjectStorePolicyWithWritableReference.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.20",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "AuditObjectStorePolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.20",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
       "key": "AuditObjectStorePolicyWithContext.context",
       "kind": "schema",
       "name": "context",
       "version": "2.20",
       "triggerText": "Valid values include a reference to any array which is a member of the same fleet\nor to the fleet itself."
-    },
-    {
-      "key": "AuditObjectStorePolicyWithContext.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.20",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
     },
     {
       "key": "BucketAuditFilterWithContext.context",
@@ -3474,20 +4086,6 @@
       "name": "context",
       "version": "2.20",
       "triggerText": "Valid values include a reference to any array which is a member of the same fleet\nor to the fleet itself."
-    },
-    {
-      "key": "DataEvictionPolicyPost.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.21",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "DataEvictionPolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.21",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
     },
     {
       "key": "DataEvictionPolicy.context",
@@ -3518,53 +4116,11 @@
       "triggerText": "Valid values include a reference to any array which is a member of the same fleet\nor to the fleet itself."
     },
     {
-      "key": "ManagementAuthenticationPolicyPost.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.22",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "ManagementAuthenticationPolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.22",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
       "key": "ManagementAuthenticationPolicy.context",
       "kind": "schema",
       "name": "context",
       "version": "2.22",
       "triggerText": "Valid values include a reference to any array which is a member of the same fleet\nor to the fleet itself."
-    },
-    {
-      "key": "NfsExportPolicyPatch.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.22",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "PolicyPost.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.22",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "SmbClientPolicyPatch.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.22",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "SmbSharePolicyPatch.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.22",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
     },
     {
       "key": "Admin.context",
@@ -3756,20 +4312,6 @@
       "triggerText": "Valid values include a reference to any array which is a member of the same fleet\nor to the fleet itself."
     },
     {
-      "key": "UserGroupQuotaPolicyPost.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.25",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
-      "key": "UserGroupQuotaPolicy.policy_type",
-      "kind": "schema",
-      "name": "policy_type",
-      "version": "2.25",
-      "triggerText": "Valid values include `alert`, `audit`, `bucket-access`,\n`cross-origin-resource-sharing`, `network-access`, `nfs`, `object-access`,\n`s3-export`, smb-client`, `smb-share`, `ssh-certificate-authority`, and\n`telemetry-metrics`."
-    },
-    {
       "key": "UserGroupQuotaPolicy.context",
       "kind": "schema",
       "name": "context",
@@ -3879,6 +4421,13 @@
       "kind": "schema",
       "name": "context",
       "version": "2.26",
+      "triggerText": "Valid values include a reference to any array which is a member of the same fleet\nor to the fleet itself."
+    },
+    {
+      "key": "Audit.context",
+      "kind": "schema",
+      "name": "context",
+      "version": "2.28",
       "triggerText": "Valid values include a reference to any array which is a member of the same fleet\nor to the fleet itself."
     }
   ]

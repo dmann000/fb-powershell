@@ -28,7 +28,8 @@
     "2.24",
     "2.25",
     "2.26",
-    "2.27"
+    "2.27",
+    "2.28"
   ],
   "availableSpecVersions": [
     "2.0",
@@ -61,9 +62,9 @@
     "2.27",
     "2.28"
   ],
-  "versionDivergenceWarning": "analysedVersions (28 versions, through 2.27) and availableSpecVersions (29 versions, through 2.28) disagree -- this is expected while Data/PfbCapabilityMap.json is deliberately pinned to a specific REST version; rebuild it (tools/Build-PfbCapabilityMap.ps1) only when intentionally adopting the newer spec. Every gap/phantom-field/systemic-gap category in this report is scoped to analysedVersions; validateSetDrift and newValidateSetCandidates (Task 5's enum join) use availableSpecVersions, the fresher on-disk set.",
+  "versionDivergenceWarning": null,
   "sinceVersion": null,
-  "phantomFieldCount": 34,
+  "phantomFieldCount": 40,
   "uncoveredEndpoints": [
     {
       "endpoint": "GET /api/login-banner",
@@ -761,7 +762,7 @@
           {
             "parameter": "Eradicate",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Bucket\\Remove-PfbBucket.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Bucket\\Remove-PfbBucket.ps1",
             "line": 27
           }
         ],
@@ -1072,7 +1073,7 @@
           {
             "parameter": "Eradicate",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystemSnapshot\\Remove-PfbFileSystemSnapshot.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystemSnapshot\\Remove-PfbFileSystemSnapshot.ps1",
             "line": 24
           }
         ],
@@ -1135,7 +1136,7 @@
           {
             "parameter": "Eradicate",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\Remove-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\Remove-PfbFileSystem.ps1",
             "line": 38
           }
         ],
@@ -1223,7 +1224,7 @@
           {
             "parameter": "Force",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\Remove-PfbFileSystemSession.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\Remove-PfbFileSystemSession.ps1",
             "line": 59
           }
         ],
@@ -1856,13 +1857,13 @@
           {
             "parameter": "FileSystemName",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Quota\\Remove-PfbQuotaGroup.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Quota\\Remove-PfbQuotaGroup.ps1",
             "line": 30
           },
           {
             "parameter": "GroupName",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Quota\\Remove-PfbQuotaGroup.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Quota\\Remove-PfbQuotaGroup.ps1",
             "line": 31
           }
         ],
@@ -1892,13 +1893,13 @@
           {
             "parameter": "FileSystemName",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Quota\\Remove-PfbQuotaUser.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Quota\\Remove-PfbQuotaUser.ps1",
             "line": 25
           },
           {
             "parameter": "UserName",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Quota\\Remove-PfbQuotaUser.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Quota\\Remove-PfbQuotaUser.ps1",
             "line": 26
           }
         ],
@@ -1959,7 +1960,7 @@
           {
             "parameter": "Eradicate",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Server\\Remove-PfbServer.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Server\\Remove-PfbServer.ps1",
             "line": 35
           }
         ],
@@ -2427,7 +2428,7 @@
           {
             "parameter": "Endpoint",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Connection\\Test-PfbConnection.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Connection\\Test-PfbConnection.ps1",
             "line": 31
           }
         ],
@@ -2773,6 +2774,25 @@
       "endpoint": "GET /audit-object-store-policies/members",
       "cmdlets": [
         "Get-PfbAuditObjectStorePolicyMember"
+      ],
+      "missingQueryParameters": [
+        "allow_errors",
+        "context_names"
+      ],
+      "missingBodyProperties": [],
+      "readOnlyFields": [],
+      "confidence": {
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
+      },
+      "annotations": []
+    },
+    {
+      "endpoint": "GET /audits",
+      "cmdlets": [
+        "Get-PfbAudit"
       ],
       "missingQueryParameters": [
         "allow_errors",
@@ -6006,7 +6026,7 @@
           {
             "parameter": "Enabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Alert\\Update-PfbAlertWatcher.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Alert\\Update-PfbAlertWatcher.ps1",
             "line": 32
           }
         ],
@@ -6051,7 +6071,7 @@
           {
             "parameter": "Flagged",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Alert\\Update-PfbAlert.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Alert\\Update-PfbAlert.ps1",
             "line": 26
           }
         ],
@@ -6501,7 +6521,7 @@
           {
             "parameter": "Enabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\Update-PfbAuditFileSystemPolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\Update-PfbAuditFileSystemPolicy.ps1",
             "line": 40
           }
         ],
@@ -6540,7 +6560,7 @@
           {
             "parameter": "Enabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\Update-PfbAuditObjectStorePolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\Update-PfbAuditObjectStorePolicy.ps1",
             "line": 40
           }
         ],
@@ -6579,13 +6599,13 @@
           {
             "parameter": "Destroyed",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Bucket\\Update-PfbBucket.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Bucket\\Update-PfbBucket.ps1",
             "line": 37
           },
           {
             "parameter": "Eradicate",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Bucket\\Remove-PfbBucket.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Bucket\\Remove-PfbBucket.ps1",
             "line": 27
           }
         ],
@@ -6978,7 +6998,7 @@
           {
             "parameter": "Enabled",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\DataEviction\\Update-PfbDataEvictionPolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\DataEviction\\Update-PfbDataEvictionPolicy.ps1",
             "line": 37
           }
         ],
@@ -7019,7 +7039,7 @@
           {
             "parameter": "Name",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\DirectoryService\\Update-PfbDirectoryService.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\DirectoryService\\Update-PfbDirectoryService.ps1",
             "line": 32
           }
         ],
@@ -7357,7 +7377,7 @@
           {
             "parameter": "Eradicate",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystemSnapshot\\Remove-PfbFileSystemSnapshot.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystemSnapshot\\Remove-PfbFileSystemSnapshot.ps1",
             "line": 24
           }
         ],
@@ -7379,6 +7399,7 @@
         "ignore_usage"
       ],
       "missingBodyProperties": [
+        "abort_quiesce",
         "default_group_quota",
         "default_user_quota",
         "destroyed",
@@ -7390,6 +7411,8 @@
         "name",
         "nfs",
         "qos_policy",
+        "quiesce",
+        "skip_quiesce",
         "smb",
         "snapshot_directory_enabled",
         "source",
@@ -7409,61 +7432,61 @@
           {
             "parameter": "Destroyed",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\Update-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\Update-PfbFileSystem.ps1",
             "line": 93
           },
           {
             "parameter": "Eradicate",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\Remove-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\Remove-PfbFileSystem.ps1",
             "line": 38
           },
           {
             "parameter": "HardLimitEnabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\Update-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\Update-PfbFileSystem.ps1",
             "line": 69
           },
           {
             "parameter": "HttpEnabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\Update-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\Update-PfbFileSystem.ps1",
             "line": 90
           },
           {
             "parameter": "NfsEnabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\Update-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\Update-PfbFileSystem.ps1",
             "line": 72
           },
           {
             "parameter": "NfsExportPolicy",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\Update-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\Update-PfbFileSystem.ps1",
             "line": 78
           },
           {
             "parameter": "NfsRules",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\Update-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\Update-PfbFileSystem.ps1",
             "line": 75
           },
           {
             "parameter": "SmbClientPolicy",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\Update-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\Update-PfbFileSystem.ps1",
             "line": 87
           },
           {
             "parameter": "SmbEnabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\Update-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\Update-PfbFileSystem.ps1",
             "line": 81
           },
           {
             "parameter": "SmbSharePolicy",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\Update-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\Update-PfbFileSystem.ps1",
             "line": 84
           }
         ],
@@ -8379,7 +8402,7 @@
           {
             "parameter": "Enabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\Update-PfbNetworkAccessPolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\Update-PfbNetworkAccessPolicy.ps1",
             "line": 42
           }
         ],
@@ -8535,6 +8558,23 @@
           }
         },
         {
+          "name": "rdma_enabled",
+          "type": "boolean",
+          "format": null,
+          "specRequired": false,
+          "synopsis": "If `true` indicated that RDMA is enabled on the network interface.",
+          "suggestedPowerShellType": "[bool]",
+          "enumValues": [],
+          "enumStatus": "no-spec-enum-found",
+          "target": {
+            "file": "Public/Network/Update-PfbNetworkInterface.ps1",
+            "paramBlockLine": 33,
+            "payloadVariable": "body",
+            "assignmentStyle": "index",
+            "hasAttributes": true
+          }
+        },
+        {
           "name": "services",
           "type": "array",
           "format": null,
@@ -8679,7 +8719,7 @@
           {
             "parameter": "Enabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\Update-PfbNfsExportPolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\Update-PfbNfsExportPolicy.ps1",
             "line": 42
           }
         ],
@@ -9809,7 +9849,7 @@
           {
             "parameter": "Enabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\Update-PfbPolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\Update-PfbPolicy.ps1",
             "line": 28
           }
         ],
@@ -9971,13 +10011,13 @@
           {
             "parameter": "FileSystemName",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Quota\\Update-PfbQuotaGroup.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Quota\\Update-PfbQuotaGroup.ps1",
             "line": 35
           },
           {
             "parameter": "GroupName",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Quota\\Update-PfbQuotaGroup.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Quota\\Update-PfbQuotaGroup.ps1",
             "line": 36
           }
         ],
@@ -10066,13 +10106,13 @@
           {
             "parameter": "FileSystemName",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Quota\\Update-PfbQuotaUser.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Quota\\Update-PfbQuotaUser.ps1",
             "line": 30
           },
           {
             "parameter": "UserName",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Quota\\Update-PfbQuotaUser.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Quota\\Update-PfbQuotaUser.ps1",
             "line": 31
           }
         ],
@@ -10156,13 +10196,13 @@
           {
             "parameter": "Destroyed",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Realm\\Update-PfbRealm.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Realm\\Update-PfbRealm.ps1",
             "line": 31
           },
           {
             "parameter": "Eradicate",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Realm\\Remove-PfbRealm.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Realm\\Remove-PfbRealm.ps1",
             "line": 32
           }
         ],
@@ -10234,7 +10274,7 @@
           {
             "parameter": "Enabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\Update-PfbS3ExportPolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\Update-PfbS3ExportPolicy.ps1",
             "line": 42
           }
         ],
@@ -10333,7 +10373,7 @@
           {
             "parameter": "DnsName",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Server\\Update-PfbServer.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Server\\Update-PfbServer.ps1",
             "line": 34
           }
         ],
@@ -10372,7 +10412,7 @@
           {
             "parameter": "Enabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\Update-PfbSmbClientPolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\Update-PfbSmbClientPolicy.ps1",
             "line": 42
           }
         ],
@@ -10529,7 +10569,7 @@
           {
             "parameter": "Enabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\Update-PfbSmbSharePolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\Update-PfbSmbSharePolicy.ps1",
             "line": 42
           }
         ],
@@ -11946,7 +11986,7 @@
           {
             "parameter": "Destroyed",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Workloads\\Update-PfbWorkload.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Workloads\\Update-PfbWorkload.ps1",
             "line": 36
           }
         ],
@@ -12134,7 +12174,7 @@
           {
             "parameter": "Name",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\DirectoryService\\New-PfbActiveDirectory.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\DirectoryService\\New-PfbActiveDirectory.ps1",
             "line": 40
           }
         ],
@@ -12472,7 +12512,7 @@
           {
             "parameter": "Enabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\New-PfbAuditFileSystemPolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\New-PfbAuditFileSystemPolicy.ps1",
             "line": 35
           }
         ],
@@ -12527,7 +12567,7 @@
           {
             "parameter": "Enabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\New-PfbAuditObjectStorePolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\New-PfbAuditObjectStorePolicy.ps1",
             "line": 35
           }
         ],
@@ -13289,7 +13329,7 @@
           {
             "parameter": "Name",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Certificate\\New-PfbCertificateSigningRequest.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Certificate\\New-PfbCertificateSigningRequest.ps1",
             "line": 29
           }
         ],
@@ -13325,7 +13365,7 @@
           {
             "parameter": "Disabled",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\DataEviction\\New-PfbDataEvictionPolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\DataEviction\\New-PfbDataEvictionPolicy.ps1",
             "line": 31
           }
         ],
@@ -13411,7 +13451,7 @@
           {
             "parameter": "Member",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\DirectoryService\\New-PfbLocalGroupMember.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\DirectoryService\\New-PfbLocalGroupMember.ps1",
             "line": 35
           }
         ],
@@ -13529,7 +13569,7 @@
           {
             "parameter": "Name",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Network\\New-PfbDns.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Network\\New-PfbDns.ps1",
             "line": 29
           }
         ],
@@ -13734,7 +13774,7 @@
           {
             "parameter": "SourceName",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystemSnapshot\\New-PfbFileSystemSnapshot.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystemSnapshot\\New-PfbFileSystemSnapshot.ps1",
             "line": 36
           }
         ],
@@ -13778,91 +13818,91 @@
           {
             "parameter": "FastRemoveDirectoryEnabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\New-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\New-PfbFileSystem.ps1",
             "line": 139
           },
           {
             "parameter": "HardLimit",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\New-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\New-PfbFileSystem.ps1",
             "line": 93
           },
           {
             "parameter": "Http",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\New-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\New-PfbFileSystem.ps1",
             "line": 126
           },
           {
             "parameter": "MultiProtocolAccessControlStyle",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\New-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\New-PfbFileSystem.ps1",
             "line": 129
           },
           {
             "parameter": "Nfs",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\New-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\New-PfbFileSystem.ps1",
             "line": 102
           },
           {
             "parameter": "NfsExportPolicy",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\New-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\New-PfbFileSystem.ps1",
             "line": 114
           },
           {
             "parameter": "NfsRules",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\New-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\New-PfbFileSystem.ps1",
             "line": 111
           },
           {
             "parameter": "NfsV3",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\New-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\New-PfbFileSystem.ps1",
             "line": 105
           },
           {
             "parameter": "NfsV41",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\New-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\New-PfbFileSystem.ps1",
             "line": 108
           },
           {
             "parameter": "SafeguardAcls",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\New-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\New-PfbFileSystem.ps1",
             "line": 133
           },
           {
             "parameter": "Smb",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\New-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\New-PfbFileSystem.ps1",
             "line": 117
           },
           {
             "parameter": "SmbClientPolicy",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\New-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\New-PfbFileSystem.ps1",
             "line": 123
           },
           {
             "parameter": "SmbSharePolicy",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\New-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\New-PfbFileSystem.ps1",
             "line": 120
           },
           {
             "parameter": "SnapshotDirectoryEnabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\New-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\New-PfbFileSystem.ps1",
             "line": 136
           },
           {
             "parameter": "Writable",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\FileSystem\\New-PfbFileSystem.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\FileSystem\\New-PfbFileSystem.ps1",
             "line": 150
           }
         ],
@@ -13957,7 +13997,7 @@
           {
             "parameter": "Name",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Replication\\New-PfbFleet.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Replication\\New-PfbFleet.ps1",
             "line": 30
           }
         ],
@@ -14284,7 +14324,7 @@
           {
             "parameter": "Name",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Misc\\New-PfbLag.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Misc\\New-PfbLag.ps1",
             "line": 29
           }
         ],
@@ -14761,17 +14801,12 @@
       "missingQueryParameters": [],
       "missingBodyProperties": [
         "attached_servers",
-        "subnet"
+        "rdma_enabled"
       ],
       "readOnlyFields": [
-        "enabled",
-        "gateway",
         "id",
-        "mtu",
         "name",
-        "netmask",
-        "realms",
-        "vlan"
+        "realms"
       ],
       "confidence": {
         "level": "partial",
@@ -14779,7 +14814,7 @@
           {
             "parameter": "AttachedServers",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Network\\New-PfbNetworkInterface.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Network\\New-PfbNetworkInterface.ps1",
             "line": 55
           }
         ],
@@ -14835,7 +14870,7 @@
           {
             "parameter": "Enabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\New-PfbNfsExportPolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\New-PfbNfsExportPolicy.ps1",
             "line": 36
           }
         ],
@@ -15100,7 +15135,7 @@
           {
             "parameter": "Name",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Node\\New-PfbNodeGroup.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Node\\New-PfbNodeGroup.ps1",
             "line": 30
           }
         ],
@@ -15808,7 +15843,7 @@
           {
             "parameter": "Enabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\New-PfbPolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\New-PfbPolicy.ps1",
             "line": 23
           }
         ],
@@ -16330,19 +16365,19 @@
           {
             "parameter": "FileSystemName",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Quota\\New-PfbQuotaUser.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Quota\\New-PfbQuotaUser.ps1",
             "line": 42
           },
           {
             "parameter": "UserId",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Quota\\New-PfbQuotaUser.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Quota\\New-PfbQuotaUser.ps1",
             "line": 44
           },
           {
             "parameter": "UserName",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Quota\\New-PfbQuotaUser.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Quota\\New-PfbQuotaUser.ps1",
             "line": 43
           }
         ],
@@ -16392,7 +16427,7 @@
           {
             "parameter": "Enabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\New-PfbS3ExportPolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\New-PfbS3ExportPolicy.ps1",
             "line": 36
           }
         ],
@@ -16493,13 +16528,13 @@
           {
             "parameter": "CreateDirectoryService",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Server\\New-PfbServer.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Server\\New-PfbServer.ps1",
             "line": 40
           },
           {
             "parameter": "DnsName",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Server\\New-PfbServer.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Server\\New-PfbServer.ps1",
             "line": 34
           }
         ],
@@ -16538,7 +16573,7 @@
           {
             "parameter": "Enabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\New-PfbSmbClientPolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\New-PfbSmbClientPolicy.ps1",
             "line": 36
           }
         ],
@@ -16675,7 +16710,7 @@
           {
             "parameter": "Enabled",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\New-PfbSmbSharePolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\New-PfbSmbSharePolicy.ps1",
             "line": 36
           }
         ],
@@ -16807,7 +16842,7 @@
           {
             "parameter": "Name",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Monitoring\\New-PfbSnmpManager.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Monitoring\\New-PfbSnmpManager.ps1",
             "line": 33
           }
         ],
@@ -16864,7 +16899,7 @@
           {
             "parameter": "Name",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\New-PfbSshCaPolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\New-PfbSshCaPolicy.ps1",
             "line": 30
           }
         ],
@@ -17146,7 +17181,7 @@
           {
             "parameter": "Name",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\New-PfbStorageClassTieringPolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\New-PfbStorageClassTieringPolicy.ps1",
             "line": 30
           }
         ],
@@ -17218,7 +17253,7 @@
           {
             "parameter": "Name",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Monitoring\\New-PfbSyslogServer.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Monitoring\\New-PfbSyslogServer.ps1",
             "line": 32
           }
         ],
@@ -17247,7 +17282,7 @@
           {
             "parameter": "Name",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Replication\\New-PfbTarget.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Replication\\New-PfbTarget.ps1",
             "line": 31
           }
         ],
@@ -17290,7 +17325,7 @@
           {
             "parameter": "Name",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\New-PfbTlsPolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\New-PfbTlsPolicy.ps1",
             "line": 29
           }
         ],
@@ -17352,7 +17387,7 @@
           {
             "parameter": "Inputs",
             "surface": "TypedUnresolved",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Workloads\\New-PfbWorkloadPlacementRecommendation.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Workloads\\New-PfbWorkloadPlacementRecommendation.ps1",
             "line": 29
           }
         ],
@@ -17393,7 +17428,7 @@
           {
             "parameter": "Name",
             "surface": "AttributesOnly",
-            "file": "C:\\Users\\Justin\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\.claude\\worktrees\\drift-report-actionable\\Public\\Policy\\New-PfbWormPolicy.ps1",
+            "file": "C:\\Users\\Justin Emerson\\Documents\\GitProjects\\fb-powershell\\fb-powershell\\Public\\Policy\\New-PfbWormPolicy.ps1",
             "line": 30
           }
         ],
@@ -17408,8 +17443,8 @@
   "systemicGaps": [
     {
       "name": "context_names",
-      "endpointCount": 253,
-      "queryEndpointCount": 253,
+      "endpointCount": 254,
+      "queryEndpointCount": 254,
       "bodyEndpointCount": 0,
       "endpoints": [
         "DELETE /admins/api-tokens",
@@ -17498,6 +17533,7 @@
         "GET /audit-file-systems-policy-operations",
         "GET /audit-object-store-policies",
         "GET /audit-object-store-policies/members",
+        "GET /audits",
         "GET /bucket-audit-filter-actions",
         "GET /bucket-replica-links",
         "GET /buckets",
@@ -17678,8 +17714,8 @@
     },
     {
       "name": "allow_errors",
-      "endpointCount": 109,
-      "queryEndpointCount": 109,
+      "endpointCount": 110,
+      "queryEndpointCount": 110,
       "bodyEndpointCount": 0,
       "endpoints": [
         "GET /active-directory/test",
@@ -17702,6 +17738,7 @@
         "GET /audit-file-systems-policy-operations",
         "GET /audit-object-store-policies",
         "GET /audit-object-store-policies/members",
+        "GET /audits",
         "GET /bucket-audit-filter-actions",
         "GET /bucket-replica-links",
         "GET /buckets",
@@ -21181,6 +21218,16 @@
       "annotations": []
     },
     {
+      "name": "rdma_enabled",
+      "endpointCount": 1,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 1,
+      "endpoints": [
+        "PATCH /network-interfaces"
+      ],
+      "annotations": []
+    },
+    {
       "name": "refresh",
       "endpointCount": 1,
       "queryEndpointCount": 1,
@@ -24393,6 +24440,11 @@
       "cmdlets": []
     },
     {
+      "name": "rdma_enabled",
+      "cmdletCount": 0,
+      "cmdlets": []
+    },
+    {
       "name": "read",
       "cmdletCount": 0,
       "cmdlets": []
@@ -24719,5 +24771,18 @@
     }
   ],
   "validateSetDrift": [],
-  "newValidateSetCandidates": []
+  "newValidateSetCandidates": [
+    {
+      "cmdlet": "Get-PfbPolicyAllMember",
+      "parameter": "MemberType",
+      "wireName": "member_types",
+      "specValues": [
+        "file-systems",
+        "file-system-snapshots",
+        "file-system-replica-links",
+        "object-store-users"
+      ],
+      "recommendation": "ArgumentCompleter"
+    }
+  ]
 }

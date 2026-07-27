@@ -28,7 +28,8 @@
     "2.24",
     "2.25",
     "2.26",
-    "2.27"
+    "2.27",
+    "2.28"
   ],
   "endpointCount": 632,
   "parameterComponentDefaults": {
@@ -1021,9 +1022,14 @@
         "names": "2.0",
         "offset": "2.0",
         "sort": "2.0",
-        "X-Request-ID": "2.14"
+        "X-Request-ID": "2.14",
+        "allow_errors": "2.28",
+        "context_names": "2.28"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "parameterComponentOverrides": {
+        "context_names": "Context_names_get"
+      }
     },
     "GET /blades": {
       "minVersion": "2.0",
@@ -1791,7 +1797,10 @@
         "group_ownership": "2.13",
         "storage_class": "2.16",
         "qos_policy": "2.17",
-        "workload": "2.23"
+        "workload": "2.23",
+        "abort_quiesce": "2.28",
+        "quiesce": "2.28",
+        "skip_quiesce": "2.28"
       },
       "readOnlyBodyProperties": [
         "created",
@@ -2513,17 +2522,13 @@
         "vlan": "2.0",
         "server": "2.16",
         "realms": "2.19",
-        "attached_servers": "2.20"
+        "attached_servers": "2.20",
+        "rdma_enabled": "2.28"
       },
       "readOnlyBodyProperties": [
-        "enabled",
-        "gateway",
         "id",
-        "mtu",
         "name",
-        "netmask",
-        "realms",
-        "vlan"
+        "realms"
       ],
       "parameterComponentOverrides": {
         "names": "Names_required"
@@ -2540,7 +2545,8 @@
         "address": "2.0",
         "services": "2.0",
         "server": "2.16",
-        "attached_servers": "2.20"
+        "attached_servers": "2.20",
+        "rdma_enabled": "2.28"
       }
     },
     "DELETE /network-interfaces": {
@@ -7980,10 +7986,7 @@
         "names": "2.19",
         "context_names": "2.26"
       },
-      "bodyProperties": {},
-      "parameterComponentOverrides": {
-        "context_names": "Context_names_get"
-      }
+      "bodyProperties": {}
     },
     "PATCH /management-access-policies": {
       "minVersion": "2.19",
