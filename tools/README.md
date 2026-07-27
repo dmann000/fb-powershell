@@ -312,6 +312,25 @@ Run in this order:
    endpoint (`parameterGaps[].annotations`) -- the file is optional; its absence degrades every
    lookup to "no annotations" rather than failing report generation.
 
+   **Known limitation: `systemicGaps`/`conventionStrength` only aggregate over high-confidence
+   endpoints, silently omitting field names that appear ONLY on `'partial'`-confidence rows.**
+   This is a deliberate choice, not an oversight -- a partial-confidence endpoint's gap list can
+   contain false positives (see the false-positive procedure above), so folding it into a systemic
+   FINDING would overstate a confidence the endpoint's own row already warns against. But the
+   consequence is real: as of this writing, **54 distinct wire field names appear only on
+   partial-confidence rows and are therefore absent from both `systemicGaps` and
+   `conventionStrength` entirely** (e.g. `base_dn`, `bind_password`, `domain`, `nameservers`,
+   `qos_policy`, `storage_class`, `owner`, ...), and a name that DOES appear can still undercount:
+   `context_names`'s pinned `systemicGaps` figure is 253 (high-confidence only), but its true
+   cross-confidence total across every endpoint is 289. No individual endpoint's own
+   `missingQueryParameters`/`missingBodyProperties` row is affected -- this is purely a gap in the
+   *aggregated triage view*, not in the underlying per-endpoint data. A future revisit should
+   aggregate `systemicGaps`/`conventionStrength` across ALL confidence levels, carrying the current
+   high-confidence-only count as `endpointCount` alongside a separate `partialEndpointCount`, rather
+   than silently dropping names or re-baselining `endpointCount` itself. Not fixed here because doing
+   so moves the `context_names`/`allow_errors`/etc. figures this whole effort measured and pinned
+   throughout every task.
+
    **`phantomFieldCount` -- two correct, differently-scoped numbers.** How many `(endpoint,
    field)` pairs were silently dropped from every gap/read-only list because the field is
    accumulated in the capability map's `parameters`/`bodyProperties` dictionaries but absent from
