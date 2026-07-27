@@ -224,6 +224,150 @@ Run in this order:
      picked as the one target, deterministically -- a human should still check for sibling
      cmdlets on the same endpoint.
 
+   **`analysedVersions` / `availableSpecVersions` / `versionDivergenceWarning` -- the
+   `generatedFrom` split.** The manifest never emits one ambiguous `generatedFrom` key.
+   `analysedVersions` is `Data/PfbCapabilityMap.json`'s own `generatedFrom` -- the version set
+   every gap/phantom-field/systemic-gap/convention-strength category below is actually scoped
+   against. `availableSpecVersions` is whatever `tools/specs/` has cached on disk right now,
+   which Task 5's enum join and category 3 (ValidateSet drift) DO read fresher-than-analysed
+   data from (see `Get-PfbValueEnumHistory`'s `$historyResult`). These two normally move
+   together, which is why keeping them as one key was invisible as a problem for a long time --
+   but they are independent inputs that drift the moment specs are refreshed
+   (`Update-PfbApiSpecs.ps1`) without also rebuilding the capability map
+   (`Build-PfbCapabilityMap.ps1`): as of this writing, `tools/specs/` is cached through 2.28 while
+   `Data/PfbCapabilityMap.json` is deliberately still pinned at 2.27 (see item 2's `-MaxVersion`
+   note above for why that pin is deliberate). `versionDivergenceWarning` is a non-`$null` string
+   exactly when the two sets disagree, never silently absent -- read it before trusting any other
+   category in the manifest at face value. (This is the same "validated against whatever spec
+   happens to be on disk, not against the analysed set" root cause behind the one known,
+   persistent failure in `Tests/Build-PfbValueEnumMap.Tests.ps1` -- see "Tests" below.)
+
+   **`confidence` and the norm reversal it represents (decision 5).** Every endpoint's gap
+   lists are *always* computed now -- there is no longer an all-or-nothing gate that discards an
+   endpoint's real gaps just because one parameter on it has an unresolved surface. This reverses
+   an earlier, more conservative design, and the reversal is deliberate, not an oversight:
+   - **The old design.** A `$fullyMapped` gate suppressed an endpoint's entire gap computation
+     the moment any cmdlet calling it had a parameter whose `Surface` was `AttributesOnly` or
+     `TypedUnresolved` (i.e. not cleanly `Typed`), routing the endpoint into a `notVerified`
+     bucket instead -- a bare count in the report's summary, with no detail table anywhere. The
+     reasoning was sound on its face: such a parameter *might* already cover the apparent gap
+     through a path this AST-only inventory cannot see, so reporting it outright risked a false
+     positive.
+   - **Why it was reversed.** Measured against the real module, roughly 70% of the endpoints
+     landing in `notVerified` turned out to be tool blindness -- real, fixable parser gaps, not
+     genuine ambiguity -- and the failure mode was silence: a reader had no way to know what, or
+     even which endpoints, might be missing something, because `notVerified` carried no detail.
+   - **The new design.** `notVerified`/`$fullyMapped` no longer exist anywhere in the output
+     shape. Every endpoint's `MissingQueryParameters`/`MissingBodyProperties`/`ReadOnlyFields` are
+     always populated. The uncertainty an `AttributesOnly`/`TypedUnresolved` parameter introduces
+     is instead carried per-endpoint as `confidence`: `{ level: 'high'|'partial',
+     unresolvedParameters: [{parameter, surface, file, line}], escapeHatchOnly: [...], caveat }`.
+     `level` is `'high'` iff `unresolvedParameters` is empty. A `'partial'` endpoint's gap lists
+     can still contain false positives from this same mechanism -- that risk did not go away --
+     but they are never silently emptied because of it. The reader gets the field name **and** a
+     `file:line` to check it themselves (see the false-positive procedure immediately below).
+   - **What did NOT change.** `Build-PfbFieldCmdletMap.ps1`'s own `attributesOnly`/
+     `typedUnresolved` report buckets (see "Field-to-cmdlet mapping" below) are a different norm
+     answering a different question -- "should this parameter become a `ValidateSet` or
+     `ArgumentCompleter`" is a categorically different judgment call than "does this endpoint have
+     an addable gap" -- and remain genuinely "reported, not resolved, requires a human decision."
+     That norm is not reversed by this change.
+
+   **The false-positive resolution procedure (decision 6).** This report accepts **false
+   positives in order to eliminate false negatives**. A field is listed as missing even though
+   the module can already set it, when a parameter covering it could not be traced to a wire
+   name. Detection is only possible where `confidence.level` is `'partial'`; a `'high'`-confidence
+   row carries no false-positive risk from this mechanism. Reproduced here verbatim from the
+   generated Markdown's own "How to read this report" section (see
+   `tools/Build-PfbApiDriftReport.ps1`) because `tools/README.md` is a standalone reference a
+   maintainer may read without a generated report open:
+   1. Open the named parameter at the given `file:line` and follow where its value goes.
+   2. If it reaches the wire under the same name as the reported gap -> the gap is a false
+      positive AND a tooling bug: the parser does not recognise that idiom. File it as a parser
+      gap and fix the parser.
+   3. If it reaches the wire under a different name -> the reported gap may still be real; check
+      that field against the spec.
+   4. If it never reaches the wire -> the gap is real.
+
+   A false positive here costs a reader one `file:line` lookup; a false negative costs an
+   undetected gap indefinitely. Every false positive is a parser-gap detector -- it either fixes
+   the tool permanently for every endpoint, or confirms a real gap.
+
+   **`systemicGaps` / `conventionStrength` (decisions 7-8).** `systemicGaps` collapses every
+   *high*-confidence gap into one finding per distinct wire field name (never `'partial'` --
+   folding a partial-confidence endpoint's possibly-false-positive gap into a systemic FINDING
+   would overstate a confidence the endpoint's own row already warns against). Each finding is
+   `{ name, endpointCount, queryEndpointCount, bodyEndpointCount, endpoints, annotations }` --
+   turning hundreds of per-endpoint rows into a handful of real, actionable decisions: e.g.
+   `context_names` (253 endpoints) and `allow_errors` (109 endpoints) are two decisions, not 362
+   findings. `conventionStrength` then ranks each systemic-gap name by how many existing `Public/`
+   cmdlets already expose it as a `Typed` parameter somewhere in the module (`Get-PfbConventionStrength`),
+   sorted by that count descending: a high count (`names` at 306 cmdlets) means closing the
+   remaining gaps for that name is a mechanical batch fix; a count of zero (`context_names`, 0 --
+   no cmdlet anywhere in the module has ever exposed this name as a `Typed` parameter) means no
+   established convention exists to extend at all, and closing it is an architectural decision,
+   not a mechanical one. Both keys read `docs/drift-annotations.json` (via
+   `Get-PfbDriftAnnotations`/`Find-PfbDriftAnnotation`) for recorded design decisions, prior
+   conclusions, or live-testing hazards matched by field name (`systemicGaps[].annotations`) or by
+   endpoint (`parameterGaps[].annotations`) -- the file is optional; its absence degrades every
+   lookup to "no annotations" rather than failing report generation.
+
+   **`phantomFieldCount` -- two correct, differently-scoped numbers.** How many `(endpoint,
+   field)` pairs were silently dropped from every gap/read-only list because the field is
+   accumulated in the capability map's `parameters`/`bodyProperties` dictionaries but absent from
+   the newest ANALYSED spec (i.e. withdrawn from the real API after the version that first added
+   it)? Two numbers are simultaneously correct, because they answer different-population
+   questions:
+   - **34**, measured across the FULL population of endpoints an existing cmdlet calls,
+     regardless of confidence level -- this is what `phantomFieldCount` in
+     `Reports/PfbApiDriftReport.json` actually reports.
+   - **13**, measured over ONLY the high-confidence-endpoint subset -- this is the number in
+     `Get-PfbParameterCoverageGaps`'s own doc comment and this task's real-data acceptance tests.
+   Do not treat a mismatch between the two as a bug; check which population a given historical
+   reference is scoped to first. Computed by calling `Get-PfbParameterCoverageGaps` a second time
+   without `-CurrentSpecCapabilities` (its documented no-op default -- no phantom filtering) and
+   diffing the resulting `(endpoint, list, field)` triples against the real, phantom-filtered run
+   -- never a re-derivation of the phantom-detection logic itself.
+
+   **The phantom-field limitation, and why it's documented-only.** `Build-PfbCapabilityMap.ps1`
+   is first-sight-only for *additions* and never records *removal* -- `parameters`/
+   `bodyProperties` accumulate forever across every ingested spec version. A field withdrawn from
+   the API in a later spec (e.g. `PATCH /certificates|id` and `PATCH /certificates|name`:
+   read-only in every version 2.0-2.19, removed outright from 2.20 onward -- never writable, so
+   they are phantoms, not settable fields) still lingers in `Data/PfbCapabilityMap.json`'s own
+   `bodyProperties` dictionary indefinitely. The drift report's phantom-field filtering (this
+   section, and `Get-PfbParameterCoverageGaps -CurrentSpecCapabilities`) excludes these from every
+   gap/read-only list in the REPORT by cross-checking against the single newest analysed spec, but
+   the capability map itself never gets this correction -- it is a fundamentally different kind of
+   claim ("this field was ever seen" vs. "this field currently exists") and rebuilding the map to
+   track removal is out of scope for this effort. There is deliberately no `removedFields`
+   category anywhere in this toolchain.
+
+   **`readOnlyFields` reflects the newest ANALYSED spec, not the accumulated/historical one --
+   same reason as `Data/PfbCapabilityMap.json`'s own `readOnlyBodyProperties` (item 2 above).**
+   `readOnly` is not monotonic: a field can go from read-only to writable across versions (roughly
+   half the real flips in fb2.0-2.27 do exactly that), so first-sight semantics would wrongly
+   suppress a field that is genuinely settable today. Both the capability map's own
+   `readOnlyBodyProperties` and this report's `readOnlyFields` are last-seen-wins for the same
+   reason: spec text moves, and treating a field's *oldest* seen annotation as authoritative would
+   misreport its *current* state.
+
+   **The REST 2.17 cliff -- a spec-authoring event, not API evolution.** Naively grepping every
+   cached spec for raw `"readOnly": true` annotation counts shows an apparent cliff at 2.17: 1091
+   sites at 2.16, 408 at 2.17 -- a 63% drop that would lead a careless reader to conclude the API
+   lost read-only enforcement on hundreds of fields in one release. **It did not.** The real cause
+   is a `$ref` consolidation: named component (`$ref`) sites jump 10.5x in the same release (385 at
+   2.16 -> 4038 at 2.17) -- duplicated inline `readOnly` annotations were consolidated into shared,
+   referenced components, so one annotation site now serves many endpoints instead of being
+   repeated inline at each one. Measured on *resolved* (endpoint, field) pairs -- the number that
+   actually matters -- read-only coverage did not fall across this transition, it **rose**: 219
+   pairs at 2.16 to 262 at 2.17. Nothing was un-read-onlied. **This is a trap for whoever later
+   builds a `-SinceVersion`-style "since version X" delta feature over `readOnly`/`deprecated`
+   transitions**: a transition-count metric computed from raw annotation sites, or from anything
+   upstream of `$ref` resolution, will misread this release as instability that never happened.
+   Use resolved (endpoint, field) pairs (`Get-PfbSchemaPropertyDetails`'s own single resolving
+   walker, decision 3) for any future metric here, never a raw annotation-site count.
+
 ## What's deliberately NOT in the capability map
 
 The FlashBlade OpenAPI spec has no structural JSON Schema `enum` anywhere — verified

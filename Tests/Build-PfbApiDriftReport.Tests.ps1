@@ -348,6 +348,48 @@ Describe 'Build-PfbApiDriftReport -SinceVersion filter' -Skip:($PSVersionTable.P
     }
 }
 
+Describe 'Build-PfbApiDriftReport determinism (Task 8: end-to-end round-trip, same inputs, two separate output paths, byte-identical)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    # Existing coverage elsewhere in this file only asserts "no timestamp fields" (see the
+    # non-deterministic-content test above) and, inside tools/lib/PfbApiDriftTools.ps1 itself,
+    # alphabetical-ordering guarantees on individual collections (Sort-Object on
+    # MissingQueryParameters/MissingBodyProperties/ReadOnlyFields -- see that file's own
+    # load-bearing comment on why: Dictionary/PSCustomObject property enumeration order is not
+    # guaranteed stable run-to-run, and two Hashtable-staged candidate sets were once observed to
+    # reorder purely from .NET's per-process-randomized string hash codes). Neither is an
+    # end-to-end test: nothing here has ever run the FULL builder script twice against IDENTICAL
+    # inputs and diffed the two written files byte-for-byte. That gap matters more now than it did
+    # before this task: Tasks 4-7 added three entirely new collections (systemicGaps,
+    # conventionStrength, plus per-row confidence/annotations) since the last such check would have
+    # been meaningful, and the weekly CI workflow (update-api-capability-map.yml) opens a PR on ANY
+    # diff in the committed Reports/ output -- a single non-deterministic field anywhere in the
+    # manifest would make that job spuriously fire on every run, forever, even with zero real API
+    # drift.
+    BeforeAll {
+        $script:detOutputA = Join-Path $TestDrive 'determinism/runA/report.json'
+        $script:detReportA = Join-Path $TestDrive 'determinism/runA/report.md'
+        $script:detOutputB = Join-Path $TestDrive 'determinism/runB/report.json'
+        $script:detReportB = Join-Path $TestDrive 'determinism/runB/report.md'
+        & $builderScript -SpecsDirectory $specsDir -PublicDirectory $publicDir -PrivateDirectory $privateDir `
+            -CapabilityMapPath $capabilityMapPath -FieldCmdletMapPath $fieldCmdletMapPath `
+            -OutputPath $detOutputA -ReportPath $detReportA
+        & $builderScript -SpecsDirectory $specsDir -PublicDirectory $publicDir -PrivateDirectory $privateDir `
+            -CapabilityMapPath $capabilityMapPath -FieldCmdletMapPath $fieldCmdletMapPath `
+            -OutputPath $detOutputB -ReportPath $detReportB
+    }
+
+    It 'produces a byte-identical JSON manifest across two independent runs against the same inputs' {
+        $hashA = (Get-FileHash -Path $detOutputA -Algorithm SHA256).Hash
+        $hashB = (Get-FileHash -Path $detOutputB -Algorithm SHA256).Hash
+        $hashA | Should -Be $hashB
+    }
+
+    It 'produces a byte-identical Markdown report across two independent runs against the same inputs' {
+        $hashA = (Get-FileHash -Path $detReportA -Algorithm SHA256).Hash
+        $hashB = (Get-FileHash -Path $detReportB -Algorithm SHA256).Hash
+        $hashA | Should -Be $hashB
+    }
+}
+
 Describe 'Build-PfbApiDriftReport (real generated artifacts, skips gracefully if absent)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
     BeforeAll {
         $script:realCapabilityMapPath = Join-Path $repoRoot 'Data/PfbCapabilityMap.json'
@@ -413,6 +455,219 @@ Describe 'Build-PfbApiDriftReport (real generated artifacts, skips gracefully if
     It 'Task 7: phantomFieldCount is a non-negative integer, present on the manifest' {
         if (-not $hasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
         $realManifest.phantomFieldCount | Should -BeGreaterOrEqual 0
+    }
+}
+
+Describe 'Build-PfbApiDriftReport (Task 8: regression canaries + spot-checks against the real generated report, skips gracefully if absent)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    BeforeAll {
+        $script:t8CapabilityMapPath = Join-Path $repoRoot 'Data/PfbCapabilityMap.json'
+        $script:t8FieldCmdletMapPath = Join-Path $repoRoot 'Reports/PfbFieldCmdletMap.json'
+        $script:t8SpecsDir = Join-Path $repoRoot 'tools/specs'
+        $script:t8HasRealArtifacts = (Test-Path $t8CapabilityMapPath) -and (Test-Path $t8FieldCmdletMapPath) -and
+            (Test-Path $t8SpecsDir) -and (Get-ChildItem $t8SpecsDir -Filter 'fb*.json' -ErrorAction SilentlyContinue)
+
+        if ($t8HasRealArtifacts) {
+            $script:t8Output = Join-Path $TestDrive 't8output/report.json'
+            $script:t8Report = Join-Path $TestDrive 't8output/report.md'
+            & $builderScript -SpecsDirectory $t8SpecsDir -PublicDirectory (Join-Path $repoRoot 'Public') -PrivateDirectory (Join-Path $repoRoot 'Private') `
+                -CapabilityMapPath $t8CapabilityMapPath -FieldCmdletMapPath $t8FieldCmdletMapPath `
+                -OutputPath $t8Output -ReportPath $t8Report
+            $script:t8Manifest = Get-Content -Path $t8Output -Raw | ConvertFrom-Json -Depth 20
+        }
+
+        function Get-T8GapFieldNames {
+            param($Gap)
+            @($Gap.missingBodyProperties | ForEach-Object { if ($_ -is [string]) { $_ } else { $_.name } })
+        }
+    }
+
+    # PLAN DEFECT #1 correction (see .superpowers/sdd/drift-report-actionable-plan/progress.md):
+    # the task-8 brief originally listed 13 canaries, but PATCH /certificates|{id,name} are
+    # confirmed phantoms (readOnly 2.0-2.19, removed entirely 2.20+, never actually settable) --
+    # they must NOT be asserted as actionable. Only 11 of the brief's 13 listed (endpoint, field)
+    # pairs are real, confirmed regressions against first-sight readOnly semantics.
+    It 'Task 8 canaries: 11 confirmed (endpoint, field) pairs remain actionable body gaps, since first-sight readOnly semantics would have wrongly suppressed all 11' {
+        if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+        $canaries = @(
+            @{ Endpoint = 'PATCH /api-clients'; Field = 'max_role' }
+            @{ Endpoint = 'PATCH /tls-policies'; Field = 'name' }
+            @{ Endpoint = 'PATCH /storage-class-tiering-policies'; Field = 'name' }
+            @{ Endpoint = 'PATCH /dns'; Field = 'name' }
+            @{ Endpoint = 'PATCH /ssh-certificate-authority-policies'; Field = 'name' }
+            @{ Endpoint = 'PATCH /ssh-certificate-authority-policies'; Field = 'location' }
+            @{ Endpoint = 'PATCH /targets'; Field = 'ca_certificate_group' }
+            @{ Endpoint = 'PATCH /array-connections'; Field = 'ca_certificate_group' }
+            @{ Endpoint = 'POST /array-connections'; Field = 'ca_certificate_group' }
+            @{ Endpoint = 'PATCH /hardware-connectors'; Field = 'port_speed' }
+            @{ Endpoint = 'PATCH /network-interfaces/connectors'; Field = 'port_speed' }
+        )
+        foreach ($c in $canaries) {
+            $gap = $t8Manifest.parameterGaps | Where-Object { $_.endpoint -eq $c.Endpoint }
+            $gap | Should -Not -BeNullOrEmpty -Because "$($c.Endpoint) must have a parameter-gap row"
+            (Get-T8GapFieldNames -Gap $gap) | Should -Contain $c.Field -Because "$($c.Endpoint)|$($c.Field) is a regression canary"
+        }
+    }
+
+    It 'Task 8 canary correction: PATCH /certificates|{id,name} are phantoms -- NOT actionable body gaps, NOT read-only fields, absent from the endpoint''s row entirely' {
+        if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+        $gap = $t8Manifest.parameterGaps | Where-Object { $_.endpoint -eq 'PATCH /certificates' }
+        $gap | Should -Not -BeNullOrEmpty
+        (Get-T8GapFieldNames -Gap $gap) | Should -Not -Contain 'id'
+        (Get-T8GapFieldNames -Gap $gap) | Should -Not -Contain 'name'
+        $gap.readOnlyFields | Should -Not -Contain 'id'
+        $gap.readOnlyFields | Should -Not -Contain 'name'
+    }
+
+    It 'Task 8 spot-check: all five policy-family PATCH endpoints list is_local and policy_type as read-only' {
+        if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+        foreach ($ep in @('PATCH /worm-data-policies', 'PATCH /qos-policies', 'PATCH /ssh-certificate-authority-policies', 'PATCH /storage-class-tiering-policies', 'PATCH /tls-policies')) {
+            $gap = $t8Manifest.parameterGaps | Where-Object { $_.endpoint -eq $ep }
+            $gap | Should -Not -BeNullOrEmpty -Because "$ep must have a parameter-gap row"
+            $gap.readOnlyFields | Should -Contain 'is_local' -Because "$ep|is_local"
+            $gap.readOnlyFields | Should -Contain 'policy_type' -Because "$ep|policy_type"
+        }
+    }
+
+    It 'Task 8 spot-check: PATCH /certificates / generate_new_key appears as a query-parameter gap' {
+        if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+        $gap = $t8Manifest.parameterGaps | Where-Object { $_.endpoint -eq 'PATCH /certificates' }
+        $gap.missingQueryParameters | Should -Contain 'generate_new_key'
+    }
+
+    It 'Task 8 spot-check: PATCH /directory-services/roles / management_access_policies is read-only' {
+        if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+        $gap = $t8Manifest.parameterGaps | Where-Object { $_.endpoint -eq 'PATCH /directory-services/roles' }
+        $gap.readOnlyFields | Should -Contain 'management_access_policies'
+    }
+
+    It 'Task 8 spot-check: PATCH /management-access-policies read-only set is exactly context, id, is_local, policy_type, realms, version' {
+        if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+        $gap = $t8Manifest.parameterGaps | Where-Object { $_.endpoint -eq 'PATCH /management-access-policies' }
+        (@($gap.readOnlyFields) | Sort-Object) | Should -Be @('context', 'id', 'is_local', 'policy_type', 'realms', 'version')
+    }
+
+    It 'Task 8 correction: Update-PfbFileSystemExport''s genuinely read-only set is context, enabled, id, name, policy_type, status -- member/server are settable' {
+        if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+        $gap = $t8Manifest.parameterGaps | Where-Object { $_.endpoint -eq 'PATCH /file-system-exports' }
+        (@($gap.readOnlyFields) | Sort-Object) | Should -Be @('context', 'enabled', 'id', 'name', 'policy_type', 'status')
+        $gap.readOnlyFields | Should -Not -Contain 'member'
+        $gap.readOnlyFields | Should -Not -Contain 'server'
+    }
+
+    It 'Task 8 correction: Update-PfbCertificate''s read-only set includes realms, beyond the five originally named' {
+        if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+        $gap = $t8Manifest.parameterGaps | Where-Object { $_.endpoint -eq 'PATCH /certificates' }
+        $gap.readOnlyFields | Should -Contain 'realms'
+    }
+
+    Context '"Nothing vanishes" invariant: every capability-map candidate field lands in exactly one of reported/phantom-excluded' {
+        # Every query parameter and body property Data/PfbCapabilityMap.json lists for an
+        # endpoint an existing cmdlet calls, that isn't already exposed as a Typed parameter and
+        # isn't one of the non-actionable placeholder fields (X-Request-ID/continuation_token/
+        # offset -- see Get-PfbNonActionableParameters, a documented, deliberate exclusion
+        # unrelated to phantom detection), must land in EXACTLY ONE of: the real report's
+        # missingQueryParameters/missingBodyProperties (addable)/readOnlyFields, or the
+        # phantom-exclusion set (absent from the newest analysed spec). Verified arithmetically
+        # over (endpoint, list, field) triples -- never bare field names, since a field name can
+        # repeat across more than one endpoint's row -- using the SAME phantom-diffing technique
+        # tools/Build-PfbApiDriftReport.ps1 itself already uses (a second
+        # Get-PfbParameterCoverageGaps call without -CurrentSpecCapabilities), never a
+        # re-derivation of the phantom-detection logic.
+        BeforeAll {
+            if ($t8HasRealArtifacts) {
+                . (Join-Path $repoRoot 'tools/lib/PfbSpecTools.ps1')
+                . (Join-Path $repoRoot 'tools/lib/PfbValueEnumTools.ps1')
+                . (Join-Path $repoRoot 'tools/lib/PfbCmdletParamTools.ps1')
+                . (Join-Path $repoRoot 'tools/lib/PfbApiDriftTools.ps1')
+                $script:t8Inventory = Get-PfbCmdletParameterInventory -PublicDirectory (Join-Path $repoRoot 'Public')
+                $script:t8CalledEndpoints = Get-PfbModuleCalledEndpoints -PublicDirectory (Join-Path $repoRoot 'Public') -PrivateDirectory (Join-Path $repoRoot 'Private')
+                $script:t8CapMap = Get-Content -Path $t8CapabilityMapPath -Raw | ConvertFrom-Json -Depth 20
+                $script:t8NonActionable = Get-PfbNonActionableParameters -PrivateDirectory (Join-Path $repoRoot 'Private')
+
+                $newestAnalysedVersion8 = $t8CapMap.generatedFrom | Select-Object -Last 1
+                $newestSpecPath8 = Join-Path $t8SpecsDir "fb$newestAnalysedVersion8.json"
+                $newestSpec8 = Get-Content -Path $newestSpecPath8 -Raw | ConvertFrom-Json -Depth 64
+                $script:t8CurrentSpecCapabilities = @(Get-PfbSpecCapabilities -Spec $newestSpec8)
+
+                function Get-T8TripleSet {
+                    param([object[]]$Gaps)
+                    $set = [System.Collections.Generic.HashSet[string]]::new()
+                    foreach ($g in $Gaps) {
+                        foreach ($f in @($g.MissingQueryParameters)) { [void]$set.Add("$($g.Endpoint)|query|$f") }
+                        foreach ($f in @($g.MissingBodyProperties)) { [void]$set.Add("$($g.Endpoint)|body|$f") }
+                        foreach ($f in @($g.ReadOnlyFields)) { [void]$set.Add("$($g.Endpoint)|readOnly|$f") }
+                    }
+                    return $set
+                }
+
+                # Population: every real candidate field (Typed-exposed and non-actionable
+                # placeholder fields already excluded), BEFORE phantom filtering.
+                $script:t8PopulationRaw = @(Get-PfbParameterCoverageGaps -CapabilityMap $t8CapMap -CmdletInventory $t8Inventory -CalledEndpoints $t8CalledEndpoints -ExcludedFields $t8NonActionable -CurrentSpecCapabilities @())
+                $script:t8PopulationSet = Get-T8TripleSet -Gaps $t8PopulationRaw
+
+                # Reported: the exact same call Build-PfbApiDriftReport.ps1 itself makes.
+                $script:t8ReportedRaw = @(Get-PfbParameterCoverageGaps -CapabilityMap $t8CapMap -CmdletInventory $t8Inventory -CalledEndpoints $t8CalledEndpoints -ExcludedFields $t8NonActionable -CurrentSpecCapabilities $t8CurrentSpecCapabilities)
+                $script:t8ReportedSet = Get-T8TripleSet -Gaps $t8ReportedRaw
+
+                $script:t8PhantomExcludedSet = [System.Collections.Generic.HashSet[string]]::new([string[]]@($t8PopulationSet))
+                $t8PhantomExcludedSet.ExceptWith([string[]]@($t8ReportedSet))
+            }
+        }
+
+        It 'reported UNION phantom-excluded exactly equals the full candidate population -- nothing missing, nothing extra' {
+            if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+            $union = [System.Collections.Generic.HashSet[string]]::new([string[]]@($t8ReportedSet))
+            $union.UnionWith([string[]]@($t8PhantomExcludedSet))
+            $missingFromUnion = [System.Collections.Generic.HashSet[string]]::new([string[]]@($t8PopulationSet))
+            $missingFromUnion.ExceptWith([string[]]@($union))
+            $extraInUnion = [System.Collections.Generic.HashSet[string]]::new([string[]]@($union))
+            $extraInUnion.ExceptWith([string[]]@($t8PopulationSet))
+            $missingFromUnion.Count | Should -Be 0
+            $extraInUnion.Count | Should -Be 0
+        }
+
+        It 'reported and phantom-excluded are disjoint -- no (endpoint, list, field) triple lands in both buckets' {
+            if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+            $overlap = [System.Collections.Generic.HashSet[string]]::new([string[]]@($t8ReportedSet))
+            $overlap.IntersectWith([string[]]@($t8PhantomExcludedSet))
+            $overlap.Count | Should -Be 0
+        }
+
+        It 'the phantom-excluded count matches the real manifest''s phantomFieldCount exactly (34, full population)' {
+            if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+            $t8PhantomExcludedSet.Count | Should -Be $t8Manifest.phantomFieldCount
+            $t8PhantomExcludedSet.Count | Should -Be 34
+        }
+
+        It 'restricting the same diff to high-confidence-only gaps reproduces the doc-comment-pinned 13' {
+            if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+            $populationHigh = @($t8PopulationRaw | Where-Object { $_.Confidence.Level -eq 'high' })
+            $reportedHigh = @($t8ReportedRaw | Where-Object { $_.Confidence.Level -eq 'high' })
+            $populationHighSet = Get-T8TripleSet -Gaps $populationHigh
+            $reportedHighSet = Get-T8TripleSet -Gaps $reportedHigh
+            $phantomHighSet = [System.Collections.Generic.HashSet[string]]::new([string[]]@($populationHighSet))
+            $phantomHighSet.ExceptWith([string[]]@($reportedHighSet))
+            $phantomHighSet.Count | Should -Be 13
+        }
+
+        It 'the in-memory reported set matches the real committed Reports/PfbApiDriftReport.json on disk exactly (no serialization-only divergence)' {
+            if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+            $committedReportPath = Join-Path $repoRoot 'Reports/PfbApiDriftReport.json'
+            if (-not (Test-Path $committedReportPath)) { Set-ItResult -Skipped -Because 'Reports/PfbApiDriftReport.json not present locally'; return }
+            $committedManifest = Get-Content -Path $committedReportPath -Raw | ConvertFrom-Json -Depth 20
+            $committedTripleSet = [System.Collections.Generic.HashSet[string]]::new()
+            foreach ($g in $committedManifest.parameterGaps) {
+                foreach ($f in @($g.missingQueryParameters)) { [void]$committedTripleSet.Add("$($g.endpoint)|query|$f") }
+                foreach ($f in @($g.missingBodyProperties)) {
+                    $name = if ($f -is [string]) { $f } else { $f.name }
+                    [void]$committedTripleSet.Add("$($g.endpoint)|body|$name")
+                }
+                foreach ($f in @($g.readOnlyFields)) { [void]$committedTripleSet.Add("$($g.endpoint)|readOnly|$f") }
+            }
+            $diff = [System.Collections.Generic.HashSet[string]]::new([string[]]@($t8ReportedSet))
+            $diff.SymmetricExceptWith([string[]]@($committedTripleSet))
+            $diff.Count | Should -Be 0
+        }
     }
 }
 
