@@ -1088,7 +1088,15 @@ function Get-PfbDriftAnnotations {
     )
 
     if (-not (Test-Path $Path)) { return $null }
-    return Get-Content -Path $Path -Raw | ConvertFrom-Json -Depth 10
+    $json = Get-Content -Path $Path -Raw
+    # ConvertFrom-Json has no -Depth parameter on Windows PowerShell 5.1 (added in PS6) --
+    # this file's own shape (schemaVersion + a flat array of annotation records) is far
+    # shallower than 5.1's own recursion limit (100), same reasoning as
+    # Private/Get-PfbCapabilityMap.ps1's identical guard.
+    if ($PSVersionTable.PSVersion.Major -ge 6) {
+        return $json | ConvertFrom-Json -Depth 10
+    }
+    return $json | ConvertFrom-Json
 }
 
 function Find-PfbDriftAnnotation {
