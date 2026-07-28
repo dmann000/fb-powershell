@@ -158,7 +158,11 @@ function Test-PfbWireValueIsParameter {
             'literal'               -- ONLY for a [switch] whose mere presence is keyed to a
                                        hardcoded string, and only inside an `if ($Param)` guard
         Refused (correctly, per this file's "never guess" contract): anything else, e.g.
-        `@($Param | ForEach-Object { ... })` or `"$Param"`.
+        `"$Param"`. The array-projection shape `@($Param | ForEach-Object { @{ name = $_ } })`
+        is also refused HERE by design -- it is matched by the sibling
+        Test-PfbWireValueIsParameterProjection, and only ever from the nested-reference
+        resolver, which credits the OUTER key. Matching it in this predicate would let the
+        direct resolvers credit the INNER key instead, naming a field that does not exist.
     #>
     [CmdletBinding()]
     param(
@@ -188,6 +192,87 @@ function Test-PfbWireValueIsParameter {
     }
 
     return $false
+}
+
+function Test-PfbWireValueIsParameterProjection {
+    <#
+    .SYNOPSIS
+        True if -ValueAst is an array PROJECTION of the named parameter into single-key
+        sub-objects -- `@($Param | ForEach-Object { @{ name = $_ } })` -- the idiom this
+        module uses to build an array-of-references body field from a friendly [string[]].
+    .DESCRIPTION
+        Sibling of Test-PfbWireValueIsParameter, deliberately kept separate rather than
+        folded into it. The two answer different questions: that one asks "does this value
+        hand the parameter to the wire as-is", this one asks "does this value hand each
+        ELEMENT of the parameter to the wire wrapped in a sub-object". Only the nested-
+        reference resolver may act on the second, because only it credits the OUTER key --
+        the direct resolvers would have nowhere correct to attribute it, and would name an
+        `attached_servers.name` field that does not exist in the capability map.
+
+        Shape-exact, matching this file's "never guess" contract. Accepted:
+            @($Param | ForEach-Object { @{ key = $_ } })
+            $Param | ForEach-Object { @{ key = $_ } }        -- unwrapped
+            @($Param | % { @{ key = $_ } })                  -- alias
+        The inner key need not be literally 'name' (see the scalar resolver's
+        eradication_config precedent). Refused: a multi-key projection hashtable (a
+        composite, whose per-field ownership cannot be attributed to one parameter); an
+        innermost value that is anything but the bare $_ (`@{ name = $_.Name }`); a
+        pipeline source that is not the bare parameter; a longer pipeline (a Where-Object
+        filter in between means the wire value is a SUBSET, so the parameter does not cover
+        the field); and a ForEach-Object carrying any argument other than its script block.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Language.Ast]$ValueAst,
+
+        [Parameter(Mandatory)]
+        [string]$ParameterName
+    )
+
+    $candidate = Resolve-PfbSingleExpression -Ast $ValueAst
+
+    # `@( ... )` wraps the pipeline in an ArrayExpressionAst; the unwrapped form arrives as
+    # the PipelineAst itself (Resolve-PfbSingleExpression returns a multi-element pipeline
+    # unchanged -- it only peels SINGLE-element ones).
+    $pipeline = $null
+    if ($candidate -is [System.Management.Automation.Language.ArrayExpressionAst]) {
+        if ($candidate.SubExpression.Statements.Count -ne 1) { return $false }
+        $pipeline = $candidate.SubExpression.Statements[0] -as [System.Management.Automation.Language.PipelineAst]
+    }
+    else {
+        $pipeline = $candidate -as [System.Management.Automation.Language.PipelineAst]
+    }
+    if (-not $pipeline -or $pipeline.PipelineElements.Count -ne 2) { return $false }
+
+    # Element 1: the bare parameter, and nothing else. This is where the parameter's identity
+    # comes from -- the innermost value is $_, which names nothing.
+    $source = $pipeline.PipelineElements[0] -as [System.Management.Automation.Language.CommandExpressionAst]
+    if (-not $source) { return $false }
+    $sourceVar = $source.Expression -as [System.Management.Automation.Language.VariableExpressionAst]
+    if (-not $sourceVar -or $sourceVar.VariablePath.UserPath -ne $ParameterName) { return $false }
+
+    # Element 2: ForEach-Object with exactly one argument, a script block.
+    $command = $pipeline.PipelineElements[1] -as [System.Management.Automation.Language.CommandAst]
+    if (-not $command -or $command.CommandElements.Count -ne 2) { return $false }
+    $commandName = $command.CommandElements[0] -as [System.Management.Automation.Language.StringConstantExpressionAst]
+    if (-not $commandName -or $commandName.Value -notin @('ForEach-Object', '%')) { return $false }
+    $scriptBlockExpr = $command.CommandElements[1] -as [System.Management.Automation.Language.ScriptBlockExpressionAst]
+    if (-not $scriptBlockExpr) { return $false }
+
+    # Script block body: exactly one statement, a single-string-key hashtable literal whose
+    # one value is the bare pipeline variable.
+    $scriptBlock = $scriptBlockExpr.ScriptBlock
+    if ($scriptBlock.BeginBlock -or $scriptBlock.ProcessBlock -or $scriptBlock.DynamicParamBlock) { return $false }
+    if (-not $scriptBlock.EndBlock -or $scriptBlock.EndBlock.Statements.Count -ne 1) { return $false }
+
+    $hash = (Resolve-PfbSingleExpression -Ast $scriptBlock.EndBlock.Statements[0]) -as [System.Management.Automation.Language.HashtableAst]
+    if (-not $hash -or $hash.KeyValuePairs.Count -ne 1) { return $false }
+    if (-not ($hash.KeyValuePairs[0].Item1 -as [System.Management.Automation.Language.StringConstantExpressionAst])) { return $false }
+
+    $innerValue = Resolve-PfbSingleExpression -Ast $hash.KeyValuePairs[0].Item2
+    $innerVar = $innerValue -as [System.Management.Automation.Language.VariableExpressionAst]
+    return ($null -ne $innerVar -and $innerVar.VariablePath.UserPath -eq '_')
 }
 
 function Get-PfbCommonQueryParamMap {
@@ -487,9 +572,13 @@ function Get-PfbNestedReferenceWireNameForParameter {
             -- a multi-key sub-object is a composite whose per-field ownership cannot be
             attributed to one parameter;
           - only ONE level of nesting is descended;
-          - the innermost value must satisfy the same Test-PfbWireValueIsParameter used by
-            both direct paths, so a pipeline transform (New-PfbNetworkInterface's
-            `@($AttachedServers | ForEach-Object { @{ name = $_ } })`) is still refused.
+          - the innermost value must satisfy either Test-PfbWireValueIsParameter (the scalar
+            form, `@{ name = $Account }`) or Test-PfbWireValueIsParameterProjection (the
+            array form, New-PfbNetworkInterface's `@($AttachedServers | ForEach-Object
+            { @{ name = $_ } })`). Shapes that still cannot be attributed to one parameter
+            remain refused: a multi-key projection item, an innermost `$_.Member` rather than
+            the bare `$_`, and a filtered pipeline, whose wire value is a SUBSET of the
+            parameter.
 
         Deliberately invoked LAST of the three literal forms by
         Get-PfbWireNameForParameter, after both direct-assignment resolvers: it can then
@@ -514,6 +603,10 @@ function Get-PfbNestedReferenceWireNameForParameter {
     # hands $ParameterName to the wire?
     $isReferenceObjectFor = {
         param($Candidate)
+        # Array-of-references projection: the parameter's identity is the pipeline SOURCE, so
+        # this cannot route through Test-PfbWireValueIsParameter the way the scalar form does.
+        if (Test-PfbWireValueIsParameterProjection -ValueAst $Candidate -ParameterName $ParameterName) { return $true }
+
         $hash = (Resolve-PfbSingleExpression -Ast $Candidate) -as [System.Management.Automation.Language.HashtableAst]
         if (-not $hash) { return $false }
         if ($hash.KeyValuePairs.Count -ne 1) { return $false }
