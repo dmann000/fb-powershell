@@ -65,6 +65,31 @@ Describe 'Update-PfbAdmin - typed body parameters (#31)' {
             }
         }
 
+        It 'sends an EMPTY array for -ManagementAccessPolicies @() so a list can be cleared' {
+            Update-PfbAdmin -Name 'ops' -ManagementAccessPolicies @() -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey('management_access_policies') -and
+                @($Body['management_access_policies']).Count -eq 0
+            }
+        }
+
+        It 'sends an EMPTY string for -Password "" rather than dropping the key' {
+            Update-PfbAdmin -Name 'ops' -Password '' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey('password') -and $Body['password'] -eq ''
+            }
+        }
+
+        It 'omits every body key when no typed body parameter is supplied' {
+            Update-PfbAdmin -Name 'ops' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.Count -eq 0
+            }
+        }
+
         It 'targets the admin by id when -Id is used' {
             Update-PfbAdmin -Id 'admin-1' -Password 'x' -Confirm:$false -Array $fakeArray
 

@@ -18,7 +18,7 @@ Describe 'Update-PfbManagementAccessPolicy - typed body parameters (#31)' {
     Context 'typed parameters build the body' {
         It 'sends aggregation_strategy and the renamed name field' {
             Update-PfbManagementAccessPolicy -Name 'ops-policy' `
-                -AggregationStrategy 'least-common-permissions' -PolicyName 'ops-policy-v2' `
+                -AggregationStrategy 'least-common-permissions' -NewName 'ops-policy-v2' `
                 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
@@ -39,11 +39,29 @@ Describe 'Update-PfbManagementAccessPolicy - typed body parameters (#31)' {
         }
 
         It 'omits enabled entirely when -Enabled is not supplied' {
-            Update-PfbManagementAccessPolicy -Name 'ops-policy' -PolicyName 'x' `
+            Update-PfbManagementAccessPolicy -Name 'ops-policy' -NewName 'x' `
                 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 -not $Body.ContainsKey('enabled')
+            }
+        }
+
+        It 'sends an EMPTY array for -Rules @() so a rule list can be cleared' {
+            Update-PfbManagementAccessPolicy -Name 'ops-policy' -Rules @() `
+                -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey('rules') -and @($Body['rules']).Count -eq 0
+            }
+        }
+
+        It 'sends an EMPTY string for -NewName "" rather than dropping the key' {
+            Update-PfbManagementAccessPolicy -Name 'ops-policy' -NewName '' `
+                -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey('name') -and $Body['name'] -eq ''
             }
         }
 

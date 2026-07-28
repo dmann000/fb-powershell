@@ -105,21 +105,28 @@ function Update-PfbAdmin {
             $body = $Attributes
         }
         else {
+            # EVERY body parameter is guarded by $PSBoundParameters.ContainsKey, never by
+            # truthiness. This is deliberate and uniform. `if ($X)` silently discards any
+            # legitimate falsy value the caller explicitly supplied: $false, 0, '' and an empty
+            # array all fail a truthiness test. So `-Locked $false` would never unlock, an
+            # integer field could never be set to a meaningful 0, and
+            # `-ManagementAccessPolicies @()` could never clear a list. ContainsKey asks the
+            # only correct question -- did the caller supply this parameter at all?
+            #
+            # No [bool] cast on $Locked either: constraint 7 forbids it (it breaks the
+            # wire-name trace) and [Nullable[bool]] + ContainsKey already sends an explicit
+            # $false correctly.
             $body = @{}
-            if ($AuthorizationModel) { $body['authorization_model'] = $AuthorizationModel }
-            if ($OldPassword)        { $body['old_password']        = $OldPassword }
-            if ($Password)           { $body['password']            = $Password }
-            if ($PublicKey)          { $body['public_key']          = $PublicKey }
-
-            # Constraint 2: explicit $false must still be sent. The [Nullable[bool]] type plus
-            # this ContainsKey guard is what achieves that -- constraint 7 forbids a [bool]
-            # cast here, which would break the wire-name trace and buys nothing.
-            if ($PSBoundParameters.ContainsKey('Locked')) { $body['locked'] = $Locked }
+            if ($PSBoundParameters.ContainsKey('AuthorizationModel')) { $body['authorization_model'] = $AuthorizationModel }
+            if ($PSBoundParameters.ContainsKey('Locked'))             { $body['locked']              = $Locked }
+            if ($PSBoundParameters.ContainsKey('OldPassword'))        { $body['old_password']        = $OldPassword }
+            if ($PSBoundParameters.ContainsKey('Password'))           { $body['password']            = $Password }
+            if ($PSBoundParameters.ContainsKey('PublicKey'))          { $body['public_key']          = $PublicKey }
 
             # Constraint 8(b): management_access_policies is an ARRAY OF REFERENCES (item
             # schema is {id, name, resource_type}), so the parameter is [string[]] and the
             # projection is assigned INLINE -- constraint 7 forbids a $policyRefs local.
-            if ($ManagementAccessPolicies) {
+            if ($PSBoundParameters.ContainsKey('ManagementAccessPolicies')) {
                 $body['management_access_policies'] = @($ManagementAccessPolicies | ForEach-Object { @{ name = $_ } })
             }
         }

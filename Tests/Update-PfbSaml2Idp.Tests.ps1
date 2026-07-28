@@ -19,7 +19,7 @@ Describe 'Update-PfbSaml2Idp - typed body parameters (#31)' {
         It 'sends array_url, binding, the renamed name field and services' {
             Update-PfbSaml2Idp -Name 'adfs-prod' `
                 -ArrayUrl 'https://fb.example.test' -Binding 'http-redirect' `
-                -Saml2IdpName 'adfs-prod-v2' -Services 'management','object' `
+                -NewName 'adfs-prod-v2' -Services 'management','object' `
                 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
@@ -45,6 +45,22 @@ Describe 'Update-PfbSaml2Idp - typed body parameters (#31)' {
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 -not $Body.ContainsKey('enabled')
+            }
+        }
+
+        It 'sends an EMPTY array for -Services @() so the list can be cleared' {
+            Update-PfbSaml2Idp -Name 'adfs-prod' -Services @() -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey('services') -and @($Body['services']).Count -eq 0
+            }
+        }
+
+        It 'sends an EMPTY string for -ArrayUrl "" rather than dropping the key' {
+            Update-PfbSaml2Idp -Name 'adfs-prod' -ArrayUrl '' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey('array_url') -and $Body['array_url'] -eq ''
             }
         }
 

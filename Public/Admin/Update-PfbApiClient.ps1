@@ -73,11 +73,9 @@ function Update-PfbApiClient {
             $body = $Attributes
         }
         else {
+            # Every body parameter is guarded by ContainsKey, never by truthiness -- see the
+            # canonical explanation in Update-PfbAdmin.ps1.
             $body = @{}
-
-            # Constraint 2: explicit $false must still be sent. The [Nullable[bool]] type plus
-            # this ContainsKey guard is what achieves that -- constraint 7 forbids a [bool]
-            # cast here, which would break the wire-name trace and buys nothing.
             if ($PSBoundParameters.ContainsKey('Enabled')) { $body['enabled'] = $Enabled }
         }
 

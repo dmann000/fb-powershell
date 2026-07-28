@@ -17,7 +17,7 @@ Describe 'Update-PfbOidcIdp - typed body parameters (#31)' {
 
     Context 'typed parameters build the body' {
         It 'sends the renamed name field and services array' {
-            Update-PfbOidcIdp -Name 'okta-prod' -OidcIdpName 'okta-prod-v2' -Services 'object' `
+            Update-PfbOidcIdp -Name 'okta-prod' -NewName 'okta-prod-v2' -Services 'object' `
                 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
@@ -37,10 +37,26 @@ Describe 'Update-PfbOidcIdp - typed body parameters (#31)' {
         }
 
         It 'omits enabled entirely when -Enabled is not supplied' {
-            Update-PfbOidcIdp -Name 'okta-prod' -OidcIdpName 'x' -Confirm:$false -Array $fakeArray
+            Update-PfbOidcIdp -Name 'okta-prod' -NewName 'x' -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 -not $Body.ContainsKey('enabled')
+            }
+        }
+
+        It 'sends an EMPTY array for -Services @() so the list can be cleared' {
+            Update-PfbOidcIdp -Name 'okta-prod' -Services @() -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey('services') -and @($Body['services']).Count -eq 0
+            }
+        }
+
+        It 'sends an EMPTY string for -NewName "" rather than dropping the key' {
+            Update-PfbOidcIdp -Name 'okta-prod' -NewName '' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey('name') -and $Body['name'] -eq ''
             }
         }
 

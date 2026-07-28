@@ -23,8 +23,8 @@ function Update-PfbOidcIdp {
         configuration sub-object (`provider_url`, `provider_url_ca_certificate`,
         `provider_url_ca_certificate_group`), not as a reference to another resource, so it is
         passed through rather than given a name-only parameter.
-    .PARAMETER OidcIdpName
-        A new name for the provider. Named -OidcIdpName rather than -Name because -Name
+    .PARAMETER NewName
+        A new name for the provider. Named -NewName rather than -Name because -Name
         already identifies which IdP to update.
     .PARAMETER Services
         Services that the OIDC SSO authentication is used for.
@@ -46,7 +46,7 @@ function Update-PfbOidcIdp {
 
         Disables the OIDC IdP identified by ID.
     .EXAMPLE
-        Update-PfbOidcIdp -Name "azure-ad" -OidcIdpName "azure-ad-renamed" -WhatIf
+        Update-PfbOidcIdp -Name "azure-ad" -NewName "azure-ad-renamed" -WhatIf
 
         Shows what would happen if the OIDC IdP were renamed without making changes.
     #>
@@ -71,7 +71,7 @@ function Update-PfbOidcIdp {
 
         [Parameter(ParameterSetName = 'ByNameIndividual')]
         [Parameter(ParameterSetName = 'ByIdIndividual')]
-        [string]$OidcIdpName,
+        [string]$NewName,
 
         [Parameter(ParameterSetName = 'ByNameIndividual')]
         [Parameter(ParameterSetName = 'ByIdIndividual')]
@@ -97,20 +97,18 @@ function Update-PfbOidcIdp {
             $body = $Attributes
         }
         else {
+            # Every body parameter is guarded by ContainsKey, never by truthiness -- see the
+            # canonical explanation in Update-PfbAdmin.ps1.
             $body = @{}
-            if ($OidcIdpName) { $body['name']     = $OidcIdpName }
-            if ($Services)    { $body['services'] = @($Services) }
-
-            # Constraint 2: explicit $false must still be sent. The [Nullable[bool]] type plus
-            # this ContainsKey guard is what achieves that -- constraint 7 forbids a [bool]
-            # cast here, which would break the wire-name trace and buys nothing.
-            if ($PSBoundParameters.ContainsKey('Enabled')) { $body['enabled'] = $Enabled }
+            if ($PSBoundParameters.ContainsKey('Enabled'))  { $body['enabled']  = $Enabled }
+            if ($PSBoundParameters.ContainsKey('NewName'))  { $body['name']     = $NewName }
+            if ($PSBoundParameters.ContainsKey('Services')) { $body['services'] = @($Services) }
 
             # Constraint 8(c): idp is a COMPOSITE sub-object (_oidcSsoPostIdp carries
             # provider_url and its CA-certificate references), not a reference -- it has no
             # `name` property at all, so projecting it into @{ name = ... } would write a
             # field the schema does not have. Pass it straight through.
-            if ($Idp) { $body['idp'] = $Idp }
+            if ($PSBoundParameters.ContainsKey('Idp')) { $body['idp'] = $Idp }
         }
 
         $target = if ($Name) { $Name } else { $Id }

@@ -29,8 +29,8 @@ function Update-PfbSaml2Idp {
     .PARAMETER Management
         Properties specific to the management service, as a hashtable -- for example
         @{ trust_other_saml_sps_in_fleet = $false }.
-    .PARAMETER Saml2IdpName
-        A new user-specified name for the provider. Named -Saml2IdpName rather than -Name
+    .PARAMETER NewName
+        A new user-specified name for the provider. Named -NewName rather than -Name
         because -Name already identifies which IdP to update.
     .PARAMETER Services
         Services that the SAML2 SSO authentication is used for.
@@ -92,7 +92,7 @@ function Update-PfbSaml2Idp {
 
         [Parameter(ParameterSetName = 'ByNameIndividual')]
         [Parameter(ParameterSetName = 'ByIdIndividual')]
-        [string]$Saml2IdpName,
+        [string]$NewName,
 
         [Parameter(ParameterSetName = 'ByNameIndividual')]
         [Parameter(ParameterSetName = 'ByIdIndividual')]
@@ -122,24 +122,22 @@ function Update-PfbSaml2Idp {
             $body = $Attributes
         }
         else {
+            # Every body parameter is guarded by ContainsKey, never by truthiness -- see the
+            # canonical explanation in Update-PfbAdmin.ps1.
             $body = @{}
-            if ($ArrayUrl)     { $body['array_url'] = $ArrayUrl }
-            if ($Binding)      { $body['binding']   = $Binding }
-            if ($Saml2IdpName) { $body['name']      = $Saml2IdpName }
-            if ($Services)     { $body['services']  = @($Services) }
-
-            # Constraint 2: explicit $false must still be sent. The [Nullable[bool]] type plus
-            # this ContainsKey guard is what achieves that -- constraint 7 forbids a [bool]
-            # cast here, which would break the wire-name trace and buys nothing.
-            if ($PSBoundParameters.ContainsKey('Enabled')) { $body['enabled'] = $Enabled }
+            if ($PSBoundParameters.ContainsKey('ArrayUrl')) { $body['array_url'] = $ArrayUrl }
+            if ($PSBoundParameters.ContainsKey('Binding'))  { $body['binding']   = $Binding }
+            if ($PSBoundParameters.ContainsKey('Enabled'))  { $body['enabled']   = $Enabled }
+            if ($PSBoundParameters.ContainsKey('NewName'))  { $body['name']      = $NewName }
+            if ($PSBoundParameters.ContainsKey('Services')) { $body['services']  = @($Services) }
 
             # Constraint 8(c): idp, management and sp are all COMPOSITE sub-objects
             # (_saml2SsoIdp, _saml2SsoManagement, _saml2SsoSp), not references -- none of them
             # has a `name` property, so projecting them into @{ name = ... } would write a
             # field the schema does not have. Pass them straight through.
-            if ($Idp)        { $body['idp']        = $Idp }
-            if ($Management) { $body['management'] = $Management }
-            if ($Sp)         { $body['sp']         = $Sp }
+            if ($PSBoundParameters.ContainsKey('Idp'))        { $body['idp']        = $Idp }
+            if ($PSBoundParameters.ContainsKey('Management')) { $body['management'] = $Management }
+            if ($PSBoundParameters.ContainsKey('Sp'))         { $body['sp']         = $Sp }
         }
 
         $target = if ($Name) { $Name } else { $Id }

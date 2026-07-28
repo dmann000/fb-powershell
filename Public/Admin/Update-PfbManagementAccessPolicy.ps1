@@ -25,8 +25,8 @@ function Update-PfbManagementAccessPolicy {
         If $true, the policy is enabled.
     .PARAMETER Location
         Name of the array where the policy is defined.
-    .PARAMETER PolicyName
-        A new user-specified name for the policy. Named -PolicyName rather than -Name because
+    .PARAMETER NewName
+        A new user-specified name for the policy. Named -NewName rather than -Name because
         -Name already identifies which policy to update.
     .PARAMETER Rules
         All of the rules that are part of this policy, in evaluation order. Each rule is a
@@ -82,7 +82,7 @@ function Update-PfbManagementAccessPolicy {
 
         [Parameter(ParameterSetName = 'ByNameIndividual')]
         [Parameter(ParameterSetName = 'ByIdIndividual')]
-        [string]$PolicyName,
+        [string]$NewName,
 
         [Parameter(ParameterSetName = 'ByNameIndividual')]
         [Parameter(ParameterSetName = 'ByIdIndividual')]
@@ -108,26 +108,24 @@ function Update-PfbManagementAccessPolicy {
             $body = $Attributes
         }
         else {
+            # Every body parameter is guarded by ContainsKey, never by truthiness -- see the
+            # canonical explanation in Update-PfbAdmin.ps1.
             $body = @{}
-            if ($AggregationStrategy) { $body['aggregation_strategy'] = $AggregationStrategy }
-            if ($PolicyName)          { $body['name']                 = $PolicyName }
-
-            # Constraint 2: explicit $false must still be sent. The [Nullable[bool]] type plus
-            # this ContainsKey guard is what achieves that -- constraint 7 forbids a [bool]
-            # cast here, which would break the wire-name trace and buys nothing.
-            if ($PSBoundParameters.ContainsKey('Enabled')) { $body['enabled'] = $Enabled }
+            if ($PSBoundParameters.ContainsKey('AggregationStrategy')) { $body['aggregation_strategy'] = $AggregationStrategy }
+            if ($PSBoundParameters.ContainsKey('Enabled'))             { $body['enabled']              = $Enabled }
+            if ($PSBoundParameters.ContainsKey('NewName'))             { $body['name']                 = $NewName }
 
             # Constraint 8(a): location is a SCALAR REFERENCE (_fixedReference, properties are
             # exactly {id, name, resource_type}), so the parameter is [string] and the
             # reference object is built INLINE -- constraint 7 forbids a $locationRef local.
-            if ($Location) { $body['location'] = @{ name = $Location } }
+            if ($PSBoundParameters.ContainsKey('Location')) { $body['location'] = @{ name = $Location } }
 
             # Constraint 8(c): rules is an array of COMPOSITE objects, not references -- the
             # item schema (ManagementAccessPolicyRuleInPolicy) carries `role`, `scope` and
             # `index` beyond {id, name, resource_type}, and its own `name` is readOnly. So it
             # is passed straight through rather than projected into @{ name = ... }, which
             # would write a field the schema does not accept.
-            if ($Rules) { $body['rules'] = @($Rules) }
+            if ($PSBoundParameters.ContainsKey('Rules')) { $body['rules'] = @($Rules) }
         }
 
         $target = if ($Name) { $Name } else { $Id }
