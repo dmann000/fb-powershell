@@ -84,6 +84,14 @@ Describe 'New-PfbFleetMember - typed body/query parameters (#31, confirmed wire-
                 -not $Body.ContainsKey('members')
             }
         }
+
+        It 'sends an EMPTY array for -Members @() so the list can be cleared, not omit the key (constraint 18: does not apply to [hashtable[]], unlike a scalar [hashtable])' {
+            New-PfbFleetMember -FleetName 'fleet-prod' -Members @() -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey('members') -and @($Body['members']).Count -eq 0
+            }
+        }
     }
 
     Context 'constraint compliance' {
