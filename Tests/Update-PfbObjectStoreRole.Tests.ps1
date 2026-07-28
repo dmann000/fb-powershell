@@ -90,7 +90,7 @@ Describe 'Update-PfbObjectStoreRole - typed body parameters (#31)' {
     }
 
     Context 'deprecated / read-only fields are not exposed (constraint 9 and 11)' {
-        It 'has no -Name -- wait, -Name is the selector; has no -Created/-Prn/-TrustedEntities parameter' {
+        It 'has no -Created/-Prn/-TrustedEntities parameter' {
             $keys = (Get-Command Update-PfbObjectStoreRole).Parameters.Keys
             foreach ($p in 'Created', 'Prn', 'TrustedEntities') {
                 $keys | Should -Not -Contain $p

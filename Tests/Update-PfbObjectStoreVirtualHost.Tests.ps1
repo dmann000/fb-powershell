@@ -58,12 +58,32 @@ Describe 'Update-PfbObjectStoreVirtualHost - typed body parameters (#31)' {
             }
         }
 
+        It 'sends an EMPTY array for -AddAttachedServers @() so a list can be cleared' {
+            Update-PfbObjectStoreVirtualHost -Name 's3.example.com' -AddAttachedServers @() `
+                -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey('add_attached_servers') -and
+                @($Body['add_attached_servers']).Count -eq 0
+            }
+        }
+
         It 'builds remove_attached_servers as name-reference objects' {
             Update-PfbObjectStoreVirtualHost -Name 's3.example.com' -RemoveAttachedServers 'srv-d' `
                 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $Body['remove_attached_servers'][0].name -eq 'srv-d'
+            }
+        }
+
+        It 'sends an EMPTY array for -RemoveAttachedServers @() so a list can be cleared' {
+            Update-PfbObjectStoreVirtualHost -Name 's3.example.com' -RemoveAttachedServers @() `
+                -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey('remove_attached_servers') -and
+                @($Body['remove_attached_servers']).Count -eq 0
             }
         }
 
@@ -122,9 +142,14 @@ Describe 'Update-PfbObjectStoreVirtualHost - typed body parameters (#31)' {
             }
         }
 
-        It 'has no read-only field parameter (constraint 11: id)' {
-            $keys = (Get-Command Update-PfbObjectStoreVirtualHost).Parameters.Keys
-            $keys | Should -Not -Contain 'IdField'
+        It 'exposes no body parameter for the read-only id field (constraint 11) beyond the existing -Id selector' {
+            # `id` is read-only per the field reference; PascalCase would collide with the
+            # pre-existing -Id selector, so the only way this field could leak in is via that
+            # selector feeding the body. Assert the selector's ParameterSetName is confined to
+            # the ById* sets and never appears bound to a body-only set.
+            $idParam = (Get-Command Update-PfbObjectStoreVirtualHost).Parameters['Id']
+            $idParam.ParameterSets.Keys | Should -Not -Contain 'ByNameIndividual'
+            $idParam.ParameterSets.Keys | Should -Not -Contain 'ByNameAttributes'
         }
     }
 }

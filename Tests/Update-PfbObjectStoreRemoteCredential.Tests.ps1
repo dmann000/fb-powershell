@@ -72,10 +72,23 @@ Describe 'Update-PfbObjectStoreRemoteCredential - typed body parameters (#31)' {
             }
         }
 
-        It 'has no -SecretAccessKey default value (sensitive field)' {
-            (Get-Command Update-PfbObjectStoreRemoteCredential).Parameters['SecretAccessKey'].Attributes |
-                Where-Object { $_ -is [System.Management.Automation.PSDefaultValueAttribute] } |
-                Should -BeNullOrEmpty
+        It 'has no -SecretAccessKey default value (sensitive field, AST-based check)' {
+            # A defaulted [string]$SecretAccessKey = 'leaked' does NOT produce a
+            # PSDefaultValueAttribute -- .Attributes only ever holds ParameterAttribute /
+            # ArgumentTypeConverterAttribute. The default value only shows up in the AST, so
+            # that is what must be inspected to actually prove no default exists.
+            $paramBlock = (Get-Command Update-PfbObjectStoreRemoteCredential).ScriptBlock.Ast.Body.ParamBlock
+            $secretParam = $paramBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'SecretAccessKey' }
+            $secretParam | Should -Not -BeNullOrEmpty
+            $secretParam.DefaultValue | Should -BeNullOrEmpty
+        }
+
+        It 'never leaks the secret into Verbose or Debug output' {
+            $secret = 'S3cr3tValueMustNotLeak-9f8e7d'
+            $captured = Update-PfbObjectStoreRemoteCredential -Name 's3-repl-cred' -SecretAccessKey $secret `
+                -Confirm:$false -Array $fakeArray -Verbose -Debug 4>&1 5>&1
+
+            ($captured | Out-String) | Should -Not -Match ([regex]::Escape($secret))
         }
     }
 
