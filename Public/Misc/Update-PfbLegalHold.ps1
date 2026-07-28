@@ -10,14 +10,17 @@ function Update-PfbLegalHold {
         The name of the legal hold to update.
     .PARAMETER Id
         The ID of the legal hold to update.
+    .PARAMETER Description
+        The description of the legal hold instance.
     .PARAMETER Attributes
-        A hashtable of attributes to update on the legal hold.
+        A hashtable of attributes to update on the legal hold. Mutually exclusive with the
+        individual typed parameters above.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
-        Update-PfbLegalHold -Name "litigation-hold-2024" -Attributes @{ description = 'Updated description' }
+        Update-PfbLegalHold -Name "litigation-hold-2024" -Description 'Updated description'
 
-        Updates the description on the specified legal hold.
+        Updates the description on the specified legal hold using a typed parameter.
     .EXAMPLE
         Update-PfbLegalHold -Id "12345" -Attributes @{ enabled = $false }
 
@@ -27,15 +30,23 @@ function Update-PfbLegalHold {
 
         Enables the specified legal hold.
     #>
-    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium',
+                   DefaultParameterSetName = 'ByNameIndividual')]
     param(
-        [Parameter(ParameterSetName = 'ByName', Mandatory, ValueFromPipelineByPropertyName)]
+        [Parameter(ParameterSetName = 'ByNameIndividual', Mandatory, ValueFromPipelineByPropertyName)]
+        [Parameter(ParameterSetName = 'ByNameAttributes',  Mandatory, ValueFromPipelineByPropertyName)]
         [string]$Name,
 
-        [Parameter(ParameterSetName = 'ById', Mandatory)]
+        [Parameter(ParameterSetName = 'ByIdIndividual', Mandatory)]
+        [Parameter(ParameterSetName = 'ByIdAttributes',  Mandatory)]
         [string]$Id,
 
-        [Parameter()]
+        [Parameter(ParameterSetName = 'ByNameIndividual')]
+        [Parameter(ParameterSetName = 'ByIdIndividual')]
+        [string]$Description,
+
+        [Parameter(ParameterSetName = 'ByNameAttributes', Mandatory)]
+        [Parameter(ParameterSetName = 'ByIdAttributes',   Mandatory)]
         [hashtable]$Attributes,
 
         [Parameter()] [PSCustomObject]$Array
@@ -46,12 +57,20 @@ function Update-PfbLegalHold {
     }
 
     process {
-        $body = if ($Attributes) { $Attributes } else { @{} }
-
         $queryParams = @{}
         if ($Name) { $queryParams['names'] = $Name }
         if ($Id)   { $queryParams['ids']   = $Id }
         $target = if ($Name) { $Name } else { $Id }
+
+        if ($PSCmdlet.ParameterSetName -like '*Attributes') {
+            $body = $Attributes
+        }
+        else {
+            # Every value-carrying parameter is guarded by ContainsKey, never truthiness -- see
+            # the canonical explanation in Update-PfbAdmin.ps1.
+            $body = @{}
+            if ($PSBoundParameters.ContainsKey('Description')) { $body['description'] = $Description }
+        }
 
         if ($PSCmdlet.ShouldProcess($target, 'Update legal hold')) {
             Invoke-PfbApiRequest -Array $Array -Method PATCH -Endpoint 'legal-holds' -Body $body -QueryParams $queryParams
