@@ -15,13 +15,16 @@ function New-PfbPolicyFileSystemReplicaLink {
         `local_file_system_ids`) and its remote side (`remote_names`/`remote_ids`), so
         -MemberName is replaced with -LocalFileSystemName/-LocalFileSystemId and
         -RemoteName/-RemoteId, while -MemberId is kept (mapped to the real `member_ids` key) as
-        an additional, independent selector alongside them.
+        an additional, independent selector alongside them. -LocalFileSystemName keeps
+        -MemberName as a backward-compatible alias (whole-branch review finding I-3: matches
+        the identical rename on the sibling cmdlet New-PfbFileSystemReplicaLinkPolicy).
     .PARAMETER PolicyName
         The policy name.
     .PARAMETER PolicyId
         The policy ID.
     .PARAMETER LocalFileSystemName
-        The name of the local file system side of the replica link.
+        The name of the local file system side of the replica link. Also accepts the alias
+        -MemberName.
     .PARAMETER LocalFileSystemId
         The ID of the local file system side of the replica link.
     .PARAMETER MemberId
@@ -51,7 +54,7 @@ function New-PfbPolicyFileSystemReplicaLink {
     param(
         [Parameter()] [string]$PolicyName,
         [Parameter()] [string]$PolicyId,
-        [Parameter()] [string]$LocalFileSystemName,
+        [Parameter()] [Alias('MemberName')] [string]$LocalFileSystemName,
         [Parameter()] [string]$MemberId,
         [Parameter()] [string]$LocalFileSystemId,
         [Parameter()] [string]$RemoteName,
