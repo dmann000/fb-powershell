@@ -1264,25 +1264,30 @@ Describe 'Task 6 real-data acceptance figures (systemic gaps + convention streng
         }
     }
 
-    It 'shows allow_errors at 109 endpoints (systemic-gaps acceptance figure -- exact match)' {
+    It 'shows allow_errors at 110 endpoints (systemic-gaps acceptance figure -- exact match)' {
         if (-not $hasRealData) { Set-ItResult -Skipped -Because 'Data/PfbCapabilityMap.json not present locally'; return }
+        # Re-pinned after issue #31 (Task 12 step 3, duplicate of the pin in
+        # Build-PfbApiDriftReport.Tests.ps1) -- allow_errors is an unrelated, out-of-scope
+        # systemic gap (Fusion context design) whose endpoint count drifts independently.
         $finding = $realSystemicGaps2 | Where-Object { $_.Name -eq 'allow_errors' }
         $finding | Should -Not -BeNullOrEmpty
-        $finding.EndpointCount | Should -Be 109
+        $finding.EndpointCount | Should -Be 110
     }
 
-    It 'shows context_names at 253 endpoints -- the task brief''s corrected figure says 252; investigated (3 independent methodological variants: with/without phantom-field filtering, with/without -ExcludedFields, all converge on 253) and could not reproduce 252 exactly, so this pins the actual, honestly-measured, reproducible value rather than force-matching a figure one endpoint stale' {
+    It 'shows context_names at 254 endpoints -- re-pinned after issue #31 (Task 12 step 3); previously 253 (itself already one endpoint off the task brief''s stated 252, investigated and left as the honestly-measured value rather than force-matched)' {
         if (-not $hasRealData) { Set-ItResult -Skipped -Because 'Data/PfbCapabilityMap.json not present locally'; return }
         $finding = $realSystemicGaps2 | Where-Object { $_.Name -eq 'context_names' }
         $finding | Should -Not -BeNullOrEmpty
-        $finding.EndpointCount | Should -Be 253
+        $finding.EndpointCount | Should -Be 254
     }
 
-    It 'convention strength: names = 306, ids = 218, context_names = 0 (acceptance figures)' {
+    It 'convention strength: names = 308, ids = 219, context_names = 0 (acceptance figures)' {
         if (-not $hasRealData) { Set-ItResult -Skipped -Because 'Data/PfbCapabilityMap.json not present locally'; return }
+        # Re-pinned after issue #31 (Task 12 step 3): the 56 converted cmdlets now use
+        # -Name/-Id (wired to names/ids), raising both convention-strength counts.
         $strength = Get-PfbConventionStrength -CmdletInventory $realInventory2 -Names @('names', 'ids', 'context_names')
-        ($strength | Where-Object { $_.Name -eq 'names' }).CmdletCount | Should -Be 306
-        ($strength | Where-Object { $_.Name -eq 'ids' }).CmdletCount | Should -Be 218
+        ($strength | Where-Object { $_.Name -eq 'names' }).CmdletCount | Should -Be 308
+        ($strength | Where-Object { $_.Name -eq 'ids' }).CmdletCount | Should -Be 219
         ($strength | Where-Object { $_.Name -eq 'context_names' }).CmdletCount | Should -Be 0
     }
 

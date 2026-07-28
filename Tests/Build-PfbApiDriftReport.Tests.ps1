@@ -463,16 +463,22 @@ Describe 'Build-PfbApiDriftReport (real generated artifacts, skips gracefully if
         Test-Path $realOutput | Should -BeTrue
     }
 
-    It 'Task 7: wires systemicGaps through with the pinned acceptance figures (context_names 253, allow_errors 109)' {
+    It 'Task 7: wires systemicGaps through with the pinned acceptance figures (context_names 254, allow_errors 110)' {
         if (-not $hasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
-        ($realManifest.systemicGaps | Where-Object { $_.name -eq 'context_names' }).endpointCount | Should -Be 253
-        ($realManifest.systemicGaps | Where-Object { $_.name -eq 'allow_errors' }).endpointCount | Should -Be 109
+        # Re-pinned after issue #31 (Task 12 step 3): closing 56 cmdlets' worth of real gaps
+        # shifted these population-wide figures. context_names/allow_errors are unrelated,
+        # out-of-scope systemic gaps (Fusion context design, not yet implemented) whose
+        # endpoint counts drift independently of this issue's own work.
+        ($realManifest.systemicGaps | Where-Object { $_.name -eq 'context_names' }).endpointCount | Should -Be 254
+        ($realManifest.systemicGaps | Where-Object { $_.name -eq 'allow_errors' }).endpointCount | Should -Be 110
     }
 
-    It 'Task 7: wires conventionStrength through with the pinned acceptance figures (names 306, ids 218, context_names 0)' {
+    It 'Task 7: wires conventionStrength through with the pinned acceptance figures (names 308, ids 219, context_names 0)' {
         if (-not $hasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
-        ($realManifest.conventionStrength | Where-Object { $_.name -eq 'names' }).cmdletCount | Should -Be 306
-        ($realManifest.conventionStrength | Where-Object { $_.name -eq 'ids' }).cmdletCount | Should -Be 218
+        # Re-pinned after issue #31 (Task 12 step 3): the 56 converted cmdlets now use -Name/-Id
+        # (wired to names/ids), raising the convention-strength cmdlet counts for both.
+        ($realManifest.conventionStrength | Where-Object { $_.name -eq 'names' }).cmdletCount | Should -Be 308
+        ($realManifest.conventionStrength | Where-Object { $_.name -eq 'ids' }).cmdletCount | Should -Be 219
         ($realManifest.conventionStrength | Where-Object { $_.name -eq 'context_names' }).cmdletCount | Should -Be 0
     }
 
@@ -535,10 +541,26 @@ Describe 'Build-PfbApiDriftReport (Task 8: regression canaries + spot-checks aga
     # confirmed phantoms (readOnly 2.0-2.19, removed entirely 2.20+, never actually settable) --
     # they must NOT be asserted as actionable. Only 11 of the brief's 13 listed (endpoint, field)
     # pairs are real, confirmed regressions against first-sight readOnly semantics.
-    It 'Task 8 canaries: 11 confirmed (endpoint, field) pairs remain actionable body gaps, since first-sight readOnly semantics would have wrongly suppressed all 11' {
+    #
+    # Re-pinned after issue #31 (Task 12 step 3): 10 of these 11 canaries were exactly the kind
+    # of real, actionable gap this test existed to prove wasn't being wrongly suppressed --
+    # and issue #31 closed all 10 by adding the corresponding typed parameter (Update-PfbTlsPolicy
+    # -NewName, Update-PfbHardwareConnector -PortSpeed, etc). Verified directly against this
+    # report: each of the 10 now has an empty missingBodyProperties list for that field. Asserting
+    # they "remain actionable" would be asserting a regression that never happened; the test is
+    # repurposed below to guard against ever losing that fix instead. Only `max_role` on
+    # PATCH /api-clients is still open, correctly (Constraint 9: deprecated fields get no typed
+    # parameter, so it's expected to remain a permanent, not-actionable gap).
+    It 'Task 8 canary: PATCH /api-clients|max_role remains a body gap (deprecated field, correctly never given a typed parameter per Constraint 9)' {
         if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
-        $canaries = @(
-            @{ Endpoint = 'PATCH /api-clients'; Field = 'max_role' }
+        $gap = $t8Manifest.parameterGaps | Where-Object { $_.endpoint -eq 'PATCH /api-clients' }
+        $gap | Should -Not -BeNullOrEmpty -Because 'PATCH /api-clients must have a parameter-gap row'
+        (Get-T8GapFieldNames -Gap $gap) | Should -Contain 'max_role' -Because 'max_role is deprecated and deliberately left unaddressed'
+    }
+
+    It 'Task 8 canaries: the 10 real gaps issue #31 fixed stay fixed (regression guard, not a re-check of the original first-sight-readOnly finding)' {
+        if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+        $fixedCanaries = @(
             @{ Endpoint = 'PATCH /tls-policies'; Field = 'name' }
             @{ Endpoint = 'PATCH /storage-class-tiering-policies'; Field = 'name' }
             @{ Endpoint = 'PATCH /dns'; Field = 'name' }
@@ -550,10 +572,10 @@ Describe 'Build-PfbApiDriftReport (Task 8: regression canaries + spot-checks aga
             @{ Endpoint = 'PATCH /hardware-connectors'; Field = 'port_speed' }
             @{ Endpoint = 'PATCH /network-interfaces/connectors'; Field = 'port_speed' }
         )
-        foreach ($c in $canaries) {
+        foreach ($c in $fixedCanaries) {
             $gap = $t8Manifest.parameterGaps | Where-Object { $_.endpoint -eq $c.Endpoint }
-            $gap | Should -Not -BeNullOrEmpty -Because "$($c.Endpoint) must have a parameter-gap row"
-            (Get-T8GapFieldNames -Gap $gap) | Should -Contain $c.Field -Because "$($c.Endpoint)|$($c.Field) is a regression canary"
+            $gap | Should -Not -BeNullOrEmpty -Because "$($c.Endpoint) must still have a parameter-gap row (for its other tracked fields)"
+            (Get-T8GapFieldNames -Gap $gap) | Should -Not -Contain $c.Field -Because "$($c.Endpoint)|$($c.Field) was fixed by issue #31 and must not regress"
         }
     }
 
@@ -577,10 +599,14 @@ Describe 'Build-PfbApiDriftReport (Task 8: regression canaries + spot-checks aga
         }
     }
 
-    It 'Task 8 spot-check: PATCH /certificates / generate_new_key appears as a query-parameter gap' {
+    It 'Task 8 spot-check: PATCH /certificates / generate_new_key was fixed by issue #31 (Update-PfbCertificate -GenerateNewKey) and must not regress' {
         if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+        # Re-pinned after issue #31 (Task 12 step 3): this was a real query-parameter gap when
+        # the original spot-check was written; Task 2 closed it. Verified directly against this
+        # report: PATCH /certificates now has an empty missingQueryParameters list.
         $gap = $t8Manifest.parameterGaps | Where-Object { $_.endpoint -eq 'PATCH /certificates' }
-        $gap.missingQueryParameters | Should -Contain 'generate_new_key'
+        $gap | Should -Not -BeNullOrEmpty
+        $gap.missingQueryParameters | Should -Not -Contain 'generate_new_key'
     }
 
     It 'Task 8 spot-check: PATCH /directory-services/roles / management_access_policies is read-only' {
@@ -682,21 +708,26 @@ Describe 'Build-PfbApiDriftReport (Task 8: regression canaries + spot-checks aga
             $overlap.Count | Should -Be 0
         }
 
-        It 'the phantom-excluded count matches the real manifest''s phantomFieldCount exactly (34, full population)' {
+        It 'the phantom-excluded count matches the real manifest''s phantomFieldCount exactly (40, full population)' {
             if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+            # Re-pinned after issue #31 (Task 12 step 3): closing real gaps on 56 cmdlets shrank
+            # the reported set, growing phantom-excluded (population minus reported) in step --
+            # expected population drift, not a defect in the phantom-detection logic itself.
             $t8PhantomExcludedSet.Count | Should -Be $t8Manifest.phantomFieldCount
-            $t8PhantomExcludedSet.Count | Should -Be 34
+            $t8PhantomExcludedSet.Count | Should -Be 40
         }
 
-        It 'restricting the same diff to high-confidence-only gaps reproduces the doc-comment-pinned 13' {
+        It 'restricting the same diff to high-confidence-only gaps reproduces the doc-comment-pinned 21' {
             if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+            # Re-pinned after issue #31 (Task 12 step 3): same population-drift mechanism as
+            # phantomFieldCount above, restricted to high-confidence gaps.
             $populationHigh = @($t8PopulationRaw | Where-Object { $_.Confidence.Level -eq 'high' })
             $reportedHigh = @($t8ReportedRaw | Where-Object { $_.Confidence.Level -eq 'high' })
             $populationHighSet = Get-T8TripleSet -Gaps $populationHigh
             $reportedHighSet = Get-T8TripleSet -Gaps $reportedHigh
             $phantomHighSet = [System.Collections.Generic.HashSet[string]]::new([string[]]@($populationHighSet))
             $phantomHighSet.ExceptWith([string[]]@($reportedHighSet))
-            $phantomHighSet.Count | Should -Be 13
+            $phantomHighSet.Count | Should -Be 21
         }
 
         It 'the in-memory reported set matches the real committed Reports/PfbApiDriftReport.json on disk exactly (no serialization-only divergence)' {
