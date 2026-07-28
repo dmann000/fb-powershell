@@ -6,13 +6,16 @@ function New-PfbPolicyFileSystemReplicaLink {
         The New-PfbPolicyFileSystemReplicaLink cmdlet creates an association between a policy
         and a file system replica link on the connected Pure Storage FlashBlade.
 
-        Bug fix (#31): `POST /policies/file-system-replica-links` has no `member_names`/
-        `member_ids` query parameters at all -- those were previously sent and silently
-        ignored by the array, so -MemberName/-MemberId never had any effect. The endpoint's
-        real query parameters identify the replica link by its local file system
-        (`local_file_system_names`/`local_file_system_ids`) and its remote side
-        (`remote_names`/`remote_ids`), so -MemberName/-MemberId are replaced with
-        -LocalFileSystemName/-LocalFileSystemId and -RemoteName/-RemoteId.
+        Bug fix (#31, corrected after review): `POST /policies/file-system-replica-links` has
+        no `member_names` query parameter, but `member_ids` IS a real, spec-declared query
+        parameter on this endpoint (and its GET/DELETE siblings) -- confirmed directly against
+        the OpenAPI spec's parameter list, which the original fix missed, causing it to remove
+        -MemberId entirely as if it were as invalid as -MemberName. The endpoint also identifies
+        the replica link by its local file system (`local_file_system_names`/
+        `local_file_system_ids`) and its remote side (`remote_names`/`remote_ids`), so
+        -MemberName is replaced with -LocalFileSystemName/-LocalFileSystemId and
+        -RemoteName/-RemoteId, while -MemberId is kept (mapped to the real `member_ids` key) as
+        an additional, independent selector alongside them.
     .PARAMETER PolicyName
         The policy name.
     .PARAMETER PolicyId
@@ -21,6 +24,10 @@ function New-PfbPolicyFileSystemReplicaLink {
         The name of the local file system side of the replica link.
     .PARAMETER LocalFileSystemId
         The ID of the local file system side of the replica link.
+    .PARAMETER MemberId
+        The ID of the replica link member. Sent as the `member_ids` query parameter -- unlike
+        -MemberName (removed: `member_names` is not a valid query parameter for this endpoint),
+        `member_ids` is real and spec-declared.
     .PARAMETER RemoteName
         The name of the remote side of the replica link.
     .PARAMETER RemoteId
@@ -45,6 +52,7 @@ function New-PfbPolicyFileSystemReplicaLink {
         [Parameter()] [string]$PolicyName,
         [Parameter()] [string]$PolicyId,
         [Parameter()] [string]$LocalFileSystemName,
+        [Parameter()] [string]$MemberId,
         [Parameter()] [string]$LocalFileSystemId,
         [Parameter()] [string]$RemoteName,
         [Parameter()] [string]$RemoteId,
@@ -58,6 +66,7 @@ function New-PfbPolicyFileSystemReplicaLink {
     if ($PolicyId) { $queryParams['policy_ids'] = $PolicyId }
     if ($PSBoundParameters.ContainsKey('LocalFileSystemName')) { $queryParams['local_file_system_names'] = $LocalFileSystemName }
     if ($PSBoundParameters.ContainsKey('LocalFileSystemId'))   { $queryParams['local_file_system_ids']   = $LocalFileSystemId }
+    if ($PSBoundParameters.ContainsKey('MemberId'))            { $queryParams['member_ids']              = $MemberId }
     if ($PSBoundParameters.ContainsKey('RemoteName'))          { $queryParams['remote_names']            = $RemoteName }
     if ($PSBoundParameters.ContainsKey('RemoteId'))            { $queryParams['remote_ids']              = $RemoteId }
 

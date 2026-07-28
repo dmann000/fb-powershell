@@ -27,7 +27,7 @@ Describe 'New-PfbPolicyFileSystemReplicaLink - correct query wire keys (#31)' {
         }
     }
 
-    Context 'regression: real bug -- endpoint has no member_names/member_ids query params at all' {
+    Context 'regression: member_names does not exist on this endpoint (confirmed via spec), but member_ids does' {
         It 'sends -LocalFileSystemName as local_file_system_names, NOT member_names' {
             New-PfbPolicyFileSystemReplicaLink -PolicyName 'daily-snap' -LocalFileSystemName 'fs1/remote-fb' -Confirm:$false -Array $fakeArray
 
@@ -46,10 +46,24 @@ Describe 'New-PfbPolicyFileSystemReplicaLink - correct query wire keys (#31)' {
             }
         }
 
-        It 'no longer exposes the incorrectly-wired -MemberName/-MemberId parameters' {
-            $params = (Get-Command New-PfbPolicyFileSystemReplicaLink).Parameters
-            $params.Keys | Should -Not -Contain 'MemberName'
-            $params.Keys | Should -Not -Contain 'MemberId'
+        It 'no longer exposes the incorrectly-wired -MemberName parameter' {
+            (Get-Command New-PfbPolicyFileSystemReplicaLink).Parameters.Keys | Should -Not -Contain 'MemberName'
+        }
+
+        It 'sends -MemberId as member_ids (real, spec-declared parameter -- restored after review, unlike -MemberName)' {
+            New-PfbPolicyFileSystemReplicaLink -PolicyName 'daily-snap' -MemberId 'member-1' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $QueryParams['member_ids'] -eq 'member-1'
+            }
+        }
+
+        It 'omits member_ids entirely when -MemberId is not supplied' {
+            New-PfbPolicyFileSystemReplicaLink -PolicyName 'daily-snap' -LocalFileSystemName 'fs1' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                -not $QueryParams.ContainsKey('member_ids')
+            }
         }
     }
 
