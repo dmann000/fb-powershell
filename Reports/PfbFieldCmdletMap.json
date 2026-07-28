@@ -8513,6 +8513,16 @@
       "recommendation": null
     },
     {
+      "cmdlet": "New-PfbNetworkInterface",
+      "parameter": "AttachedServers",
+      "wireName": "attached_servers",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "New-PfbNetworkInterfaceTlsPolicy",
       "parameter": "MemberName",
       "wireName": "member_names",
@@ -15849,6 +15859,16 @@
     },
     {
       "cmdlet": "New-PfbServer",
+      "parameter": "DnsName",
+      "wireName": "dns",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbServer",
       "parameter": "LocalDirectoryService",
       "wireName": "local_directory_service",
       "status": "no-spec-enum-found",
@@ -15891,6 +15911,16 @@
       "cmdlet": "Update-PfbServer",
       "parameter": "Id",
       "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbServer",
+      "parameter": "DnsName",
+      "wireName": "dns",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -16586,10 +16616,6 @@
       "parameter": "Name"
     },
     {
-      "cmdlet": "New-PfbNetworkInterface",
-      "parameter": "AttachedServers"
-    },
-    {
       "cmdlet": "New-PfbNodeGroup",
       "parameter": "Name"
     },
@@ -16711,15 +16737,7 @@
     },
     {
       "cmdlet": "New-PfbServer",
-      "parameter": "DnsName"
-    },
-    {
-      "cmdlet": "New-PfbServer",
       "parameter": "CreateDirectoryService"
-    },
-    {
-      "cmdlet": "Update-PfbServer",
-      "parameter": "DnsName"
     }
   ],
   "typedUnresolved": [

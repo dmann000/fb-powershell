@@ -10358,33 +10358,6 @@
       "annotations": []
     },
     {
-      "endpoint": "PATCH /servers",
-      "cmdlets": [
-        "Update-PfbServer"
-      ],
-      "missingQueryParameters": [],
-      "missingBodyProperties": [
-        "dns"
-      ],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "partial",
-        "unresolvedParameters": [
-          {
-            "parameter": "DnsName",
-            "surface": "AttributesOnly",
-            "file": "Public/Server/Update-PfbServer.ps1",
-            "line": 34
-          }
-        ],
-        "escapeHatchOnly": [
-          "DnsName"
-        ],
-        "caveat": "body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability"
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "PATCH /smb-client-policies",
       "cmdlets": [
         "Update-PfbSmbClientPolicy"
@@ -14800,8 +14773,23 @@
       ],
       "missingQueryParameters": [],
       "missingBodyProperties": [
-        "attached_servers",
-        "rdma_enabled"
+        {
+          "name": "rdma_enabled",
+          "type": "boolean",
+          "format": null,
+          "specRequired": false,
+          "synopsis": "If `true` indicated that RDMA is enabled on the network interface.",
+          "suggestedPowerShellType": "[bool]",
+          "enumValues": [],
+          "enumStatus": "no-spec-enum-found",
+          "target": {
+            "file": "Public/Network/New-PfbNetworkInterface.ps1",
+            "paramBlockLine": 66,
+            "payloadVariable": "body",
+            "assignmentStyle": "index",
+            "hasAttributes": true
+          }
+        }
       ],
       "readOnlyFields": [
         "id",
@@ -14809,19 +14797,10 @@
         "realms"
       ],
       "confidence": {
-        "level": "partial",
-        "unresolvedParameters": [
-          {
-            "parameter": "AttachedServers",
-            "surface": "AttributesOnly",
-            "file": "Public/Network/New-PfbNetworkInterface.ps1",
-            "line": 55
-          }
-        ],
-        "escapeHatchOnly": [
-          "AttachedServers"
-        ],
-        "caveat": "body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability"
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
       },
       "annotations": []
     },
@@ -16518,9 +16497,7 @@
         "create_ds",
         "create_local_directory_service"
       ],
-      "missingBodyProperties": [
-        "dns"
-      ],
+      "missingBodyProperties": [],
       "readOnlyFields": [],
       "confidence": {
         "level": "partial",
@@ -16530,17 +16507,10 @@
             "surface": "AttributesOnly",
             "file": "Public/Server/New-PfbServer.ps1",
             "line": 40
-          },
-          {
-            "parameter": "DnsName",
-            "surface": "AttributesOnly",
-            "file": "Public/Server/New-PfbServer.ps1",
-            "line": 34
           }
         ],
         "escapeHatchOnly": [
-          "CreateDirectoryService",
-          "DnsName"
+          "CreateDirectoryService"
         ],
         "caveat": "body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability"
       },
@@ -19896,6 +19866,17 @@
       "annotations": []
     },
     {
+      "name": "rdma_enabled",
+      "endpointCount": 2,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 2,
+      "endpoints": [
+        "PATCH /network-interfaces",
+        "POST /network-interfaces"
+      ],
+      "annotations": []
+    },
+    {
       "name": "read",
       "endpointCount": 2,
       "queryEndpointCount": 0,
@@ -21214,16 +21195,6 @@
       "bodyEndpointCount": 1,
       "endpoints": [
         "POST /object-store-accounts"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "rdma_enabled",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "PATCH /network-interfaces"
       ],
       "annotations": []
     },
@@ -23335,6 +23306,13 @@
       ]
     },
     {
+      "name": "attached_servers",
+      "cmdletCount": 1,
+      "cmdlets": [
+        "New-PfbNetworkInterface"
+      ]
+    },
+    {
       "name": "bucket",
       "cmdletCount": 1,
       "cmdlets": [
@@ -23591,11 +23569,6 @@
     },
     {
       "name": "atime",
-      "cmdletCount": 0,
-      "cmdlets": []
-    },
-    {
-      "name": "attached_servers",
       "cmdletCount": 0,
       "cmdlets": []
     },

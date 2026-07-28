@@ -21,12 +21,12 @@ This report accepts **false positives in order to eliminate false negatives**. A
 ## Summary
 
 - Uncovered endpoints: 117
-- Endpoints with parameter gaps: 433
-- Missing body properties (addable): 609
+- Endpoints with parameter gaps: 432
+- Missing body properties (addable): 606
 - Missing query parameters (addable): 1004
 - Read-only body fields (not addable -- see the Read-only fields section below): 367
 - Phantom fields silently excluded (accumulated in the capability map, absent from the newest analysed spec): 40
-- Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 56
+- Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 54
 - Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): 312
 - ValidateSet drift: 0
 - New ValidateSet candidates: 1
@@ -381,7 +381,6 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `PATCH /realms/defaults` | Update-PfbRealmDefaults | context_names, realm_ids, realm_names | object_store | `high` |  |
 | `PATCH /s3-export-policies` | Update-PfbS3ExportPolicy | context_names | enabled, name, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PATCH /s3-export-policies/rules` | Update-PfbS3ExportRule | context_names, policy_ids, policy_names | actions, effect, resources | `high` |  |
-| `PATCH /servers` | Update-PfbServer |  | dns | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PATCH /smb-client-policies` | Update-PfbSmbClientPolicy | context_names | access_based_enumeration_enabled, enabled, location, name, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PATCH /smb-client-policies/rules` | Update-PfbSmbClientRule | before_rule_id, before_rule_name, context_names, ids, versions | client, encryption, index, permission, policy | `high` |  |
 | `PATCH /smb-share-policies` | Update-PfbSmbSharePolicy | context_names | enabled, location, name, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
@@ -451,7 +450,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `POST /management-access-policies` | New-PfbManagementAccessPolicy | context_names | aggregation_strategy, enabled, location, name, rules | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
 | `POST /management-access-policies/admins` | New-PfbManagementAccessPolicyAdmin | context_names |  | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
 | `POST /network-access-policies/rules` | New-PfbNetworkAccessRule | before_rule_id, before_rule_name, versions | client, effect, index, interfaces | `high` |  |
-| `POST /network-interfaces` | New-PfbNetworkInterface |  | attached_servers, rdma_enabled | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
+| `POST /network-interfaces` | New-PfbNetworkInterface |  | rdma_enabled | `high` |  |
 | `POST /network-interfaces/tls-policies` | New-PfbNetworkInterfaceTlsPolicy | member_ids, policy_ids |  | `high` |  |
 | `POST /nfs-export-policies` | New-PfbNfsExportPolicy | context_names | enabled, location, name, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `POST /nfs-export-policies/rules` | New-PfbNfsExportRule | before_rule_id, before_rule_name, context_names, versions | access, anongid, anonuid, atime, client, fileid_32bit, index, permission, policy, required_transport_security, secure, security | `high` |  |
@@ -483,7 +482,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `POST /realms` | New-PfbRealm | without_default_access_list |  | `high` |  |
 | `POST /s3-export-policies` | New-PfbS3ExportPolicy | context_names | enabled, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `POST /s3-export-policies/rules` | New-PfbS3ExportRule | context_names, names | actions, effect, resources | `high` |  |
-| `POST /servers` | New-PfbServer | create_ds, create_local_directory_service | dns | `partial` -- /!\ 2 unresolved params (see Partial-confidence detail below) |  |
+| `POST /servers` | New-PfbServer | create_ds, create_local_directory_service |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `POST /smb-client-policies` | New-PfbSmbClientPolicy | context_names | access_based_enumeration_enabled, enabled, location, name, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `POST /smb-client-policies/rules` | New-PfbSmbClientRule | before_rule_id, before_rule_name, context_names, versions | client, encryption, index, permission | `high` |  |
 | `POST /smb-share-policies` | New-PfbSmbSharePolicy | context_names | enabled, location, name, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
@@ -550,7 +549,6 @@ Per the decision-6 procedure above: open each parameter at its `file:line` and f
 | `PATCH /realms` | `-Destroyed` | AttributesOnly | `Public/Realm/Update-PfbRealm.ps1:31` | body reachable via -Attributes for some parameters and untraceable for others; lists reflect typed-parameter coverage only, not full wire reachability |
 | `PATCH /realms` | `-Eradicate` | TypedUnresolved | `Public/Realm/Remove-PfbRealm.ps1:32` | body reachable via -Attributes for some parameters and untraceable for others; lists reflect typed-parameter coverage only, not full wire reachability |
 | `PATCH /s3-export-policies` | `-Enabled` | AttributesOnly | `Public/Policy/Update-PfbS3ExportPolicy.ps1:42` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `PATCH /servers` | `-DnsName` | AttributesOnly | `Public/Server/Update-PfbServer.ps1:34` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `PATCH /smb-client-policies` | `-Enabled` | AttributesOnly | `Public/Policy/Update-PfbSmbClientPolicy.ps1:42` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `PATCH /smb-share-policies` | `-Enabled` | AttributesOnly | `Public/Policy/Update-PfbSmbSharePolicy.ps1:42` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `PATCH /workloads` | `-Destroyed` | TypedUnresolved | `Public/Workloads/Update-PfbWorkload.ps1:36` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
@@ -579,7 +577,6 @@ Per the decision-6 procedure above: open each parameter at its `file:line` and f
 | `POST /file-systems` | `-Writable` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:150` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /fleets` | `-Name` | AttributesOnly | `Public/Replication/New-PfbFleet.ps1:30` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /link-aggregation-groups` | `-Name` | AttributesOnly | `Public/Misc/New-PfbLag.ps1:29` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `POST /network-interfaces` | `-AttachedServers` | AttributesOnly | `Public/Network/New-PfbNetworkInterface.ps1:55` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /nfs-export-policies` | `-Enabled` | AttributesOnly | `Public/Policy/New-PfbNfsExportPolicy.ps1:36` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /node-groups` | `-Name` | AttributesOnly | `Public/Node/New-PfbNodeGroup.ps1:30` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /policies` | `-Enabled` | AttributesOnly | `Public/Policy/New-PfbPolicy.ps1:23` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
@@ -588,7 +585,6 @@ Per the decision-6 procedure above: open each parameter at its `file:line` and f
 | `POST /quotas/users` | `-UserName` | AttributesOnly | `Public/Quota/New-PfbQuotaUser.ps1:43` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /s3-export-policies` | `-Enabled` | AttributesOnly | `Public/Policy/New-PfbS3ExportPolicy.ps1:36` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /servers` | `-CreateDirectoryService` | AttributesOnly | `Public/Server/New-PfbServer.ps1:40` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `POST /servers` | `-DnsName` | AttributesOnly | `Public/Server/New-PfbServer.ps1:34` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /smb-client-policies` | `-Enabled` | AttributesOnly | `Public/Policy/New-PfbSmbClientPolicy.ps1:36` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /smb-share-policies` | `-Enabled` | AttributesOnly | `Public/Policy/New-PfbSmbSharePolicy.ps1:36` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /snmp-managers` | `-Name` | AttributesOnly | `Public/Monitoring/New-PfbSnmpManager.ps1:33` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
