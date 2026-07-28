@@ -42,6 +42,14 @@ Describe 'Update-PfbQosPolicy - typed body parameters (#31)' {
             }
         }
 
+        It 'sends an explicit -MaxTotalBytesPerSec 0 rather than dropping it (constraint 2: 0 means unlimited)' {
+            Update-PfbQosPolicy -Name 'qos-gold' -MaxTotalBytesPerSec 0 -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey('max_total_bytes_per_sec') -and $Body['max_total_bytes_per_sec'] -eq 0
+            }
+        }
+
         It 'sends an explicit -MaxTotalOpsPerSec 0 rather than dropping it (constraint 2: 0 means unlimited)' {
             Update-PfbQosPolicy -Name 'qos-gold' -MaxTotalOpsPerSec 0 -Confirm:$false -Array $fakeArray
 

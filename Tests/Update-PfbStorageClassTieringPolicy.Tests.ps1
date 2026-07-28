@@ -28,6 +28,14 @@ Describe 'Update-PfbStorageClassTieringPolicy - typed body parameters (#31)' {
             }
         }
 
+        It 'sends an EMPTY array for -ArchivalRules @() so the list can be cleared, not omit the key' {
+            Update-PfbStorageClassTieringPolicy -Name 'tier-to-archive' -ArchivalRules @() -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey('archival_rules') -and @($Body['archival_rules']).Count -eq 0
+            }
+        }
+
         It 'sends enabled as a body field (ContainsKey semantics, not truthiness)' {
             Update-PfbStorageClassTieringPolicy -Name 'tier-to-archive' -Enabled $false -Confirm:$false -Array $fakeArray
 
@@ -59,6 +67,14 @@ Describe 'Update-PfbStorageClassTieringPolicy - typed body parameters (#31)' {
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 @($Body['retrieval_rules']).Count -eq 1 -and
                 $Body['retrieval_rules'][0].priority -eq 'standard'
+            }
+        }
+
+        It 'sends an EMPTY array for -RetrievalRules @() so the list can be cleared, not omit the key' {
+            Update-PfbStorageClassTieringPolicy -Name 'tier-to-archive' -RetrievalRules @() -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey('retrieval_rules') -and @($Body['retrieval_rules']).Count -eq 0
             }
         }
 
