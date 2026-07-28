@@ -34,6 +34,22 @@ Describe 'Update-PfbDns - typed body and query parameters (#31)' {
             }
         }
 
+        It 'accepts -Domain/-Nameservers positionally (whole-branch review finding I-1: adding a parameter set disables ALL implicit positional binding, so this must stay explicit)' {
+            Update-PfbDns 'example.com' @('10.0.0.1', '10.0.0.2') -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body['domain'] -eq 'example.com' -and @($Body['nameservers']).Count -eq 2
+            }
+        }
+
+        It 'accepts -Attributes positionally' {
+            Update-PfbDns @{ domain = 'example.com' } -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body['domain'] -eq 'example.com'
+            }
+        }
+
         It 'rejects -Domain combined with -Attributes at bind time (moved into Individual set)' {
             { Update-PfbDns -Domain 'example.com' -Attributes @{ domain = 'other.com' } `
                 -Confirm:$false -Array $fakeArray -ErrorAction Stop } |
