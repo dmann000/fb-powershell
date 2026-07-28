@@ -15,14 +15,23 @@ Describe 'New-PfbLegalHoldEntity - query parameters (#31)' {
         Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { }
     }
 
-    Context 'existing hold/member selectors (regression, unchanged)' {
-        It 'still sends -HoldName as hold_names and -MemberName as member_names' {
-            New-PfbLegalHoldEntity -HoldName 'litigation-hold-2024' -MemberName 'fs1' -Confirm:$false -Array $fakeArray
+    Context '-HoldName/-MemberName are not exposed (whole-branch review: hold_names/member_names do not exist on this endpoint in any cached spec version)' {
+        It 'has no -HoldName parameter' {
+            (Get-Command New-PfbLegalHoldEntity).Parameters.Keys | Should -Not -Contain 'HoldName'
+        }
+
+        It 'has no -MemberName parameter' {
+            (Get-Command New-PfbLegalHoldEntity).Parameters.Keys | Should -Not -Contain 'MemberName'
+        }
+
+        It 'never sends hold_names or member_names query parameters' {
+            New-PfbLegalHoldEntity -Names 'litigation-hold-2024' -FileSystemNames 'fs1' -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $Method -eq 'POST' -and $Endpoint -eq 'legal-holds/held-entities' -and
-                $QueryParams['hold_names'] -eq 'litigation-hold-2024' -and
-                $QueryParams['member_names'] -eq 'fs1'
+                -not $QueryParams.ContainsKey('hold_names') -and -not $QueryParams.ContainsKey('member_names') -and
+                $QueryParams['names'] -eq 'litigation-hold-2024' -and
+                $QueryParams['file_system_names'] -eq 'fs1'
             }
         }
     }
@@ -63,7 +72,7 @@ Describe 'New-PfbLegalHoldEntity - query parameters (#31)' {
         }
 
         It 'sends an explicit -Recursive:$false (ContainsKey semantics, not truthiness)' {
-            New-PfbLegalHoldEntity -MemberName 'fs1' -Recursive $false -Confirm:$false -Array $fakeArray
+            New-PfbLegalHoldEntity -FileSystemNames 'fs1' -Recursive $false -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $QueryParams.ContainsKey('recursive') -and $QueryParams['recursive'] -eq $false
@@ -71,7 +80,7 @@ Describe 'New-PfbLegalHoldEntity - query parameters (#31)' {
         }
 
         It 'sends -Recursive:$true when supplied' {
-            New-PfbLegalHoldEntity -MemberName 'fs1' -Recursive $true -Confirm:$false -Array $fakeArray
+            New-PfbLegalHoldEntity -FileSystemNames 'fs1' -Recursive $true -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $QueryParams['recursive'] -eq $true
@@ -79,7 +88,7 @@ Describe 'New-PfbLegalHoldEntity - query parameters (#31)' {
         }
 
         It 'omits recursive entirely when not supplied' {
-            New-PfbLegalHoldEntity -MemberName 'fs1' -Confirm:$false -Array $fakeArray
+            New-PfbLegalHoldEntity -FileSystemNames 'fs1' -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 -not $QueryParams.ContainsKey('recursive')
@@ -89,7 +98,7 @@ Describe 'New-PfbLegalHoldEntity - query parameters (#31)' {
 
     Context 'endpoint accepts no request body' {
         It 'sends an empty body when -Attributes is not supplied' {
-            New-PfbLegalHoldEntity -MemberName 'fs1' -Confirm:$false -Array $fakeArray
+            New-PfbLegalHoldEntity -FileSystemNames 'fs1' -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $Body.Count -eq 0
