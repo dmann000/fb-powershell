@@ -4,12 +4,14 @@ function New-PfbLegalHoldEntity {
         Adds an entity to a legal hold on the FlashBlade.
     .DESCRIPTION
         The New-PfbLegalHoldEntity cmdlet associates an entity (file system, bucket, etc.)
-        with a legal hold on the connected Pure Storage FlashBlade. Identify the hold and
-        member by name, and optionally supply additional attributes.
-    .PARAMETER HoldName
-        The name of the legal hold.
-    .PARAMETER MemberName
-        The name of the entity to place under legal hold.
+        with a legal hold on the connected Pure Storage FlashBlade. Identify the entity by
+        file system, ID, name, or path, and optionally supply additional attributes.
+
+        Whole-branch review fix: -HoldName/-MemberName (`hold_names`/`member_names`) are
+        removed -- `POST /legal-holds/held-entities` has no such query parameters in any
+        cached spec version (2.4-2.28), so they could never have had any effect. -Names and
+        -FileSystemNames (added by this task, real and spec-backed) already cover the same
+        job these were attempting.
     .PARAMETER FileSystemIds
         The IDs of the file systems to place under legal hold.
     .PARAMETER FileSystemNames
@@ -30,26 +32,20 @@ function New-PfbLegalHoldEntity {
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
-        New-PfbLegalHoldEntity -HoldName "litigation-hold-2024" -MemberName "fs1"
+        New-PfbLegalHoldEntity -Names "litigation-hold-2024" -FileSystemNames "fs1"
 
         Places file system "fs1" under the legal hold "litigation-hold-2024".
     .EXAMPLE
-        New-PfbLegalHoldEntity -HoldName "litigation-hold-2024" -Paths "/dir1" -Recursive $true
+        New-PfbLegalHoldEntity -Names "litigation-hold-2024" -Paths "/dir1" -Recursive $true
 
         Recursively places everything under "/dir1" under the specified legal hold.
     .EXAMPLE
-        New-PfbLegalHoldEntity -HoldName "sec-investigation" -MemberName "bucket1" -Confirm:$false
+        New-PfbLegalHoldEntity -Names "sec-investigation" -FileSystemNames "bucket1" -Confirm:$false
 
         Adds a held entity without prompting for confirmation.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
-        [Parameter()]
-        [string]$HoldName,
-
-        [Parameter()]
-        [string]$MemberName,
-
         [Parameter()]
         [string[]]$FileSystemIds,
 
@@ -81,8 +77,6 @@ function New-PfbLegalHoldEntity {
     $body = if ($Attributes) { $Attributes } else { @{} }
 
     $queryParams = @{}
-    if ($HoldName)   { $queryParams['hold_names']   = $HoldName }
-    if ($MemberName) { $queryParams['member_names'] = $MemberName }
 
     # Every newly added query parameter is guarded by ContainsKey, never truthiness -- see the
     # canonical explanation in Update-PfbAdmin.ps1. An array field's `@()` must still reach the
@@ -94,7 +88,9 @@ function New-PfbLegalHoldEntity {
     if ($PSBoundParameters.ContainsKey('Paths'))            { $queryParams['paths']             = $Paths -join ',' }
     if ($PSBoundParameters.ContainsKey('Recursive'))        { $queryParams['recursive']         = $Recursive }
 
-    $target = "${HoldName}:${MemberName}"
+    $target = if ($PSBoundParameters.ContainsKey('Names')) { $Names -join ',' }
+              elseif ($PSBoundParameters.ContainsKey('FileSystemNames')) { $FileSystemNames -join ',' }
+              else { 'legal hold entity' }
 
     if ($PSCmdlet.ShouldProcess($target, 'Add legal hold entity')) {
         Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'legal-holds/held-entities' -Body $body -QueryParams $queryParams
