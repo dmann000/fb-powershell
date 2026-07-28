@@ -18,7 +18,9 @@ function New-PfbApiToken {
     .PARAMETER Timeout
         The duration of API token validity, in milliseconds.
     .PARAMETER Attributes
-        A hashtable of additional token attributes.
+        Retained for backward compatibility only. `POST /admins/api-tokens` accepts no request
+        body, so nothing supplied here is sent to the array. Use -Timeout to set the token's
+        validity period.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE

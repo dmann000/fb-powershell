@@ -6,9 +6,10 @@ function Update-PfbApiClient {
         The Update-PfbApiClient cmdlet modifies an existing API client on the connected
         Everpure FlashBlade.
 
-        Note that `PATCH /api-clients` reuses the full ApiClient resource schema, in which
-        every property except `enabled` is read-only. `enabled` is therefore the only
-        settable field this cmdlet exposes as a typed parameter.
+        Note that `PATCH /api-clients` reuses the full ApiClient resource schema. Of its nine
+        properties, seven are read-only and `max_role` is deprecated rather than read-only,
+        which leaves `enabled` as the only settable field this cmdlet exposes as a typed
+        parameter.
 
         The individual typed parameters and the raw -Attributes hashtable are mutually
         exclusive: they live in separate parameter sets, so PowerShell rejects a mixed

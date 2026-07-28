@@ -121,4 +121,29 @@ Describe 'Update-PfbAdmin - typed body parameters (#31)' {
             (Get-Command Update-PfbAdmin).Parameters.Keys | Should -Not -Contain 'Role'
         }
     }
+
+    Context 'constraint compliance' {
+        # PATCH /admins declares no enum on any body property, so every typed parameter must
+        # be free of ValidateSet. This file is the reference the other batches copy, so the
+        # assertion belongs here even though there is nothing to remove today.
+        It 'puts no ValidateSet on -<Parameter> (constraint 3, no spec enum)' -ForEach @(
+            @{ Parameter = 'AuthorizationModel' }
+            @{ Parameter = 'Locked' }
+            @{ Parameter = 'OldPassword' }
+            @{ Parameter = 'Password' }
+            @{ Parameter = 'PublicKey' }
+            @{ Parameter = 'ManagementAccessPolicies' }
+        ) {
+            $attrs = (Get-Command Update-PfbAdmin).Parameters[$Parameter].Attributes
+            @($attrs | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }).Count |
+                Should -Be 0
+        }
+
+        It 'exposes every settable body field the endpoint accepts (constraint 11 has no read-only field to exclude here)' {
+            $keys = (Get-Command Update-PfbAdmin).Parameters.Keys
+            foreach ($p in 'AuthorizationModel','Locked','OldPassword','Password','PublicKey','ManagementAccessPolicies') {
+                $keys | Should -Contain $p
+            }
+        }
+    }
 }
