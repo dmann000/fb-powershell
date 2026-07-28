@@ -53,6 +53,22 @@ Describe 'Update-PfbNetworkInterfaceConnector - typed body parameters (#31)' {
             }
         }
 
+        It 'sends an explicit -LanesPerPort 0 rather than dropping it (constraint 2, integer field)' {
+            Update-PfbNetworkInterfaceConnector -Name 'CH1.FM1.ETH1' -LanesPerPort 0 -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey('lanes_per_port') -and $Body['lanes_per_port'] -eq 0
+            }
+        }
+
+        It 'sends an explicit -PortSpeed 0 rather than dropping it (constraint 2, integer field)' {
+            Update-PfbNetworkInterfaceConnector -Name 'CH1.FM1.ETH1' -PortSpeed 0 -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey('port_speed') -and $Body['port_speed'] -eq 0
+            }
+        }
+
         It 'omits lane_speed entirely when -LaneSpeed is not supplied' {
             Update-PfbNetworkInterfaceConnector -Name 'CH1.FM1.ETH1' -PortSpeed 1 -Confirm:$false -Array $fakeArray
 
