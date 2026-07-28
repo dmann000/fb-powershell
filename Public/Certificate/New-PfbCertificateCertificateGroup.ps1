@@ -7,8 +7,12 @@ function New-PfbCertificateCertificateGroup {
         certificate and a certificate group on the connected Pure Storage FlashBlade.
     .PARAMETER CertificateName
         The certificate name.
+    .PARAMETER CertificateId
+        The certificate ID. Sent as the 'certificate_ids' query parameter.
     .PARAMETER CertificateGroupName
         The certificate group name.
+    .PARAMETER CertificateGroupId
+        The certificate group ID. Sent as the 'certificate_group_ids' query parameter.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
@@ -28,6 +32,8 @@ function New-PfbCertificateCertificateGroup {
     param(
         [Parameter()] [string]$CertificateName,
         [Parameter()] [string]$CertificateGroupName,
+        [Parameter()] [string]$CertificateId,
+        [Parameter()] [string]$CertificateGroupId,
         [Parameter()] [PSCustomObject]$Array
     )
 
@@ -35,7 +41,9 @@ function New-PfbCertificateCertificateGroup {
 
     $queryParams = @{}
     if ($CertificateName) { $queryParams['certificate_names'] = $CertificateName }
+    if ($PSBoundParameters.ContainsKey('CertificateId')) { $queryParams['certificate_ids'] = $CertificateId }
     if ($CertificateGroupName) { $queryParams['certificate_group_names'] = $CertificateGroupName }
+    if ($PSBoundParameters.ContainsKey('CertificateGroupId')) { $queryParams['certificate_group_ids'] = $CertificateGroupId }
 
     $target = "${CertificateName}:${CertificateGroupName}"
 
