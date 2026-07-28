@@ -48,8 +48,8 @@ function New-PfbFileSystemReplicaLinkPolicy {
         [Parameter()] [string]$PolicyName,
         [Parameter()] [string]$PolicyId,
         [Parameter()] [Alias('MemberName')] [string]$LocalFileSystemName,
-        [Parameter()] [string]$LocalFileSystemId,
         [Parameter()] [string]$MemberId,
+        [Parameter()] [string]$LocalFileSystemId,
         [Parameter()] [string]$RemoteId,
         [Parameter()] [string]$RemoteName,
         [Parameter()] [PSCustomObject]$Array
