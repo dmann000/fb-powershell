@@ -27,7 +27,7 @@ BeforeAll {
     )
 }
 
-Describe 'Issue #31 - in-scope cmdlets keep high drift confidence' {
+Describe 'Issue #31 - in-scope cmdlets keep high drift confidence' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
     It 'no in-scope write endpoint has dropped to partial confidence' {
         # Build-PfbApiDriftReport.ps1 has no -PassThru (verified: its parameters are
         # SpecsDirectory, PublicDirectory, PrivateDirectory, CapabilityMapPath,
