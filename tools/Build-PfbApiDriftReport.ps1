@@ -214,6 +214,30 @@ function Get-PfbCmdletFunctionAst {
     return $null
 }
 
+function ConvertTo-PfbRepoRelativePath {
+    <#
+    .SYNOPSIS
+        Rewrites an absolute cmdlet path to a forward-slashed path relative to $repoRoot.
+    .DESCRIPTION
+        Every path this report emits MUST be repo-relative. These artifacts are committed, so an
+        absolute path bakes the generating machine's directory layout into the repository: it
+        leaks a local filesystem structure, and it makes the committed file depend on WHERE it was
+        generated -- regenerating from a git worktree instead of the main checkout rewrites every
+        such line, producing hundreds of lines of diff churn that bury the real changes.
+
+        Falls back to the forward-slashed absolute path when the file genuinely is not under
+        $repoRoot (a test pointing -PublicDirectory at a synthetic fixture tree), rather than
+        throwing a Substring range error.
+    #>
+    param([string]$Path)
+
+    if (-not $Path) { return $Path }
+    if ($Path.StartsWith($repoRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return ($Path.Substring($repoRoot.Length + 1)) -replace '\\', '/'
+    }
+    return $Path -replace '\\', '/'
+}
+
 function Get-PfbGapTarget {
     <#
     .SYNOPSIS
@@ -243,17 +267,7 @@ function Get-PfbGapTarget {
         return [ordered]@{ file = $null; paramBlockLine = $null; payloadVariable = $null; assignmentStyle = $null; hasAttributes = $null }
     }
 
-    # Relative-to-$repoRoot when the cmdlet file is actually under it (the real Public/
-    # tree, and this task's own repo-relative-path convention for `target.file`) --
-    # otherwise (e.g. a test's -PublicDirectory pointed at a synthetic fixture tree
-    # entirely outside $repoRoot) falls back to the file's own absolute path rather than
-    # throwing a Substring range error.
-    $relativeFile = if ($file.StartsWith($repoRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
-        ($file.Substring($repoRoot.Length + 1)) -replace '\\', '/'
-    }
-    else {
-        $file -replace '\\', '/'
-    }
+    $relativeFile = ConvertTo-PfbRepoRelativePath -Path $file
     $funcAst = Get-PfbCmdletFunctionAst -Cmdlet $primaryCmdlet
     if (-not $funcAst) {
         return [ordered]@{ file = $relativeFile; paramBlockLine = $null; payloadVariable = $null; assignmentStyle = $null; hasAttributes = $null }
@@ -387,7 +401,10 @@ $parameterGaps = @($parameterGapsRaw | ForEach-Object {
             confidence               = [ordered]@{
                 level                = $gapRaw.Confidence.Level
                 unresolvedParameters = @($gapRaw.Confidence.UnresolvedParameters | ForEach-Object {
-                        [ordered]@{ parameter = $_.Parameter; surface = $_.Surface; file = $_.File; line = $_.Line }
+                        # Repo-relative, same as target.file: these artifacts are committed, so an
+                        # absolute path would leak the generating machine's layout and churn the
+                        # diff whenever the report is regenerated from a different directory.
+                        [ordered]@{ parameter = $_.Parameter; surface = $_.Surface; file = (ConvertTo-PfbRepoRelativePath -Path $_.File); line = $_.Line }
                     })
                 escapeHatchOnly      = @($gapRaw.Confidence.EscapeHatchOnly)
                 caveat               = $gapRaw.Confidence.Caveat
