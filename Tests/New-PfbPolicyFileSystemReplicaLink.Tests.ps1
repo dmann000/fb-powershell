@@ -46,8 +46,19 @@ Describe 'New-PfbPolicyFileSystemReplicaLink - correct query wire keys (#31)' {
             }
         }
 
-        It 'no longer exposes the incorrectly-wired -MemberName parameter' {
-            (Get-Command New-PfbPolicyFileSystemReplicaLink).Parameters.Keys | Should -Not -Contain 'MemberName'
+        It 'accepts -MemberName as a backward-compatible alias of -LocalFileSystemName (whole-branch review finding I-3: matches the sibling cmdlet New-PfbFileSystemReplicaLinkPolicy)' {
+            New-PfbPolicyFileSystemReplicaLink -PolicyName 'daily-snap' -MemberName 'fs01' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $QueryParams['local_file_system_names'] -eq 'fs01' -and
+                -not $QueryParams.ContainsKey('member_names')
+            }
+        }
+
+        It 'exposes no separate -MemberName parameter (alias only)' {
+            $params = (Get-Command New-PfbPolicyFileSystemReplicaLink).Parameters
+            $params.Keys | Should -Not -Contain 'MemberName'
+            $params['LocalFileSystemName'].Aliases | Should -Contain 'MemberName'
         }
 
         It 'sends -MemberId as member_ids (real, spec-declared parameter -- restored after review, unlike -MemberName)' {
