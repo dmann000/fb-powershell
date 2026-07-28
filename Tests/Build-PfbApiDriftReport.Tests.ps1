@@ -409,6 +409,55 @@ Describe 'Build-PfbApiDriftReport (real generated artifacts, skips gracefully if
         }
     }
 
+    Context 'REGRESSION: every emitted path is repo-relative -- these artifacts are COMMITTED' {
+        # An absolute path here bakes the generating machine's directory layout into the
+        # repository. Two concrete harms, both observed in the wild before this guard existed:
+        #   1. It published a developer's home-directory path (`C:\Users\<name>\...`) to the
+        #      repo -- 88 occurrences in each of PfbApiDriftReport.json and .md on main.
+        #   2. It made the committed file depend on WHERE it was generated. Regenerating from a
+        #      git worktree instead of the main checkout rewrote all 88 lines, producing 174 of
+        #      279 diff lines of pure churn that buried the 3 real changes under review.
+        # `target.file` was always relative; `confidence.unresolvedParameters[].file` was not.
+
+        It 'emits no absolute path in any unresolvedParameters entry' {
+            if (-not $hasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+            $offenders = foreach ($g in $realManifest.parameterGaps) {
+                foreach ($u in @($g.confidence.unresolvedParameters)) {
+                    if ($u.file -and ($u.file -match '^[A-Za-z]:[\\/]' -or $u.file -match '^[\\/]{1,2}')) {
+                        "$($g.endpoint) -$($u.parameter): $($u.file)"
+                    }
+                }
+            }
+            @($offenders) | Should -BeNullOrEmpty -Because 'unresolvedParameters[].file must be repo-relative, like target.file'
+        }
+
+        It 'emits no absolute path in any enriched body-property target entry' {
+            if (-not $hasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+            # NOTE: `target` hangs off each ENRICHED missingBodyProperties[] entry, not off the
+            # gap itself. An earlier draft of this test read $g.target.file -- always $null, so
+            # it passed vacuously and survived the mutation that broke its two siblings. Assert
+            # a non-zero population so it can never silently go hollow again.
+            $targets = foreach ($g in $realManifest.parameterGaps) {
+                foreach ($p in @($g.missingBodyProperties)) {
+                    if ($p -isnot [string] -and $p.target -and $p.target.file) {
+                        [pscustomobject]@{ Endpoint = $g.endpoint; Field = $p.name; File = $p.target.file }
+                    }
+                }
+            }
+            @($targets).Count | Should -BeGreaterThan 0 -Because 'a vacuous scan would pass this test without checking anything'
+            $offenders = @($targets | Where-Object { $_.File -match '^[A-Za-z]:[\\/]' -or $_.File -match '^[\\/]{1,2}' })
+            $offenders | Should -BeNullOrEmpty
+        }
+
+        It 'leaks no absolute path into the rendered markdown report' {
+            if (-not $hasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+            $md = Get-Content $realReport -Raw
+            [regex]::Matches($md, '[A-Za-z]:\\{1,2}Users').Count | Should -Be 0
+            [regex]::Matches($md, '/home/runner').Count | Should -Be 0
+        }
+    }
+
+
     It 'produces a manifest against the real Public/Private tree and Reports/ + Data/ inputs' {
         if (-not $hasRealArtifacts) { Set-ItResult -Skipped -Because 'Data/PfbCapabilityMap.json, Reports/PfbFieldCmdletMap.json, or tools/specs/ not present locally'; return }
         Test-Path $realOutput | Should -BeTrue
