@@ -13,6 +13,8 @@ function New-PfbQosPolicyMember {
         The member name to add to the policy.
     .PARAMETER MemberId
         The member ID to add to the policy.
+    .PARAMETER MemberType
+        A list of member types to add to the policy.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
@@ -24,9 +26,9 @@ function New-PfbQosPolicyMember {
 
         Shows what would happen without actually adding the member.
     .EXAMPLE
-        New-PfbQosPolicyMember -PolicyName "qos-silver" -MemberName "fs2"
+        New-PfbQosPolicyMember -PolicyName "qos-silver" -MemberName "fs2" -MemberType "file-systems"
 
-        Associates "fs2" with the QoS policy "qos-silver".
+        Associates "fs2" with the QoS policy "qos-silver", specifying its member type.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
@@ -34,6 +36,7 @@ function New-PfbQosPolicyMember {
         [Parameter()] [string]$PolicyId,
         [Parameter()] [string]$MemberName,
         [Parameter()] [string]$MemberId,
+        [Parameter()] [string[]]$MemberType,
         [Parameter()] [PSCustomObject]$Array
     )
 
@@ -44,6 +47,7 @@ function New-PfbQosPolicyMember {
     if ($PolicyId) { $queryParams['policy_ids'] = $PolicyId }
     if ($MemberName) { $queryParams['member_names'] = $MemberName }
     if ($MemberId) { $queryParams['member_ids'] = $MemberId }
+    if ($PSBoundParameters.ContainsKey('MemberType')) { $queryParams['member_types'] = $MemberType -join ',' }
 
     $target = "${PolicyName}:${MemberName}"
 
