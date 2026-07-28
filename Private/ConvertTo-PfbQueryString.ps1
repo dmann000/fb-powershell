@@ -24,7 +24,10 @@ function ConvertTo-PfbQueryString {
             continue
         }
 
-        if ($value -is [array]) {
+        if ($value -is [bool]) {
+            $value = $value.ToString().ToLowerInvariant()
+        }
+        elseif ($value -is [array]) {
             $value = $value -join ','
         }
 
