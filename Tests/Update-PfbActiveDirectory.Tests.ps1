@@ -63,6 +63,26 @@ Describe 'Update-PfbActiveDirectory - typed body parameters (#31)' {
             }
         }
 
+        It 'sends an EMPTY array for -<Parameter> @() so a list can be cleared, not omit the key' -ForEach @(
+            @{ Parameter = 'EncryptionTypes'; WireKey = 'encryption_types' }
+            @{ Parameter = 'Fqdns'; WireKey = 'fqdns' }
+            @{ Parameter = 'GlobalCatalogServers'; WireKey = 'global_catalog_servers' }
+            @{ Parameter = 'KerberosServers'; WireKey = 'kerberos_servers' }
+            @{ Parameter = 'ServicePrincipalNames'; WireKey = 'service_principal_names' }
+        ) {
+            $params = @{
+                Name        = 'ad1'
+                $Parameter  = @()
+                Confirm     = $false
+                Array       = $fakeArray
+            }
+            Update-PfbActiveDirectory @params
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey($WireKey) -and @($Body[$WireKey]).Count -eq 0
+            }
+        }
+
         It 'sends encryption_types from the fixed enum set' {
             Update-PfbActiveDirectory -Name 'ad1' -EncryptionTypes 'aes256-cts-hmac-sha1-96','arcfour-hmac' `
                 -Confirm:$false -Array $fakeArray

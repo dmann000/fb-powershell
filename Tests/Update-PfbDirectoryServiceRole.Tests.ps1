@@ -53,30 +53,13 @@ Describe 'Update-PfbDirectoryServiceRole - typed body + query parameters (#31)' 
         }
     }
 
-    Context '-RoleIds/-RoleNames query parameters (constraint 17, bare and orthogonal)' {
-        It 'sends -RoleNames as the role_names query parameter alongside -Attributes' {
-            Update-PfbDirectoryServiceRole -Name 'ad-admins' -RoleNames 'array_admin' -Attributes @{ group = 'g' } `
-                -Confirm:$false -Array $fakeArray
-
-            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
-                $QueryParams['role_names'] -eq 'array_admin' -and $Body['group'] -eq 'g'
-            }
+    Context '-RoleIds/-RoleNames are not exposed (constraint 9 precedent: structurally dead field)' {
+        It 'has no -RoleIds parameter' {
+            (Get-Command Update-PfbDirectoryServiceRole).Parameters.Keys | Should -Not -Contain 'RoleIds'
         }
 
-        It 'sends -RoleIds as the role_ids query parameter' {
-            Update-PfbDirectoryServiceRole -Name 'ad-admins' -RoleIds 'role-abc' -Confirm:$false -Array $fakeArray
-
-            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
-                $QueryParams['role_ids'] -eq 'role-abc'
-            }
-        }
-
-        It 'omits role_ids/role_names entirely when not supplied' {
-            Update-PfbDirectoryServiceRole -Name 'ad-admins' -Confirm:$false -Array $fakeArray
-
-            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
-                -not $QueryParams.ContainsKey('role_ids') -and -not $QueryParams.ContainsKey('role_names')
-            }
+        It 'has no -RoleNames parameter' {
+            (Get-Command Update-PfbDirectoryServiceRole).Parameters.Keys | Should -Not -Contain 'RoleNames'
         }
     }
 
@@ -121,7 +104,7 @@ Describe 'Update-PfbDirectoryServiceRole - typed body + query parameters (#31)' 
 
         It 'exposes every settable body field the endpoint accepts' {
             $keys = (Get-Command Update-PfbDirectoryServiceRole).Parameters.Keys
-            foreach ($p in 'Group', 'GroupBase', 'RoleIds', 'RoleNames') {
+            foreach ($p in 'Group', 'GroupBase') {
                 $keys | Should -Contain $p
             }
         }

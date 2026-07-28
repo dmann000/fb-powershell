@@ -20,12 +20,6 @@ function Update-PfbDirectoryServiceRole {
         the specified role name.
     .PARAMETER GroupBase
         Specifies where the configured group is located in the directory tree.
-    .PARAMETER RoleIds
-        A comma-separated list of role IDs used to select the role(s) to update. Cannot be
-        provided together with -Name, -Id, or -RoleNames.
-    .PARAMETER RoleNames
-        A comma-separated list of role names used to select the role(s) to update. Cannot be
-        provided together with -Name, -Id, or -RoleIds.
     .PARAMETER Attributes
         A hashtable of role attributes to modify (e.g., group, group_base). Mutually exclusive
         with the individual typed parameters above.
@@ -63,9 +57,6 @@ function Update-PfbDirectoryServiceRole {
         [Parameter(ParameterSetName = 'ByIdIndividual')]
         [string]$GroupBase,
 
-        [Parameter()] [string[]]$RoleIds,
-        [Parameter()] [string[]]$RoleNames,
-
         [Parameter(ParameterSetName = 'ByNameAttributes', Mandatory)]
         [Parameter(ParameterSetName = 'ByIdAttributes',   Mandatory)]
         [hashtable]$Attributes,
@@ -81,12 +72,6 @@ function Update-PfbDirectoryServiceRole {
         $queryParams = @{}
         if ($Name) { $queryParams['names'] = $Name }
         if ($Id)   { $queryParams['ids']   = $Id }
-
-        # Constraint 17: role_ids/role_names are QUERY parameters declared bare, not in the
-        # *Individual sets, because they are orthogonal alternate selectors that must stay
-        # usable alongside -Attributes.
-        if ($PSBoundParameters.ContainsKey('RoleIds'))   { $queryParams['role_ids']   = $RoleIds -join ',' }
-        if ($PSBoundParameters.ContainsKey('RoleNames')) { $queryParams['role_names'] = $RoleNames -join ',' }
 
         $target = if ($Name) { $Name } else { $Id }
 
