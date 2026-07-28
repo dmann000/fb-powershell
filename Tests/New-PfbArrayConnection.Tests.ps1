@@ -33,6 +33,24 @@ Describe 'New-PfbArrayConnection - typed body parameters (#31)' {
                 -Confirm:$false -Array $fakeArray -ErrorAction Stop } |
                 Should -Throw -ExpectedMessage '*Parameter set cannot be resolved*'
         }
+
+        It 'accepts -ManagementAddress/-ReplicationAddress/-ConnectionKey positionally (whole-branch review finding I-1: adding a parameter set disables ALL implicit positional binding, so this must stay explicit)' {
+            New-PfbArrayConnection '10.0.2.100' '10.0.3.100' 'key-123' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body['management_address'] -eq '10.0.2.100' -and
+                @($Body['replication_addresses'])[0] -eq '10.0.3.100' -and
+                $Body['connection_key'] -eq 'key-123'
+            }
+        }
+
+        It 'accepts -Attributes positionally' {
+            New-PfbArrayConnection @{ management_address = '10.0.2.100'; connection_key = 'k' } -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body['management_address'] -eq '10.0.2.100'
+            }
+        }
     }
 
     Context 'new typed parameters' {

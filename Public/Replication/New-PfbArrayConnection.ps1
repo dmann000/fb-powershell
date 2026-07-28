@@ -55,15 +55,19 @@ function New-PfbArrayConnection {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium',
                    DefaultParameterSetName = 'Individual')]
     param(
-        [Parameter(ParameterSetName = 'Individual')] [string]$ManagementAddress,
-        [Parameter(ParameterSetName = 'Individual')] [string]$ReplicationAddress,
-        [Parameter(ParameterSetName = 'Individual')] [string]$ConnectionKey,
+        # Explicit Position restores the pre-#31 positional-calling convention: adding a
+        # ParameterSetName to any parameter disables PowerShell's default implicit positional
+        # binding for the WHOLE function (whole-branch review finding I-1), which would
+        # otherwise have silently broken `New-PfbArrayConnection $mgmt $repl $key`.
+        [Parameter(ParameterSetName = 'Individual', Position = 0)] [string]$ManagementAddress,
+        [Parameter(ParameterSetName = 'Individual', Position = 1)] [string]$ReplicationAddress,
+        [Parameter(ParameterSetName = 'Individual', Position = 2)] [string]$ConnectionKey,
         [Parameter(ParameterSetName = 'Individual')] [string]$CaCertificateGroup,
         [Parameter(ParameterSetName = 'Individual')] [Nullable[bool]]$Encrypted,
         [Parameter(ParameterSetName = 'Individual')] [string]$Remote,
         [Parameter(ParameterSetName = 'Individual')] [hashtable]$Throttle,
 
-        [Parameter(ParameterSetName = 'Attributes', Mandatory)]
+        [Parameter(ParameterSetName = 'Attributes', Mandatory, Position = 0)]
         [hashtable]$Attributes,
 
         [Parameter()] [PSCustomObject]$Array
