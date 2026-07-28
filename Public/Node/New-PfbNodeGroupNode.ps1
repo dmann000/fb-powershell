@@ -41,8 +41,8 @@ function New-PfbNodeGroupNode {
         # than parameter sets -- see New-PfbNetworkInterfaceTlsPolicy.ps1 for the identical
         # shape and rationale (no request body here to multiply a selector axis against).
         [Parameter()] [string]$GroupName,
-        [Parameter()] [string]$GroupId,
         [Parameter()] [string]$MemberName,
+        [Parameter()] [string]$GroupId,
         [Parameter()] [string]$MemberId,
         [Parameter()] [PSCustomObject]$Array
     )

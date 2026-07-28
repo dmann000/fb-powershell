@@ -50,8 +50,8 @@ function New-PfbNetworkInterfaceTlsPolicy {
         # stay optional -- the same shape already shipped on the sibling cmdlet
         # New-PfbQosPolicyMember.
         [Parameter()] [string]$MemberName,
-        [Parameter()] [string]$MemberId,
         [Parameter()] [string]$PolicyName,
+        [Parameter()] [string]$MemberId,
         [Parameter()] [string]$PolicyId,
         [Parameter()] [PSCustomObject]$Array
     )

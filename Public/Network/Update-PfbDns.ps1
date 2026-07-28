@@ -53,11 +53,12 @@ function Update-PfbDns {
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium', DefaultParameterSetName = 'Individual')]
     param(
+        [Parameter(ParameterSetName = 'Individual')] [string]$Domain,
+        [Parameter(ParameterSetName = 'Individual')] [string[]]$Nameservers,
+
         [Parameter()] [string]$Name,
         [Parameter()] [string]$Id,
 
-        [Parameter(ParameterSetName = 'Individual')] [string]$Domain,
-        [Parameter(ParameterSetName = 'Individual')] [string[]]$Nameservers,
         [Parameter(ParameterSetName = 'Individual')] [string]$CaCertificate,
         [Parameter(ParameterSetName = 'Individual')] [string]$CaCertificateGroup,
         [Parameter(ParameterSetName = 'Individual')] [string]$NewName,
