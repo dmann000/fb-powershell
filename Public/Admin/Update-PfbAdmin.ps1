@@ -105,13 +105,19 @@ function Update-PfbAdmin {
             $body = $Attributes
         }
         else {
-            # EVERY body parameter is guarded by $PSBoundParameters.ContainsKey, never by
-            # truthiness. This is deliberate and uniform. `if ($X)` silently discards any
-            # legitimate falsy value the caller explicitly supplied: $false, 0, '' and an empty
-            # array all fail a truthiness test. So `-Locked $false` would never unlock, an
-            # integer field could never be set to a meaningful 0, and
+            # EVERY value-carrying parameter -- body OR query -- is guarded by
+            # $PSBoundParameters.ContainsKey, never by truthiness. `if ($X)` silently discards
+            # any legitimate falsy value the caller explicitly supplied: $false, 0, '' and an
+            # empty array all fail a truthiness test. So `-Locked $false` would never unlock,
+            # an integer field could never be set to a meaningful 0, and
             # `-ManagementAccessPolicies @()` could never clear a list. ContainsKey asks the
             # only correct question -- did the caller supply this parameter at all?
+            #
+            # The one exemption is a MANDATORY [string] selector like -Name/-Id above: the
+            # binder rejects '' for those before any guard runs, so their falsy branch is
+            # unreachable and `if ($Name)` is safe. That exemption is about mandatory-ness,
+            # not about being a query parameter -- an OPTIONAL query parameter still needs
+            # ContainsKey (see -Timeout in New-PfbApiToken.ps1).
             #
             # No [bool] cast on $Locked either: constraint 7 forbids it (it breaks the
             # wire-name trace) and [Nullable[bool]] + ContainsKey already sends an explicit

@@ -69,6 +69,14 @@ Describe 'New-PfbApiToken - query parameters (#31)' {
             }
         }
 
+        It 'sends an explicit -Timeout 0 rather than dropping it (constraint 2, integer field)' {
+            New-PfbApiToken -Name 'ops-admin' -Timeout 0 -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $QueryParams.ContainsKey('timeout') -and $QueryParams['timeout'] -eq 0
+            }
+        }
+
         It 'omits timeout entirely when not supplied' {
             New-PfbApiToken -Name 'ops-admin' -Confirm:$false -Array $fakeArray
 
