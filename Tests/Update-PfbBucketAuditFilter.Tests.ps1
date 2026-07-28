@@ -62,12 +62,19 @@ Describe 'Update-PfbBucketAuditFilter - typed body parameters (#31)' {
         }
 
         It 'sends -MemberId as bucket_ids, NOT member_ids' {
-            Update-PfbBucketAuditFilter -MemberId 'bucket-1' -Confirm:$false -Array $fakeArray
+            Update-PfbBucketAuditFilter -MemberId 'bucket-1' -FilterNames 'mybucket' -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $QueryParams['bucket_ids'] -eq 'bucket-1' -and -not $QueryParams.ContainsKey('member_ids') -and
                 -not $QueryParams.ContainsKey('bucket_names')
             }
+        }
+
+        It 'throws when -MemberId is used alone: the required "names" query parameter cannot be inferred from an ID (review finding)' {
+            { Update-PfbBucketAuditFilter -MemberId 'bucket-1' -Confirm:$false -Array $fakeArray -ErrorAction Stop } |
+                Should -Throw -ExpectedMessage '*-FilterNames is required*'
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
         }
 
         It 'defaults the required "names" query parameter from -MemberName when -FilterNames is not supplied' {

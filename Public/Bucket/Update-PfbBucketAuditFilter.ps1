@@ -110,6 +110,13 @@ function Update-PfbBucketAuditFilter {
             # -MemberName-only callers keep working without a breaking change.
             $queryParams['names'] = $MemberName
         }
+        else {
+            # -MemberId alone gives no value to infer -FilterNames from (the audit filter's
+            # own name cannot be derived from the bucket's ID). Fail fast client-side rather
+            # than send a request the array will reject anyway for missing the required
+            # 'names' query parameter.
+            throw "Update-PfbBucketAuditFilter: -FilterNames is required when -MemberId is used without -MemberName -- the audit filter's own name cannot be inferred from an ID alone. Supply -FilterNames explicitly."
+        }
 
         if ($PSCmdlet.ParameterSetName -like '*Attributes') {
             $body = $Attributes
