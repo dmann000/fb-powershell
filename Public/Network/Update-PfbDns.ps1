@@ -53,8 +53,12 @@ function Update-PfbDns {
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium', DefaultParameterSetName = 'Individual')]
     param(
-        [Parameter(ParameterSetName = 'Individual')] [string]$Domain,
-        [Parameter(ParameterSetName = 'Individual')] [string[]]$Nameservers,
+        # Explicit Position restores the pre-#31 positional-calling convention: adding a
+        # ParameterSetName to any parameter disables PowerShell's default implicit positional
+        # binding for the WHOLE function (whole-branch review finding I-1), which would
+        # otherwise have silently broken `Update-PfbDns $domain $nameservers`.
+        [Parameter(ParameterSetName = 'Individual', Position = 0)] [string]$Domain,
+        [Parameter(ParameterSetName = 'Individual', Position = 1)] [string[]]$Nameservers,
 
         [Parameter()] [string]$Name,
         [Parameter()] [string]$Id,
@@ -65,7 +69,7 @@ function Update-PfbDns {
         [Parameter(ParameterSetName = 'Individual')] [string[]]$Services,
         [Parameter(ParameterSetName = 'Individual')] [string[]]$Sources,
 
-        [Parameter(ParameterSetName = 'Attributes', Mandatory)] [hashtable]$Attributes,
+        [Parameter(ParameterSetName = 'Attributes', Mandatory, Position = 0)] [hashtable]$Attributes,
         [Parameter()] [PSCustomObject]$Array
     )
 
