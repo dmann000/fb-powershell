@@ -31,8 +31,8 @@ function New-PfbCertificateCertificateGroup {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
         [Parameter()] [string]$CertificateName,
-        [Parameter()] [string]$CertificateId,
         [Parameter()] [string]$CertificateGroupName,
+        [Parameter()] [string]$CertificateId,
         [Parameter()] [string]$CertificateGroupId,
         [Parameter()] [PSCustomObject]$Array
     )
