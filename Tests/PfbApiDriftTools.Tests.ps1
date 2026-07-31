@@ -1227,8 +1227,9 @@ Describe 'Task 6 real-data invariants (systemic gaps + convention strength, skip
             # Mirrors tools/Build-PfbApiDriftReport.ps1's own construction exactly (same
             # -CurrentSpecCapabilities phantom-field filtering, same -ExcludedFields via
             # Get-PfbNonActionableParameters) -- Get-PfbSystemicGaps must be fed the SAME
-            # gaps the real report actually emits, not a looser, unfiltered set, or its
-            # acceptance figures will not reproduce.
+            # gaps the real report actually emits, not a looser, unfiltered set, or the
+            # invariants below would no longer reflect the filtering the production report
+            # actually applies.
             . (Join-Path $repoRoot 'tools/lib/PfbSpecTools.ps1')
 
             $script:realCapMap2 = Get-Content -Path $realCapabilityMapPath2 -Raw | ConvertFrom-Json -Depth 20
