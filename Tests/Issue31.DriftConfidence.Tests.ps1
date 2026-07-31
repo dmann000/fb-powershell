@@ -25,10 +25,25 @@ BeforeAll {
         'Update-PfbWormPolicy','New-PfbArrayConnection','New-PfbFileSystemReplicaLinkPolicy',
         'New-PfbFleetMember','Update-PfbArrayConnection','Update-PfbFleet','Update-PfbTarget'
     )
+
+    # Same "skip gracefully if absent" convention as Build-PfbApiDriftReport.Tests.ps1's
+    # real-generated-artifacts Describe block: Build-PfbApiDriftReport.ps1 throws (by
+    # design -- see its RuntimeException at line ~156) when the capability map's newest
+    # `generatedFrom` spec version isn't physically present under tools/specs/. CI never
+    # populates tools/specs/ (gitignored, no fetch step in cross-platform-tests.yml), so
+    # without this guard this test hard-fails on every PR instead of skipping like every
+    # sibling real-artifact test does.
+    $script:realCapabilityMapPath = Join-Path $repoRoot 'Data/PfbCapabilityMap.json'
+    $script:realFieldCmdletMapPath = Join-Path $repoRoot 'Reports/PfbFieldCmdletMap.json'
+    $script:realSpecsDir = Join-Path $repoRoot 'tools/specs'
+    $script:hasRealArtifacts = (Test-Path $realCapabilityMapPath) -and (Test-Path $realFieldCmdletMapPath) -and
+        (Test-Path $realSpecsDir) -and (Get-ChildItem $realSpecsDir -Filter 'fb*.json' -ErrorAction SilentlyContinue)
 }
 
 Describe 'Issue #31 - in-scope cmdlets keep high drift confidence' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
     It 'no in-scope write endpoint has dropped to partial confidence' {
+        if (-not $hasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+
         # Build-PfbApiDriftReport.ps1 has no -PassThru (verified: its parameters are
         # SpecsDirectory, PublicDirectory, PrivateDirectory, CapabilityMapPath,
         # FieldCmdletMapPath, OutputPath, ReportPath, SinceVersion). Generate to a temp
