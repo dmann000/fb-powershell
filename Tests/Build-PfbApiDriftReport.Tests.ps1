@@ -406,6 +406,19 @@ Describe 'Build-PfbApiDriftReport (real generated artifacts, skips gracefully if
                 -OutputPath $realOutput -ReportPath $realReport
             $script:realManifest = Get-Content -Path $realOutput -Raw | ConvertFrom-Json -Depth 20
             $script:realCapMapForCheck = Get-Content -Path $realCapabilityMapPath -Raw | ConvertFrom-Json -Depth 20
+
+            function Get-RealRecountedEndpointCount {
+                param([Parameter(Mandatory)][object[]]$Gaps, [Parameter(Mandatory)][string]$FieldName)
+                $endpoints = [System.Collections.Generic.HashSet[string]]::new()
+                foreach ($g in $Gaps) {
+                    $queryNames = @($g.missingQueryParameters)
+                    $bodyNames = @($g.missingBodyProperties | ForEach-Object { if ($_ -is [string]) { $_ } else { $_.name } })
+                    if (($queryNames -contains $FieldName) -or ($bodyNames -contains $FieldName)) {
+                        [void]$endpoints.Add($g.endpoint)
+                    }
+                }
+                return $endpoints.Count
+            }
         }
     }
 
@@ -463,10 +476,24 @@ Describe 'Build-PfbApiDriftReport (real generated artifacts, skips gracefully if
         Test-Path $realOutput | Should -BeTrue
     }
 
-    It 'Task 7: wires systemicGaps through with the pinned acceptance figures (context_names 253, allow_errors 109)' {
+    It 'Task 7: wires systemicGaps through -- endpointCount for context_names/allow_errors matches an independent recount straight from parameterGaps' {
         if (-not $hasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
-        ($realManifest.systemicGaps | Where-Object { $_.name -eq 'context_names' }).endpointCount | Should -Be 253
-        ($realManifest.systemicGaps | Where-Object { $_.name -eq 'allow_errors' }).endpointCount | Should -Be 109
+
+        # Recomputes endpointCount from the manifest's own high-confidence parameterGaps,
+        # completely independently of Get-PfbSystemicGaps' internal aggregation. Deliberately
+        # does NOT hardcode the real API surface's current size: the assertion is "the
+        # summary field matches a fresh tally of the detail rows", which stays true forever,
+        # rather than "the detail rows currently total exactly N", which breaks the instant
+        # an unrelated PR adds or removes one endpoint missing context_names/allow_errors.
+        # See docs/superpowers/plans/2026-07-30-drift-report-acceptance-figure-invariants.md.
+        $highConfidenceGaps = @($realManifest.parameterGaps | Where-Object { $_.confidence.level -eq 'high' })
+        foreach ($fieldName in @('context_names', 'allow_errors')) {
+            $finding = $realManifest.systemicGaps | Where-Object { $_.name -eq $fieldName }
+            $finding | Should -Not -BeNullOrEmpty -Because "$fieldName is expected to still be a systemic gap in the real API surface"
+            $recount = Get-RealRecountedEndpointCount -Gaps $highConfidenceGaps -FieldName $fieldName
+            $finding.endpointCount | Should -Be $recount -Because 'endpointCount must equal a fresh tally over parameterGaps, independent of the total endpoint count'
+            $finding.endpointCount | Should -BeGreaterThan 0 -Because 'a vacuous/zero count would mean the field silently stopped being a systemic gap without anyone noticing here'
+        }
     }
 
     It 'Task 7: wires conventionStrength through with the pinned acceptance figures (names 306, ids 218, context_names 0)' {
