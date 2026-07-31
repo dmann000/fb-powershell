@@ -1313,7 +1313,7 @@ Describe 'Task 6 real-data invariants (systemic gaps + convention strength, skip
         ($strength | Where-Object { $_.Name -eq 'context_names' }).CmdletCount | Should -Be 0
     }
 
-    It 'the top-10 most-common field names absorb roughly 41.7% of total missing-field (endpoint, name) pairs' {
+    It 'the top-10 most-common field names absorb between 30% and 55% of total missing-field (endpoint, name) pairs' {
         if (-not $hasRealData) { Set-ItResult -Skipped -Because 'Data/PfbCapabilityMap.json not present locally'; return }
         $pairCounts = $realSystemicGaps2 | ForEach-Object { $_.QueryEndpointCount + $_.BodyEndpointCount }
         $totalPairs = ($pairCounts | Measure-Object -Sum).Sum
@@ -1322,8 +1322,10 @@ Describe 'Task 6 real-data invariants (systemic gaps + convention strength, skip
         $ratio = $top10Sum / $totalPairs
         Write-Host "Task 6 real-data verification: top-10 aggregation ratio = $top10Sum / $totalPairs = $([Math]::Round($ratio * 100, 2))%"
         # Not bit-for-bit pinned (Task 4/5 changed some list membership per this task's own
-        # brief) -- just confirms the aggregation actually matters, close to the
-        # independently-measured ~41.7%/642 figure.
+        # brief) -- just confirms the aggregation actually matters. Historical note: the
+        # independently-measured ratio AT THE TIME these bounds were chosen was ~41.7%
+        # (576/1302 pairs); kept here as institutional memory for why 30%/55% were picked,
+        # not as an expectation this should still measure exactly that today.
         $ratio | Should -BeGreaterThan 0.30
         $ratio | Should -BeLessThan 0.55
     }
