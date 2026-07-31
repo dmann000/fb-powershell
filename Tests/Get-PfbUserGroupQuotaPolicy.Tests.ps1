@@ -16,7 +16,10 @@ Describe 'Get-PfbUserGroupQuotaPolicy' {
     }
 
     It 'GETs user-group-quota-policies with AutoPaginate and no filters by default' {
-        Get-PfbUserGroupQuotaPolicy -Array $fakeArray
+        InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Get-PfbUserGroupQuotaPolicy -Array $arr
+        }
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
             $Method -eq 'GET' -and
@@ -27,7 +30,10 @@ Describe 'Get-PfbUserGroupQuotaPolicy' {
     }
 
     It 'joins -Name into a comma-separated names query param' {
-        Get-PfbUserGroupQuotaPolicy -Name 'pol-1', 'pol-2' -Array $fakeArray
+        InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Get-PfbUserGroupQuotaPolicy -Name 'pol-1', 'pol-2' -Array $arr
+        }
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
             $QueryParams['names'] -eq 'pol-1,pol-2'
@@ -35,7 +41,10 @@ Describe 'Get-PfbUserGroupQuotaPolicy' {
     }
 
     It 'sends -Id as the ids query param' {
-        Get-PfbUserGroupQuotaPolicy -Id 'id-1' -Array $fakeArray
+        InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Get-PfbUserGroupQuotaPolicy -Id 'id-1' -Array $arr
+        }
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
             $QueryParams['ids'] -eq 'id-1' -and -not $QueryParams.ContainsKey('names')
@@ -43,7 +52,10 @@ Describe 'Get-PfbUserGroupQuotaPolicy' {
     }
 
     It 'passes -Filter, -Sort, and -Limit through' {
-        Get-PfbUserGroupQuotaPolicy -Filter "enabled='true'" -Sort 'name-' -Limit 5 -Array $fakeArray
+        InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Get-PfbUserGroupQuotaPolicy -Filter "enabled='true'" -Sort 'name-' -Limit 5 -Array $arr
+        }
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
             $QueryParams['filter'] -eq "enabled='true'" -and
