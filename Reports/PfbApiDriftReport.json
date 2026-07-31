@@ -2267,26 +2267,6 @@
       ]
     },
     {
-      "endpoint": "GET /admins/settings",
-      "cmdlets": [
-        "Get-PfbAdminSetting"
-      ],
-      "missingQueryParameters": [
-        "filter",
-        "limit",
-        "sort"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "GET /admins/ssh-certificate-authority-policies",
       "cmdlets": [
         "Get-PfbAdminSshCaPolicy"
@@ -2415,10 +2395,7 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
-        "filter",
-        "limit",
-        "sort"
+        "context_names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2465,46 +2442,6 @@
       "missingQueryParameters": [
         "names",
         "total_only"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "GET /arrays/eula",
-      "cmdlets": [
-        "Get-PfbArrayEula"
-      ],
-      "missingQueryParameters": [
-        "filter",
-        "limit",
-        "sort"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "GET /arrays/factory-reset-token",
-      "cmdlets": [
-        "Get-PfbArrayFactoryResetToken"
-      ],
-      "missingQueryParameters": [
-        "filter",
-        "limit",
-        "sort"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -3295,11 +3232,8 @@
       "missingQueryParameters": [
         "allow_errors",
         "context_names",
-        "filter",
         "ids",
-        "limit",
-        "names",
-        "sort"
+        "names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4544,11 +4478,8 @@
         "Get-PfbPasswordPolicy"
       ],
       "missingQueryParameters": [
-        "filter",
         "ids",
-        "limit",
-        "names",
-        "sort"
+        "names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -5136,11 +5067,8 @@
         "Get-PfbSmtpServer"
       ],
       "missingQueryParameters": [
-        "filter",
         "ids",
-        "limit",
-        "names",
-        "sort"
+        "names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -5396,11 +5324,8 @@
         "Get-PfbSyslogServerSettings"
       ],
       "missingQueryParameters": [
-        "filter",
         "ids",
-        "limit",
-        "names",
-        "sort"
+        "names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -17940,34 +17865,28 @@
     },
     {
       "name": "sort",
-      "endpointCount": 35,
-      "queryEndpointCount": 35,
+      "endpointCount": 28,
+      "queryEndpointCount": 28,
       "bodyEndpointCount": 0,
       "endpoints": [
         "GET /active-directory",
         "GET /active-directory/test",
         "GET /admins/management-access-policies",
-        "GET /admins/settings",
         "GET /admins/ssh-certificate-authority-policies",
         "GET /alert-watchers/test",
-        "GET /arrays/eula",
-        "GET /arrays/factory-reset-token",
         "GET /arrays/ssh-certificate-authority-policies",
         "GET /certificates/certificate-groups",
         "GET /directory-services",
         "GET /directory-services/roles/management-access-policies",
         "GET /directory-services/test",
-        "GET /dns",
         "GET /management-access-policies/admins",
         "GET /management-access-policies/directory-services/roles",
         "GET /management-access-policies/members",
-        "GET /password-policies",
         "GET /policies-all/members",
         "GET /policies/file-system-replica-links",
         "GET /qos-policies/buckets",
         "GET /qos-policies/file-systems",
         "GET /qos-policies/members",
-        "GET /smtp-servers",
         "GET /snmp-agents",
         "GET /snmp-managers/test",
         "GET /ssh-certificate-authority-policies/admins",
@@ -17976,7 +17895,6 @@
         "GET /sso/saml2/idps/test",
         "GET /storage-class-tiering-policies/members",
         "GET /support/test",
-        "GET /syslog-servers/settings",
         "GET /tls-policies/members",
         "GET /worm-data-policies/members"
       ],
@@ -18225,51 +18143,6 @@
       "annotations": []
     },
     {
-      "name": "limit",
-      "endpointCount": 14,
-      "queryEndpointCount": 14,
-      "bodyEndpointCount": 0,
-      "endpoints": [
-        "GET /active-directory",
-        "GET /active-directory/test",
-        "GET /admins/settings",
-        "GET /arrays/eula",
-        "GET /arrays/factory-reset-token",
-        "GET /directory-services",
-        "GET /directory-services/test",
-        "GET /dns",
-        "GET /password-policies",
-        "GET /smtp-servers",
-        "GET /snmp-agents",
-        "GET /snmp-managers/test",
-        "GET /sso/saml2/idps/test",
-        "GET /syslog-servers/settings"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "filter",
-      "endpointCount": 13,
-      "queryEndpointCount": 13,
-      "bodyEndpointCount": 0,
-      "endpoints": [
-        "GET /active-directory/test",
-        "GET /admins/settings",
-        "GET /alert-watchers/test",
-        "GET /arrays/eula",
-        "GET /arrays/factory-reset-token",
-        "GET /directory-services/test",
-        "GET /dns",
-        "GET /password-policies",
-        "GET /smtp-servers",
-        "GET /snmp-managers/test",
-        "GET /sso/saml2/idps/test",
-        "GET /support/test",
-        "GET /syslog-servers/settings"
-      ],
-      "annotations": []
-    },
-    {
       "name": "file_system_ids",
       "endpointCount": 11,
       "queryEndpointCount": 11,
@@ -18433,6 +18306,22 @@
       "annotations": []
     },
     {
+      "name": "limit",
+      "endpointCount": 7,
+      "queryEndpointCount": 7,
+      "bodyEndpointCount": 0,
+      "endpoints": [
+        "GET /active-directory",
+        "GET /active-directory/test",
+        "GET /directory-services",
+        "GET /directory-services/test",
+        "GET /snmp-agents",
+        "GET /snmp-managers/test",
+        "GET /sso/saml2/idps/test"
+      ],
+      "annotations": []
+    },
+    {
       "name": "local_file_system_names",
       "endpointCount": 7,
       "queryEndpointCount": 7,
@@ -18521,6 +18410,21 @@
         "POST /network-access-policies/rules",
         "POST /object-store-access-policies/rules",
         "POST /s3-export-policies/rules"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "filter",
+      "endpointCount": 6,
+      "queryEndpointCount": 6,
+      "bodyEndpointCount": 0,
+      "endpoints": [
+        "GET /active-directory/test",
+        "GET /alert-watchers/test",
+        "GET /directory-services/test",
+        "GET /snmp-managers/test",
+        "GET /sso/saml2/idps/test",
+        "GET /support/test"
       ],
       "annotations": []
     },
@@ -22107,17 +22011,19 @@
     },
     {
       "name": "filter",
-      "cmdletCount": 185,
+      "cmdletCount": 193,
       "cmdlets": [
         "Get-PfbActiveDirectory",
         "Get-PfbAdmin",
         "Get-PfbAdminCache",
         "Get-PfbAdminManagementAccessPolicy",
+        "Get-PfbAdminSetting",
         "Get-PfbAdminSshCaPolicy",
         "Get-PfbAlert",
         "Get-PfbAlertWatcher",
         "Get-PfbApiClient",
         "Get-PfbApiToken",
+        "Get-PfbArray",
         "Get-PfbArrayClientPerformance",
         "Get-PfbArrayClientS3Performance",
         "Get-PfbArrayConnection",
@@ -22125,6 +22031,8 @@
         "Get-PfbArrayConnectionPath",
         "Get-PfbArrayConnectionPerformanceReplication",
         "Get-PfbArrayErasure",
+        "Get-PfbArrayEula",
+        "Get-PfbArrayFactoryResetToken",
         "Get-PfbArrayHttpPerformance",
         "Get-PfbArrayNfsPerformance",
         "Get-PfbArrayPerformanceReplication",
@@ -22162,6 +22070,7 @@
         "Get-PfbDirectoryService",
         "Get-PfbDirectoryServiceRole",
         "Get-PfbDirectoryServiceRoleManagementPolicy",
+        "Get-PfbDns",
         "Get-PfbDrive",
         "Get-PfbFileLock",
         "Get-PfbFileLockClient",
@@ -22238,6 +22147,7 @@
         "Get-PfbObjectStoreVirtualHost",
         "Get-PfbOidcIdp",
         "Get-PfbOpenFile",
+        "Get-PfbPasswordPolicy",
         "Get-PfbPolicy",
         "Get-PfbPolicyAll",
         "Get-PfbPolicyAllMember",
@@ -22269,6 +22179,7 @@
         "Get-PfbSmbClientRule",
         "Get-PfbSmbSharePolicy",
         "Get-PfbSmbShareRule",
+        "Get-PfbSmtpServer",
         "Get-PfbSnmpAgent",
         "Get-PfbSnmpManager",
         "Get-PfbSoftwareCheck",
@@ -22284,6 +22195,7 @@
         "Get-PfbSupportDiagnosticsDetails",
         "Get-PfbSupportVerificationKey",
         "Get-PfbSyslogServer",
+        "Get-PfbSyslogServerSettings",
         "Get-PfbTarget",
         "Get-PfbTargetPerformanceReplication",
         "Get-PfbTlsPolicy",
@@ -22298,16 +22210,18 @@
     },
     {
       "name": "limit",
-      "cmdletCount": 182,
+      "cmdletCount": 190,
       "cmdlets": [
         "Get-PfbAdmin",
         "Get-PfbAdminCache",
         "Get-PfbAdminManagementAccessPolicy",
+        "Get-PfbAdminSetting",
         "Get-PfbAdminSshCaPolicy",
         "Get-PfbAlert",
         "Get-PfbAlertWatcher",
         "Get-PfbApiClient",
         "Get-PfbApiToken",
+        "Get-PfbArray",
         "Get-PfbArrayClientPerformance",
         "Get-PfbArrayClientS3Performance",
         "Get-PfbArrayConnection",
@@ -22315,6 +22229,8 @@
         "Get-PfbArrayConnectionPath",
         "Get-PfbArrayConnectionPerformanceReplication",
         "Get-PfbArrayErasure",
+        "Get-PfbArrayEula",
+        "Get-PfbArrayFactoryResetToken",
         "Get-PfbArrayHttpPerformance",
         "Get-PfbArrayNfsPerformance",
         "Get-PfbArrayPerformanceReplication",
@@ -22351,6 +22267,7 @@
         "Get-PfbDataEvictionPolicyMember",
         "Get-PfbDirectoryServiceRole",
         "Get-PfbDirectoryServiceRoleManagementPolicy",
+        "Get-PfbDns",
         "Get-PfbDrive",
         "Get-PfbFileLock",
         "Get-PfbFileLockClient",
@@ -22427,6 +22344,7 @@
         "Get-PfbObjectStoreVirtualHost",
         "Get-PfbOidcIdp",
         "Get-PfbOpenFile",
+        "Get-PfbPasswordPolicy",
         "Get-PfbPolicy",
         "Get-PfbPolicyAll",
         "Get-PfbPolicyAllMember",
@@ -22458,6 +22376,7 @@
         "Get-PfbSmbClientRule",
         "Get-PfbSmbSharePolicy",
         "Get-PfbSmbShareRule",
+        "Get-PfbSmtpServer",
         "Get-PfbSnmpManager",
         "Get-PfbSoftwareCheck",
         "Get-PfbSshCaPolicy",
@@ -22472,6 +22391,7 @@
         "Get-PfbSupportDiagnosticsDetails",
         "Get-PfbSupportVerificationKey",
         "Get-PfbSyslogServer",
+        "Get-PfbSyslogServerSettings",
         "Get-PfbTarget",
         "Get-PfbTargetPerformanceReplication",
         "Get-PfbTlsPolicy",
@@ -22486,14 +22406,16 @@
     },
     {
       "name": "sort",
-      "cmdletCount": 163,
+      "cmdletCount": 171,
       "cmdlets": [
         "Get-PfbAdmin",
         "Get-PfbAdminCache",
+        "Get-PfbAdminSetting",
         "Get-PfbAlert",
         "Get-PfbAlertWatcher",
         "Get-PfbApiClient",
         "Get-PfbApiToken",
+        "Get-PfbArray",
         "Get-PfbArrayClientPerformance",
         "Get-PfbArrayClientS3Performance",
         "Get-PfbArrayConnection",
@@ -22501,6 +22423,8 @@
         "Get-PfbArrayConnectionPath",
         "Get-PfbArrayConnectionPerformanceReplication",
         "Get-PfbArrayErasure",
+        "Get-PfbArrayEula",
+        "Get-PfbArrayFactoryResetToken",
         "Get-PfbArrayHttpPerformance",
         "Get-PfbArrayNfsPerformance",
         "Get-PfbArrayPerformanceReplication",
@@ -22534,6 +22458,7 @@
         "Get-PfbDataEvictionPolicyFileSystem",
         "Get-PfbDataEvictionPolicyMember",
         "Get-PfbDirectoryServiceRole",
+        "Get-PfbDns",
         "Get-PfbDrive",
         "Get-PfbFileLock",
         "Get-PfbFileLockClient",
@@ -22607,6 +22532,7 @@
         "Get-PfbObjectStoreVirtualHost",
         "Get-PfbOidcIdp",
         "Get-PfbOpenFile",
+        "Get-PfbPasswordPolicy",
         "Get-PfbPolicy",
         "Get-PfbPolicyAll",
         "Get-PfbPolicyFileSystem",
@@ -22633,6 +22559,7 @@
         "Get-PfbSmbClientRule",
         "Get-PfbSmbSharePolicy",
         "Get-PfbSmbShareRule",
+        "Get-PfbSmtpServer",
         "Get-PfbSnmpManager",
         "Get-PfbSoftwareCheck",
         "Get-PfbSshCaPolicy",
@@ -22643,6 +22570,7 @@
         "Get-PfbSupportDiagnosticsDetails",
         "Get-PfbSupportVerificationKey",
         "Get-PfbSyslogServer",
+        "Get-PfbSyslogServerSettings",
         "Get-PfbTarget",
         "Get-PfbTargetPerformanceReplication",
         "Get-PfbTlsPolicy",
