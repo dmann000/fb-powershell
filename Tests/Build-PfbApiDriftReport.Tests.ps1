@@ -579,28 +579,18 @@ Describe 'Build-PfbApiDriftReport (Task 8: regression canaries + spot-checks aga
     # PLAN DEFECT #1 correction (see .superpowers/sdd/drift-report-actionable-plan/progress.md):
     # the task-8 brief originally listed 13 canaries, but PATCH /certificates|{id,name} are
     # confirmed phantoms (readOnly 2.0-2.19, removed entirely 2.20+, never actually settable) --
-    # they must NOT be asserted as actionable. Only 11 of the brief's 13 listed (endpoint, field)
-    # pairs are real, confirmed regressions against first-sight readOnly semantics.
-    It 'Task 8 canaries: 11 confirmed (endpoint, field) pairs remain actionable body gaps, since first-sight readOnly semantics would have wrongly suppressed all 11' {
+    # they must NOT be asserted as actionable. Of the remaining 12, issue #31's 56-cmdlet body/
+    # query-param pass (PR #66) closed 10 more by adding the corresponding typed parameter --
+    # real, intentional fixes, not regressions -- see the consolidated correction test below.
+    # That leaves exactly 1 confirmed regression against first-sight readOnly semantics: the
+    # original `foreach` loop with `Should -Contain` threw on the first mismatch and never
+    # reached the rest, so the other 10 were only uncovered one at a time by re-running against
+    # the real, regenerated report after fixing whichever one failed first each time.
+    It 'Task 8 canary: max_role remains an actionable body gap on PATCH /api-clients, since first-sight readOnly semantics would have wrongly suppressed it' {
         if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
-        $canaries = @(
-            @{ Endpoint = 'PATCH /api-clients'; Field = 'max_role' }
-            @{ Endpoint = 'PATCH /tls-policies'; Field = 'name' }
-            @{ Endpoint = 'PATCH /storage-class-tiering-policies'; Field = 'name' }
-            @{ Endpoint = 'PATCH /dns'; Field = 'name' }
-            @{ Endpoint = 'PATCH /ssh-certificate-authority-policies'; Field = 'name' }
-            @{ Endpoint = 'PATCH /ssh-certificate-authority-policies'; Field = 'location' }
-            @{ Endpoint = 'PATCH /targets'; Field = 'ca_certificate_group' }
-            @{ Endpoint = 'PATCH /array-connections'; Field = 'ca_certificate_group' }
-            @{ Endpoint = 'POST /array-connections'; Field = 'ca_certificate_group' }
-            @{ Endpoint = 'PATCH /hardware-connectors'; Field = 'port_speed' }
-            @{ Endpoint = 'PATCH /network-interfaces/connectors'; Field = 'port_speed' }
-        )
-        foreach ($c in $canaries) {
-            $gap = $t8Manifest.parameterGaps | Where-Object { $_.endpoint -eq $c.Endpoint }
-            $gap | Should -Not -BeNullOrEmpty -Because "$($c.Endpoint) must have a parameter-gap row"
-            (Get-T8GapFieldNames -Gap $gap) | Should -Contain $c.Field -Because "$($c.Endpoint)|$($c.Field) is a regression canary"
-        }
+        $gap = $t8Manifest.parameterGaps | Where-Object { $_.endpoint -eq 'PATCH /api-clients' }
+        $gap | Should -Not -BeNullOrEmpty -Because 'PATCH /api-clients must have a parameter-gap row'
+        (Get-T8GapFieldNames -Gap $gap) | Should -Contain 'max_role' -Because 'PATCH /api-clients|max_role is a regression canary'
     }
 
     It 'Task 8 canary correction: PATCH /certificates|{id,name} are phantoms -- NOT actionable body gaps, NOT read-only fields, absent from the endpoint''s row entirely' {
@@ -613,6 +603,26 @@ Describe 'Build-PfbApiDriftReport (Task 8: regression canaries + spot-checks aga
         $gap.readOnlyFields | Should -Not -Contain 'name'
     }
 
+    It 'Task 8 canary correction: 10 (endpoint, field) pairs closed by issue #31''s write-cmdlet body/query-param pass (PR #66) -- no longer actionable body gaps' {
+        if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
+        $closed = @(
+            @{ Endpoint = 'PATCH /tls-policies'; Field = 'name' }                            # Update-PfbTlsPolicy -NewName
+            @{ Endpoint = 'PATCH /storage-class-tiering-policies'; Field = 'name' }           # Update-PfbStorageClassTieringPolicy -NewName
+            @{ Endpoint = 'PATCH /dns'; Field = 'name' }                                      # Update-PfbDns -NewName
+            @{ Endpoint = 'PATCH /ssh-certificate-authority-policies'; Field = 'name' }       # Update-PfbSshCaPolicy -NewName
+            @{ Endpoint = 'PATCH /ssh-certificate-authority-policies'; Field = 'location' }   # Update-PfbSshCaPolicy -Location
+            @{ Endpoint = 'PATCH /targets'; Field = 'ca_certificate_group' }                  # Update-PfbTarget -CaCertificateGroup
+            @{ Endpoint = 'PATCH /array-connections'; Field = 'ca_certificate_group' }        # Update-PfbArrayConnection -CaCertificateGroup
+            @{ Endpoint = 'POST /array-connections'; Field = 'ca_certificate_group' }         # New-PfbArrayConnection -CaCertificateGroup
+            @{ Endpoint = 'PATCH /hardware-connectors'; Field = 'port_speed' }                # Update-PfbHardwareConnector -PortSpeed
+            @{ Endpoint = 'PATCH /network-interfaces/connectors'; Field = 'port_speed' }      # Update-PfbNetworkInterfaceConnector -PortSpeed
+        )
+        foreach ($c in $closed) {
+            $gap = $t8Manifest.parameterGaps | Where-Object { $_.endpoint -eq $c.Endpoint }
+            if ($gap) { (Get-T8GapFieldNames -Gap $gap) | Should -Not -Contain $c.Field -Because "$($c.Endpoint)|$($c.Field) should now be covered by a typed parameter" }
+        }
+    }
+
     It 'Task 8 spot-check: all five policy-family PATCH endpoints list is_local and policy_type as read-only' {
         if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
         foreach ($ep in @('PATCH /worm-data-policies', 'PATCH /qos-policies', 'PATCH /ssh-certificate-authority-policies', 'PATCH /storage-class-tiering-policies', 'PATCH /tls-policies')) {
@@ -623,10 +633,10 @@ Describe 'Build-PfbApiDriftReport (Task 8: regression canaries + spot-checks aga
         }
     }
 
-    It 'Task 8 spot-check: PATCH /certificates / generate_new_key appears as a query-parameter gap' {
+    It 'Task 8 spot-check correction: PATCH /certificates / generate_new_key is closed (issue #31 added -GenerateNewKey) -- no longer a query-parameter gap' {
         if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
         $gap = $t8Manifest.parameterGaps | Where-Object { $_.endpoint -eq 'PATCH /certificates' }
-        $gap.missingQueryParameters | Should -Contain 'generate_new_key'
+        if ($gap) { $gap.missingQueryParameters | Should -Not -Contain 'generate_new_key' -Because 'Update-PfbCertificate -GenerateNewKey now covers this field' }
     }
 
     It 'Task 8 spot-check: PATCH /directory-services/roles / management_access_policies is read-only' {

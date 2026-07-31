@@ -7,18 +7,45 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 ## Summary
 
 - matched: 1
-- collision: 0
-- not-found-in-resource: 3
-- no-spec-enum-found: 1661
+- collision: 1
+- not-found-in-resource: 29
+- no-spec-enum-found: 1867
 
 | Cmdlet | Parameter | Wire name | Status | Spec values | Recommendation |
 |---|---|---|---|---|---|
+| `Update-PfbManagementAccessPolicy` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbOidcIdp` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbOidcIdp` | `-Services` | services | not-found-in-resource |  |  |
+| `Update-PfbSaml2Idp` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbSaml2Idp` | `-Services` | services | not-found-in-resource |  |  |
+| `Update-PfbBucketAuditFilter` | `-Actions` | actions | not-found-in-resource |  |  |
+| `Update-PfbCertificate` | `-State` | state | not-found-in-resource |  |  |
 | `Update-PfbDataEvictionPolicy` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbLogTargetFileSystem` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbLogTargetObjectStore` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbSnmpManager` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbDns` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbDns` | `-Services` | services | not-found-in-resource |  |  |
+| `Update-PfbNetworkInterface` | `-Services` | services | not-found-in-resource |  |  |
+| `Update-PfbNode` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbNodeGroup` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbObjectStoreRemoteCredential` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbObjectStoreVirtualHost` | `-NewName` | name | not-found-in-resource |  |  |
 | `Get-PfbPolicyAllMember` | `-MemberType` | member_types | matched | file-systems, file-system-snapshots, file-system-replica-links, object-store-users | ArgumentCompleter |
+| `New-PfbQosPolicyMember` | `-MemberType` | member_types | collision |  |  |
+| `New-PfbS3ExportRule` | `-Actions` | actions | not-found-in-resource |  |  |
+| `New-PfbS3ExportRule` | `-Effect` | effect | not-found-in-resource |  |  |
+| `Update-PfbQosPolicy` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbSshCaPolicy` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbStorageClassTieringPolicy` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbTlsPolicy` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbWormPolicy` | `-DefaultRetention` | default_retention | not-found-in-resource |  |  |
 | `Update-PfbPresetWorkload` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbFleet` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbTarget` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbWorkload` | `-NewName` | name | not-found-in-resource |  |  |
 
-## Attributes-only parameters (no typed field to attach either mechanism to): 68
+## Attributes-only parameters (no typed field to attach either mechanism to): 65
 
 - `Update-PfbAlert -Flagged`
 - `Update-PfbAlertWatcher -Enabled`
@@ -54,7 +81,6 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `New-PfbSnmpManager -Name`
 - `New-PfbSyslogServer -Name`
 - `New-PfbDns -Name`
-- `New-PfbNetworkInterface -AttachedServers`
 - `New-PfbNodeGroup -Name`
 - `New-PfbAuditFileSystemPolicy -Enabled`
 - `New-PfbAuditObjectStorePolicy -Enabled`
@@ -85,9 +111,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `Update-PfbRealm -Destroyed`
 - `New-PfbFleet -Name`
 - `New-PfbTarget -Name`
-- `New-PfbServer -DnsName`
 - `New-PfbServer -CreateDirectoryService`
-- `Update-PfbServer -DnsName`
 
 ## Typed but unresolved wire name (needs manual inspection): 37
 
