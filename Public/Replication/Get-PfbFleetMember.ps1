@@ -42,11 +42,9 @@ function Get-PfbFleetMember {
     Assert-PfbConnection -Array ([ref]$Array)
 
     $queryParams = @{}
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
     if ($FleetName) { $queryParams['fleet_names'] = $FleetName -join ',' }
     if ($MemberName) { $queryParams['member_names'] = $MemberName -join ',' }
-    if ($Filter) { $queryParams['filter'] = $Filter }
-    if ($Sort) { $queryParams['sort'] = $Sort }
-    if ($Limit -gt 0) { $queryParams['limit'] = $Limit }
 
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'fleets/members' -QueryParams $queryParams -AutoPaginate
 }

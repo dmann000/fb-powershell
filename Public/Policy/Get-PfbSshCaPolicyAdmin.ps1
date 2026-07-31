@@ -49,8 +49,7 @@ function Get-PfbSshCaPolicyAdmin {
     if ($PolicyId) { $queryParams['policy_ids'] = $PolicyId -join ',' }
     if ($MemberName) { $queryParams['member_names'] = $MemberName -join ',' }
     if ($MemberId) { $queryParams['member_ids'] = $MemberId -join ',' }
-    if ($Filter) { $queryParams['filter'] = $Filter }
-    if ($Limit -gt 0) { $queryParams['limit'] = $Limit }
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
 
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'ssh-certificate-authority-policies/admins' -QueryParams $queryParams -AutoPaginate
 }

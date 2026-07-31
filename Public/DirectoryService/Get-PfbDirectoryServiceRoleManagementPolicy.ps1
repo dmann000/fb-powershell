@@ -51,8 +51,7 @@ function Get-PfbDirectoryServiceRoleManagementPolicy {
     if ($MemberId)   { $queryParams['member_ids']   = $MemberId -join ',' }
     if ($PolicyName) { $queryParams['policy_names'] = $PolicyName -join ',' }
     if ($PolicyId)   { $queryParams['policy_ids']   = $PolicyId -join ',' }
-    if ($Filter)     { $queryParams['filter']       = $Filter }
-    if ($Limit -gt 0) { $queryParams['limit']       = $Limit }
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
 
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'directory-services/roles/management-access-policies' -QueryParams $queryParams -AutoPaginate
 }

@@ -42,9 +42,7 @@ function Get-PfbLog {
     $queryParams = @{}
     $queryParams['start_time'] = $StartTime
     $queryParams['end_time'] = $EndTime
-    if ($Filter)     { $queryParams['filter'] = $Filter }
-    if ($Sort)       { $queryParams['sort']   = $Sort }
-    if ($Limit -gt 0) { $queryParams['limit'] = $Limit }
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
 
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'logs' -QueryParams $queryParams -AutoPaginate
 }

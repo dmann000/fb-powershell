@@ -48,12 +48,11 @@ function Get-PfbAdminManagementAccessPolicy {
     Assert-PfbConnection -Array ([ref]$Array)
 
     $queryParams = @{}
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
     if ($MemberName) { $queryParams['member_names'] = $MemberName -join ',' }
     if ($MemberId)   { $queryParams['member_ids']   = $MemberId -join ',' }
     if ($PolicyName) { $queryParams['policy_names'] = $PolicyName -join ',' }
     if ($PolicyId)   { $queryParams['policy_ids']   = $PolicyId -join ',' }
-    if ($Filter)     { $queryParams['filter']       = $Filter }
-    if ($Limit -gt 0) { $queryParams['limit']       = $Limit }
 
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'admins/management-access-policies' -QueryParams $queryParams -AutoPaginate
 }

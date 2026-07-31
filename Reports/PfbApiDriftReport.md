@@ -21,9 +21,9 @@ This report accepts **false positives in order to eliminate false negatives**. A
 ## Summary
 
 - Uncovered endpoints: 117
-- Endpoints with parameter gaps: 433
+- Endpoints with parameter gaps: 430
 - Missing body properties (addable): 609
-- Missing query parameters (addable): 1004
+- Missing query parameters (addable): 980
 - Read-only body fields (not addable -- see the Read-only fields section below): 367
 - Phantom fields silently excluded (accumulated in the capability map, absent from the newest analysed spec): 40
 - Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 56
@@ -43,7 +43,7 @@ Showing the top 25 of 312 findings by endpoint count -- the full list is in the 
 | `allow_errors` | 110 | 110 | 0 | 0 | not yet implemented |
 | `ids` | 46 | 46 | 0 | 218 |  |
 | `names` | 35 | 35 | 0 | 306 |  |
-| `sort` | 35 | 35 | 0 | 163 |  |
+| `sort` | 28 | 28 | 0 | 171 |  |
 | `name` | 23 | 0 | 23 | 3 |  |
 | `bucket_ids` | 19 | 19 | 0 | 0 |  |
 | `bucket_names` | 18 | 18 | 0 | 1 |  |
@@ -53,8 +53,6 @@ Showing the top 25 of 312 findings by endpoint count -- the full list is in the 
 | `enabled` | 16 | 0 | 16 | 0 |  |
 | `member_ids` | 16 | 16 | 0 | 78 |  |
 | `remote_names` | 16 | 16 | 0 | 2 |  |
-| `limit` | 14 | 14 | 0 | 182 |  |
-| `filter` | 13 | 13 | 0 | 185 |  |
 | `file_system_ids` | 11 | 11 | 0 | 2 |  |
 | `policy_names` | 11 | 11 | 0 | 108 |  |
 | `local_file_system_ids` | 10 | 10 | 0 | 0 |  |
@@ -64,6 +62,8 @@ Showing the top 25 of 312 findings by endpoint count -- the full list is in the 
 | `policy` | 8 | 0 | 8 | 0 |  |
 | `ca_certificate_group` | 7 | 0 | 7 | 0 |  |
 | `file_system_names` | 7 | 7 | 0 | 6 |  |
+| `limit` | 7 | 7 | 0 | 190 |  |
+| `local_file_system_names` | 7 | 7 | 0 | 3 |  |
 
 ## Parameter gaps
 
@@ -156,18 +156,15 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /admins/api-tokens` | Get-PfbApiToken | admin_ids, admin_names, allow_errors, context_names, expose_api_token |  | `high` |  |
 | `GET /admins/cache` | Get-PfbAdminCache | allow_errors, context_names, refresh |  | `high` |  |
 | `GET /admins/management-access-policies` | Get-PfbAdminManagementAccessPolicy | allow_errors, context_names, sort |  | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
-| `GET /admins/settings` | Get-PfbAdminSetting | filter, limit, sort |  | `high` |  |
 | `GET /admins/ssh-certificate-authority-policies` | Get-PfbAdminSshCaPolicy | allow_errors, context_names, sort |  | `high` |  |
 | `GET /alert-watchers/test` | Test-PfbAlertWatcher | filter, sort |  | `high` |  |
 | `GET /array-connections` | Get-PfbArrayConnection | allow_errors, context_names, remote_ids, remote_names |  | `high` |  |
 | `GET /array-connections/connection-key` | Get-PfbArrayConnectionKey | ids |  | `high` |  |
 | `GET /array-connections/path` | Get-PfbArrayConnectionPath | allow_errors, context_names, ids, remote_ids, remote_names |  | `high` |  |
 | `GET /array-connections/performance/replication` | Get-PfbArrayConnectionPerformanceReplication | ids, remote_ids, remote_names, total_only |  | `high` |  |
-| `GET /arrays` | Get-PfbArray, Test-PfbConnection | allow_errors, context_names, filter, limit, sort |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
+| `GET /arrays` | Get-PfbArray, Test-PfbConnection | allow_errors, context_names |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `GET /arrays/clients/performance` | Get-PfbArrayClientPerformance | names, protocol, total_only |  | `high` |  |
 | `GET /arrays/clients/s3-specific-performance` | Get-PfbArrayClientS3Performance | names, total_only |  | `high` |  |
-| `GET /arrays/eula` | Get-PfbArrayEula | filter, limit, sort |  | `high` |  |
-| `GET /arrays/factory-reset-token` | Get-PfbArrayFactoryResetToken | filter, limit, sort |  | `high` |  |
 | `GET /arrays/http-specific-performance` | Get-PfbArrayHttpPerformance | allow_errors, context_names |  | `high` |  |
 | `GET /arrays/nfs-specific-performance` | Get-PfbArrayNfsPerformance | allow_errors, context_names |  | `high` |  |
 | `GET /arrays/performance` | Get-PfbArrayPerformance | allow_errors, context_names |  | `high` |  |
@@ -206,7 +203,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /directory-services/roles` | Get-PfbDirectoryServiceRole | role_ids, role_names |  | `high` |  |
 | `GET /directory-services/roles/management-access-policies` | Get-PfbDirectoryServiceRoleManagementPolicy | sort |  | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
 | `GET /directory-services/test` | Test-PfbDirectoryService | allow_errors, context_names, filter, ids, limit, names, sort |  | `high` |  |
-| `GET /dns` | Get-PfbDns | allow_errors, context_names, filter, ids, limit, names, sort |  | `high` |  |
+| `GET /dns` | Get-PfbDns | allow_errors, context_names, ids, names |  | `high` |  |
 | `GET /drives` | Get-PfbDrive | total_only |  | `high` |  |
 | `GET /file-system-exports` | Get-PfbFileSystemExport | allow_errors, context_names, workload_ids, workload_names |  | `high` |  |
 | `GET /file-system-replica-links` | Get-PfbFileSystemReplicaLink | allow_errors, context_names, ids, local_file_system_ids, remote_file_system_ids, remote_ids, remote_names |  | `high` |  |
@@ -267,7 +264,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /object-store-users` | Get-PfbObjectStoreUser | allow_errors, context_names |  | `high` |  |
 | `GET /object-store-users/object-store-access-policies` | Get-PfbObjectStoreUserAccessPolicy | allow_errors, context_names |  | `high` |  |
 | `GET /object-store-virtual-hosts` | Get-PfbObjectStoreVirtualHost | allow_errors, context_names |  | `high` |  |
-| `GET /password-policies` | Get-PfbPasswordPolicy | filter, ids, limit, names, sort |  | `high` |  |
+| `GET /password-policies` | Get-PfbPasswordPolicy | ids, names |  | `high` |  |
 | `GET /policies` | Get-PfbPolicy | allow_errors, context_names, workload_ids, workload_names |  | `high` |  |
 | `GET /policies-all` | Get-PfbPolicyAll | allow_errors, context_names |  | `high` |  |
 | `GET /policies-all/members` | Get-PfbPolicyAllMember | allow_errors, context_names, local_file_system_ids, local_file_system_names, remote_file_system_ids, remote_file_system_names, remote_ids, remote_names, sort |  | `high` |  |
@@ -296,7 +293,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /smb-client-policies/rules` | Get-PfbSmbClientRule | allow_errors, context_names, ids |  | `high` |  |
 | `GET /smb-share-policies` | Get-PfbSmbSharePolicy | allow_errors, context_names, workload_ids, workload_names |  | `high` |  |
 | `GET /smb-share-policies/rules` | Get-PfbSmbShareRule | allow_errors, context_names, ids |  | `high` |  |
-| `GET /smtp-servers` | Get-PfbSmtpServer | filter, ids, limit, names, sort |  | `high` |  |
+| `GET /smtp-servers` | Get-PfbSmtpServer | ids, names |  | `high` |  |
 | `GET /snmp-agents` | Get-PfbSnmpAgent | ids, limit, names, sort |  | `high` |  |
 | `GET /snmp-managers/test` | Test-PfbSnmpManager | filter, limit, sort |  | `high` |  |
 | `GET /software-check` | Get-PfbSoftwareCheck | ids, names, software_names, software_versions, total_item_count |  | `high` |  |
@@ -309,7 +306,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /support` | Get-PfbSupport | ids |  | `high` |  |
 | `GET /support/test` | Test-PfbSupport | filter, sort |  | `high` |  |
 | `GET /syslog-servers` | Get-PfbSyslogServer | allow_errors, context_names |  | `high` |  |
-| `GET /syslog-servers/settings` | Get-PfbSyslogServerSettings | filter, ids, limit, names, sort |  | `high` |  |
+| `GET /syslog-servers/settings` | Get-PfbSyslogServerSettings | ids, names |  | `high` |  |
 | `GET /targets` | Get-PfbTarget | allow_errors, context_names |  | `high` |  |
 | `GET /targets/performance/replication` | Get-PfbTargetPerformanceReplication | ids, total_only |  | `high` |  |
 | `GET /tls-policies` | Get-PfbTlsPolicy | effective, purity_defined |  | `high` |  |

@@ -44,8 +44,7 @@ function Get-PfbDirectoryService {
 
     end {
         $queryParams = @{}
-        if ($allNames.Count -gt 0) { $queryParams['names'] = $allNames -join ',' }
-        if ($Filter) { $queryParams['filter'] = $Filter }
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'directory-services' -QueryParams $queryParams -AutoPaginate
     }
 }
