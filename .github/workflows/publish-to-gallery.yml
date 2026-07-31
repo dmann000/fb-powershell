@@ -1,0 +1,85 @@
+# Publishes EverpureFBModule (the rebranded package built from PureStorageFlashBladePowerShell)
+# to the PowerShell Gallery.
+#
+# --- Workflow Notes ---
+#
+# Trigger: a pushed version tag (`v*`, e.g. `v2.0.6`) plus a manual `workflow_dispatch`.
+# A tag push is an explicit, intentional "ship this" action distinct from an ordinary merge
+# to main, so a release isn't triggered just because a version-bump PR happened to land;
+# `workflow_dispatch` is kept as a manual fallback/re-run path.
+#
+# Build/brand/publish: delegated to ./scripts/Publish-Gallery.ps1, which builds the module,
+# produces the rebranded EverpureFBModule package, validates the manifest, and (with
+# -Publish -ApiKey) pushes it via Publish-Module -Repository PSGallery. This workflow no
+# longer calls Publish-Module directly -- it just runs the test gate, the duplicate-version
+# guard, and then invokes the script.
+#
+# Test gate: the `test` job calls cross-platform-tests.yml as a reusable workflow
+# (workflow_call) instead of running its own single-platform Pester step. That workflow
+# already covers every OS/PowerShell-edition combination the module claims to support --
+# duplicating a subset of that here would both under-test releases (a bug caught only on
+# macOS or Windows PowerShell 5.1 would slip through an ubuntu-only gate) and drift out of
+# sync with the real test setup over time. `publish` depends on `test` via `needs:`.
+#
+# Repository guard: this file is expected to exist identically in both the development fork
+# and, after merge, the official upstream repo. The `if:` guard on the publish job restricts
+# actual publishing to the official repo below, so a stray tag pushed in the fork is a safe
+# no-op instead of an accidental (and secret-less) publish attempt. The `test` job itself has
+# no such guard -- it's harmless (and useful) to run in the fork too.
+#
+# Required secret: PSGALLERY_API_KEY -- a PowerShell Gallery API key with push rights to
+# EverpureFBModule. Must be created in the *upstream* repo (PureStorage-OpenConnect) under
+# Settings -> Secrets and variables -> Actions before this workflow can succeed there. It's
+# only added there, not in development branch, since only the upstream repo actually publishes
+# (see the repository guard above). This workflow will fail at the publish step until that
+# secret exists.
+
+name: Publish to PowerShell Gallery
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    uses: ./.github/workflows/cross-platform-tests.yml
+
+  publish:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    needs: test
+    # Only ever publish from the official upstream repo -- see design notes above.
+    if: github.repository == 'PureStorage-OpenConnect/flashblade-powershell'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Check for duplicate version on the Gallery
+        id: version_check
+        shell: pwsh
+        run: |
+          $manifest = Import-PowerShellDataFile -Path ./PureStorageFlashBladePowerShell.psd1
+          $localVersion = $manifest.ModuleVersion
+          Write-Host "Local ModuleVersion: $localVersion"
+
+          # Check the published (rebranded) package name, not the source module name --
+          # scripts/Publish-Gallery.ps1 publishes as EverpureFBModule.
+          $published = Find-Module -Name EverpureFBModule -ErrorAction SilentlyContinue
+          if ($published -and $published.Version -eq [version]$localVersion) {
+              Write-Host "Version $localVersion is already published on the Gallery -- skipping publish."
+              "skip=true" >> $env:GITHUB_OUTPUT
+          }
+          else {
+              Write-Host "Version $localVersion is not yet published -- proceeding."
+              "skip=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Publish to PowerShell Gallery
+        if: steps.version_check.outputs.skip == 'false'
+        shell: pwsh
+        run: |
+          ./scripts/Publish-Gallery.ps1 -Publish -ApiKey $env:PSGALLERY_API_KEY
+        env:
+          PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}

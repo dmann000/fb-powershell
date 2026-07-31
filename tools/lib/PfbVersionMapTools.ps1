@@ -26,14 +26,20 @@ function Get-PfbSsotVersionMapUri {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)]
-        [ValidateNotNullOrEmpty()]
+        [Parameter()]
         [string]$BaseUri,
 
-        [Parameter(Mandatory)]
-        [ValidateNotNullOrEmpty()]
+        [Parameter()]
         [string]$TopicId
     )
+
+    # Deliberately not [Parameter(Mandatory)]: PowerShell's mandatory-parameter binder
+    # prompts interactively for a missing value when the host supports it (a real
+    # console), rather than throwing - which would hang a script or corrupt a terminal
+    # session instead of failing fast. Explicit checks guarantee a deterministic throw
+    # in every host.
+    if ([string]::IsNullOrEmpty($BaseUri)) { throw [System.Management.Automation.PSArgumentException]::new('BaseUri is required.', 'BaseUri') }
+    if ([string]::IsNullOrEmpty($TopicId)) { throw [System.Management.Automation.PSArgumentException]::new('TopicId is required.', 'TopicId') }
 
     return "$BaseUri/v1/topics/$TopicId/content"
 }

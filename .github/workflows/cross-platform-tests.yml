@@ -9,12 +9,20 @@ name: Tests
 # Two separate jobs rather than one shell-matrixed job: the `shell:` key on a step does
 # NOT have access to the `matrix` context (unlike `run:`, `env:`, or a job's own `name:`/
 # `runs-on:`) -- confirmed via `gh workflow run`: "Unrecognized named-value: 'matrix'.
-# Located at position 1 within expression: matrix.shell". `shell:` must be a literal.
+# Located at position 1 within expression: matrix.shell". In a workflow, `shell:` must be
+# a literal. (Inside a *composite action* `shell:` does accept `${{ inputs.* }}` -- but
+# still not `matrix`/`env` -- which is how .github/actions/install-test-modules serves
+# both editions from one implementation.)
+#
+# workflow_call: publish-to-gallery.yml calls this workflow as its test gate, so a
+# release only ships after passing on all 4 OS/PowerShell-edition combinations below --
+# not just whichever single platform a standalone Pester step would happen to run on.
 
 on:
   push:
   pull_request:
   workflow_dispatch: {}
+  workflow_call: {}
 
 jobs:
   test-pwsh:
@@ -28,29 +36,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Pinned + cached; see .github/actions/install-test-modules/action.yml for why
+      # (including why Posh-SSH is needed at all).
       - name: Install test dependencies
-        shell: pwsh
-        run: |
-          function Install-PfbModuleWithRetry {
-              param([hashtable]$Params, [int]$MaxAttempts = 3, [int]$DelaySeconds = 15)
-              for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
-                  try {
-                      Install-Module @Params -ErrorAction Stop
-                      return
-                  } catch {
-                      if ($attempt -eq $MaxAttempts) { throw }
-                      Write-Warning "Install-Module '$($Params.Name)' attempt $attempt/$MaxAttempts failed: $($_.Exception.Message). Retrying in $DelaySeconds s..."
-                      Start-Sleep -Seconds $DelaySeconds
-                  }
-              }
-          }
-
-          # Posh-SSH is an optional runtime dependency (see Private/Get-PfbApiTokenViaSsh.ps1),
-          # but Get-PfbApiTokenViaSsh.Tests.ps1 mocks its cmdlets (New-SSHSession, etc.) --
-          # Pester can only mock a command that's resolvable, so it must be installed here
-          # even though the module under test never actually opens an SSH connection.
-          Install-PfbModuleWithRetry -Params @{ Name = 'Pester';   MinimumVersion = '5.0'; Force = $true; SkipPublisherCheck = $true; Scope = 'CurrentUser' }
-          Install-PfbModuleWithRetry -Params @{ Name = 'Posh-SSH'; Force = $true; SkipPublisherCheck = $true; Scope = 'CurrentUser' }
+        uses: ./.github/actions/install-test-modules
+        with:
+          shell: pwsh
 
       - name: Run Pester tests
         shell: pwsh
@@ -70,33 +61,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Same pinned modules and same cache entry as the pwsh job on this OS -- the saved
+      # files are edition-independent (Pester 6.0.1 declares PowerShellVersion = '5.1').
+      # `shell:` is passed explicitly because a composite action has no default shell and
+      # cannot read `matrix`.
       - name: Install test dependencies
-        shell: powershell
-        run: |
-          # Some older Windows PowerShell 5.1 hosts default to TLS 1.0/1.1, which
-          # PowerShell Gallery rejects -- force TLS 1.2 before hitting it.
-          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-
-          function Install-PfbModuleWithRetry {
-              param([hashtable]$Params, [int]$MaxAttempts = 3, [int]$DelaySeconds = 15)
-              for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
-                  try {
-                      Install-Module @Params -ErrorAction Stop
-                      return
-                  } catch {
-                      if ($attempt -eq $MaxAttempts) { throw }
-                      Write-Warning "Install-Module '$($Params.Name)' attempt $attempt/$MaxAttempts failed: $($_.Exception.Message). Retrying in $DelaySeconds s..."
-                      Start-Sleep -Seconds $DelaySeconds
-                  }
-              }
-          }
-
-          # Posh-SSH is an optional runtime dependency (see Private/Get-PfbApiTokenViaSsh.ps1),
-          # but Get-PfbApiTokenViaSsh.Tests.ps1 mocks its cmdlets (New-SSHSession, etc.) --
-          # Pester can only mock a command that's resolvable, so it must be installed here
-          # even though the module under test never actually opens an SSH connection.
-          Install-PfbModuleWithRetry -Params @{ Name = 'Pester';   MinimumVersion = '5.0'; Force = $true; SkipPublisherCheck = $true; Scope = 'CurrentUser' }
-          Install-PfbModuleWithRetry -Params @{ Name = 'Posh-SSH'; Force = $true; SkipPublisherCheck = $true; Scope = 'CurrentUser' }
+        uses: ./.github/actions/install-test-modules
+        with:
+          shell: powershell
 
       - name: Run Pester tests
         shell: powershell
