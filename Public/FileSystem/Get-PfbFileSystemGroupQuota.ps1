@@ -5,7 +5,7 @@ function Get-PfbFileSystemGroupQuota {
     .DESCRIPTION
         The Get-PfbFileSystemGroupQuota cmdlet returns the effective user-group-quota-policy
         usage/limit entries for individual groups on one or more file systems. Distinct from
-        Get-PfbQuotaGroup (the legacy per-filesystem purequota/purefs quota model) — this
+        Get-PfbQuotaGroup (the legacy per-filesystem purequota/purefs quota model) -- this
         cmdlet reports quotas from the newer policy-based user-group-quota-policy model.
     .PARAMETER FileSystemName
         One or more file system names to filter by.
