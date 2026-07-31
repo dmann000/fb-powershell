@@ -535,7 +535,27 @@
         'Remove-PfbLocalGroup',
         'Get-PfbLocalGroupMember',
         'New-PfbLocalGroupMember',
-        'Remove-PfbLocalGroupMember'
+        'Remove-PfbLocalGroupMember',
+        # User/group quota policies (v2.3.0)
+        'Get-PfbUserGroupQuotaPolicy',
+        'New-PfbUserGroupQuotaPolicy',
+        'Update-PfbUserGroupQuotaPolicy',
+        'Remove-PfbUserGroupQuotaPolicy',
+        'Get-PfbUserGroupQuotaPolicyRule',
+        'New-PfbUserGroupQuotaPolicyRule',
+        'Update-PfbUserGroupQuotaPolicyRule',
+        'Remove-PfbUserGroupQuotaPolicyRule',
+        'Get-PfbUserGroupQuotaPolicyFileSystem',
+        'New-PfbUserGroupQuotaPolicyFileSystem',
+        'Remove-PfbUserGroupQuotaPolicyFileSystem',
+        'Get-PfbUserGroupQuotaPolicyMember',
+        'Get-PfbFileSystemUserGroupQuotaPolicy',
+        'New-PfbFileSystemUserGroupQuotaPolicy',
+        'Remove-PfbFileSystemUserGroupQuotaPolicy',
+        'Get-PfbFileSystemUserQuota',
+        'Get-PfbFileSystemGroupQuota',
+        'Get-PfbFileSystemUser',
+        'Get-PfbFileSystemGroup'
     )
     CmdletsToExport   = @()
     VariablesToExport  = @()
