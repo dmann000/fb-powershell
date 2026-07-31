@@ -36,9 +36,7 @@ function Get-PfbUsageUser {
     )
     Assert-PfbConnection -Array ([ref]$Array)
     $queryParams = @{}
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
     if ($FileSystemName) { $queryParams['file_system_names'] = $FileSystemName }
-    if ($Filter) { $queryParams['filter'] = $Filter }
-    if ($Sort) { $queryParams['sort'] = $Sort }
-    if ($Limit -gt 0) { $queryParams['limit'] = $Limit }
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'usage/users' -QueryParams $queryParams -AutoPaginate
 }

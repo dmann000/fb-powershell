@@ -30,6 +30,6 @@ function Get-PfbSnmpAgent {
     )
     Assert-PfbConnection -Array ([ref]$Array)
     $queryParams = @{}
-    if ($Filter) { $queryParams['filter'] = $Filter }
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'snmp-agents' -QueryParams $queryParams -AutoPaginate
 }

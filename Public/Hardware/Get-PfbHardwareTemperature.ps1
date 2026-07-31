@@ -46,6 +46,10 @@ function Get-PfbHardwareTemperature {
         $queryParams = @{}
         if ($allNames.Count -gt 0) { $queryParams['names'] = $allNames -join ',' }
 
+        # Intentionally NOT migrated to Add-PfbCommonQueryParams (issue #33): -Limit here is a
+        # client-side post-filter applied after the temperature filtering below. The helper would
+        # unconditionally send limit= server-side, changing results.
+
         $hardware = Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'hardware' -QueryParams $queryParams -AutoPaginate
 
         # Filter to components that have temperature data

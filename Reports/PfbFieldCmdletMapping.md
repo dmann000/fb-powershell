@@ -9,7 +9,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - matched: 1
 - collision: 0
 - not-found-in-resource: 3
-- no-spec-enum-found: 1637
+- no-spec-enum-found: 1661
 
 | Cmdlet | Parameter | Wire name | Status | Spec values | Recommendation |
 |---|---|---|---|---|---|

@@ -54,9 +54,7 @@ function Get-PfbNodeGroupNode {
     if ($GroupId)    { $queryParams['group_ids']    = $GroupId -join ',' }
     if ($MemberName) { $queryParams['member_names'] = $MemberName -join ',' }
     if ($MemberId)   { $queryParams['member_ids']   = $MemberId -join ',' }
-    if ($Filter)     { $queryParams['filter']       = $Filter }
-    if ($Sort)       { $queryParams['sort']         = $Sort }
-    if ($Limit -gt 0) { $queryParams['limit']       = $Limit }
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
 
     try {
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'node-groups/nodes' -QueryParams $queryParams -AutoPaginate

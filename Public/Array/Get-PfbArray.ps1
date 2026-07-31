@@ -4,6 +4,12 @@ function Get-PfbArray {
         Retrieves FlashBlade array information.
     .DESCRIPTION
         Returns array attributes including name, OS version, model, and configuration.
+    .PARAMETER Filter
+        A server-side filter expression to narrow results.
+    .PARAMETER Sort
+        Sort field and direction.
+    .PARAMETER Limit
+        Maximum number of items to return.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, uses the default connection.
     .EXAMPLE
@@ -14,10 +20,22 @@ function Get-PfbArray {
     [CmdletBinding()]
     param(
         [Parameter()]
+        [string]$Filter,
+
+        [Parameter()]
+        [string]$Sort,
+
+        [Parameter()]
+        [int]$Limit,
+
+        [Parameter()]
         [PSCustomObject]$Array
     )
 
     Assert-PfbConnection -Array ([ref]$Array)
 
-    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'arrays' -AutoPaginate
+    $queryParams = @{}
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
+
+    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'arrays' -QueryParams $queryParams -AutoPaginate
 }

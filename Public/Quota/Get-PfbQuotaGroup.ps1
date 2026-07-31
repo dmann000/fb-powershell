@@ -40,10 +40,7 @@ function Get-PfbQuotaGroup {
     )
     Assert-PfbConnection -Array ([ref]$Array)
     $queryParams = @{}
-    if ($Name) { $queryParams['names'] = $Name -join ',' }
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $Name
     if ($FileSystemName) { $queryParams['file_system_names'] = $FileSystemName }
-    if ($Filter) { $queryParams['filter'] = $Filter }
-    if ($Sort) { $queryParams['sort'] = $Sort }
-    if ($Limit -gt 0) { $queryParams['limit'] = $Limit }
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'quotas/groups' -QueryParams $queryParams -AutoPaginate
 }

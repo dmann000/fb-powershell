@@ -49,8 +49,7 @@ function Get-PfbAsyncLogDownload {
 
     end {
         $queryParams = @{}
-        if ($allNames.Count -gt 0) { $queryParams['names'] = $allNames -join ',' }
-        if ($allIds.Count -gt 0)   { $queryParams['ids']   = $allIds -join ',' }
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
 
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'logs-async/download' -QueryParams $queryParams -AutoPaginate
     }

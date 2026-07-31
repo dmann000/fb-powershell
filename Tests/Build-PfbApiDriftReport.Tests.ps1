@@ -406,6 +406,19 @@ Describe 'Build-PfbApiDriftReport (real generated artifacts, skips gracefully if
                 -OutputPath $realOutput -ReportPath $realReport
             $script:realManifest = Get-Content -Path $realOutput -Raw | ConvertFrom-Json -Depth 20
             $script:realCapMapForCheck = Get-Content -Path $realCapabilityMapPath -Raw | ConvertFrom-Json -Depth 20
+
+            function Get-RealRecountedEndpointCount {
+                param([Parameter(Mandatory)][object[]]$Gaps, [Parameter(Mandatory)][string]$FieldName)
+                $endpoints = [System.Collections.Generic.HashSet[string]]::new()
+                foreach ($g in $Gaps) {
+                    $queryNames = @($g.missingQueryParameters)
+                    $bodyNames = @($g.missingBodyProperties | ForEach-Object { if ($_ -is [string]) { $_ } else { $_.name } })
+                    if (($queryNames -contains $FieldName) -or ($bodyNames -contains $FieldName)) {
+                        [void]$endpoints.Add($g.endpoint)
+                    }
+                }
+                return $endpoints.Count
+            }
         }
     }
 
@@ -463,16 +476,49 @@ Describe 'Build-PfbApiDriftReport (real generated artifacts, skips gracefully if
         Test-Path $realOutput | Should -BeTrue
     }
 
-    It 'Task 7: wires systemicGaps through with the pinned acceptance figures (context_names 253, allow_errors 109)' {
+    It 'Task 7: wires systemicGaps through -- endpointCount for context_names/allow_errors matches an independent recount straight from parameterGaps' {
         if (-not $hasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
-        ($realManifest.systemicGaps | Where-Object { $_.name -eq 'context_names' }).endpointCount | Should -Be 253
-        ($realManifest.systemicGaps | Where-Object { $_.name -eq 'allow_errors' }).endpointCount | Should -Be 109
+
+        # Recomputes endpointCount from the manifest's own high-confidence parameterGaps,
+        # completely independently of Get-PfbSystemicGaps' internal aggregation. Deliberately
+        # does NOT hardcode the real API surface's current size: the assertion is "the
+        # summary field matches a fresh tally of the detail rows", which stays true forever,
+        # rather than "the detail rows currently total exactly N", which breaks the instant
+        # an unrelated PR adds or removes one endpoint missing context_names/allow_errors.
+        # See docs/superpowers/plans/2026-07-30-drift-report-acceptance-figure-invariants.md.
+        $highConfidenceGaps = @($realManifest.parameterGaps | Where-Object { $_.confidence.level -eq 'high' })
+        foreach ($fieldName in @('context_names', 'allow_errors')) {
+            $finding = $realManifest.systemicGaps | Where-Object { $_.name -eq $fieldName }
+            $finding | Should -Not -BeNullOrEmpty -Because "$fieldName is expected to still be a systemic gap in the real API surface"
+            $recount = Get-RealRecountedEndpointCount -Gaps $highConfidenceGaps -FieldName $fieldName
+            $finding.endpointCount | Should -Be $recount -Because 'endpointCount must equal a fresh tally over parameterGaps, independent of the total endpoint count'
+            $finding.endpointCount | Should -BeGreaterThan 0 -Because 'a vacuous/zero count would mean the field silently stopped being a systemic gap without anyone noticing here'
+        }
     }
 
-    It 'Task 7: wires conventionStrength through with the pinned acceptance figures (names 306, ids 218, context_names 0)' {
+    It 'Task 7: wires conventionStrength through -- cmdletCount is internally consistent and non-vacuous for established conventions, and remains 0 for context_names by design' {
         if (-not $hasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
-        ($realManifest.conventionStrength | Where-Object { $_.name -eq 'names' }).cmdletCount | Should -Be 306
-        ($realManifest.conventionStrength | Where-Object { $_.name -eq 'ids' }).cmdletCount | Should -Be 218
+
+        foreach ($fieldName in @('names', 'ids')) {
+            $entry = $realManifest.conventionStrength | Where-Object { $_.name -eq $fieldName }
+            $entry | Should -Not -BeNullOrEmpty -Because "$fieldName is expected to still be a systemic gap with an established convention"
+            # cmdletCount and cmdlets.Count are set from the same value at generation time
+            # (tools/Build-PfbApiDriftReport.ps1's `cmdletCount = $_.CmdletCount`) but travel
+            # through JSON serialization separately -- this catches a stale/mismatched field
+            # surviving a future refactor, without caring how many cmdlets there actually are.
+            # The property-existence check guards against @($null).Count being 1 in
+            # PowerShell -- without it, a `cmdlets` property that vanished entirely from the
+            # manifest would be indistinguishable from one holding exactly one cmdlet.
+            $entry.PSObject.Properties.Name | Should -Contain 'cmdlets' -Because 'the cmdlets property must actually be present to compare its Count against cmdletCount'
+            $entry.cmdletCount | Should -Be @($entry.cmdlets).Count -Because 'cmdletCount must match the actual cmdlets array length after JSON round-trip'
+            $entry.cmdletCount | Should -BeGreaterThan 0 -Because "$fieldName is a widely-adopted convention; a drop to zero would be a real regression worth failing loudly for"
+        }
+
+        # context_names is the ONE name this report expects to have NO adopting cmdlets --
+        # Get-PfbConventionStrength's own docstring: "that zero IS the finding for names like
+        # context_names". This is an architectural fact (see the Fusion context_names design
+        # conclusion), not a live-count regression canary -- it stays an exact pin
+        # deliberately, unlike names/ids above.
         ($realManifest.conventionStrength | Where-Object { $_.name -eq 'context_names' }).cmdletCount | Should -Be 0
     }
 
@@ -682,13 +728,12 @@ Describe 'Build-PfbApiDriftReport (Task 8: regression canaries + spot-checks aga
             $overlap.Count | Should -Be 0
         }
 
-        It 'the phantom-excluded count matches the real manifest''s phantomFieldCount exactly (34, full population)' {
+        It 'the phantom-excluded count matches the real manifest''s phantomFieldCount exactly (self-consistent, full population)' {
             if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
             $t8PhantomExcludedSet.Count | Should -Be $t8Manifest.phantomFieldCount
-            $t8PhantomExcludedSet.Count | Should -Be 34
         }
 
-        It 'restricting the same diff to high-confidence-only gaps reproduces the doc-comment-pinned 13' {
+        It 'restricting the same diff to high-confidence-only gaps still yields a non-vacuous phantom-exclusion set' {
             if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
             $populationHigh = @($t8PopulationRaw | Where-Object { $_.Confidence.Level -eq 'high' })
             $reportedHigh = @($t8ReportedRaw | Where-Object { $_.Confidence.Level -eq 'high' })
@@ -696,7 +741,14 @@ Describe 'Build-PfbApiDriftReport (Task 8: regression canaries + spot-checks aga
             $reportedHighSet = Get-T8TripleSet -Gaps $reportedHigh
             $phantomHighSet = [System.Collections.Generic.HashSet[string]]::new([string[]]@($populationHighSet))
             $phantomHighSet.ExceptWith([string[]]@($reportedHighSet))
-            $phantomHighSet.Count | Should -Be 13
+            # No independent recount is available here (unlike phantomFieldCount above, which
+            # self-consistency-checks against the manifest) -- so this can only assert
+            # non-vacuousness. The doc-comment example this used to pin against
+            # (tools/lib/PfbApiDriftTools.ps1's Get-PfbParameterCoverageGaps: "13 real
+            # (endpoint, field) pairs hit this against fb2.27 today") is illustrative prose,
+            # not a contract; pinning a test to that exact number reproduced the same
+            # live-data-literal anti-pattern this whole effort exists to remove.
+            $phantomHighSet.Count | Should -BeGreaterThan 0 -Because 'a vacuous/zero count would mean high-confidence phantom-field exclusion silently stopped happening without anyone noticing here'
         }
 
         It 'the in-memory reported set matches the real committed Reports/PfbApiDriftReport.json on disk exactly (no serialization-only divergence)' {
@@ -745,7 +797,7 @@ function Get-PfbFixtureAlpha {
         # hatch) -- exercises the Markdown confidence marker/footnote wiring on a fixture
         # this task fully controls. It also misses 'shared_gap', but Get-PfbSystemicGaps
         # is aggregated ONLY over 'high'-confidence gaps (this task's own precedent, same
-        # as the real 253/109 acceptance figures), so Beta must NOT count towards
+        # as the real systemic-gaps invariants' high-confidence-only filtering), so Beta must NOT count towards
         # 'shared_gap's systemic EndpointCount below -- Gamma (high-confidence) is the
         # fixture's second contributor to that finding instead.
         Set-Content -Path (Join-Path $t7PublicDir 'Get-PfbFixtureBeta.ps1') -Value @'
