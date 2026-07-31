@@ -26,12 +26,15 @@ function Update-PfbUserGroupQuotaPolicyRule {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
         [Parameter(ParameterSetName = 'ByName', Mandatory, ValueFromPipelineByPropertyName)]
+        [ValidateScript({ Assert-PfbSafeName $_ })]
         [string]$Name,
 
         [Parameter(ParameterSetName = 'ById', Mandatory)]
         [string]$Id,
 
-        [Parameter()] [int64]$QuotaLimit,
+        [Parameter()]
+        [ValidateScript({ if ($_ -eq 0) { throw '-QuotaLimit cannot be 0.' }; $true })]
+        [int64]$QuotaLimit,
         [Parameter()] [ValidateSet('None', 'Account')] [string]$Notifications,
         [Parameter()] [switch]$IgnoreUsage,
         [Parameter()] [hashtable]$Attributes,

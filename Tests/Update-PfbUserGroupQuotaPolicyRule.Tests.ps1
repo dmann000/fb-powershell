@@ -63,4 +63,27 @@ Describe 'Update-PfbUserGroupQuotaPolicyRule' {
             $Body.Keys.Count -eq 1 -and $Body['quota_limit'] -eq 7
         }
     }
+
+    It 'rejects a -Name that looks like a wildcard' {
+        { InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Update-PfbUserGroupQuotaPolicyRule -Name '*' -QuotaLimit 100 -Confirm:$false -Array $arr
+        } } | Should -Throw
+    }
+
+    It 'rejects a -QuotaLimit of 0' {
+        { InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Update-PfbUserGroupQuotaPolicyRule -Name 'rule-1' -QuotaLimit 0 -Confirm:$false -Array $arr
+        } } | Should -Throw
+    }
+
+    It 'does not call the API under -WhatIf' {
+        InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Update-PfbUserGroupQuotaPolicyRule -Name 'rule-1' -QuotaLimit 100 -WhatIf -Array $arr
+        }
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0
+    }
 }

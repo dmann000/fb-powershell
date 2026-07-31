@@ -48,6 +48,20 @@ Describe 'Remove-PfbUserGroupQuotaPolicyRule' {
         }
     }
 
+    It 'rejects a -Name that looks like a wildcard' {
+        { InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Remove-PfbUserGroupQuotaPolicyRule -Name '*' -Confirm:$false -Array $arr
+        } } | Should -Throw
+    }
+
+    It 'rejects a -PolicyName that looks like a wildcard' {
+        { InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Remove-PfbUserGroupQuotaPolicyRule -PolicyName '*' -Confirm:$false -Array $arr
+        } } | Should -Throw
+    }
+
     It 'throws when none of -Name/-Id/-PolicyName/-PolicyId is supplied' {
         { InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
             param($arr)
@@ -62,5 +76,25 @@ Describe 'Remove-PfbUserGroupQuotaPolicyRule' {
         }
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0
+    }
+
+    It 'validates arguments before connecting when none of -Name/-Id/-PolicyName/-PolicyId is supplied' {
+        { InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Remove-PfbUserGroupQuotaPolicyRule -Confirm:$false -Array $arr
+        } } | Should -Throw
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Assert-PfbConnection -Times 0
+    }
+
+    It 'combines -Name and -PolicyName as AND: both filters are sent in a single request' {
+        InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Remove-PfbUserGroupQuotaPolicyRule -Name 'rule-1' -PolicyName 'pol-1' -Confirm:$false -Array $arr
+        }
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['names'] -eq 'rule-1' -and $QueryParams['policy_names'] -eq 'pol-1'
+        }
     }
 }

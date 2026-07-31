@@ -15,8 +15,8 @@ function Update-PfbUserGroupQuotaPolicy {
     .PARAMETER IgnoreUsage
         If set, user/group usage is not checked against the rules' quota_limits.
     .PARAMETER Version
-        One or more version tags for optimistic concurrency control, ordered to match
-        -Name/-Id. Fails with a 412 if the resource's current version doesn't match.
+        One or more version tags for optimistic concurrency control. Fails with a 412 if the
+        resource's current version doesn't match.
     .PARAMETER Attributes
         A hashtable used verbatim as the request body, overriding -Enabled/-Location/-Rules.
     .PARAMETER Array
@@ -27,6 +27,7 @@ function Update-PfbUserGroupQuotaPolicy {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
         [Parameter(ParameterSetName = 'ByName', Mandatory, ValueFromPipelineByPropertyName)]
+        [ValidateScript({ Assert-PfbSafeName $_ })]
         [string]$Name,
 
         [Parameter(ParameterSetName = 'ById', Mandatory)]

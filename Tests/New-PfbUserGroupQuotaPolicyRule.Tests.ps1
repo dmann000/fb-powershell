@@ -81,4 +81,27 @@ Describe 'New-PfbUserGroupQuotaPolicyRule' {
             $Body.Keys.Count -eq 1 -and $Body['quota_limit'] -eq 42
         }
     }
+
+    It 'does not call the API under -WhatIf' {
+        InModuleScope PureStorageFlashBladePowerShell -Parameters @{ fakeArray = $fakeArray } {
+            param($fakeArray)
+            New-PfbUserGroupQuotaPolicyRule -PolicyName 'pol-1' -QuotaType 'user-default' -QuotaLimit 100 -WhatIf -Array $fakeArray
+        }
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0
+    }
+
+    It 'rejects a -QuotaLimit of 0' {
+        { InModuleScope PureStorageFlashBladePowerShell -Parameters @{ fakeArray = $fakeArray } {
+            param($fakeArray)
+            New-PfbUserGroupQuotaPolicyRule -PolicyName 'pol-1' -QuotaType 'user-default' -QuotaLimit 0 -Confirm:$false -Array $fakeArray
+        } } | Should -Throw
+    }
+
+    It 'rejects -QuotaType user-default combined with -Subject' {
+        { InModuleScope PureStorageFlashBladePowerShell -Parameters @{ fakeArray = $fakeArray } {
+            param($fakeArray)
+            New-PfbUserGroupQuotaPolicyRule -PolicyName 'pol-1' -Subject @{ name = 'jdoe' } -QuotaType 'user-default' -QuotaLimit 100 -Confirm:$false -Array $fakeArray
+        } } | Should -Throw
+    }
 }

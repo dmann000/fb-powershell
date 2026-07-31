@@ -49,6 +49,20 @@ Describe 'Remove-PfbFileSystemUserGroupQuotaPolicy' {
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0
     }
 
+    It 'rejects a -PolicyName that looks like a wildcard' {
+        { InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Remove-PfbFileSystemUserGroupQuotaPolicy -PolicyName '*' -MemberName 'fs1' -Confirm:$false -Array $arr
+        } } | Should -Throw
+    }
+
+    It 'rejects a -MemberName that looks like a wildcard' {
+        { InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Remove-PfbFileSystemUserGroupQuotaPolicy -PolicyName 'pol-1' -MemberName '*' -Confirm:$false -Array $arr
+        } } | Should -Throw
+    }
+
     It 'throws if neither -PolicyName nor -PolicyId is supplied' {
         { InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
             param($arr)

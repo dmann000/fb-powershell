@@ -7,8 +7,8 @@ function Remove-PfbUserGroupQuotaPolicy {
     .PARAMETER Id
         The ID of the policy to remove.
     .PARAMETER Version
-        One or more version tags for optimistic concurrency control, ordered to match
-        -Name/-Id. Fails with a 412 if the resource's current version doesn't match.
+        One or more version tags for optimistic concurrency control. Fails with a 412 if the
+        resource's current version doesn't match.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE

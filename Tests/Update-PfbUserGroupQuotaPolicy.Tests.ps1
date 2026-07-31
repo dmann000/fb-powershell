@@ -63,6 +63,22 @@ Describe 'Update-PfbUserGroupQuotaPolicy' {
         }
     }
 
+    It 'rejects a -Name that looks like a wildcard' {
+        { InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Update-PfbUserGroupQuotaPolicy -Name '*' -Enabled:$true -Confirm:$false -Array $arr
+        } } | Should -Throw
+    }
+
+    It 'does not call the API under -WhatIf' {
+        InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Update-PfbUserGroupQuotaPolicy -Name 'pol-1' -Enabled:$true -WhatIf -Array $arr
+        }
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0
+    }
+
     It 'declares -Name and -Id mandatory in mutually exclusive parameter sets (rejects neither being supplied)' {
         InModuleScope PureStorageFlashBladePowerShell {
             $cmd = Get-Command Update-PfbUserGroupQuotaPolicy

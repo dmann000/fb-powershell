@@ -50,13 +50,20 @@ function New-PfbUserGroupQuotaPolicyRule {
 
         [Parameter()] [hashtable]$Subject,
         [Parameter()] [ValidateSet('user', 'group', 'user-default', 'group-default')] [string]$QuotaType,
-        [Parameter()] [int64]$QuotaLimit,
+
+        [Parameter()]
+        [ValidateScript({ if ($_ -eq 0) { throw '-QuotaLimit cannot be 0.' }; $true })]
+        [int64]$QuotaLimit,
         [Parameter()] [Nullable[bool]]$Enforced,
         [Parameter()] [ValidateSet('None', 'Account')] [string]$Notifications,
         [Parameter()] [switch]$IgnoreUsage,
         [Parameter()] [hashtable]$Attributes,
         [Parameter()] [PSCustomObject]$Array
     )
+
+    if ($Subject -and $QuotaType -in @('user-default', 'group-default')) {
+        throw "-QuotaType '$QuotaType' cannot be combined with -Subject."
+    }
 
     Assert-PfbConnection -Array ([ref]$Array)
 
