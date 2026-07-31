@@ -424,10 +424,11 @@ $parameterGaps = @($parameterGapsRaw | ForEach-Object {
 # can contain false positives (an unresolved parameter may already cover the apparent gap
 # through a path this AST-only inventory can't see -- see Get-PfbParameterCoverageGaps's
 # own Confidence.Caveat), so folding it into a systemic FINDING would overstate a
-# confidence the endpoint's own row already warns against. This mirrors the precedent this
-# task's own pinned acceptance figures (context_names 253 / allow_errors 109) were
-# verified against in Tests/PfbApiDriftTools.Tests.ps1's 'Task 6 real-data acceptance
-# figures' Describe block -- reproducing those figures here requires the same filter.
+# confidence the endpoint's own row already warns against. This mirrors the same
+# high-confidence-only filter Tests/PfbApiDriftTools.Tests.ps1's 'Task 6 real-data
+# invariants' Describe block applies before calling Get-PfbSystemicGaps, so the two stay
+# in sync -- that Describe block recounts EndpointCount independently rather than pinning
+# an exact figure (see docs/superpowers/plans/2026-07-30-drift-report-acceptance-figure-invariants.md).
 $highConfidenceGapsRaw = @($parameterGapsRaw | Where-Object { $_.Confidence.Level -eq 'high' })
 $systemicGapsRaw = @(Get-PfbSystemicGaps -Gaps $highConfidenceGapsRaw)
 

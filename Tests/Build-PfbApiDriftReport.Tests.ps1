@@ -786,7 +786,7 @@ function Get-PfbFixtureAlpha {
         # hatch) -- exercises the Markdown confidence marker/footnote wiring on a fixture
         # this task fully controls. It also misses 'shared_gap', but Get-PfbSystemicGaps
         # is aggregated ONLY over 'high'-confidence gaps (this task's own precedent, same
-        # as the real 253/109 acceptance figures), so Beta must NOT count towards
+        # as the real systemic-gaps invariants' high-confidence-only filtering), so Beta must NOT count towards
         # 'shared_gap's systemic EndpointCount below -- Gamma (high-confidence) is the
         # fixture's second contributor to that finding instead.
         Set-Content -Path (Join-Path $t7PublicDir 'Get-PfbFixtureBeta.ps1') -Value @'
