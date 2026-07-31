@@ -59,11 +59,9 @@ function Get-PfbBucketAuditFilter {
 
     end {
         $queryParams = @{}
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
         if ($allMemberNames.Count -gt 0) { $queryParams['member_names'] = $allMemberNames -join ',' }
         if ($allMemberIds.Count -gt 0)   { $queryParams['member_ids']   = $allMemberIds -join ',' }
-        if ($Filter)                      { $queryParams['filter']       = $Filter }
-        if ($Sort)                        { $queryParams['sort']         = $Sort }
-        if ($Limit -gt 0)               { $queryParams['limit']        = $Limit }
 
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'buckets/audit-filters' -QueryParams $queryParams -AutoPaginate
     }

@@ -53,12 +53,8 @@ function Get-PfbLifecycleRule {
 
     end {
         $queryParams = @{}
-        if ($allNames.Count -gt 0) { $queryParams['names'] = $allNames -join ',' }
-        if ($allIds.Count -gt 0) { $queryParams['ids'] = $allIds -join ',' }
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
         if ($BucketName) { $queryParams['bucket_names'] = $BucketName }
-        if ($Filter) { $queryParams['filter'] = $Filter }
-        if ($Sort) { $queryParams['sort'] = $Sort }
-        if ($Limit -gt 0) { $queryParams['limit'] = $Limit }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'lifecycle-rules' -QueryParams $queryParams -AutoPaginate
     }
 }

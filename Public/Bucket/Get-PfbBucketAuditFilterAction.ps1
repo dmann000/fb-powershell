@@ -38,9 +38,7 @@ function Get-PfbBucketAuditFilterAction {
     Assert-PfbConnection -Array ([ref]$Array)
 
     $queryParams = @{}
-    if ($Filter)     { $queryParams['filter'] = $Filter }
-    if ($Sort)       { $queryParams['sort']   = $Sort }
-    if ($Limit -gt 0) { $queryParams['limit'] = $Limit }
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
 
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'bucket-audit-filter-actions' -QueryParams $queryParams -AutoPaginate
 }

@@ -41,10 +41,8 @@ function Get-PfbFileSystemReplicaLink {
     )
     Assert-PfbConnection -Array ([ref]$Array)
     $queryParams = @{}
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
     if ($LocalFileSystemName)  { $queryParams['local_file_system_names']  = $LocalFileSystemName -join ',' }
     if ($RemoteFileSystemName) { $queryParams['remote_file_system_names'] = $RemoteFileSystemName -join ',' }
-    if ($Filter) { $queryParams['filter'] = $Filter }
-    if ($Sort) { $queryParams['sort'] = $Sort }
-    if ($Limit -gt 0) { $queryParams['limit'] = $Limit }
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'file-system-replica-links' -QueryParams $queryParams -AutoPaginate
 }

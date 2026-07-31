@@ -81,14 +81,10 @@ function Get-PfbBucketCorsPolicy {
 
     end {
         $queryParams = @{}
-        if ($allNames.Count -gt 0)       { $queryParams['names']        = $allNames -join ',' }
-        if ($allIds.Count -gt 0)         { $queryParams['ids']          = $allIds -join ',' }
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
         if ($allMemberNames.Count -gt 0) { $queryParams['member_names'] = $allMemberNames -join ',' }
         if ($allMemberIds.Count -gt 0)   { $queryParams['member_ids']   = $allMemberIds -join ',' }
         if ($PolicyName)                  { $queryParams['policy_names'] = $PolicyName -join ',' }
-        if ($Filter)                      { $queryParams['filter']       = $Filter }
-        if ($Sort)                        { $queryParams['sort']         = $Sort }
-        if ($Limit -gt 0)               { $queryParams['limit']        = $Limit }
 
         try {
             Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'buckets/cross-origin-resource-sharing-policies' -QueryParams $queryParams -AutoPaginate

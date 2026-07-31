@@ -193,6 +193,36 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Get-PfbAdminSetting",
+      "parameter": "Filter",
+      "wireName": "filter",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbAdminSetting",
+      "parameter": "Sort",
+      "wireName": "sort",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbAdminSetting",
+      "parameter": "Limit",
+      "wireName": "limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Get-PfbAdminSshCaPolicy",
       "parameter": "MemberName",
       "wireName": "member_names",
@@ -624,6 +654,36 @@
     },
     {
       "cmdlet": "Get-PfbOidcIdp",
+      "parameter": "Limit",
+      "wireName": "limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbPasswordPolicy",
+      "parameter": "Filter",
+      "wireName": "filter",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbPasswordPolicy",
+      "parameter": "Sort",
+      "wireName": "sort",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbPasswordPolicy",
       "parameter": "Limit",
       "wireName": "limit",
       "status": "no-spec-enum-found",
@@ -1623,6 +1683,36 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Get-PfbArray",
+      "parameter": "Filter",
+      "wireName": "filter",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbArray",
+      "parameter": "Sort",
+      "wireName": "sort",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbArray",
+      "parameter": "Limit",
+      "wireName": "limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Get-PfbArrayClientPerformance",
       "parameter": "Filter",
       "wireName": "filter",
@@ -1764,6 +1854,66 @@
     },
     {
       "cmdlet": "Get-PfbArrayErasure",
+      "parameter": "Limit",
+      "wireName": "limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbArrayEula",
+      "parameter": "Filter",
+      "wireName": "filter",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbArrayEula",
+      "parameter": "Sort",
+      "wireName": "sort",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbArrayEula",
+      "parameter": "Limit",
+      "wireName": "limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbArrayFactoryResetToken",
+      "parameter": "Filter",
+      "wireName": "filter",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbArrayFactoryResetToken",
+      "parameter": "Sort",
+      "wireName": "sort",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbArrayFactoryResetToken",
       "parameter": "Limit",
       "wireName": "limit",
       "status": "no-spec-enum-found",
@@ -7583,6 +7733,36 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Get-PfbSmtpServer",
+      "parameter": "Filter",
+      "wireName": "filter",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbSmtpServer",
+      "parameter": "Sort",
+      "wireName": "sort",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbSmtpServer",
+      "parameter": "Limit",
+      "wireName": "limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Get-PfbSnmpAgent",
       "parameter": "Filter",
       "wireName": "filter",
@@ -7684,6 +7864,36 @@
     },
     {
       "cmdlet": "Get-PfbSyslogServer",
+      "parameter": "Limit",
+      "wireName": "limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbSyslogServerSettings",
+      "parameter": "Filter",
+      "wireName": "filter",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbSyslogServerSettings",
+      "parameter": "Sort",
+      "wireName": "sort",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbSyslogServerSettings",
       "parameter": "Limit",
       "wireName": "limit",
       "status": "no-spec-enum-found",
@@ -7946,6 +8156,36 @@
       "cmdlet": "Update-PfbSyslogServer",
       "parameter": "Id",
       "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbDns",
+      "parameter": "Filter",
+      "wireName": "filter",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbDns",
+      "parameter": "Sort",
+      "wireName": "sort",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbDns",
+      "parameter": "Limit",
+      "wireName": "limit",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,

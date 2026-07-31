@@ -41,10 +41,8 @@ function Get-PfbBucketReplicaLink {
     )
     Assert-PfbConnection -Array ([ref]$Array)
     $queryParams = @{}
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
     if ($LocalBucketName)  { $queryParams['local_bucket_names']  = $LocalBucketName -join ',' }
     if ($RemoteBucketName) { $queryParams['remote_bucket_names'] = $RemoteBucketName -join ',' }
-    if ($Filter) { $queryParams['filter'] = $Filter }
-    if ($Sort) { $queryParams['sort'] = $Sort }
-    if ($Limit -gt 0) { $queryParams['limit'] = $Limit }
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'bucket-replica-links' -QueryParams $queryParams -AutoPaginate
 }

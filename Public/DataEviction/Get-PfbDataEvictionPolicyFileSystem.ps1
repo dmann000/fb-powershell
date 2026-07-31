@@ -43,9 +43,7 @@ function Get-PfbDataEvictionPolicyFileSystem {
     if ($PolicyId)   { $queryParams['policy_ids']   = $PolicyId -join ',' }
     if ($MemberName) { $queryParams['member_names'] = $MemberName -join ',' }
     if ($MemberId)   { $queryParams['member_ids']   = $MemberId -join ',' }
-    if ($Filter)     { $queryParams['filter']       = $Filter }
-    if ($Sort)       { $queryParams['sort']         = $Sort }
-    if ($Limit)      { $queryParams['limit']        = $Limit }
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
 
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'data-eviction-policies/file-systems' -QueryParams $queryParams -AutoPaginate
 }

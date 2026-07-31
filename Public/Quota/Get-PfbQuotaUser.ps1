@@ -45,14 +45,14 @@ function Get-PfbQuotaUser {
         # names parameter along with any of: file system, user IDs, or user names" --
         # confirmed live against our lab array). The compound name (e.g. 'fs-share/1235') already
         # identifies the file system, so file_system_names is omitted in this branch.
-        $queryParams['names'] = $Name -join ','
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $Name
     }
-    elseif ($FileSystemName) {
-        $queryParams['file_system_names'] = $FileSystemName
+    else {
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
+        if ($FileSystemName) {
+            $queryParams['file_system_names'] = $FileSystemName
+        }
     }
-    if ($Filter) { $queryParams['filter'] = $Filter }
-    if ($Sort) { $queryParams['sort'] = $Sort }
-    if ($Limit -gt 0) { $queryParams['limit'] = $Limit }
     $response = Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'quotas/users' -QueryParams $queryParams -AutoPaginate
     foreach ($item in $response) {
         if ($null -ne $item) {

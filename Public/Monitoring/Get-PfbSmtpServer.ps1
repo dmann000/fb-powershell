@@ -6,6 +6,12 @@ function Get-PfbSmtpServer {
         The Get-PfbSmtpServer cmdlet returns the SMTP server configuration from the connected
         Pure Storage FlashBlade. This is a singleton endpoint returning the mail relay settings.
         This cmdlet is an alias for Get-PfbSmtp using the newer API endpoint.
+    .PARAMETER Filter
+        A server-side filter expression to narrow results.
+    .PARAMETER Sort
+        Sort field and direction.
+    .PARAMETER Limit
+        Maximum number of items to return.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
@@ -22,7 +28,21 @@ function Get-PfbSmtpServer {
         Retrieves the configured SMTP relay host.
     #>
     [CmdletBinding()]
-    param([Parameter()] [PSCustomObject]$Array)
+    param(
+        [Parameter()]
+        [string]$Filter,
+
+        [Parameter()]
+        [string]$Sort,
+
+        [Parameter()]
+        [int]$Limit,
+
+        [Parameter()]
+        [PSCustomObject]$Array
+    )
     Assert-PfbConnection -Array ([ref]$Array)
-    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'smtp-servers'
+    $queryParams = @{}
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
+    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'smtp-servers' -QueryParams $queryParams
 }

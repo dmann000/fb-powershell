@@ -21,13 +21,13 @@ This report accepts **false positives in order to eliminate false negatives**. A
 ## Summary
 
 - Uncovered endpoints: 117
-- Endpoints with parameter gaps: 420
-- Missing body properties (addable): 403
-- Missing query parameters (addable): 948
+- Endpoints with parameter gaps: 430
+- Missing body properties (addable): 609
+- Missing query parameters (addable): 980
 - Read-only body fields (not addable -- see the Read-only fields section below): 367
 - Phantom fields silently excluded (accumulated in the capability map, absent from the newest analysed spec): 40
-- Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 54
-- Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): 252
+- Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 56
+- Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): 312
 - ValidateSet drift: 0
 - New ValidateSet candidates: 1
 
@@ -35,35 +35,35 @@ This report accepts **false positives in order to eliminate false negatives**. A
 
 One finding per distinct wire field name, collapsed across every endpoint where a high-confidence gap exists (decision 7) -- turns hundreds of per-endpoint rows into a handful of real, actionable decisions. "Cmdlets already using this name" is decision 8's convention-strength ranking: a high count means closing the remaining gaps for this name is a mechanical batch fix; zero means no established convention exists to extend at all -- closing it is an architectural decision, not a mechanical one.
 
-Showing the top 25 of 252 findings by endpoint count -- the full list is in the JSON manifest's `systemicGaps`, nothing is dropped there.
+Showing the top 25 of 312 findings by endpoint count -- the full list is in the JSON manifest's `systemicGaps`, nothing is dropped there.
 
 | Field name | Endpoints | Query | Body | Cmdlets already using this name | Annotation |
 |---|---|---|---|---|---|
 | `context_names` | 254 | 254 | 0 | 0 | not yet implemented |
 | `allow_errors` | 110 | 110 | 0 | 0 | not yet implemented |
-| `ids` | 43 | 43 | 0 | 219 |  |
-| `sort` | 35 | 35 | 0 | 163 |  |
-| `names` | 31 | 31 | 0 | 308 |  |
-| `bucket_ids` | 17 | 17 | 0 | 2 |  |
-| `policy_ids` | 17 | 17 | 0 | 88 |  |
+| `ids` | 46 | 46 | 0 | 218 |  |
+| `names` | 35 | 35 | 0 | 306 |  |
+| `sort` | 28 | 28 | 0 | 171 |  |
+| `name` | 23 | 0 | 23 | 3 |  |
+| `bucket_ids` | 19 | 19 | 0 | 0 |  |
+| `bucket_names` | 18 | 18 | 0 | 1 |  |
+| `policy_ids` | 18 | 18 | 0 | 87 |  |
+| `remote_ids` | 18 | 18 | 0 | 0 |  |
 | `total_only` | 17 | 17 | 0 | 30 |  |
-| `bucket_names` | 16 | 16 | 0 | 3 |  |
-| `member_ids` | 15 | 15 | 0 | 78 |  |
-| `remote_ids` | 15 | 15 | 0 | 3 |  |
-| `limit` | 14 | 14 | 0 | 182 |  |
-| `filter` | 13 | 13 | 0 | 185 |  |
-| `remote_names` | 13 | 13 | 0 | 5 |  |
+| `enabled` | 16 | 0 | 16 | 0 |  |
+| `member_ids` | 16 | 16 | 0 | 78 |  |
+| `remote_names` | 16 | 16 | 0 | 2 |  |
+| `file_system_ids` | 11 | 11 | 0 | 2 |  |
 | `policy_names` | 11 | 11 | 0 | 108 |  |
-| `file_system_ids` | 9 | 9 | 0 | 4 |  |
-| `local_file_system_ids` | 8 | 8 | 0 | 2 |  |
-| `actions` | 7 | 0 | 7 | 2 |  |
-| `versions` | 7 | 7 | 0 | 3 |  |
-| `enabled` | 6 | 0 | 6 | 10 |  |
-| `gids` | 6 | 6 | 0 | 0 |  |
-| `name` | 6 | 0 | 6 | 20 |  |
-| `role_ids` | 6 | 6 | 0 | 2 |  |
-| `role_names` | 6 | 6 | 0 | 4 |  |
-| `workload_ids` | 6 | 6 | 0 | 0 |  |
+| `local_file_system_ids` | 10 | 10 | 0 | 0 |  |
+| `versions` | 10 | 10 | 0 | 0 |  |
+| `actions` | 9 | 0 | 9 | 0 |  |
+| `location` | 9 | 0 | 9 | 0 |  |
+| `policy` | 8 | 0 | 8 | 0 |  |
+| `ca_certificate_group` | 7 | 0 | 7 | 0 |  |
+| `file_system_names` | 7 | 7 | 0 | 6 |  |
+| `limit` | 7 | 7 | 0 | 190 |  |
+| `local_file_system_names` | 7 | 7 | 0 | 3 |  |
 
 ## Parameter gaps
 
@@ -156,18 +156,15 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /admins/api-tokens` | Get-PfbApiToken | admin_ids, admin_names, allow_errors, context_names, expose_api_token |  | `high` |  |
 | `GET /admins/cache` | Get-PfbAdminCache | allow_errors, context_names, refresh |  | `high` |  |
 | `GET /admins/management-access-policies` | Get-PfbAdminManagementAccessPolicy | allow_errors, context_names, sort |  | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
-| `GET /admins/settings` | Get-PfbAdminSetting | filter, limit, sort |  | `high` |  |
 | `GET /admins/ssh-certificate-authority-policies` | Get-PfbAdminSshCaPolicy | allow_errors, context_names, sort |  | `high` |  |
 | `GET /alert-watchers/test` | Test-PfbAlertWatcher | filter, sort |  | `high` |  |
 | `GET /array-connections` | Get-PfbArrayConnection | allow_errors, context_names, remote_ids, remote_names |  | `high` |  |
 | `GET /array-connections/connection-key` | Get-PfbArrayConnectionKey | ids |  | `high` |  |
 | `GET /array-connections/path` | Get-PfbArrayConnectionPath | allow_errors, context_names, ids, remote_ids, remote_names |  | `high` |  |
 | `GET /array-connections/performance/replication` | Get-PfbArrayConnectionPerformanceReplication | ids, remote_ids, remote_names, total_only |  | `high` |  |
-| `GET /arrays` | Get-PfbArray, Test-PfbConnection | allow_errors, context_names, filter, limit, sort |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
+| `GET /arrays` | Get-PfbArray, Test-PfbConnection | allow_errors, context_names |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `GET /arrays/clients/performance` | Get-PfbArrayClientPerformance | names, protocol, total_only |  | `high` |  |
 | `GET /arrays/clients/s3-specific-performance` | Get-PfbArrayClientS3Performance | names, total_only |  | `high` |  |
-| `GET /arrays/eula` | Get-PfbArrayEula | filter, limit, sort |  | `high` |  |
-| `GET /arrays/factory-reset-token` | Get-PfbArrayFactoryResetToken | filter, limit, sort |  | `high` |  |
 | `GET /arrays/http-specific-performance` | Get-PfbArrayHttpPerformance | allow_errors, context_names |  | `high` |  |
 | `GET /arrays/nfs-specific-performance` | Get-PfbArrayNfsPerformance | allow_errors, context_names |  | `high` |  |
 | `GET /arrays/performance` | Get-PfbArrayPerformance | allow_errors, context_names |  | `high` |  |
@@ -206,7 +203,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /directory-services/roles` | Get-PfbDirectoryServiceRole | role_ids, role_names |  | `high` |  |
 | `GET /directory-services/roles/management-access-policies` | Get-PfbDirectoryServiceRoleManagementPolicy | sort |  | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
 | `GET /directory-services/test` | Test-PfbDirectoryService | allow_errors, context_names, filter, ids, limit, names, sort |  | `high` |  |
-| `GET /dns` | Get-PfbDns | allow_errors, context_names, filter, ids, limit, names, sort |  | `high` |  |
+| `GET /dns` | Get-PfbDns | allow_errors, context_names, ids, names |  | `high` |  |
 | `GET /drives` | Get-PfbDrive | total_only |  | `high` |  |
 | `GET /file-system-exports` | Get-PfbFileSystemExport | allow_errors, context_names, workload_ids, workload_names |  | `high` |  |
 | `GET /file-system-replica-links` | Get-PfbFileSystemReplicaLink | allow_errors, context_names, ids, local_file_system_ids, remote_file_system_ids, remote_ids, remote_names |  | `high` |  |
@@ -267,7 +264,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /object-store-users` | Get-PfbObjectStoreUser | allow_errors, context_names |  | `high` |  |
 | `GET /object-store-users/object-store-access-policies` | Get-PfbObjectStoreUserAccessPolicy | allow_errors, context_names |  | `high` |  |
 | `GET /object-store-virtual-hosts` | Get-PfbObjectStoreVirtualHost | allow_errors, context_names |  | `high` |  |
-| `GET /password-policies` | Get-PfbPasswordPolicy | filter, ids, limit, names, sort |  | `high` |  |
+| `GET /password-policies` | Get-PfbPasswordPolicy | ids, names |  | `high` |  |
 | `GET /policies` | Get-PfbPolicy | allow_errors, context_names, workload_ids, workload_names |  | `high` |  |
 | `GET /policies-all` | Get-PfbPolicyAll | allow_errors, context_names |  | `high` |  |
 | `GET /policies-all/members` | Get-PfbPolicyAllMember | allow_errors, context_names, local_file_system_ids, local_file_system_names, remote_file_system_ids, remote_file_system_names, remote_ids, remote_names, sort |  | `high` |  |
@@ -296,7 +293,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /smb-client-policies/rules` | Get-PfbSmbClientRule | allow_errors, context_names, ids |  | `high` |  |
 | `GET /smb-share-policies` | Get-PfbSmbSharePolicy | allow_errors, context_names, workload_ids, workload_names |  | `high` |  |
 | `GET /smb-share-policies/rules` | Get-PfbSmbShareRule | allow_errors, context_names, ids |  | `high` |  |
-| `GET /smtp-servers` | Get-PfbSmtpServer | filter, ids, limit, names, sort |  | `high` |  |
+| `GET /smtp-servers` | Get-PfbSmtpServer | ids, names |  | `high` |  |
 | `GET /snmp-agents` | Get-PfbSnmpAgent | ids, limit, names, sort |  | `high` |  |
 | `GET /snmp-managers/test` | Test-PfbSnmpManager | filter, limit, sort |  | `high` |  |
 | `GET /software-check` | Get-PfbSoftwareCheck | ids, names, software_names, software_versions, total_item_count |  | `high` |  |
@@ -309,7 +306,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /support` | Get-PfbSupport | ids |  | `high` |  |
 | `GET /support/test` | Test-PfbSupport | filter, sort |  | `high` |  |
 | `GET /syslog-servers` | Get-PfbSyslogServer | allow_errors, context_names |  | `high` |  |
-| `GET /syslog-servers/settings` | Get-PfbSyslogServerSettings | filter, ids, limit, names, sort |  | `high` |  |
+| `GET /syslog-servers/settings` | Get-PfbSyslogServerSettings | ids, names |  | `high` |  |
 | `GET /targets` | Get-PfbTarget | allow_errors, context_names |  | `high` |  |
 | `GET /targets/performance/replication` | Get-PfbTargetPerformanceReplication | ids, total_only |  | `high` |  |
 | `GET /tls-policies` | Get-PfbTlsPolicy | effective, purity_defined |  | `high` |  |
@@ -321,84 +318,92 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /workloads/tags` | Get-PfbWorkloadTag | allow_errors, context_names |  | `high` |  |
 | `GET /worm-data-policies` | Get-PfbWormPolicy | allow_errors, context_names |  | `high` |  |
 | `GET /worm-data-policies/members` | Get-PfbWormPolicyMember | allow_errors, context_names, sort |  | `high` |  |
-| `PATCH /admins` | Update-PfbAdmin | context_names | role | `high` |  |
+| `PATCH /active-directory` | Update-PfbActiveDirectory |  | ca_certificate, ca_certificate_group, directory_servers, encryption_types, fqdns, global_catalog_servers, join_ou, kerberos_servers, service_principal_names | `high` |  |
+| `PATCH /admins` | Update-PfbAdmin | context_names | authorization_model, locked, management_access_policies, old_password, password, public_key, role | `high` |  |
 | `PATCH /admins/settings` | Update-PfbAdminSetting |  | lockout_duration, max_login_attempts, min_password_length | `high` |  |
 | `PATCH /alert-watchers` | Update-PfbAlertWatcher |  | enabled | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PATCH /alerts` | Update-PfbAlert |  | flagged | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
-| `PATCH /api-clients` | Update-PfbApiClient |  | max_role | `high` |  |
-| `PATCH /array-connections` | Update-PfbArrayConnection | context_names |  | `high` |  |
+| `PATCH /api-clients` | Update-PfbApiClient |  | enabled, max_role | `high` |  |
+| `PATCH /array-connections` | Update-PfbArrayConnection | context_names, remote_ids, remote_names | ca_certificate_group, encrypted, management_address, remote, replication_addresses, throttle | `high` |  |
 | `PATCH /arrays` | Update-PfbArray |  | banner, default_inbound_tls_policy, eradication_config, idle_timeout, name, network_access_policy, ntp_servers, time_zone | `high` |  |
 | `PATCH /arrays/erasures` | Update-PfbArrayErasure | delete_sanitization_certificate, eradicate_all_data, finalize |  | `high` |  |
 | `PATCH /arrays/eula` | Update-PfbArrayEula |  | signature | `high` |  |
 | `PATCH /audit-file-systems-policies` | Update-PfbAuditFileSystemPolicy | context_names | add_log_targets, control_type, enabled, location, log_targets, name, remove_log_targets, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PATCH /audit-object-store-policies` | Update-PfbAuditObjectStorePolicy | context_names | add_log_targets, enabled, location, log_targets, name, remove_log_targets | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PATCH /buckets` | Remove-PfbBucket, Update-PfbBucket | cancel_in_progress_storage_class_transition, context_names, ignore_usage | destroyed, eradication_config, hard_limit_enabled, object_lock_config, public_access_config, qos_policy, retention_lock, storage_class | `partial` -- /!\ 2 unresolved params (see Partial-confidence detail below) |  |
-| `PATCH /buckets/audit-filters` | Update-PfbBucketAuditFilter | context_names |  | `high` |  |
-| `PATCH /certificates` | Update-PfbCertificate |  |  | `high` |  |
+| `PATCH /buckets/audit-filters` | Update-PfbBucketAuditFilter | bucket_ids, bucket_names, context_names, names | actions, s3_prefixes | `high` |  |
+| `PATCH /certificates` | Update-PfbCertificate | generate_new_key | certificate, certificate_type, common_name, country, days, email, intermediate_certificate, key_algorithm, key_size, locality, organization, organizational_unit, passphrase, private_key, state, subject_alternative_names | `high` |  |
 | `PATCH /data-eviction-policies` | Update-PfbDataEvictionPolicy | context_names | enabled, location | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PATCH /directory-services` | Update-PfbDirectoryService | ids, names | base_dn, bind_password, bind_user, ca_certificate, ca_certificate_group, enabled, management, nfs, smb, uris | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
-| `PATCH /directory-services/roles` | Update-PfbDirectoryServiceRole | role_ids, role_names | role | `high` |  |
-| `PATCH /dns` | Update-PfbDns | context_names |  | `high` |  |
-| `PATCH /file-system-exports` | Update-PfbFileSystemExport | context_names |  | `high` |  |
+| `PATCH /directory-services/roles` | Update-PfbDirectoryServiceRole | role_ids, role_names | group, group_base, role | `high` |  |
+| `PATCH /dns` | Update-PfbDns | context_names, ids, names | ca_certificate, ca_certificate_group, name, services, sources | `high` |  |
+| `PATCH /file-system-exports` | Update-PfbFileSystemExport | context_names | export_name, member, policy, server, share_policy | `high` |  |
 | `PATCH /file-system-snapshots` | Remove-PfbFileSystemSnapshot | context_names, latest_replica | destroyed, name, owner, policy, source | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PATCH /file-systems` | Remove-PfbFileSystem, Update-PfbFileSystem | cancel_in_progress_storage_class_transition, context_names, discard_detailed_permissions, ignore_usage | abort_quiesce, default_group_quota, default_user_quota, destroyed, fast_remove_directory_enabled, group_ownership, hard_limit_enabled, http, multi_protocol, name, nfs, qos_policy, quiesce, skip_quiesce, smb, snapshot_directory_enabled, source, storage_class, workload, writable | `partial` -- /!\ 10 unresolved params (see Partial-confidence detail below) |  |
-| `PATCH /hardware` | Update-PfbHardware |  |  | `high` |  |
-| `PATCH /hardware-connectors` | Update-PfbHardwareConnector |  |  | `high` |  |
-| `PATCH /kmip` | Update-PfbKmip |  |  | `high` |  |
-| `PATCH /legal-holds` | Update-PfbLegalHold |  |  | `high` |  |
-| `PATCH /lifecycle-rules` | Update-PfbLifecycleRule | context_names |  | `high` |  |
-| `PATCH /log-targets/file-systems` | Update-PfbLogTargetFileSystem | context_names |  | `high` |  |
-| `PATCH /log-targets/object-store` | Update-PfbLogTargetObjectStore | context_names |  | `high` |  |
-| `PATCH /logs-async` | Update-PfbAsyncLog |  |  | `high` |  |
-| `PATCH /management-access-policies` | Update-PfbManagementAccessPolicy | context_names |  | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
+| `PATCH /fleets` | Update-PfbFleet |  | name | `high` |  |
+| `PATCH /hardware` | Update-PfbHardware |  | identify_enabled | `high` |  |
+| `PATCH /hardware-connectors` | Update-PfbHardwareConnector |  | lane_speed, lanes_per_port, port_count, port_speed | `high` |  |
+| `PATCH /kmip` | Update-PfbKmip |  | ca_certificate, ca_certificate_group, uris | `high` |  |
+| `PATCH /legal-holds` | Update-PfbLegalHold |  | description | `high` |  |
+| `PATCH /legal-holds/held-entities` | Update-PfbLegalHoldEntity | file_system_ids, file_system_names, ids, paths, recursive, released |  | `high` |  |
+| `PATCH /lifecycle-rules` | Update-PfbLifecycleRule | bucket_ids, bucket_names, confirm_date, context_names | abort_incomplete_multipart_uploads_after, enabled, keep_current_version_for, keep_current_version_until, keep_previous_version_for, prefix | `high` |  |
+| `PATCH /link-aggregation-groups` | Update-PfbLag |  | add_ports, ports, remove_ports | `high` |  |
+| `PATCH /log-targets/file-systems` | Update-PfbLogTargetFileSystem | context_names | file_system, keep_for, keep_size, name | `high` |  |
+| `PATCH /log-targets/object-store` | Update-PfbLogTargetObjectStore | context_names | bucket, log_name_prefix, log_rotate, name | `high` |  |
+| `PATCH /logs-async` | Update-PfbAsyncLog |  | end_time, hardware_components, start_time | `high` |  |
+| `PATCH /management-access-policies` | Update-PfbManagementAccessPolicy | context_names | aggregation_strategy, enabled, location, name, rules | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
 | `PATCH /network-access-policies` | Update-PfbNetworkAccessPolicy | versions | enabled, location, name, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PATCH /network-access-policies/rules` | Update-PfbNetworkAccessRule | before_rule_id, before_rule_name, ids, versions | client, effect, index, interfaces, policy | `high` |  |
-| `PATCH /network-interfaces/connectors` | Update-PfbNetworkInterfaceConnector |  |  | `high` |  |
+| `PATCH /network-interfaces` | Update-PfbNetworkInterface |  | attached_servers, rdma_enabled, services | `high` |  |
+| `PATCH /network-interfaces/connectors` | Update-PfbNetworkInterfaceConnector |  | lane_speed, lanes_per_port, port_count, port_speed | `high` |  |
 | `PATCH /nfs-export-policies` | Update-PfbNfsExportPolicy | context_names, versions | enabled, location, name, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PATCH /nfs-export-policies/rules` | Update-PfbNfsExportRule | before_rule_id, before_rule_name, context_names, ids, versions | access, anongid, anonuid, atime, client, fileid_32bit, index, permission, required_transport_security, secure, security | `high` |  |
-| `PATCH /nodes` | Update-PfbNode |  |  | `high` |  |
+| `PATCH /node-groups` | Update-PfbNodeGroup |  | name | `high` |  |
+| `PATCH /nodes` | Update-PfbNode |  | management_address, name, node_key, serial_number | `high` |  |
 | `PATCH /object-store-access-policies/rules` | Update-PfbObjectStoreAccessPolicyRule | context_names, enforce_action_restrictions, policy_ids, policy_names | actions, conditions, effect, resources | `high` |  |
-| `PATCH /object-store-account-exports` | Update-PfbObjectStoreAccountExport | context_names |  | `high` |  |
-| `PATCH /object-store-remote-credentials` | Update-PfbObjectStoreRemoteCredential | context_names |  | `high` |  |
-| `PATCH /object-store-roles` | Update-PfbObjectStoreRole | context_names |  | `high` |  |
+| `PATCH /object-store-account-exports` | Update-PfbObjectStoreAccountExport | context_names | export_enabled, policy | `high` |  |
+| `PATCH /object-store-remote-credentials` | Update-PfbObjectStoreRemoteCredential | context_names | access_key_id, name, remote, secret_access_key | `high` |  |
+| `PATCH /object-store-roles` | Update-PfbObjectStoreRole | context_names | account, max_session_duration | `high` |  |
 | `PATCH /object-store-roles/object-store-trust-policies/rules` | Update-PfbObjectStoreTrustPolicyRule | context_names, indices, policy_names, role_ids, role_names | actions, conditions, policy, principals | `high` |  |
-| `PATCH /object-store-virtual-hosts` | Update-PfbObjectStoreVirtualHost | context_names |  | `high` |  |
+| `PATCH /object-store-virtual-hosts` | Update-PfbObjectStoreVirtualHost | context_names | add_attached_servers, attached_servers, hostname, name, remove_attached_servers | `high` |  |
 | `PATCH /password-policies` | Update-PfbPasswordPolicy | ids, names | enabled, enforce_dictionary_check, enforce_username_check, location, lockout_duration, max_login_attempts, max_password_age, min_character_groups, min_characters_per_group, min_password_age, min_password_length, name, password_history | `high` |  |
 | `PATCH /policies` | Update-PfbPolicy | context_names, destroy_snapshots | add_rules, enabled, location, remove_rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PATCH /presets/workload` | Update-PfbPresetWorkload | context_names |  | `high` |  |
-| `PATCH /qos-policies` | Update-PfbQosPolicy | context_names |  | `high` |  |
+| `PATCH /qos-policies` | Update-PfbQosPolicy | context_names | enabled, location, max_total_bytes_per_sec, max_total_ops_per_sec, name | `high` |  |
 | `PATCH /quotas/groups` | Update-PfbQuotaGroup | context_names, file_system_ids, file_system_names, gids, group_names, names |  | `partial` -- /!\ 2 unresolved params (see Partial-confidence detail below) |  |
 | `PATCH /quotas/settings` | Update-PfbQuotaSettings |  | contact, direct_notifications_enabled | `high` |  |
 | `PATCH /quotas/users` | Update-PfbQuotaUser | context_names, file_system_ids, file_system_names, names, uids, user_names |  | `partial` -- /!\ 2 unresolved params (see Partial-confidence detail below) |  |
 | `PATCH /rapid-data-locking` | Update-PfbRapidDataLocking |  | enabled, kmip_server | `high` |  |
 | `PATCH /realms` | Remove-PfbRealm, Update-PfbRealm |  | default_inbound_tls_policy, destroyed, name | `partial` -- /!\ 2 unresolved params (see Partial-confidence detail below) |  |
-| `PATCH /realms/defaults` | Update-PfbRealmDefaults | context_names |  | `high` |  |
+| `PATCH /realms/defaults` | Update-PfbRealmDefaults | context_names, realm_ids, realm_names | object_store | `high` |  |
 | `PATCH /s3-export-policies` | Update-PfbS3ExportPolicy | context_names | enabled, name, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PATCH /s3-export-policies/rules` | Update-PfbS3ExportRule | context_names, policy_ids, policy_names | actions, effect, resources | `high` |  |
+| `PATCH /servers` | Update-PfbServer |  | dns | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PATCH /smb-client-policies` | Update-PfbSmbClientPolicy | context_names | access_based_enumeration_enabled, enabled, location, name, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PATCH /smb-client-policies/rules` | Update-PfbSmbClientRule | before_rule_id, before_rule_name, context_names, ids, versions | client, encryption, index, permission, policy | `high` |  |
 | `PATCH /smb-share-policies` | Update-PfbSmbSharePolicy | context_names | enabled, location, name, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PATCH /smb-share-policies/rules` | Update-PfbSmbShareRule | context_names, ids, policy_ids, policy_names | change, full_control, policy, principal, read | `high` |  |
 | `PATCH /snmp-agents` | Update-PfbSnmpAgent |  | v2c, v3, version | `high` |  |
-| `PATCH /snmp-managers` | Update-PfbSnmpManager |  |  | `high` |  |
-| `PATCH /ssh-certificate-authority-policies` | Update-PfbSshCaPolicy |  |  | `high` |  |
-| `PATCH /sso/oidc/idps` | Update-PfbOidcIdp |  |  | `high` |  |
-| `PATCH /sso/saml2/idps` | Update-PfbSaml2Idp |  |  | `high` |  |
-| `PATCH /storage-class-tiering-policies` | Update-PfbStorageClassTieringPolicy |  |  | `high` |  |
-| `PATCH /subnets` | Update-PfbSubnet |  |  | `high` |  |
+| `PATCH /snmp-managers` | Update-PfbSnmpManager |  | host, name, notification, v2c, v3, version | `high` |  |
+| `PATCH /ssh-certificate-authority-policies` | Update-PfbSshCaPolicy |  | enabled, location, name, signing_authority, static_authorized_principals | `high` |  |
+| `PATCH /sso/oidc/idps` | Update-PfbOidcIdp |  | enabled, idp, name, services | `high` |  |
+| `PATCH /sso/saml2/idps` | Update-PfbSaml2Idp |  | array_url, binding, enabled, idp, management, name, services, sp | `high` |  |
+| `PATCH /storage-class-tiering-policies` | Update-PfbStorageClassTieringPolicy |  | archival_rules, enabled, location, name, retrieval_rules | `high` |  |
+| `PATCH /subnets` | Update-PfbSubnet |  | link_aggregation_group, vlan | `high` |  |
 | `PATCH /support` | Update-PfbSupport |  | edge_agent_update_enabled, edge_management_enabled, phonehome_enabled, proxy, remote_assist_active, remote_assist_duration | `high` |  |
 | `PATCH /support/verification-keys` | Update-PfbSupportVerificationKey |  | signed_verification_key | `high` |  |
+| `PATCH /syslog-servers` | Update-PfbSyslogServer |  | services, sources, uri | `high` |  |
 | `PATCH /syslog-servers/settings` | Update-PfbSyslogServerSettings | ids, names | ca_certificate, ca_certificate_group | `high` |  |
-| `PATCH /targets` | Update-PfbTarget |  |  | `high` |  |
-| `PATCH /tls-policies` | Update-PfbTlsPolicy |  |  | `high` |  |
+| `PATCH /targets` | Update-PfbTarget |  | address, ca_certificate_group, name | `high` |  |
+| `PATCH /tls-policies` | Update-PfbTlsPolicy |  | appliance_certificate, client_certificates_required, disabled_tls_ciphers, enabled, enabled_tls_ciphers, location, min_tls_version, name, trusted_client_certificate_authority, verify_client_certificate_trust | `high` |  |
 | `PATCH /workloads` | Update-PfbWorkload | context_names | destroyed | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
-| `PATCH /worm-data-policies` | Update-PfbWormPolicy | context_names |  | `high` |  |
+| `PATCH /worm-data-policies` | Update-PfbWormPolicy | context_names | default_retention, enabled, location, max_retention, min_retention, mode, retention_lock | `high` |  |
 | `POST /active-directory` | New-PfbActiveDirectory | join_existing_account, names | ca_certificate, ca_certificate_group, computer_name, directory_servers, domain, encryption_types, fqdns, global_catalog_servers, join_ou, kerberos_servers, password, service_principal_names, user | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
-| `POST /admins/api-tokens` | New-PfbApiToken | context_names |  | `high` |  |
+| `POST /admins/api-tokens` | New-PfbApiToken | admin_ids, admin_names, context_names, timeout |  | `high` |  |
 | `POST /admins/management-access-policies` | New-PfbAdminManagementAccessPolicy | context_names |  | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
 | `POST /admins/ssh-certificate-authority-policies` | New-PfbAdminSshCaPolicy | context_names |  | `high` |  |
 | `POST /api-clients` | New-PfbApiClient |  | access_policies, access_token_ttl_in_ms, issuer, max_role, public_key | `high` |  |
-| `POST /array-connections` | New-PfbArrayConnection | context_names |  | `high` |  |
+| `POST /array-connections` | New-PfbArrayConnection | context_names | ca_certificate_group, encrypted, remote, throttle | `high` |  |
 | `POST /arrays/erasures` | New-PfbArrayErasure | eradicate_all_data, preserve_configuration_data, skip_phonehome_check |  | `high` |  |
 | `POST /arrays/ssh-certificate-authority-policies` | New-PfbArraySshCaPolicy | context_names |  | `high` |  |
 | `POST /audit-file-systems-policies` | New-PfbAuditFileSystemPolicy | context_names | control_type, enabled, location, log_targets, name, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
@@ -412,6 +417,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `POST /buckets/cross-origin-resource-sharing-policies` | New-PfbBucketCorsPolicy | bucket_ids, bucket_names, context_names | rules | `high` |  |
 | `POST /buckets/cross-origin-resource-sharing-policies/rules` | New-PfbBucketCorsPolicyRule | bucket_ids, bucket_names, context_names, names, policy_names | allowed_headers, allowed_methods, allowed_origins | `high` |  |
 | `POST /certificates` | New-PfbCertificate |  | certificate, certificate_type, common_name, country, days, email, intermediate_certificate, key_algorithm, key_size, locality, organization, organizational_unit, passphrase, private_key, state, subject_alternative_names | `high` |  |
+| `POST /certificates/certificate-groups` | New-PfbCertificateCertificateGroup | certificate_group_ids, certificate_ids |  | `high` |  |
 | `POST /certificates/certificate-signing-requests` | New-PfbCertificateSigningRequest |  | certificate, common_name, country, email, locality, organization, organizational_unit, state, subject_alternative_names | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `POST /data-eviction-policies` | New-PfbDataEvictionPolicy | context_names | enabled, location, name | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `POST /data-eviction-policies/file-systems` | Add-PfbDataEvictionPolicyFileSystem | context_names |  | `high` |  |
@@ -422,16 +428,18 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `POST /dns` | New-PfbDns | context_names, names | ca_certificate, ca_certificate_group, domain, nameservers, services, sources | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `POST /file-system-exports` | New-PfbFileSystemExport | context_names, member_ids, policy_ids |  | `high` |  |
 | `POST /file-system-replica-links` | New-PfbFileSystemReplicaLink | context_names, ids, local_file_system_ids, remote_ids | direction, link_type, local_file_system, policies, remote, remote_file_system | `high` |  |
-| `POST /file-system-replica-links/policies` | New-PfbFileSystemReplicaLinkPolicy | context_names |  | `high` |  |
+| `POST /file-system-replica-links/policies` | New-PfbFileSystemReplicaLinkPolicy | context_names, local_file_system_ids, local_file_system_names, remote_ids, remote_names |  | `high` |  |
 | `POST /file-system-snapshots` | New-PfbFileSystemSnapshot | context_names, source_ids, source_names |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `POST /file-systems` | New-PfbFileSystem | context_names, default_exports, discard_non_snapshotted_data, include_snapshot, overwrite, policy_ids, policy_names | fast_remove_directory_enabled, hard_limit_enabled, http, multi_protocol, nfs, node_group, smb, snapshot_directory_enabled, workload, writable | `partial` -- /!\ 15 unresolved params (see Partial-confidence detail below) |  |
 | `POST /file-systems/audit-policies` | New-PfbFileSystemAuditPolicy | context_names |  | `high` |  |
 | `POST /file-systems/locks/nlm-reclamations` | New-PfbNlmReclamation | context_names |  | `high` |  |
 | `POST /file-systems/policies` | New-PfbFileSystemPolicy | context_names |  | `high` |  |
 | `POST /fleets` | New-PfbFleet | names |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
+| `POST /fleets/members` | New-PfbFleetMember | fleet_ids | members | `high` |  |
 | `POST /keytabs` | New-PfbKeytab | name_prefixes | source | `high` |  |
 | `POST /keytabs/upload` | New-PfbKeytabUpload | name_prefixes | keytab_file | `high` |  |
 | `POST /legal-holds` | New-PfbLegalHold |  | description | `high` |  |
+| `POST /legal-holds/held-entities` | New-PfbLegalHoldEntity | file_system_ids, file_system_names, ids, names, paths, recursive |  | `high` |  |
 | `POST /lifecycle-rules` | New-PfbLifecycleRule | confirm_date, context_names | abort_incomplete_multipart_uploads_after, keep_current_version_for, keep_current_version_until, keep_previous_version_for, prefix, rule_id | `high` |  |
 | `POST /link-aggregation-groups` | New-PfbLag | names | ports | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `POST /log-targets/file-systems` | New-PfbLogTargetFileSystem | context_names | file_system, keep_for, keep_size, name | `high` |  |
@@ -439,11 +447,13 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `POST /maintenance-windows` | New-PfbMaintenanceWindow | names | timeout | `high` |  |
 | `POST /management-access-policies` | New-PfbManagementAccessPolicy | context_names | aggregation_strategy, enabled, location, name, rules | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
 | `POST /management-access-policies/admins` | New-PfbManagementAccessPolicyAdmin | context_names |  | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
-| `POST /network-access-policies/rules` | New-PfbNetworkAccessRule |  |  | `high` |  |
-| `POST /network-interfaces` | New-PfbNetworkInterface |  | rdma_enabled | `high` |  |
+| `POST /network-access-policies/rules` | New-PfbNetworkAccessRule | before_rule_id, before_rule_name, versions | client, effect, index, interfaces | `high` |  |
+| `POST /network-interfaces` | New-PfbNetworkInterface |  | attached_servers, rdma_enabled | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
+| `POST /network-interfaces/tls-policies` | New-PfbNetworkInterfaceTlsPolicy | member_ids, policy_ids |  | `high` |  |
 | `POST /nfs-export-policies` | New-PfbNfsExportPolicy | context_names | enabled, location, name, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
-| `POST /nfs-export-policies/rules` | New-PfbNfsExportRule | context_names |  | `high` |  |
+| `POST /nfs-export-policies/rules` | New-PfbNfsExportRule | before_rule_id, before_rule_name, context_names, versions | access, anongid, anonuid, atime, client, fileid_32bit, index, permission, policy, required_transport_security, secure, security | `high` |  |
 | `POST /node-groups` | New-PfbNodeGroup | names |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
+| `POST /node-groups/nodes` | New-PfbNodeGroupNode | node_group_ids, node_group_names, node_ids, node_names |  | `high` |  |
 | `POST /object-store-access-keys` | New-PfbObjectStoreAccessKey | context_names, names | secret_access_key | `high` |  |
 | `POST /object-store-access-policies` | New-PfbObjectStoreAccessPolicy | context_names, enforce_action_restrictions | description, rules | `high` |  |
 | `POST /object-store-access-policies/object-store-roles` | New-PfbObjectStoreAccessPolicyRole | context_names, member_ids, policy_ids |  | `high` |  |
@@ -459,22 +469,22 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `POST /object-store-users/object-store-access-policies` | New-PfbObjectStoreUserAccessPolicy | context_names, member_ids, policy_ids |  | `high` |  |
 | `POST /object-store-virtual-hosts` | New-PfbObjectStoreVirtualHost | context_names | attached_servers | `high` |  |
 | `POST /policies` | New-PfbPolicy | context_names | enabled, location, name | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
-| `POST /policies/file-system-replica-links` | New-PfbPolicyFileSystemReplicaLink | context_names |  | `high` |  |
+| `POST /policies/file-system-replica-links` | New-PfbPolicyFileSystemReplicaLink | context_names, local_file_system_ids, local_file_system_names, remote_ids, remote_names |  | `high` |  |
 | `POST /policies/file-systems` | New-PfbPolicyFileSystem | context_names |  | `high` |  |
 | `POST /presets/workload` | New-PfbPresetWorkload | context_names | description, directory_configurations, export_configurations, parameters, periodic_replication_configurations, placement_configurations, platform_features, qos_configurations, quota_configurations, snapshot_configurations, volume_configurations, workload_tags, workload_type | `high` |  |
 | `POST /public-keys` | New-PfbPublicKey |  | public_key | `high` |  |
 | `POST /qos-policies` | New-PfbQosPolicy | context_names | enabled, location, max_total_bytes_per_sec, max_total_ops_per_sec, name | `high` |  |
-| `POST /qos-policies/members` | New-PfbQosPolicyMember | context_names |  | `high` |  |
+| `POST /qos-policies/members` | New-PfbQosPolicyMember | context_names, member_types |  | `high` |  |
 | `POST /quotas/groups` | New-PfbQuotaGroup | context_names, file_system_ids, file_system_names, gids, group_names |  | `high` |  |
 | `POST /quotas/users` | New-PfbQuotaUser | context_names, file_system_ids, file_system_names, uids, user_names |  | `partial` -- /!\ 3 unresolved params (see Partial-confidence detail below) |  |
 | `POST /realms` | New-PfbRealm | without_default_access_list |  | `high` |  |
 | `POST /s3-export-policies` | New-PfbS3ExportPolicy | context_names | enabled, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
-| `POST /s3-export-policies/rules` | New-PfbS3ExportRule | context_names |  | `high` |  |
-| `POST /servers` | New-PfbServer | create_ds, create_local_directory_service |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
+| `POST /s3-export-policies/rules` | New-PfbS3ExportRule | context_names, names | actions, effect, resources | `high` |  |
+| `POST /servers` | New-PfbServer | create_ds, create_local_directory_service | dns | `partial` -- /!\ 2 unresolved params (see Partial-confidence detail below) |  |
 | `POST /smb-client-policies` | New-PfbSmbClientPolicy | context_names | access_based_enumeration_enabled, enabled, location, name, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
-| `POST /smb-client-policies/rules` | New-PfbSmbClientRule | context_names |  | `high` |  |
+| `POST /smb-client-policies/rules` | New-PfbSmbClientRule | before_rule_id, before_rule_name, context_names, versions | client, encryption, index, permission | `high` |  |
 | `POST /smb-share-policies` | New-PfbSmbSharePolicy | context_names | enabled, location, name, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
-| `POST /smb-share-policies/rules` | New-PfbSmbShareRule | context_names |  | `high` |  |
+| `POST /smb-share-policies/rules` | New-PfbSmbShareRule | context_names | change, full_control, principal, read | `high` |  |
 | `POST /snmp-managers` | New-PfbSnmpManager | names | host, notification, v2c, v3, version | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `POST /software-check` | New-PfbSoftwareCheck | software_names, software_versions |  | `high` |  |
 | `POST /ssh-certificate-authority-policies` | New-PfbSshCaPolicy | names | enabled, location, name, signing_authority, static_authorized_principals | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
@@ -537,6 +547,7 @@ Per the decision-6 procedure above: open each parameter at its `file:line` and f
 | `PATCH /realms` | `-Destroyed` | AttributesOnly | `Public/Realm/Update-PfbRealm.ps1:31` | body reachable via -Attributes for some parameters and untraceable for others; lists reflect typed-parameter coverage only, not full wire reachability |
 | `PATCH /realms` | `-Eradicate` | TypedUnresolved | `Public/Realm/Remove-PfbRealm.ps1:32` | body reachable via -Attributes for some parameters and untraceable for others; lists reflect typed-parameter coverage only, not full wire reachability |
 | `PATCH /s3-export-policies` | `-Enabled` | AttributesOnly | `Public/Policy/Update-PfbS3ExportPolicy.ps1:42` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `PATCH /servers` | `-DnsName` | AttributesOnly | `Public/Server/Update-PfbServer.ps1:34` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `PATCH /smb-client-policies` | `-Enabled` | AttributesOnly | `Public/Policy/Update-PfbSmbClientPolicy.ps1:42` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `PATCH /smb-share-policies` | `-Enabled` | AttributesOnly | `Public/Policy/Update-PfbSmbSharePolicy.ps1:42` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `PATCH /workloads` | `-Destroyed` | TypedUnresolved | `Public/Workloads/Update-PfbWorkload.ps1:36` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
@@ -565,6 +576,7 @@ Per the decision-6 procedure above: open each parameter at its `file:line` and f
 | `POST /file-systems` | `-Writable` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:150` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /fleets` | `-Name` | AttributesOnly | `Public/Replication/New-PfbFleet.ps1:30` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /link-aggregation-groups` | `-Name` | AttributesOnly | `Public/Misc/New-PfbLag.ps1:29` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /network-interfaces` | `-AttachedServers` | AttributesOnly | `Public/Network/New-PfbNetworkInterface.ps1:55` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /nfs-export-policies` | `-Enabled` | AttributesOnly | `Public/Policy/New-PfbNfsExportPolicy.ps1:36` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /node-groups` | `-Name` | AttributesOnly | `Public/Node/New-PfbNodeGroup.ps1:30` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /policies` | `-Enabled` | AttributesOnly | `Public/Policy/New-PfbPolicy.ps1:23` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
@@ -573,6 +585,7 @@ Per the decision-6 procedure above: open each parameter at its `file:line` and f
 | `POST /quotas/users` | `-UserName` | AttributesOnly | `Public/Quota/New-PfbQuotaUser.ps1:43` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /s3-export-policies` | `-Enabled` | AttributesOnly | `Public/Policy/New-PfbS3ExportPolicy.ps1:36` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /servers` | `-CreateDirectoryService` | AttributesOnly | `Public/Server/New-PfbServer.ps1:40` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /servers` | `-DnsName` | AttributesOnly | `Public/Server/New-PfbServer.ps1:34` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /smb-client-policies` | `-Enabled` | AttributesOnly | `Public/Policy/New-PfbSmbClientPolicy.ps1:36` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /smb-share-policies` | `-Enabled` | AttributesOnly | `Public/Policy/New-PfbSmbSharePolicy.ps1:36` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /snmp-managers` | `-Name` | AttributesOnly | `Public/Monitoring/New-PfbSnmpManager.ps1:33` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |

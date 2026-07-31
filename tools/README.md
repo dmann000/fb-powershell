@@ -299,8 +299,8 @@ Run in this order:
    would overstate a confidence the endpoint's own row already warns against). Each finding is
    `{ name, endpointCount, queryEndpointCount, bodyEndpointCount, endpoints, annotations }` --
    turning hundreds of per-endpoint rows into a handful of real, actionable decisions: e.g.
-   `context_names` (253 endpoints) and `allow_errors` (109 endpoints) are two decisions, not 362
-   findings. `conventionStrength` then ranks each systemic-gap name by how many existing `Public/`
+   `context_names` and `allow_errors` are each one decision, not one finding per affected
+   endpoint. `conventionStrength` then ranks each systemic-gap name by how many existing `Public/`
    cmdlets already expose it as a `Typed` parameter somewhere in the module (`Get-PfbConventionStrength`),
    sorted by that count descending: a high count (`names` at 306 cmdlets) means closing the
    remaining gaps for that name is a mechanical batch fix; a count of zero (`context_names`, 0 --
@@ -321,15 +321,19 @@ Run in this order:
    partial-confidence rows and are therefore absent from both `systemicGaps` and
    `conventionStrength` entirely** (e.g. `base_dn`, `bind_password`, `domain`, `nameservers`,
    `qos_policy`, `storage_class`, `owner`, ...), and a name that DOES appear can still undercount:
-   `context_names`'s pinned `systemicGaps` figure is 253 (high-confidence only), but its true
-   cross-confidence total across every endpoint is 289. No individual endpoint's own
+   `context_names`'s high-confidence-only `systemicGaps` figure is smaller than its true
+   cross-confidence total across every endpoint, by design (that's the limitation described
+   above, not a discrepancy worth investigating). No individual endpoint's own
    `missingQueryParameters`/`missingBodyProperties` row is affected -- this is purely a gap in the
    *aggregated triage view*, not in the underlying per-endpoint data. A future revisit should
    aggregate `systemicGaps`/`conventionStrength` across ALL confidence levels, carrying the current
    high-confidence-only count as `endpointCount` alongside a separate `partialEndpointCount`, rather
-   than silently dropping names or re-baselining `endpointCount` itself. Not fixed here because doing
-   so moves the `context_names`/`allow_errors`/etc. figures this whole effort measured and pinned
-   throughout every task.
+   than silently dropping names or re-baselining `endpointCount` itself. Not fixed here because
+   doing so would change what `context_names`/`allow_errors`/etc. mean, which is a larger, separate
+   design decision from the invariant-based tests that verify today's high-confidence-only
+   aggregation (`Tests/PfbApiDriftTools.Tests.ps1`, `Tests/Build-PfbApiDriftReport.Tests.ps1`) --
+   those tests recount/bound rather than pin to an exact figure, specifically so this kind of
+   real-data number does not need to stay in sync with prose like this.
 
    **`phantomFieldCount` -- two correct, differently-scoped numbers.** How many `(endpoint,
    field)` pairs were silently dropped from every gap/read-only list because the field is
@@ -337,11 +341,15 @@ Run in this order:
    the newest ANALYSED spec (i.e. withdrawn from the real API after the version that first added
    it)? Two numbers are simultaneously correct, because they answer different-population
    questions:
-   - **34**, measured across the FULL population of endpoints an existing cmdlet calls,
-     regardless of confidence level -- this is what `phantomFieldCount` in
-     `Reports/PfbApiDriftReport.json` actually reports.
-   - **13**, measured over ONLY the high-confidence-endpoint subset -- this is the number in
-     `Get-PfbParameterCoverageGaps`'s own doc comment and this task's real-data acceptance tests.
+   - Measured across the FULL population of endpoints an existing cmdlet calls, regardless of
+     confidence level -- this is what `phantomFieldCount` in `Reports/PfbApiDriftReport.json`
+     actually reports. (Deliberately not pinned to an exact figure in this prose -- it changes
+     with the real API surface; `Tests/Build-PfbApiDriftReport.Tests.ps1` verifies it via a
+     self-consistency check instead of an exact number.)
+   - Measured over ONLY the high-confidence-endpoint subset -- this is the number in
+     `Get-PfbParameterCoverageGaps`'s own doc comment (illustrative example text, not a contract)
+     and in this task's real-data invariant tests (verified non-vacuous, likewise not pinned to
+     an exact figure).
    Do not treat a mismatch between the two as a bug; check which population a given historical
    reference is scoped to first. Computed by calling `Get-PfbParameterCoverageGaps` a second time
    without `-CurrentSpecCapabilities` (its documented no-op default -- no phantom filtering) and

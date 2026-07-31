@@ -9,7 +9,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - matched: 1
 - collision: 0
 - not-found-in-resource: 3
-- no-spec-enum-found: 1640
+- no-spec-enum-found: 1661
 
 | Cmdlet | Parameter | Wire name | Status | Spec values | Recommendation |
 |---|---|---|---|---|---|
@@ -18,7 +18,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 | `Update-PfbPresetWorkload` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbWorkload` | `-NewName` | name | not-found-in-resource |  |  |
 
-## Attributes-only parameters (no typed field to attach either mechanism to): 65
+## Attributes-only parameters (no typed field to attach either mechanism to): 68
 
 - `Update-PfbAlert -Flagged`
 - `Update-PfbAlertWatcher -Enabled`
@@ -54,6 +54,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `New-PfbSnmpManager -Name`
 - `New-PfbSyslogServer -Name`
 - `New-PfbDns -Name`
+- `New-PfbNetworkInterface -AttachedServers`
 - `New-PfbNodeGroup -Name`
 - `New-PfbAuditFileSystemPolicy -Enabled`
 - `New-PfbAuditObjectStorePolicy -Enabled`
@@ -84,7 +85,9 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `Update-PfbRealm -Destroyed`
 - `New-PfbFleet -Name`
 - `New-PfbTarget -Name`
+- `New-PfbServer -DnsName`
 - `New-PfbServer -CreateDirectoryService`
+- `Update-PfbServer -DnsName`
 
 ## Typed but unresolved wire name (needs manual inspection): 37
 

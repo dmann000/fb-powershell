@@ -39,10 +39,9 @@ function Get-PfbCertificateCertificateGroup {
     Assert-PfbConnection -Array ([ref]$Array)
 
     $queryParams = @{}
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
     if ($CertificateName) { $queryParams['certificate_names'] = $CertificateName -join ',' }
     if ($CertificateGroupName) { $queryParams['certificate_group_names'] = $CertificateGroupName -join ',' }
-    if ($Filter) { $queryParams['filter'] = $Filter }
-    if ($Limit -gt 0) { $queryParams['limit'] = $Limit }
 
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'certificates/certificate-groups' -QueryParams $queryParams -AutoPaginate
 }
