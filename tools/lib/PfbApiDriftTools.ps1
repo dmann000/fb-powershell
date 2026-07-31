@@ -889,8 +889,8 @@ function Get-PfbSystemicGaps {
         Decision 7: collapses Get-PfbParameterCoverageGaps's per-endpoint
         MissingQueryParameters/MissingBodyProperties lists into ONE finding PER DISTINCT
         WIRE NAME, across every endpoint AND both lists together -- e.g. `context_names`
-        showing up as a missing query parameter on 253 different endpoints becomes a
-        SINGLE finding with an EndpointCount of 253, not 253 separate per-endpoint rows.
+        showing up as a missing query parameter on hundreds of different endpoints becomes a
+        SINGLE finding with an EndpointCount matching that total, not one separate per-endpoint row.
         This is what turns hundreds of individual gap rows into a handful of real,
         actionable decisions.
     .DESCRIPTION
