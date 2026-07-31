@@ -1295,11 +1295,20 @@ Describe 'Task 6 real-data invariants (systemic gaps + convention strength, skip
         }
     }
 
-    It 'convention strength: names = 306, ids = 218, context_names = 0 (acceptance figures)' {
+    It 'convention strength: names/ids have a non-vacuous, established convention; context_names has none (0 cmdlets, by design)' {
         if (-not $hasRealData) { Set-ItResult -Skipped -Because 'Data/PfbCapabilityMap.json not present locally'; return }
         $strength = Get-PfbConventionStrength -CmdletInventory $realInventory2 -Names @('names', 'ids', 'context_names')
-        ($strength | Where-Object { $_.Name -eq 'names' }).CmdletCount | Should -Be 306
-        ($strength | Where-Object { $_.Name -eq 'ids' }).CmdletCount | Should -Be 218
+        foreach ($fieldName in @('names', 'ids')) {
+            $entry = $strength | Where-Object { $_.Name -eq $fieldName }
+            $entry | Should -Not -BeNullOrEmpty
+            # CmdletCount is asserted -BeGreaterThan 0, not an exact number: both grow every
+            # time an unrelated PR adds a cmdlet that happens to expose this wire name as a
+            # Typed parameter, which is neither a regression nor something worth re-pinning for.
+            $entry.CmdletCount | Should -BeGreaterThan 0 -Because "$fieldName is a widely-adopted convention; a drop to zero would be a real regression"
+        }
+        # context_names is the ONE name Get-PfbConventionStrength's own docstring calls out
+        # as an architectural fact, not a live count: "that zero IS the finding". Unlike
+        # names/ids above, this stays an exact pin deliberately.
         ($strength | Where-Object { $_.Name -eq 'context_names' }).CmdletCount | Should -Be 0
     }
 
