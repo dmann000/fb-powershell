@@ -496,10 +496,25 @@ Describe 'Build-PfbApiDriftReport (real generated artifacts, skips gracefully if
         }
     }
 
-    It 'Task 7: wires conventionStrength through with the pinned acceptance figures (names 306, ids 218, context_names 0)' {
+    It 'Task 7: wires conventionStrength through -- cmdletCount is internally consistent and non-vacuous for established conventions, and remains 0 for context_names by design' {
         if (-not $hasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
-        ($realManifest.conventionStrength | Where-Object { $_.name -eq 'names' }).cmdletCount | Should -Be 306
-        ($realManifest.conventionStrength | Where-Object { $_.name -eq 'ids' }).cmdletCount | Should -Be 218
+
+        foreach ($fieldName in @('names', 'ids')) {
+            $entry = $realManifest.conventionStrength | Where-Object { $_.name -eq $fieldName }
+            $entry | Should -Not -BeNullOrEmpty -Because "$fieldName is expected to still be a systemic gap with an established convention"
+            # cmdletCount and cmdlets.Count are set from the same value at generation time
+            # (tools/Build-PfbApiDriftReport.ps1's `cmdletCount = $_.CmdletCount`) but travel
+            # through JSON serialization separately -- this catches a stale/mismatched field
+            # surviving a future refactor, without caring how many cmdlets there actually are.
+            $entry.cmdletCount | Should -Be @($entry.cmdlets).Count -Because 'cmdletCount must match the actual cmdlets array length after JSON round-trip'
+            $entry.cmdletCount | Should -BeGreaterThan 0 -Because "$fieldName is a widely-adopted convention; a drop to zero would be a real regression worth failing loudly for"
+        }
+
+        # context_names is the ONE name this report expects to have NO adopting cmdlets --
+        # Get-PfbConventionStrength's own docstring: "that zero IS the finding for names like
+        # context_names". This is an architectural fact (see the Fusion context_names design
+        # conclusion), not a live-count regression canary -- it stays an exact pin
+        # deliberately, unlike names/ids above.
         ($realManifest.conventionStrength | Where-Object { $_.name -eq 'context_names' }).cmdletCount | Should -Be 0
     }
 
