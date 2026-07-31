@@ -1215,7 +1215,7 @@ Describe 'Central-injection detection against the REAL Private/ tree (confirms t
     }
 }
 
-Describe 'Task 6 real-data acceptance figures (systemic gaps + convention strength, skips gracefully if the real capability map is absent)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+Describe 'Task 6 real-data invariants (systemic gaps + convention strength, skips gracefully if the real capability map is absent)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
     BeforeAll {
         $script:realCapabilityMapPath2 = Join-Path $repoRoot 'Data/PfbCapabilityMap.json'
         $script:realPublicDirectory2 = Join-Path $repoRoot 'Public'
@@ -1258,24 +1258,41 @@ Describe 'Task 6 real-data acceptance figures (systemic gaps + convention streng
             # warns against. Get-PfbSystemicGaps/Get-PfbConventionStrength themselves are
             # confidence-agnostic by design (aggregation is a pure grouping over WHATEVER
             # gaps they're handed) -- filtering by confidence is the CALLER's decision, made
-            # explicitly here to reproduce this task's pinned acceptance figures.
+            # explicitly here to match tools/Build-PfbApiDriftReport.ps1's own filtering exactly.
             $script:realGaps2 = @($realGapsAllConfidence2 | Where-Object { $_.Confidence.Level -eq 'high' })
             $script:realSystemicGaps2 = @(Get-PfbSystemicGaps -Gaps $realGaps2)
+
+            function Get-RealRecountedEndpointCount2 {
+                param([Parameter(Mandatory)][object[]]$Gaps, [Parameter(Mandatory)][string]$FieldName)
+                $endpoints = [System.Collections.Generic.HashSet[string]]::new()
+                foreach ($g in $Gaps) {
+                    $queryNames = @($g.MissingQueryParameters)
+                    $bodyNames = @($g.MissingBodyProperties | ForEach-Object { if ($_ -is [string]) { $_ } else { $_.Name } })
+                    if (($queryNames -contains $FieldName) -or ($bodyNames -contains $FieldName)) {
+                        [void]$endpoints.Add($g.Endpoint)
+                    }
+                }
+                return $endpoints.Count
+            }
         }
     }
 
-    It 'shows allow_errors at 109 endpoints (systemic-gaps acceptance figure -- exact match)' {
+    # Historical note (Task 6 investigation): the task brief's corrected figure for
+    # context_names was 252; three independent methodological variants (with/without
+    # phantom-field filtering, with/without -ExcludedFields) all converged on 253 instead,
+    # and 252 could not be reproduced. 253 was the actual, honestly-measured, reproducible
+    # value AT THE TIME -- kept here as institutional memory, not as a hardcoded expectation.
+    # See docs/superpowers/plans/2026-07-30-drift-report-acceptance-figure-invariants.md for
+    # why exact real-data counts are the wrong assertion for an ever-growing API surface.
+    It 'systemic-gaps EndpointCount for allow_errors/context_names matches an independent recount straight from the same $realGaps2 fed to Get-PfbSystemicGaps' {
         if (-not $hasRealData) { Set-ItResult -Skipped -Because 'Data/PfbCapabilityMap.json not present locally'; return }
-        $finding = $realSystemicGaps2 | Where-Object { $_.Name -eq 'allow_errors' }
-        $finding | Should -Not -BeNullOrEmpty
-        $finding.EndpointCount | Should -Be 109
-    }
-
-    It 'shows context_names at 253 endpoints -- the task brief''s corrected figure says 252; investigated (3 independent methodological variants: with/without phantom-field filtering, with/without -ExcludedFields, all converge on 253) and could not reproduce 252 exactly, so this pins the actual, honestly-measured, reproducible value rather than force-matching a figure one endpoint stale' {
-        if (-not $hasRealData) { Set-ItResult -Skipped -Because 'Data/PfbCapabilityMap.json not present locally'; return }
-        $finding = $realSystemicGaps2 | Where-Object { $_.Name -eq 'context_names' }
-        $finding | Should -Not -BeNullOrEmpty
-        $finding.EndpointCount | Should -Be 253
+        foreach ($fieldName in @('allow_errors', 'context_names')) {
+            $finding = $realSystemicGaps2 | Where-Object { $_.Name -eq $fieldName }
+            $finding | Should -Not -BeNullOrEmpty -Because "$fieldName is expected to still be a systemic gap in the real API surface"
+            $recount = Get-RealRecountedEndpointCount2 -Gaps $realGaps2 -FieldName $fieldName
+            $finding.EndpointCount | Should -Be $recount -Because 'EndpointCount must equal a fresh tally over the same input gaps, independent of Get-PfbSystemicGaps'' own aggregation'
+            $finding.EndpointCount | Should -BeGreaterThan 0 -Because 'a vacuous/zero count would mean the field silently stopped being a systemic gap without anyone noticing here'
+        }
     }
 
     It 'convention strength: names = 306, ids = 218, context_names = 0 (acceptance figures)' {
