@@ -21,6 +21,11 @@ Describe 'Module manifest FunctionsToExport completeness' {
         $stale | Should -BeNullOrEmpty -Because "these FunctionsToExport entries have no backing Public/ file: $($stale -join ', ')"
     }
 
+    It 'does not export any name more than once' {
+        $dupes = $exported | Group-Object | Where-Object Count -gt 1 | Select-Object -ExpandProperty Name
+        $dupes | Should -BeNullOrEmpty -Because "duplicate FunctionsToExport entries: $($dupes -join ', ')"
+    }
+
     It 'includes all 19 new user-group-quota-policy cmdlets' {
         $expected = @(
             'Get-PfbUserGroupQuotaPolicy', 'New-PfbUserGroupQuotaPolicy', 'Update-PfbUserGroupQuotaPolicy', 'Remove-PfbUserGroupQuotaPolicy',

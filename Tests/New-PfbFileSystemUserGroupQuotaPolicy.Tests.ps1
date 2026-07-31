@@ -53,4 +53,13 @@ Describe 'New-PfbFileSystemUserGroupQuotaPolicy' {
             New-PfbFileSystemUserGroupQuotaPolicy -PolicyName 'pol-1' -Confirm:$false -Array $fakeArray
         } } | Should -Throw
     }
+
+    It 'does not call the API under -WhatIf' {
+        InModuleScope PureStorageFlashBladePowerShell -Parameters @{ fakeArray = $fakeArray } {
+            param($fakeArray)
+            New-PfbFileSystemUserGroupQuotaPolicy -PolicyName 'pol-1' -MemberName 'fs1' -WhatIf -Array $fakeArray
+        }
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0
+    }
 }

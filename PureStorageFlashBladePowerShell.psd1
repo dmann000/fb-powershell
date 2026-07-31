@@ -536,7 +536,7 @@
         'Get-PfbLocalGroupMember',
         'New-PfbLocalGroupMember',
         'Remove-PfbLocalGroupMember',
-        # User/group quota policies (v2.3.0)
+        # User/group quota policies
         'Get-PfbUserGroupQuotaPolicy',
         'New-PfbUserGroupQuotaPolicy',
         'Update-PfbUserGroupQuotaPolicy',
