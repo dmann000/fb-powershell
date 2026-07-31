@@ -58,12 +58,9 @@ function Get-PfbObjectStoreTrustPolicy {
 
     end {
         $queryParams = @{}
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
         if ($allRoleNames.Count -gt 0) { $queryParams['role_names'] = $allRoleNames -join ',' }
         if ($allRoleIds.Count -gt 0)   { $queryParams['role_ids']   = $allRoleIds -join ',' }
-        if ($Filter)                   { $queryParams['filter']     = $Filter }
-        if ($Sort)                     { $queryParams['sort']       = $Sort }
-        if ($Limit -gt 0)            { $queryParams['limit']      = $Limit }
-        if ($TotalOnly)                { $queryParams['total_only'] = 'true' }
 
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'object-store-roles/object-store-trust-policies' -QueryParams $queryParams -AutoPaginate
     }

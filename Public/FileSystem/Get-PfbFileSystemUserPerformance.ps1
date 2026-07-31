@@ -85,12 +85,9 @@ function Get-PfbFileSystemUserPerformance {
 
     end {
         $queryParams = @{}
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
         if ($allNames.Count -gt 0) { $queryParams['file_system_names'] = $allNames -join ',' }
         if ($allIds.Count -gt 0)   { $queryParams['file_system_ids']  = $allIds -join ',' }
-        if ($Filter)               { $queryParams['filter']     = $Filter }
-        if ($Sort)                 { $queryParams['sort']       = $Sort }
-        if ($Limit -gt 0)         { $queryParams['limit']      = $Limit }
-        if ($TotalOnly)            { $queryParams['total_only'] = 'true' }
         if ($StartTime -gt 0)     { $queryParams['start_time'] = $StartTime }
         if ($EndTime -gt 0)       { $queryParams['end_time']   = $EndTime }
         if ($Resolution -gt 0)    { $queryParams['resolution'] = $Resolution }

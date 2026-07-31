@@ -2,6 +2,45 @@
 
 All notable changes to `PureStorageFlashBladePowerShell` are documented in this file.
 
+## [2.2.0] - 2026-07-22
+
+API version-awareness plus seven documented-but-unexposed query-parameter enums.
+
+### Added
+
+- API capability check. A generated capability map (`Data/PfbCapabilityMap.json`)
+  records the REST API version that introduced every endpoint, query parameter, and
+  field; a REST-to-Purity//FB version map (`Data/PfbVersionMap.json`) makes the errors
+  readable. `Invoke-PfbApiRequest` now runs a fail-fast check (`Assert-PfbApiCapability`)
+  that rejects a call **before any HTTP request** when the connected array's version
+  cannot support what is being asked, with a clear "upgrade the array or omit the
+  unsupported option(s)" message. The check **fails safe**: a missing map, an unmatched
+  endpoint, or an unresolvable version is a graceful no-op, never a false rejection.
+- Seven query-parameter enums the REST API documents but the cmdlets never exposed
+  (all additive, default to "not sent"): `Get-PfbArrayConnectionPerformanceReplication -Type`,
+  `Get-PfbArrayPerformanceReplication -Type`, `Test-PfbSupport -TestType`,
+  `Invoke-PfbNetworkTrace -Method`, `Get-PfbFileSystemSession -Protocol`,
+  `Remove-PfbFileSystemSession -Protocol`, and `Get-PfbPolicyAllMember -MemberType`
+  (an `ArgumentCompleter` rather than a `ValidateSet`, because that value set grew from
+  4 to 5 at REST v2.17 and a hard set would block a value the array accepts).
+- A reporting-only maintainer toolchain under `tools/` (value-enum extraction,
+  field-to-cmdlet validation recommendations, and a combined API drift report). Nothing
+  is wired into cmdlet validation yet; that is a deliberate follow-on decision.
+
+### Fixed
+
+- `Get-`/`Remove-PfbFileSystemSession`: removed the `-Id` parameter (the endpoint has no
+  `ids` query parameter in any spec version, so it never worked), corrected `-Name` help
+  (it filters by the session's own generated name, not a file system name), and made
+  `-Protocol` its own mutually-exclusive parameter set. On `Remove-PfbFileSystemSession`,
+  `-Protocol` is a genuine array-wide bulk-terminate mode and now requires an explicit
+  `-Force` switch.
+
+### Changed
+
+- `scripts/build.ps1` and `scripts/Publish-Gallery.ps1` now bundle `Data/` into the
+  built and branded packages, so the capability check is live for installed copies.
+
 ## [2.1.2] - 2026-07-20
 
 API-drift cleanup: parameter-validation fixes and removal of three cmdlets that

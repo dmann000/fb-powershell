@@ -65,13 +65,9 @@ function Get-PfbObjectStoreAccessPolicyRule {
 
     end {
         $queryParams = @{}
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames
         if ($allPolicyNames.Count -gt 0) { $queryParams['policy_names'] = $allPolicyNames -join ',' }
         if ($allPolicyIds.Count -gt 0)   { $queryParams['policy_ids']   = $allPolicyIds -join ',' }
-        if ($allNames.Count -gt 0)       { $queryParams['names']        = $allNames -join ',' }
-        if ($Filter)                     { $queryParams['filter']       = $Filter }
-        if ($Sort)                       { $queryParams['sort']         = $Sort }
-        if ($Limit -gt 0)              { $queryParams['limit']        = $Limit }
-        if ($TotalOnly)                  { $queryParams['total_only']   = 'true' }
 
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'object-store-access-policies/rules' -QueryParams $queryParams -AutoPaginate
     }

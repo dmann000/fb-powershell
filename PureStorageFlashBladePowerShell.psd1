@@ -1,6 +1,6 @@
 @{
     RootModule        = 'PureStorageFlashBladePowerShell.psm1'
-    ModuleVersion     = '2.1.2'
+    ModuleVersion     = '2.2.0'
     GUID              = 'b25473b3-9eb7-414d-8da1-264e10f73d86'
     Author            = 'Pure Storage, Inc.'
     CompanyName       = 'Pure Storage, Inc.'
@@ -548,6 +548,17 @@
             LicenseUri   = 'https://github.com/PureStorage-OpenConnect/flashblade-powershell/blob/main/LICENSE'
             # ReleaseNotes carries only the latest-version highlight; full history is in CHANGELOG.md.
             ReleaseNotes = @'
+v2.2.0 - API version-awareness + feature-gap parameters.
+  Adds a generated capability map of every FlashBlade REST endpoint/parameter/field to
+  the API version that introduced it, and a fail-fast runtime check that rejects a call
+  (before any HTTP request) when the connected array's version cannot support it. The
+  check fails safe: a missing map / unmatched endpoint / unresolvable version is a no-op.
+  Also exposes seven documented query-parameter enums that cmdlets never surfaced
+  (Get-PfbArrayConnectionPerformanceReplication/Get-PfbArrayPerformanceReplication -Type,
+  Test-PfbSupport -TestType, Invoke-PfbNetworkTrace -Method, Get-PfbFileSystemSession
+  -Protocol, Get-PfbPolicyAllMember -MemberType), and fixes Get-/Remove-PfbFileSystemSession
+  (removed a non-working -Id, added a -Protocol bulk-terminate mode, corrected -Name help).
+
 v2.1.2 - API-drift cleanup. Removes three cmdlets that modeled endpoints that never
   existed in the FlashBlade API and always returned HTTP 405 (Remove-PfbSession,
   New-/Remove-PfbNetworkAccessPolicy; network-access policy *rules* remain fully

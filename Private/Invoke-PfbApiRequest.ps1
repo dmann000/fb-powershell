@@ -109,6 +109,15 @@ function Invoke-PfbApiRequest {
     # HTTP timeout handling — default to 30s if the connection object predates this field
     $restParams['TimeoutSec'] = if ($Array.HttpTimeoutMs) { [int][Math]::Ceiling($Array.HttpTimeoutMs / 1000.0) } else { 30 }
 
+    # If the caller set a page-size/limit query param (every Get-Pfb* cmdlet's -Limit maps to
+    # this), treat it as a hard cap on the running total across pages -- Purity//FB REST treats
+    # `limit` as page size only and keeps returning a continuation_token even once the caller's
+    # desired item count has been reached, so AutoPaginate must stop itself.
+    $requestedLimit = $null
+    if ($QueryParams -and $QueryParams.ContainsKey('limit') -and [int]$QueryParams['limit'] -gt 0) {
+        $requestedLimit = [int]$QueryParams['limit']
+    }
+
     $allItems = [System.Collections.Generic.List[object]]::new()
     $totalItemCount = $null
     $hasMore = $true
@@ -211,7 +220,8 @@ function Invoke-PfbApiRequest {
         }
 
         # Handle pagination
-        if ($AutoPaginate -and $response.continuation_token) {
+        $limitReached = ($null -ne $requestedLimit -and $allItems.Count -ge $requestedLimit)
+        if ($AutoPaginate -and $response.continuation_token -and -not $limitReached) {
             # Update the URI with continuation token
             if (-not $QueryParams) { $QueryParams = @{} }
             $QueryParams['continuation_token'] = $response.continuation_token
@@ -222,6 +232,12 @@ function Invoke-PfbApiRequest {
         else {
             $hasMore = $false
         }
+    }
+
+    # The last page fetched may have overshot the requested limit (server-side page size is
+    # independent of it) -- trim so callers get exactly what they asked for.
+    if ($null -ne $requestedLimit -and $allItems.Count -gt $requestedLimit) {
+        $allItems = $allItems.GetRange(0, $requestedLimit)
     }
 
     # If TotalOnly was requested and we got a count but no items, return the count

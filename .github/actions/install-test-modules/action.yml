@@ -1,0 +1,133 @@
+name: Install test modules
+description: >-
+  Makes the pinned test-only PowerShell modules (Pester, Posh-SSH) available to
+  later steps in the job. They are restored from the GitHub Actions cache when
+  possible and only downloaded from the PowerShell Gallery on a cache miss, so a
+  transient gallery outage can no longer fail an otherwise-green run.
+
+# Why this exists as an action instead of four copy-pasted `run:` blocks:
+#
+#  * The gallery is a hard dependency today. Run 30149566997 failed at "Install test
+#    dependencies" with "No match was found ... module name 'Pester'" while the run on
+#    the identical SHA passed 47s later -- a pure PSGallery blip, but zero tests ran.
+#  * Versions were unpinned (`MinimumVersion = '5.0'`), which is how CI silently moved
+#    from Pester 5 to Pester 6 with nobody deciding to. They are now pinned here, in
+#    exactly one place, as action inputs.
+#
+# Modules are saved into a workspace-relative `.psmodules/` via `Save-Module` rather
+# than installed with `-Scope CurrentUser`: `CurrentUser` resolves to a different
+# directory on each OS *and* differs again between PowerShell 7
+# (Documents\PowerShell\Modules) and Windows PowerShell 5.1
+# (Documents\WindowsPowerShell\Modules), whereas a fixed workspace path yields one
+# identical, cacheable location for every job. A single pinned Pester version serves
+# both editions -- Pester 6.0.1's manifest declares PowerShellVersion = '5.1'.
+
+inputs:
+  pester-version:
+    description: 'Exact Pester version to save. Appears in the cache key, so bumping it invalidates the cache automatically.'
+    required: false
+    default: '6.0.1'
+  posh-ssh-version:
+    description: 'Exact Posh-SSH version to save. Appears in the cache key, so bumping it invalidates the cache automatically.'
+    required: false
+    default: '3.2.7'
+  shell:
+    description: >-
+      Which PowerShell host to run in: 'pwsh' (PowerShell 7+, the default and the only
+      option on Linux/macOS) or 'powershell' (Windows PowerShell 5.1). A composite
+      action cannot read the `matrix` context, and `shell:` will not accept it even in a
+      workflow, so the calling job passes the literal in as an input instead.
+    required: false
+    default: 'pwsh'
+
+runs:
+  using: composite
+  steps:
+    # Two Windows jobs (pwsh and Windows PowerShell 5.1) intentionally share one cache
+    # key -- the saved files are identical, and this was confirmed in CI: the pwsh job
+    # restored a cache written by the 5.1 job and imported from it cleanly.
+    #
+    # Consequence, verified on run 30169601354: when both jobs miss and both try to save,
+    # the loser logs
+    #     Failed to save: Unable to reserve cache with key
+    #     psmodules-Windows-..., another job may be creating this cache.
+    # That reads like a fault but is expected and non-fatal -- the job still succeeds, and
+    # the winner's cache is what later runs restore. Do NOT "fix" it by adding the shell or
+    # edition to the key; that would double the cache footprint to store identical files.
+    #
+    # v6 (not v4) because v5+ runs on the node24 runtime -- v4 emits a Node 20 deprecation
+    # warning on every step. There is no actions/cache@v7; v6 is the latest major, even
+    # though actions/checkout is on v7.
+    - name: Cache test modules
+      id: psmodules-cache
+      uses: actions/cache@v6
+      with:
+        path: .psmodules
+        key: psmodules-${{ runner.os }}-pester-${{ inputs.pester-version }}-poshssh-${{ inputs.posh-ssh-version }}
+
+    - name: Download test modules from the PowerShell Gallery
+      if: steps.psmodules-cache.outputs.cache-hit != 'true'
+      shell: ${{ inputs.shell }}
+      run: |
+        # Only reached on a cache miss, so everything gallery-specific lives here.
+        # Some Windows PowerShell 5.1 hosts default to TLS 1.0/1.1, which the
+        # PowerShell Gallery rejects -- force TLS 1.2 before hitting it. (Save-Module
+        # on 5.1 also needs the NuGet provider; the runner images ship with it.)
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+        $destination = Join-Path $env:GITHUB_WORKSPACE '.psmodules'
+        New-Item -ItemType Directory -Path $destination -Force | Out-Null
+
+        function Save-PfbModuleWithRetry {
+            # 5 attempts with exponential backoff. The previous 3 x 15s (~50s) window was
+            # routinely outlasted by gallery blips. Caching cannot remove this path
+            # entirely: GitHub evicts cache entries untouched for 7 days, so cold runs
+            # are guaranteed to recur.
+            param(
+                [Parameter(Mandatory = $true)][string]$Name,
+                [Parameter(Mandatory = $true)][string]$Version,
+                [Parameter(Mandatory = $true)][string]$Destination,
+                [int[]]$BackoffSeconds = @(15, 30, 60, 120)
+            )
+            $maxAttempts = $BackoffSeconds.Count + 1
+            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+                try {
+                    Save-Module -Name $Name -RequiredVersion $Version -Path $Destination -Force -ErrorAction Stop
+                    Write-Host "Saved $Name $Version to $Destination"
+                    return
+                } catch {
+                    if ($attempt -eq $maxAttempts) { throw }
+                    $delay = $BackoffSeconds[$attempt - 1]
+                    Write-Warning "Save-Module '$Name' attempt $attempt/$maxAttempts failed: $($_.Exception.Message). Retrying in $delay s..."
+                    Start-Sleep -Seconds $delay
+                }
+            }
+        }
+
+        Save-PfbModuleWithRetry -Name 'Pester' -Version '${{ inputs.pester-version }}' -Destination $destination
+
+        # Posh-SSH is an optional runtime dependency (see Private/Get-PfbApiTokenViaSsh.ps1),
+        # but Get-PfbApiTokenViaSsh.Tests.ps1 mocks its cmdlets (New-SSHSession, etc.) --
+        # Pester can only mock a command that's resolvable, so it must be installed here
+        # even though the module under test never actually opens an SSH connection.
+        Save-PfbModuleWithRetry -Name 'Posh-SSH' -Version '${{ inputs.posh-ssh-version }}' -Destination $destination
+
+    - name: Add test modules to PSModulePath
+      shell: ${{ inputs.shell }}
+      run: |
+        $destination = Join-Path $env:GITHUB_WORKSPACE '.psmodules'
+
+        # PSModulePath has to cross the step boundary: setting $env:PSModulePath here
+        # would die with this step's process, so it goes through $GITHUB_ENV. Build it
+        # with the platform's real separator (';' on Windows, ':' elsewhere) rather than
+        # hardcoding one, and append via .NET so both editions write UTF-8 with no BOM.
+        $separator = [IO.Path]::PathSeparator
+        $line = "PSModulePath=$destination$separator$env:PSModulePath"
+        [IO.File]::AppendAllText($env:GITHUB_ENV, $line + [Environment]::NewLine)
+
+        Write-Host "Prepended '$destination' to PSModulePath. Modules present:"
+        Get-ChildItem -Path $destination -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                $versions = (Get-ChildItem -Path $_.FullName -Directory -ErrorAction SilentlyContinue).Name -join ', '
+                Write-Host "  $($_.Name): $versions"
+            }

@@ -14,6 +14,35 @@
         if ($Param) { $body['wire_name'] = @($Param) }         # array parameters
         if ($queryParams.ContainsKey(...)) ...                  # not matched, no enum data anyway
         $queryParams['wire_name'] = $Param
+        $queryParams = @{ 'wire_name' = $Param }               # hashtable-literal initializer
+        $body['wire_name'] = @{ name = $Param }                # nested single-key reference
+                                                               # object -- OUTER key wins
+
+    ...plus one indirect pattern, where a shared private helper does the assignment for the
+    cmdlet and the cmdlet body therefore contains no literal key at all:
+
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters `
+            -Names $allNames -Ids $allIds
+
+    That helper (Private/Add-PfbCommonQueryParams.ps1, introduced by issue #32/PR #49 and
+    extended across ~196 Get-Pfb* cmdlets by issue #33/PR #51) is mirrored by
+    Get-PfbCommonQueryParamMap. Without it, every migrated cmdlet's -Filter/-Sort/-Limit/
+    -TotalOnly/-Name/-Id resolved no wire name, which cascaded into
+    Get-PfbParameterCoverageGaps (tools/lib/PfbApiDriftTools.ps1) demoting the cmdlet's whole
+    endpoint into its notVerified bucket -- i.e. a pure mechanical refactor made hundreds of
+    endpoints silently drop out of gap analysis, and the report's headline missing-field
+    count fell as if the gaps had been fixed. The hashtable-literal initializer above
+    (Get-PfbHashtableLiteralWireNameForParameter) was invisible for the same reason: only the
+    IndexExpressionAst form was ever recognized, so ~99 (cmdlet, parameter) pairs across ~82
+    mostly-New-Pfb* cmdlets -- New-PfbApiClient's own -Name among them -- were reported as
+    AttributesOnly/TypedUnresolved despite demonstrably reaching the wire.
+
+    The nested single-key reference object (Get-PfbNestedReferenceWireNameForParameter) is the
+    same class of blindness, one level deeper: the API models "point this resource at that
+    one" as `{"account": {"name": "acct1"}}`, and the capability map records TOP-LEVEL body
+    properties only -- there is no `account.name` in it -- so the field such a parameter
+    covers is the OUTER key. Leaving it unresolved cost 11 (cmdlet, parameter) pairs across 8
+    cmdlets, and via the notVerified gate their whole endpoints.
 
     A parameter is classified into exactly one Surface:
       - 'Typed': a wire name was resolved via a direct (optionally @()-wrapped) assignment.
@@ -75,6 +104,232 @@ function Test-PfbAssignmentGuardedBySwitch {
     return $false
 }
 
+function Resolve-PfbSingleExpression {
+    <#
+    .SYNOPSIS
+        Unwraps the StatementAst layers PowerShell's parser puts around a single-expression
+        right-hand side, returning the innermost ExpressionAst (or the input unchanged when
+        it is not that shape).
+    .DESCRIPTION
+        Both AssignmentStatementAst.Right and a HashtableAst key/value pair's Item2 are typed
+        StatementAst, and the parser wraps a bare expression in a CommandExpressionAst --
+        sometimes itself inside a single-element PipelineAst -- rather than exposing the
+        BinaryExpressionAst/HashtableAst/VariableExpressionAst directly. Casting without
+        unwrapping silently yields $null, which reads as "pattern not matched" instead of
+        "wrong layer". Both layers are peeled here, in either order, so callers do not each
+        re-derive the same lore (previously duplicated inline; see also
+        Find-PfbAccumulatorVariable, which peels a loop condition the same way).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Language.Ast]$Ast
+    )
+
+    $node = $Ast
+    for ($i = 0; $i -lt 3; $i++) {
+        if ($node -is [System.Management.Automation.Language.PipelineAst]) {
+            if ($node.PipelineElements.Count -ne 1) { return $node }
+            $node = $node.PipelineElements[0]
+            continue
+        }
+        if ($node -is [System.Management.Automation.Language.CommandExpressionAst]) {
+            $node = $node.Expression
+            continue
+        }
+        break
+    }
+    return $node
+}
+
+function Test-PfbWireValueIsParameter {
+    <#
+    .SYNOPSIS
+        True if -ValueAst -- the value half of a wire-key assignment, either
+        `$body['k'] = <this>` or the `@{ 'k' = <this> }` literal form -- hands the named
+        parameter's own value to the wire in one of the exact shapes this repo uses.
+    .DESCRIPTION
+        Deliberately shape-exact rather than "mentions the variable anywhere": over-matching
+        would misattribute a wire name (and, downstream, a spec value enum) to the wrong
+        field. Accepted:
+            $Param                  -- direct
+            @($Param)               -- array-wrapped
+            $Param -join ','        -- joined into a plural query key
+            'literal'               -- ONLY for a [switch] whose mere presence is keyed to a
+                                       hardcoded string, and only inside an `if ($Param)` guard
+        Refused (correctly, per this file's "never guess" contract): anything else, e.g.
+        `@($Param | ForEach-Object { ... })` or `"$Param"`.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Language.Ast]$ValueAst,
+
+        [Parameter(Mandatory)]
+        [string]$ParameterName,
+
+        [switch]$IsSwitchParameter
+    )
+
+    $text = $ValueAst.Extent.Text.Trim()
+    $simple = '$' + $ParameterName
+    if ($text -eq $simple -or $text -eq ('@(' + $simple + ')')) { return $true }
+
+    $expr = Resolve-PfbSingleExpression -Ast $ValueAst
+
+    $binary = $expr -as [System.Management.Automation.Language.BinaryExpressionAst]
+    if ($binary -and $binary.Operator -eq [System.Management.Automation.Language.TokenKind]::Join) {
+        $joinLeft = $binary.Left -as [System.Management.Automation.Language.VariableExpressionAst]
+        if ($joinLeft -and $joinLeft.VariablePath.UserPath -eq $ParameterName) { return $true }
+    }
+
+    if ($IsSwitchParameter -and $expr -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
+        if (Test-PfbAssignmentGuardedBySwitch -Assignment $ValueAst -ParameterName $ParameterName) { return $true }
+    }
+
+    return $false
+}
+
+function Get-PfbCommonQueryParamMap {
+    <#
+    .SYNOPSIS
+        The wire-name mapping that Private/Add-PfbCommonQueryParams.ps1 performs on a
+        calling cmdlet's behalf, so a parameter routed through that shared helper still
+        resolves a wire name even though the calling cmdlet contains no literal
+        `$queryParams['...'] = $Param` line of its own.
+    .DESCRIPTION
+        HARDCODED MIRROR of Private/Add-PfbCommonQueryParams.ps1 (issue #32/PR #49
+        centralized -Filter/-Sort/-Limit/-TotalOnly/-Names/-Ids there; issue #33/PR #51
+        migrated the rest). It is deliberately a copy rather than derived at runtime: this
+        tools/ library parses Public/ as text and must not depend on the module being
+        importable. Tests/PfbCmdletParamTools.Tests.ps1 asserts this table still matches
+        the helper's own AST assignments, so the two cannot silently drift.
+
+        Two different detection rules, because the helper learns its inputs two different ways:
+
+          ByParameterName  -- the helper reads these straight out of the caller's
+            $PSBoundParameters (`if ($BoundParameters.ContainsKey('Filter')) {...}`), so the
+            caller's own param() name is the ONLY signal available. Only trusted when the
+            call site actually forwards $PSBoundParameters.
+          ByHelperArgument -- the helper takes these as its own parameters (-Names/-Ids), so
+            the signal is whichever variable the call site passes to that argument. That is
+            usually a `process`-block accumulator ($allNames), not the parameter itself --
+            handled for free by Get-PfbCmdletParameterInventory's existing
+            Find-PfbAccumulatorVariable retry.
+
+        NOT included: the non-generic keys (file_system_names, policy_names, role_names,
+        member_names, ...). Per issue #32's design those cmdlets deliberately kept their own
+        explicit `$queryParams[...] = ...` lines after the helper call and were NOT routed
+        through -Names/-Ids, so the literal-assignment resolver still handles them -- and
+        must keep doing so, which is why the helper fallback runs only after it.
+    .OUTPUTS
+        [PSCustomObject]@{ HelperName; ByParameterName; ByHelperArgument }
+    #>
+    [CmdletBinding()]
+    param()
+
+    return [PSCustomObject]@{
+        HelperName       = 'Add-PfbCommonQueryParams'
+        ByParameterName  = [ordered]@{
+            Filter    = 'filter'
+            Sort      = 'sort'
+            Limit     = 'limit'
+            TotalOnly = 'total_only'
+        }
+        ByHelperArgument = [ordered]@{
+            Names = 'names'
+            Ids   = 'ids'
+        }
+    }
+}
+
+function Get-PfbCommonQueryParamHelperWireName {
+    <#
+    .SYNOPSIS
+        The Add-PfbCommonQueryParams-aware half of wire-name resolution: finds the key the
+        shared helper assigns on this cmdlet's behalf for -ParameterName, or $null.
+    .DESCRIPTION
+        Never guesses, matching the rest of this file: requires a literal -Into <variable>
+        (that variable is what Get-PfbEndpointForVariable later traces to an
+        Invoke-PfbApiRequest call, so without it there is nothing to attribute), requires
+        -BoundParameters to be literally $PSBoundParameters before trusting the
+        ByParameterName rule, only reads plain variable arguments, and returns $null if two
+        helper calls in the same function disagree on the (WireName, TargetVariable) pair.
+    .OUTPUTS
+        $null, or [PSCustomObject]@{ WireName; TargetVariable } -- same shape as
+        Get-PfbWireNameForParameter.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Language.FunctionDefinitionAst]$FunctionAst,
+
+        [Parameter(Mandatory)]
+        [string]$ParameterName
+    )
+
+    $map = Get-PfbCommonQueryParamMap
+    $helperName = $map.HelperName
+
+    $calls = @($FunctionAst.FindAll({
+        param($node)
+        $node -is [System.Management.Automation.Language.CommandAst] -and
+        $node.GetCommandName() -eq $helperName
+    }, $true))
+    if ($calls.Count -eq 0) { return $null }
+
+    $found = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($call in $calls) {
+        $elements = $call.CommandElements
+        $intoVariable = $null
+        $forwardsBoundParameters = $false
+        $argumentVariables = @{}
+
+        for ($i = 0; $i -lt $elements.Count; $i++) {
+            $el = $elements[$i]
+            if ($el -isnot [System.Management.Automation.Language.CommandParameterAst]) { continue }
+
+            # `-Into:$queryParams` colon form parks the value on the CommandParameterAst
+            # itself; `-Into $queryParams` puts it in the NEXT element. Reading $next
+            # unconditionally would misread the colon form as taking the following switch.
+            $argExpr = if ($el.Argument) { $el.Argument }
+                       elseif ($i + 1 -lt $elements.Count) { $elements[$i + 1] }
+                       else { $null }
+            if (-not $argExpr) { continue }
+            $argVar = $argExpr -as [System.Management.Automation.Language.VariableExpressionAst]
+
+            if ($el.ParameterName -eq 'Into') {
+                if ($argVar) { $intoVariable = $argVar.VariablePath.UserPath }
+            }
+            elseif ($el.ParameterName -eq 'BoundParameters') {
+                if ($argVar -and $argVar.VariablePath.UserPath -eq 'PSBoundParameters') { $forwardsBoundParameters = $true }
+            }
+            elseif ($map.ByHelperArgument.Contains($el.ParameterName)) {
+                if ($argVar) { $argumentVariables[$el.ParameterName] = $argVar.VariablePath.UserPath }
+            }
+        }
+
+        if (-not $intoVariable) { continue }
+
+        foreach ($helperArg in $map.ByHelperArgument.Keys) {
+            if ($argumentVariables.ContainsKey($helperArg) -and $argumentVariables[$helperArg] -eq $ParameterName) {
+                $found.Add("$($map.ByHelperArgument[$helperArg])|$intoVariable")
+            }
+        }
+
+        if ($forwardsBoundParameters -and $map.ByParameterName.Contains($ParameterName)) {
+            $found.Add("$($map.ByParameterName[$ParameterName])|$intoVariable")
+        }
+    }
+
+    $distinct = @($found | Select-Object -Unique)
+    if ($distinct.Count -ne 1) { return $null }
+
+    $parts = $distinct[0] -split '\|', 2
+    return [PSCustomObject]@{ WireName = $parts[0]; TargetVariable = $parts[1] }
+}
+
 function Get-PfbWireNameForParameter {
     <#
     .SYNOPSIS
@@ -112,37 +367,203 @@ function Get-PfbWireNameForParameter {
         $keyExpr = $indexExpr.Index -as [System.Management.Automation.Language.StringConstantExpressionAst]
         if (-not $keyExpr) { continue }
 
-        $rhsText = $assign.Right.Extent.Text.Trim()
-        $simple = '$' + $ParameterName
-        $wrapped = '@(' + $simple + ')'
-
-        $isJoinOfParameter = $false
-        # AssignmentStatementAst.Right is a StatementAst -- for a single-expression RHS (the
-        # only shape these cmdlets ever use) the parser always wraps it in a CommandExpressionAst,
-        # never exposing a BinaryExpressionAst directly, so unwrap one level before casting.
-        $rhsExpr = $assign.Right
-        if ($rhsExpr -is [System.Management.Automation.Language.CommandExpressionAst]) {
-            $rhsExpr = $rhsExpr.Expression
-        }
-        $rhsBinary = $rhsExpr -as [System.Management.Automation.Language.BinaryExpressionAst]
-        if ($rhsBinary -and $rhsBinary.Operator -eq [System.Management.Automation.Language.TokenKind]::Join) {
-            $joinLeft = $rhsBinary.Left -as [System.Management.Automation.Language.VariableExpressionAst]
-            if ($joinLeft -and $joinLeft.VariablePath.UserPath -eq $ParameterName) {
-                $isJoinOfParameter = $true
-            }
-        }
-
-        $isSwitchLiteral = $false
-        if ($IsSwitchParameter -and $rhsExpr -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
-            if (Test-PfbAssignmentGuardedBySwitch -Assignment $assign -ParameterName $ParameterName) {
-                $isSwitchLiteral = $true
-            }
-        }
-
-        if ($rhsText -eq $simple -or $rhsText -eq $wrapped -or $isJoinOfParameter -or $isSwitchLiteral) {
+        if (Test-PfbWireValueIsParameter -ValueAst $assign.Right -ParameterName $ParameterName -IsSwitchParameter:$IsSwitchParameter) {
             return [PSCustomObject]@{
                 WireName       = $keyExpr.Value
                 TargetVariable = $targetVar.VariablePath.UserPath
+            }
+        }
+    }
+
+    # Second idiom: the whole hashtable is built as a LITERAL initializer rather than keyed
+    # into afterwards -- `$queryParams = @{ 'names' = $Name }`, the dominant shape across
+    # New-Pfb*/Remove-Pfb*/Update-Pfb* (New-PfbApiClient, New-PfbAlertWatcher,
+    # New-PfbObjectStoreAccount, the whole Policy/*Rule family, ...). Runs after the index
+    # form, not instead of it: a cmdlet routinely does both (literal initializer for its
+    # -Name, then `$body['x'] = $X` lines), and both key sets must resolve.
+    $literalMatch = Get-PfbHashtableLiteralWireNameForParameter -FunctionAst $FunctionAst -ParameterName $ParameterName -IsSwitchParameter:$IsSwitchParameter
+    if ($literalMatch) { return $literalMatch }
+
+    # Third idiom: a nested single-key REFERENCE OBJECT -- `$body['account'] = @{ name =
+    # $Account }` -- whose wire field is the OUTER key. Runs strictly after both direct
+    # forms above so it can only ever add a resolution, never rename one: a parameter that
+    # already resolved via a direct assignment returned before reaching here.
+    $nestedMatch = Get-PfbNestedReferenceWireNameForParameter -FunctionAst $FunctionAst -ParameterName $ParameterName -IsSwitchParameter:$IsSwitchParameter
+    if ($nestedMatch) { return $nestedMatch }
+
+    # No literal assignment of any shape in this function body -- but the parameter may
+    # still reach the wire through the shared Private/Add-PfbCommonQueryParams.ps1 helper,
+    # which performs the assignment on the cmdlet's behalf (issue #32/#33). Deliberately
+    # LAST: a cmdlet whose Name/Id-equivalent maps to a non-generic key (policy_names,
+    # file_system_names, ...) kept its own explicit line after the helper call, and that
+    # literal must win.
+    return Get-PfbCommonQueryParamHelperWireName -FunctionAst $FunctionAst -ParameterName $ParameterName
+}
+
+function Get-PfbHashtableLiteralWireNameForParameter {
+    <#
+    .SYNOPSIS
+        The hashtable-literal-initializer half of wire-name resolution: finds the key a
+        parameter is given inside `$body = @{ ... }` / `$queryParams = @{ ... }`, or $null.
+    .DESCRIPTION
+        Only TOP-LEVEL key/value pairs of a hashtable literal assigned directly to a
+        variable named body/queryParams are considered, and a nested sub-object's INNER key
+        is never treated as the wire name: in `$body = @{ group = @{ name = $GroupName } }`
+        (real: New-PfbQuotaGroup) the wire field is `group`, so crediting -GroupName with
+        `name` would both mis-name the field and collide with every other sub-object's
+        `name`. Resolving such a parameter to its OUTER key is a separate, deliberately
+        later step -- see Get-PfbNestedReferenceWireNameForParameter. Value shapes are
+        matched by the same Test-PfbWireValueIsParameter used by the index-assignment path,
+        so a pipeline transform is still refused rather than guessed at.
+    .OUTPUTS
+        $null, or [PSCustomObject]@{ WireName; TargetVariable } -- same shape as
+        Get-PfbWireNameForParameter.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Language.FunctionDefinitionAst]$FunctionAst,
+
+        [Parameter(Mandatory)]
+        [string]$ParameterName,
+
+        [switch]$IsSwitchParameter
+    )
+
+    $assignments = @($FunctionAst.FindAll({
+        param($node)
+        $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+        $node.Left -is [System.Management.Automation.Language.VariableExpressionAst]
+    }, $true))
+
+    foreach ($assign in $assignments) {
+        $targetVar = $assign.Left -as [System.Management.Automation.Language.VariableExpressionAst]
+        if ($targetVar.VariablePath.UserPath -notin @('body', 'queryParams')) { continue }
+
+        $hashtable = (Resolve-PfbSingleExpression -Ast $assign.Right) -as [System.Management.Automation.Language.HashtableAst]
+        if (-not $hashtable) { continue }
+
+        foreach ($pair in $hashtable.KeyValuePairs) {
+            # KeyValuePairs entries are Tuple<ExpressionAst, StatementAst>. Keys in this repo
+            # are written both quoted ('names') and bare (destroyed); StringConstantExpressionAst
+            # covers both and exposes the unquoted text as .Value.
+            $keyExpr = $pair.Item1 -as [System.Management.Automation.Language.StringConstantExpressionAst]
+            if (-not $keyExpr) { continue }
+
+            if (Test-PfbWireValueIsParameter -ValueAst $pair.Item2 -ParameterName $ParameterName -IsSwitchParameter:$IsSwitchParameter) {
+                return [PSCustomObject]@{
+                    WireName       = $keyExpr.Value
+                    TargetVariable = $targetVar.VariablePath.UserPath
+                }
+            }
+        }
+    }
+
+    return $null
+}
+
+function Get-PfbNestedReferenceWireNameForParameter {
+    <#
+    .SYNOPSIS
+        The nested-single-key-reference-object half of wire-name resolution: finds the OUTER
+        key of `$body['account'] = @{ name = $Account }` / `$body = @{ account = @{ name =
+        $Account } }`, or $null.
+    .DESCRIPTION
+        The REST API models a reference to another resource as a single-key sub-object
+        (`{"account": {"name": "acct1"}}`), and the capability map records TOP-LEVEL body
+        properties only -- there is no `account.name` field in it. So the wire name a
+        parameter feeding such a sub-object exposes is the outer key (`account`), and any
+        attempt to credit it with the inner key would name a field that does not exist.
+
+        Two parameters legitimately resolving to the SAME outer key is therefore correct,
+        not a collision to suppress: `-Account`/`-AccountId` both address the one `account`
+        field, and the endpoint's gap analysis only ever asks whether `account` is covered.
+
+        Never guesses, matching the rest of this file:
+          - the target variable must be body/queryParams (an intermediate like
+            New-PfbFileSystem's $nfsBody is not traceable to an Invoke-PfbApiRequest call);
+          - the outer key must be a literal string constant;
+          - the nested hashtable must have EXACTLY ONE key/value pair, itself string-keyed
+            -- a multi-key sub-object is a composite whose per-field ownership cannot be
+            attributed to one parameter;
+          - only ONE level of nesting is descended;
+          - the innermost value must satisfy the same Test-PfbWireValueIsParameter used by
+            both direct paths, so a pipeline transform (New-PfbNetworkInterface's
+            `@($AttachedServers | ForEach-Object { @{ name = $_ } })`) is still refused.
+
+        Deliberately invoked LAST of the three literal forms by
+        Get-PfbWireNameForParameter, after both direct-assignment resolvers: it can then
+        only ever turn an unresolved parameter into a Typed one, never rename an
+        already-resolved wire name.
+    .OUTPUTS
+        $null, or [PSCustomObject]@{ WireName; TargetVariable } -- same shape as
+        Get-PfbWireNameForParameter.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Language.FunctionDefinitionAst]$FunctionAst,
+
+        [Parameter(Mandatory)]
+        [string]$ParameterName,
+
+        [switch]$IsSwitchParameter
+    )
+
+    # Local predicate: is $Candidate a single-string-key hashtable literal whose one value
+    # hands $ParameterName to the wire?
+    $isReferenceObjectFor = {
+        param($Candidate)
+        $hash = (Resolve-PfbSingleExpression -Ast $Candidate) -as [System.Management.Automation.Language.HashtableAst]
+        if (-not $hash) { return $false }
+        if ($hash.KeyValuePairs.Count -ne 1) { return $false }
+        $innerPair = $hash.KeyValuePairs[0]
+        if (-not ($innerPair.Item1 -as [System.Management.Automation.Language.StringConstantExpressionAst])) { return $false }
+        return (Test-PfbWireValueIsParameter -ValueAst $innerPair.Item2 -ParameterName $ParameterName -IsSwitchParameter:$IsSwitchParameter)
+    }
+
+    $assignments = @($FunctionAst.FindAll({
+        param($node)
+        $node -is [System.Management.Automation.Language.AssignmentStatementAst]
+    }, $true))
+
+    # Index form first, then the literal-initializer form, mirroring the order
+    # Get-PfbWireNameForParameter uses for the direct shapes.
+    foreach ($assign in $assignments) {
+        $indexExpr = $assign.Left -as [System.Management.Automation.Language.IndexExpressionAst]
+        if (-not $indexExpr) { continue }
+        $targetVar = $indexExpr.Target -as [System.Management.Automation.Language.VariableExpressionAst]
+        if (-not $targetVar) { continue }
+        if ($targetVar.VariablePath.UserPath -notin @('body', 'queryParams')) { continue }
+
+        $keyExpr = $indexExpr.Index -as [System.Management.Automation.Language.StringConstantExpressionAst]
+        if (-not $keyExpr) { continue }
+
+        if (& $isReferenceObjectFor $assign.Right) {
+            return [PSCustomObject]@{
+                WireName       = $keyExpr.Value
+                TargetVariable = $targetVar.VariablePath.UserPath
+            }
+        }
+    }
+
+    foreach ($assign in $assignments) {
+        $targetVar = $assign.Left -as [System.Management.Automation.Language.VariableExpressionAst]
+        if (-not $targetVar) { continue }
+        if ($targetVar.VariablePath.UserPath -notin @('body', 'queryParams')) { continue }
+
+        $hashtable = (Resolve-PfbSingleExpression -Ast $assign.Right) -as [System.Management.Automation.Language.HashtableAst]
+        if (-not $hashtable) { continue }
+
+        foreach ($pair in $hashtable.KeyValuePairs) {
+            $keyExpr = $pair.Item1 -as [System.Management.Automation.Language.StringConstantExpressionAst]
+            if (-not $keyExpr) { continue }
+
+            if (& $isReferenceObjectFor $pair.Item2) {
+                return [PSCustomObject]@{
+                    WireName       = $keyExpr.Value
+                    TargetVariable = $targetVar.VariablePath.UserPath
+                }
             }
         }
     }
@@ -307,18 +728,160 @@ function Get-PfbEndpointForVariable {
     return [PSCustomObject]@{ Method = $parts[0]; Endpoint = $parts[1] }
 }
 
+function Get-PfbCmdletBodyInsertionTarget {
+    <#
+    .SYNOPSIS
+        Insertion-point coordinates (drift-report-actionable-plan decision 12) for adding a
+        typed parameter to -FunctionAst for a currently-missing body-property gap -- NEVER
+        a diff/patch: a patch goes stale the moment the file is next touched and cannot see
+        mutual-exclusivity/parameter-set constraints a human editing by hand must respect.
+    .DESCRIPTION
+        PayloadVariable/AssignmentStyle describe what THIS cmdlet's function body already
+        does for its OTHER body fields, so a human adding one more matches the file's own
+        convention instead of inventing a new one:
+          - PayloadVariable is the literal variable name every `-Body <var>` argument on
+            this function's Invoke-PfbApiRequest call(s) agrees on (never guessed when
+            calls disagree, or an argument isn't a plain variable -- same "only ever ADD a
+            resolution, never guess" discipline as every other function in this file).
+          - If PayloadVariable is this cmdlet's OWN -Attributes parameter (the common
+            "-Body $Attributes" shape for write cmdlets with no typed body parameters at
+            all, e.g. Update-PfbCertificate), AssignmentStyle is 'attributesOnly': there is
+            no existing per-field assignment line to imitate, because the caller supplies
+            the whole hashtable directly -- adding a typed parameter here means introducing
+            the FIRST one, not extending an established pattern.
+          - Otherwise AssignmentStyle counts existing assignments INTO PayloadVariable using
+            the same two literal-assignment idioms Get-PfbWireNameForParameter already
+            recognizes: `$var['key'] = ...` (index form) vs. `$var = @{ 'key' = ... }`
+            (hashtable-literal-initializer form, counted only when it declares at least ONE
+            key/value pair -- an EMPTY `$var = @{}` bootstrap is the standard first line of
+            the INDEX idiom too and must not be miscounted as 'literal'). Whichever has MORE
+            occurrences in this function wins; a single non-empty literal initializer (even
+            with zero further index-form assignments after it) still counts as 'literal',
+            since it establishes every key at once. 'unknown' when PayloadVariable resolved
+            but this function contains no assignment into it at all (e.g. populated by a
+            private helper this AST-only inspector does not trace) -- surfaced rather than
+            guessed, per this file's "never guess" convention.
+        ParamBlockLine is the line of the LAST existing parameter in the param() block (or
+        the block's own opening line if it declares none) -- inserting a new parameter
+        after that line keeps it inside the existing block, below whatever
+        identity/ParameterSet parameters the cmdlet already declares, matching every
+        hand-written cmdlet in this module.
+        HasAttributes reuses the exact detection Get-PfbCmdletParameterInventory already
+        uses (`$_.Name.VariablePath.UserPath -eq 'Attributes'`), so this never disagrees
+        with the cmdlet-inventory's own AttributesOnly/EscapeHatchOnly classification.
+    .OUTPUTS
+        [PSCustomObject]@{ ParamBlockLine; PayloadVariable; AssignmentStyle; HasAttributes }
+        -- $null if -FunctionAst has no param() block at all (a function with no
+        parameters cannot be an Invoke-PfbApiRequest-calling cmdlet in this module, so this
+        should not occur for any cmdlet name sourced from Get-PfbModuleCalledEndpoints).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Language.FunctionDefinitionAst]$FunctionAst
+    )
+
+    $paramBlock = $FunctionAst.Body.ParamBlock
+    if (-not $paramBlock) { return $null }
+
+    $hasAttributesParam = [bool]($paramBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'Attributes' })
+
+    $paramBlockLine = if ($paramBlock.Parameters.Count -gt 0) {
+        ($paramBlock.Parameters | Select-Object -Last 1).Extent.EndLineNumber
+    }
+    else {
+        $paramBlock.Extent.StartLineNumber
+    }
+
+    $bodyCalls = @($FunctionAst.FindAll({
+                param($n)
+                $n -is [System.Management.Automation.Language.CommandAst] -and
+                $n.GetCommandName() -eq 'Invoke-PfbApiRequest'
+            }, $true))
+
+    $bodyVarNames = [System.Collections.Generic.List[string]]::new()
+    foreach ($cmd in $bodyCalls) {
+        $elements = $cmd.CommandElements
+        for ($i = 0; $i -lt $elements.Count; $i++) {
+            $el = $elements[$i]
+            if ($el -isnot [System.Management.Automation.Language.CommandParameterAst]) { continue }
+            if ($el.ParameterName -ne 'Body') { continue }
+            $argExpr = if ($el.Argument) { $el.Argument } elseif ($i + 1 -lt $elements.Count) { $elements[$i + 1] } else { $null }
+            $argVar = $argExpr -as [System.Management.Automation.Language.VariableExpressionAst]
+            if ($argVar) { $bodyVarNames.Add($argVar.VariablePath.UserPath) }
+        }
+    }
+    $distinctBodyVars = @($bodyVarNames | Select-Object -Unique)
+    $payloadVariable = if ($distinctBodyVars.Count -eq 1) { $distinctBodyVars[0] } else { $null }
+
+    $assignmentStyle = $null
+    if ($payloadVariable -eq 'Attributes') {
+        $assignmentStyle = 'attributesOnly'
+    }
+    elseif ($payloadVariable) {
+        $indexAssignments = @($FunctionAst.FindAll({
+                    param($n)
+                    $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+                    $n.Left -is [System.Management.Automation.Language.IndexExpressionAst] -and
+                    ($n.Left.Target -as [System.Management.Automation.Language.VariableExpressionAst]) -and
+                    ($n.Left.Target).VariablePath.UserPath -eq $payloadVariable
+                }, $true))
+
+        $literalCandidates = @($FunctionAst.FindAll({
+                    param($n)
+                    $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+                    $n.Left -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                    $n.Left.VariablePath.UserPath -eq $payloadVariable
+                }, $true))
+        # An EMPTY hashtable-literal bootstrap (`$body = @{}`) does not count as 'literal'
+        # style -- it establishes zero keys and is the standard first line of the 'index'
+        # idiom too (`$body = @{}` followed by `$body['x'] = ...`). Only a literal that
+        # actually declares at least one key/value pair reflects the "establish every key
+        # at once" convention this style name describes.
+        $literalAssignments = @($literalCandidates | Where-Object {
+                $hash = (Resolve-PfbSingleExpression -Ast $_.Right) -as [System.Management.Automation.Language.HashtableAst]
+                $hash -and $hash.KeyValuePairs.Count -gt 0
+            })
+
+        # A genuine TIE (indexAssignments.Count -eq literalAssignments.Count, both > 0)
+        # falls through to this 'literal' branch silently -- there is no distinct 'tie'
+        # outcome. Measured across the real high-confidence gap population: 274
+        # attributesOnly / 95 unknown / 25 index / 1 literal / 7 unresolved, i.e. a true
+        # tie is essentially unreachable in practice today. That is a measured-safe
+        # observation about current data, not a design guarantee -- a future cmdlet could
+        # legitimately produce a tie, and it would resolve to 'literal' without any flag
+        # that the detection was actually ambiguous.
+        if ($indexAssignments.Count -gt $literalAssignments.Count) { $assignmentStyle = 'index' }
+        elseif ($literalAssignments.Count -gt 0) { $assignmentStyle = 'literal' }
+        else { $assignmentStyle = 'unknown' }
+    }
+
+    return [PSCustomObject]@{
+        ParamBlockLine  = $paramBlockLine
+        PayloadVariable = $payloadVariable
+        AssignmentStyle = $assignmentStyle
+        HasAttributes   = $hasAttributesParam
+    }
+}
+
 function Get-PfbCmdletParameterInventory {
     <#
     .SYNOPSIS
         Inventories every typed parameter (excluding -Array/-Attributes themselves)
         across every function defined under -PublicDirectory.
     .OUTPUTS
-        [PSCustomObject]@{ File; Cmdlet; Parameter; HasValidateSet; ValidateSetValues;
+        [PSCustomObject]@{ File; Line; Cmdlet; Parameter; HasValidateSet; ValidateSetValues;
         WireName; Surface; Endpoint; Method }
 
         Endpoint/Method are $null unless the parameter's wire-name assignment resolved
         to exactly one Invoke-PfbApiRequest call's endpoint (see
         Get-PfbEndpointForVariable) -- never guessed.
+
+        Line is the parameter's own declaration line ($p.Extent.StartLineNumber),
+        alongside the File it already carried -- so a consumer reporting on a
+        non-'Typed' Surface (Get-PfbParameterCoverageGaps's `confidence.unresolvedParameters`
+        in tools/lib/PfbApiDriftTools.ps1) can point a reader at an exact file:line rather
+        than making them search the whole file for the parameter name.
     #>
     [CmdletBinding()]
     param(
@@ -371,6 +934,7 @@ function Get-PfbCmdletParameterInventory {
 
                 $results.Add([PSCustomObject]@{
                     File              = $file.FullName
+                    Line              = $p.Extent.StartLineNumber
                     Cmdlet            = $funcAst.Name
                     Parameter         = $paramName
                     HasValidateSet    = [bool]$validateSetValues
