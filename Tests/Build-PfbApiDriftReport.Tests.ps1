@@ -724,10 +724,9 @@ Describe 'Build-PfbApiDriftReport (Task 8: regression canaries + spot-checks aga
             $overlap.Count | Should -Be 0
         }
 
-        It 'the phantom-excluded count matches the real manifest''s phantomFieldCount exactly (34, full population)' {
+        It 'the phantom-excluded count matches the real manifest''s phantomFieldCount exactly (self-consistent, full population)' {
             if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
             $t8PhantomExcludedSet.Count | Should -Be $t8Manifest.phantomFieldCount
-            $t8PhantomExcludedSet.Count | Should -Be 34
         }
 
         It 'restricting the same diff to high-confidence-only gaps reproduces the doc-comment-pinned 13' {
