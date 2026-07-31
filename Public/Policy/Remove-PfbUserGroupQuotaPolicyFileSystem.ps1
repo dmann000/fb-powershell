@@ -24,6 +24,13 @@ function Remove-PfbUserGroupQuotaPolicyFileSystem {
         [Parameter()] [PSCustomObject]$Array
     )
 
+    if (-not $PolicyName -and -not $PolicyId) {
+        throw 'You must supply either -PolicyName or -PolicyId.'
+    }
+    if (-not $MemberName -and -not $MemberId) {
+        throw 'You must supply either -MemberName or -MemberId.'
+    }
+
     Assert-PfbConnection -Array ([ref]$Array)
 
     $queryParams = @{}
@@ -32,9 +39,10 @@ function Remove-PfbUserGroupQuotaPolicyFileSystem {
     if ($MemberName) { $queryParams['member_names'] = $MemberName }
     if ($MemberId)   { $queryParams['member_ids']   = $MemberId }
 
-    $target = "${PolicyName}:${MemberName}"
+    $target = if ($PolicyName) { $PolicyName } else { $PolicyId }
+    $member = if ($MemberName) { $MemberName } else { $MemberId }
 
-    if ($PSCmdlet.ShouldProcess($target, 'Detach user-group-quota policy from file system')) {
+    if ($PSCmdlet.ShouldProcess("${target}:${member}", 'Detach user-group-quota policy from file system')) {
         Invoke-PfbApiRequest -Array $Array -Method DELETE -Endpoint 'user-group-quota-policies/file-systems' -QueryParams $queryParams
     }
 }

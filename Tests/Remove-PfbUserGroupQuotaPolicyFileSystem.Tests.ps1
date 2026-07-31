@@ -48,4 +48,18 @@ Describe 'Remove-PfbUserGroupQuotaPolicyFileSystem' {
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0
     }
+
+    It 'throws when neither -PolicyName nor -PolicyId is supplied' {
+        { InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Remove-PfbUserGroupQuotaPolicyFileSystem -MemberName 'fs1' -Confirm:$false -Array $arr
+        } } | Should -Throw 'You must supply either -PolicyName or -PolicyId.'
+    }
+
+    It 'throws when neither -MemberName nor -MemberId is supplied' {
+        { InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Remove-PfbUserGroupQuotaPolicyFileSystem -PolicyName 'pol-1' -Confirm:$false -Array $arr
+        } } | Should -Throw 'You must supply either -MemberName or -MemberId.'
+    }
 }
