@@ -506,6 +506,10 @@ Describe 'Build-PfbApiDriftReport (real generated artifacts, skips gracefully if
             # (tools/Build-PfbApiDriftReport.ps1's `cmdletCount = $_.CmdletCount`) but travel
             # through JSON serialization separately -- this catches a stale/mismatched field
             # surviving a future refactor, without caring how many cmdlets there actually are.
+            # The property-existence check guards against @($null).Count being 1 in
+            # PowerShell -- without it, a `cmdlets` property that vanished entirely from the
+            # manifest would be indistinguishable from one holding exactly one cmdlet.
+            $entry.PSObject.Properties.Name | Should -Contain 'cmdlets' -Because 'the cmdlets property must actually be present to compare its Count against cmdletCount'
             $entry.cmdletCount | Should -Be @($entry.cmdlets).Count -Because 'cmdletCount must match the actual cmdlets array length after JSON round-trip'
             $entry.cmdletCount | Should -BeGreaterThan 0 -Because "$fieldName is a widely-adopted convention; a drop to zero would be a real regression worth failing loudly for"
         }
