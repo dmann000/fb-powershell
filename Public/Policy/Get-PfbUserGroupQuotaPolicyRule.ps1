@@ -19,6 +19,8 @@ function Get-PfbUserGroupQuotaPolicyRule {
         Sort field and direction.
     .PARAMETER Limit
         Maximum number of items to return.
+    .PARAMETER TotalOnly
+        Return only the total count, not the items.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
@@ -40,10 +42,14 @@ function Get-PfbUserGroupQuotaPolicyRule {
         [Parameter()] [string]$Filter,
         [Parameter()] [string]$Sort,
         [Parameter()] [int]$Limit,
+        [Parameter()] [switch]$TotalOnly,
         [Parameter()] [PSCustomObject]$Array
     )
 
     begin {
+        if ($Name -and $Id) {
+            throw 'You cannot supply both -Name and -Id.'
+        }
         Assert-PfbConnection -Array ([ref]$Array)
         $allPolicyNames = [System.Collections.Generic.List[string]]::new()
         $allPolicyIds = [System.Collections.Generic.List[string]]::new()
@@ -58,11 +64,7 @@ function Get-PfbUserGroupQuotaPolicyRule {
         $queryParams = @{}
         if ($allPolicyNames.Count -gt 0) { $queryParams['policy_names'] = $allPolicyNames -join ',' }
         if ($allPolicyIds.Count -gt 0)   { $queryParams['policy_ids']   = $allPolicyIds -join ',' }
-        if ($Name) { $queryParams['names'] = $Name -join ',' }
-        if ($Id)   { $queryParams['ids']   = $Id -join ',' }
-        if ($Filter) { $queryParams['filter'] = $Filter }
-        if ($Sort)   { $queryParams['sort']   = $Sort }
-        if ($Limit -gt 0) { $queryParams['limit'] = $Limit }
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $Name -Ids $Id
 
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'user-group-quota-policies/rules' -QueryParams $queryParams -AutoPaginate
     }

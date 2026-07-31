@@ -19,6 +19,8 @@ function Get-PfbUserGroupQuotaPolicyFileSystem {
         Sort field and direction.
     .PARAMETER Limit
         Maximum number of items to return.
+    .PARAMETER TotalOnly
+        Return only the total count, not the items.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
@@ -35,6 +37,7 @@ function Get-PfbUserGroupQuotaPolicyFileSystem {
         [Parameter()] [string]$Filter,
         [Parameter()] [string]$Sort,
         [Parameter()] [int]$Limit,
+        [Parameter()] [switch]$TotalOnly,
         [Parameter()] [PSCustomObject]$Array
     )
 
@@ -45,9 +48,7 @@ function Get-PfbUserGroupQuotaPolicyFileSystem {
     if ($PolicyId)   { $queryParams['policy_ids']   = $PolicyId -join ',' }
     if ($MemberName) { $queryParams['member_names'] = $MemberName -join ',' }
     if ($MemberId)   { $queryParams['member_ids']   = $MemberId -join ',' }
-    if ($Filter) { $queryParams['filter'] = $Filter }
-    if ($Sort)   { $queryParams['sort']   = $Sort }
-    if ($Limit -gt 0) { $queryParams['limit'] = $Limit }
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
 
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'user-group-quota-policies/file-systems' -QueryParams $queryParams -AutoPaginate
 }

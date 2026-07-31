@@ -5,7 +5,7 @@ function Get-PfbFileSystemUser {
     .DESCRIPTION
         The Get-PfbFileSystemUser cmdlet returns user identities (UID/name/SID) associated
         with one or more file systems on the connected Pure Storage FlashBlade. Distinct from
-        Get-PfbUsageUser (per-user usage statistics) — this is identity/lookup data, useful
+        Get-PfbUsageUser (per-user usage statistics) -- this is identity/lookup data, useful
         for building -Subject hashtables for New-PfbUserGroupQuotaPolicyRule.
     .PARAMETER FileSystemName
         One or more file system names to filter by.
@@ -23,6 +23,8 @@ function Get-PfbFileSystemUser {
         Sort field and direction.
     .PARAMETER Limit
         Maximum number of items to return.
+    .PARAMETER TotalOnly
+        Return only the total count, not the items.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
@@ -38,6 +40,7 @@ function Get-PfbFileSystemUser {
         [Parameter()] [string]$Filter,
         [Parameter()] [string]$Sort,
         [Parameter()] [int]$Limit,
+        [Parameter()] [switch]$TotalOnly,
         [Parameter()] [PSCustomObject]$Array
     )
 
@@ -49,9 +52,7 @@ function Get-PfbFileSystemUser {
     if ($UserName) { $queryParams['user_names'] = $UserName -join ',' }
     if ($UserId)   { $queryParams['uids']       = $UserId -join ',' }
     if ($UserSid)  { $queryParams['user_sids']  = $UserSid -join ',' }
-    if ($Filter) { $queryParams['filter'] = $Filter }
-    if ($Sort)   { $queryParams['sort']   = $Sort }
-    if ($Limit -gt 0) { $queryParams['limit'] = $Limit }
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
 
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'file-systems/users' -QueryParams $queryParams -AutoPaginate
 }

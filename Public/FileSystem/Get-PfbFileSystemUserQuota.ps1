@@ -4,7 +4,9 @@ function Get-PfbFileSystemUserQuota {
         Retrieves per-user quota usage and limits for file systems on a FlashBlade array.
     .DESCRIPTION
         The Get-PfbFileSystemUserQuota cmdlet returns the effective user-group-quota-policy
-        usage/limit entries for individual users on one or more file systems.
+        usage/limit entries for individual users on one or more file systems. Distinct from
+        Get-PfbQuotaUser (the legacy per-filesystem purequota/purefs quota model) — this cmdlet
+        reports quotas from the newer policy-based user-group-quota-policy model.
     .PARAMETER FileSystemName
         One or more file system names to filter by.
     .PARAMETER FileSystemId
@@ -21,6 +23,8 @@ function Get-PfbFileSystemUserQuota {
         Sort field and direction.
     .PARAMETER Limit
         Maximum number of items to return.
+    .PARAMETER TotalOnly
+        Return only the total count, not the items.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
@@ -36,6 +40,7 @@ function Get-PfbFileSystemUserQuota {
         [Parameter()] [string]$Filter,
         [Parameter()] [string]$Sort,
         [Parameter()] [int]$Limit,
+        [Parameter()] [switch]$TotalOnly,
         [Parameter()] [PSCustomObject]$Array
     )
 
@@ -47,9 +52,7 @@ function Get-PfbFileSystemUserQuota {
     if ($UserName) { $queryParams['user_names'] = $UserName -join ',' }
     if ($UserId)   { $queryParams['uids']       = $UserId -join ',' }
     if ($UserSid)  { $queryParams['user_sids']  = $UserSid -join ',' }
-    if ($Filter) { $queryParams['filter'] = $Filter }
-    if ($Sort)   { $queryParams['sort']   = $Sort }
-    if ($Limit -gt 0) { $queryParams['limit'] = $Limit }
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
 
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'file-system-user-quotas' -QueryParams $queryParams -AutoPaginate
 }

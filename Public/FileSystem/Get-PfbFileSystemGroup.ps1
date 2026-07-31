@@ -5,7 +5,7 @@ function Get-PfbFileSystemGroup {
     .DESCRIPTION
         The Get-PfbFileSystemGroup cmdlet returns group identities (GID/name) associated with
         one or more file systems on the connected Pure Storage FlashBlade. Distinct from
-        Get-PfbUsageGroup (per-group usage statistics) — this is identity/lookup data, useful
+        Get-PfbUsageGroup (per-group usage statistics) -- this is identity/lookup data, useful
         for building -Subject hashtables for New-PfbUserGroupQuotaPolicyRule.
     .PARAMETER FileSystemName
         One or more file system names to filter by.
@@ -21,6 +21,8 @@ function Get-PfbFileSystemGroup {
         Sort field and direction.
     .PARAMETER Limit
         Maximum number of items to return.
+    .PARAMETER TotalOnly
+        Return only the total count, not the items.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
@@ -35,6 +37,7 @@ function Get-PfbFileSystemGroup {
         [Parameter()] [string]$Filter,
         [Parameter()] [string]$Sort,
         [Parameter()] [int]$Limit,
+        [Parameter()] [switch]$TotalOnly,
         [Parameter()] [PSCustomObject]$Array
     )
 
@@ -45,9 +48,7 @@ function Get-PfbFileSystemGroup {
     if ($FileSystemId)   { $queryParams['file_system_ids']   = $FileSystemId -join ',' }
     if ($GroupName) { $queryParams['group_names'] = $GroupName -join ',' }
     if ($GroupId)   { $queryParams['gids']        = $GroupId -join ',' }
-    if ($Filter) { $queryParams['filter'] = $Filter }
-    if ($Sort)   { $queryParams['sort']   = $Sort }
-    if ($Limit -gt 0) { $queryParams['limit'] = $Limit }
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
 
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'file-systems/groups' -QueryParams $queryParams -AutoPaginate
 }

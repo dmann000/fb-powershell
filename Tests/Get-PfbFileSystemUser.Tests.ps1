@@ -47,4 +47,27 @@ Describe 'Get-PfbFileSystemUser' {
             $QueryParams['user_names'] -eq 'jdoe' -and $QueryParams['uids'] -eq '1001' -and $QueryParams['user_sids'] -eq 'S-1-5-1'
         }
     }
+
+    It 'honors falsy -Limit 0 and empty -Filter instead of dropping them' {
+        InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Get-PfbFileSystemUser -Filter '' -Limit 0 -Array $arr
+        }
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams.ContainsKey('filter') -and $QueryParams['filter'] -eq '' -and
+            $QueryParams.ContainsKey('limit') -and $QueryParams['limit'] -eq 0
+        }
+    }
+
+    It 'sends total_only=true when -TotalOnly is set' {
+        InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
+            param($arr)
+            Get-PfbFileSystemUser -TotalOnly -Array $arr
+        }
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['total_only'] -eq 'true'
+        }
+    }
 }
