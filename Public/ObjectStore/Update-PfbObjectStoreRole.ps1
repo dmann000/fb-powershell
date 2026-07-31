@@ -5,14 +5,28 @@ function Update-PfbObjectStoreRole {
     .DESCRIPTION
         Modifies the properties of an existing object store role, such as its
         description or assume-role policy document.
+
+        The individual typed parameters and the raw -Attributes hashtable are mutually
+        exclusive: they live in separate parameter sets, so PowerShell rejects a mixed
+        invocation at bind time rather than letting -Attributes silently override an
+        explicitly supplied value.
     .PARAMETER Name
         The name of the role to update.
     .PARAMETER Id
         The ID of the role to update.
+    .PARAMETER Account
+        Reference of the associated account.
+    .PARAMETER MaxSessionDuration
+        The maximum session duration for the role in milliseconds.
     .PARAMETER Attributes
-        A hashtable of role properties to update.
+        A hashtable of role properties to update. Mutually exclusive with the
+        individual typed parameters above.
     .PARAMETER Array
         The FlashBlade connection object.
+    .EXAMPLE
+        Update-PfbObjectStoreRole -Name "s3-admin-role" -MaxSessionDuration 3600000
+
+        Sets the maximum session duration for the role using a typed parameter.
     .EXAMPLE
         Update-PfbObjectStoreRole -Name "s3-admin-role" -Attributes @{
             description = "Updated admin role description"
@@ -27,15 +41,27 @@ function Update-PfbObjectStoreRole {
         Update-PfbObjectStoreRole -Name "replication-role" -Attributes @{}
         Sends an empty update to refresh the role object.
     #>
-    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium',
+                   DefaultParameterSetName = 'ByNameIndividual')]
     param(
-        [Parameter(ParameterSetName = 'ByName', Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(ParameterSetName = 'ByNameIndividual', Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(ParameterSetName = 'ByNameAttributes',  Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [string]$Name,
 
-        [Parameter(ParameterSetName = 'ById', Mandatory)]
+        [Parameter(ParameterSetName = 'ByIdIndividual', Mandatory)]
+        [Parameter(ParameterSetName = 'ByIdAttributes',  Mandatory)]
         [string]$Id,
 
-        [Parameter()]
+        [Parameter(ParameterSetName = 'ByNameIndividual')]
+        [Parameter(ParameterSetName = 'ByIdIndividual')]
+        [string]$Account,
+
+        [Parameter(ParameterSetName = 'ByNameIndividual')]
+        [Parameter(ParameterSetName = 'ByIdIndividual')]
+        [int]$MaxSessionDuration,
+
+        [Parameter(ParameterSetName = 'ByNameAttributes', Mandatory)]
+        [Parameter(ParameterSetName = 'ByIdAttributes',   Mandatory)]
         [hashtable]$Attributes,
 
         [Parameter()] [PSCustomObject]$Array
@@ -46,12 +72,27 @@ function Update-PfbObjectStoreRole {
     }
 
     process {
-        $target = if ($Name) { $Name } else { $Id }
-        $body = if ($Attributes) { $Attributes } else { @{} }
         $queryParams = @{}
         if ($Name) { $queryParams['names'] = $Name }
         if ($Id)   { $queryParams['ids']   = $Id }
 
+        if ($PSCmdlet.ParameterSetName -like '*Attributes') {
+            $body = $Attributes
+        }
+        else {
+            $body = @{}
+
+            # Constraint 8(a): account is a SCALAR REFERENCE (item schema is {id, name,
+            # resource_type}), so the parameter is [string] and the projection is assigned
+            # INLINE -- constraint 7 forbids a local variable here.
+            if ($PSBoundParameters.ContainsKey('Account')) { $body['account'] = @{ name = $Account } }
+
+            # Constraint 2: integer body field -- guarded by ContainsKey, not truthiness, so
+            # an explicit -MaxSessionDuration 0 still reaches the wire.
+            if ($PSBoundParameters.ContainsKey('MaxSessionDuration')) { $body['max_session_duration'] = $MaxSessionDuration }
+        }
+
+        $target = if ($Name) { $Name } else { $Id }
         if ($PSCmdlet.ShouldProcess($target, 'Update object store role')) {
             Invoke-PfbApiRequest -Array $Array -Method PATCH -Endpoint 'object-store-roles' -Body $body -QueryParams $queryParams
         }

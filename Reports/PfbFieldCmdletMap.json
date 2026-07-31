@@ -935,7 +935,7 @@
     {
       "cmdlet": "New-PfbApiToken",
       "parameter": "Name",
-      "wireName": "names",
+      "wireName": "admin_names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -945,7 +945,17 @@
     {
       "cmdlet": "New-PfbApiToken",
       "parameter": "Id",
-      "wireName": "ids",
+      "wireName": "admin_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbApiToken",
+      "parameter": "Timeout",
+      "wireName": "timeout",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -1413,6 +1423,66 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbAdmin",
+      "parameter": "AuthorizationModel",
+      "wireName": "authorization_model",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbAdmin",
+      "parameter": "Locked",
+      "wireName": "locked",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbAdmin",
+      "parameter": "ManagementAccessPolicies",
+      "wireName": "management_access_policies",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbAdmin",
+      "parameter": "OldPassword",
+      "wireName": "old_password",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbAdmin",
+      "parameter": "Password",
+      "wireName": "password",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbAdmin",
+      "parameter": "PublicKey",
+      "wireName": "public_key",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbApiClient",
       "parameter": "Name",
       "wireName": "names",
@@ -1426,6 +1496,16 @@
       "cmdlet": "Update-PfbApiClient",
       "parameter": "Id",
       "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbApiClient",
+      "parameter": "Enabled",
+      "wireName": "enabled",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -1453,6 +1533,56 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbManagementAccessPolicy",
+      "parameter": "AggregationStrategy",
+      "wireName": "aggregation_strategy",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbManagementAccessPolicy",
+      "parameter": "Enabled",
+      "wireName": "enabled",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbManagementAccessPolicy",
+      "parameter": "Location",
+      "wireName": "location",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbManagementAccessPolicy",
+      "parameter": "NewName",
+      "wireName": "name",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbManagementAccessPolicy",
+      "parameter": "Rules",
+      "wireName": "rules",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbOidcIdp",
       "parameter": "Name",
       "wireName": "names",
@@ -1473,6 +1603,46 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbOidcIdp",
+      "parameter": "Enabled",
+      "wireName": "enabled",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbOidcIdp",
+      "parameter": "Idp",
+      "wireName": "idp",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbOidcIdp",
+      "parameter": "NewName",
+      "wireName": "name",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbOidcIdp",
+      "parameter": "Services",
+      "wireName": "services",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbSaml2Idp",
       "parameter": "Name",
       "wireName": "names",
@@ -1486,6 +1656,86 @@
       "cmdlet": "Update-PfbSaml2Idp",
       "parameter": "Id",
       "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSaml2Idp",
+      "parameter": "ArrayUrl",
+      "wireName": "array_url",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSaml2Idp",
+      "parameter": "Binding",
+      "wireName": "binding",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSaml2Idp",
+      "parameter": "Enabled",
+      "wireName": "enabled",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSaml2Idp",
+      "parameter": "Idp",
+      "wireName": "idp",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSaml2Idp",
+      "parameter": "Management",
+      "wireName": "management",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSaml2Idp",
+      "parameter": "NewName",
+      "wireName": "name",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSaml2Idp",
+      "parameter": "Services",
+      "wireName": "services",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSaml2Idp",
+      "parameter": "Sp",
+      "wireName": "sp",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -3275,7 +3525,7 @@
     {
       "cmdlet": "Update-PfbBucketAuditFilter",
       "parameter": "MemberName",
-      "wireName": "member_names",
+      "wireName": "bucket_names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -3285,7 +3535,37 @@
     {
       "cmdlet": "Update-PfbBucketAuditFilter",
       "parameter": "MemberId",
-      "wireName": "member_ids",
+      "wireName": "bucket_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbBucketAuditFilter",
+      "parameter": "FilterNames",
+      "wireName": "names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbBucketAuditFilter",
+      "parameter": "Actions",
+      "wireName": "actions",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbBucketAuditFilter",
+      "parameter": "S3Prefixes",
+      "wireName": "s3_prefixes",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -3593,6 +3873,26 @@
       "recommendation": null
     },
     {
+      "cmdlet": "New-PfbCertificateCertificateGroup",
+      "parameter": "CertificateId",
+      "wireName": "certificate_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbCertificateCertificateGroup",
+      "parameter": "CertificateGroupId",
+      "wireName": "certificate_group_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "New-PfbCertificateGroup",
       "parameter": "Name",
       "wireName": "names",
@@ -3676,6 +3976,166 @@
       "cmdlet": "Update-PfbCertificate",
       "parameter": "Id",
       "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbCertificate",
+      "parameter": "GenerateNewKey",
+      "wireName": "generate_new_key",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbCertificate",
+      "parameter": "Certificate",
+      "wireName": "certificate",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbCertificate",
+      "parameter": "CommonName",
+      "wireName": "common_name",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbCertificate",
+      "parameter": "Country",
+      "wireName": "country",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbCertificate",
+      "parameter": "Days",
+      "wireName": "days",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbCertificate",
+      "parameter": "Email",
+      "wireName": "email",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbCertificate",
+      "parameter": "IntermediateCertificate",
+      "wireName": "intermediate_certificate",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbCertificate",
+      "parameter": "KeyAlgorithm",
+      "wireName": "key_algorithm",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbCertificate",
+      "parameter": "KeySize",
+      "wireName": "key_size",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbCertificate",
+      "parameter": "Locality",
+      "wireName": "locality",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbCertificate",
+      "parameter": "Organization",
+      "wireName": "organization",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbCertificate",
+      "parameter": "OrganizationalUnit",
+      "wireName": "organizational_unit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbCertificate",
+      "parameter": "Passphrase",
+      "wireName": "passphrase",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbCertificate",
+      "parameter": "PrivateKey",
+      "wireName": "private_key",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbCertificate",
+      "parameter": "State",
+      "wireName": "state",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbCertificate",
+      "parameter": "SubjectAlternativeNames",
+      "wireName": "subject_alternative_names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -4613,6 +5073,86 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbActiveDirectory",
+      "parameter": "CaCertificate",
+      "wireName": "ca_certificate",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbActiveDirectory",
+      "parameter": "CaCertificateGroup",
+      "wireName": "ca_certificate_group",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbActiveDirectory",
+      "parameter": "DirectoryServers",
+      "wireName": "directory_servers",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbActiveDirectory",
+      "parameter": "Fqdns",
+      "wireName": "fqdns",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbActiveDirectory",
+      "parameter": "GlobalCatalogServers",
+      "wireName": "global_catalog_servers",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbActiveDirectory",
+      "parameter": "JoinOu",
+      "wireName": "join_ou",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbActiveDirectory",
+      "parameter": "KerberosServers",
+      "wireName": "kerberos_servers",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbActiveDirectory",
+      "parameter": "ServicePrincipalNames",
+      "wireName": "service_principal_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbDirectoryServiceRole",
       "parameter": "Name",
       "wireName": "names",
@@ -4626,6 +5166,26 @@
       "cmdlet": "Update-PfbDirectoryServiceRole",
       "parameter": "Id",
       "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbDirectoryServiceRole",
+      "parameter": "Group",
+      "wireName": "group",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbDirectoryServiceRole",
+      "parameter": "GroupBase",
+      "wireName": "group_base",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -5883,6 +6443,56 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbFileSystemExport",
+      "parameter": "ExportName",
+      "wireName": "export_name",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbFileSystemExport",
+      "parameter": "Member",
+      "wireName": "member",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbFileSystemExport",
+      "parameter": "Policy",
+      "wireName": "policy",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbFileSystemExport",
+      "parameter": "Server",
+      "wireName": "server",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbFileSystemExport",
+      "parameter": "SharePolicy",
+      "wireName": "share_policy",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Get-PfbFileSystemSnapshot",
       "parameter": "Name",
       "wireName": "names",
@@ -6503,6 +7113,16 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbHardware",
+      "parameter": "IdentifyEnabled",
+      "wireName": "identify_enabled",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbHardwareConnector",
       "parameter": "Name",
       "wireName": "names",
@@ -6516,6 +7136,46 @@
       "cmdlet": "Update-PfbHardwareConnector",
       "parameter": "Id",
       "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbHardwareConnector",
+      "parameter": "LaneSpeed",
+      "wireName": "lane_speed",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbHardwareConnector",
+      "parameter": "LanesPerPort",
+      "wireName": "lanes_per_port",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbHardwareConnector",
+      "parameter": "PortCount",
+      "wireName": "port_count",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbHardwareConnector",
+      "parameter": "PortSpeed",
+      "wireName": "port_speed",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -7254,8 +7914,8 @@
     },
     {
       "cmdlet": "New-PfbLegalHoldEntity",
-      "parameter": "HoldName",
-      "wireName": "hold_names",
+      "parameter": "FileSystemIds",
+      "wireName": "file_system_ids",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -7264,8 +7924,48 @@
     },
     {
       "cmdlet": "New-PfbLegalHoldEntity",
-      "parameter": "MemberName",
-      "wireName": "member_names",
+      "parameter": "FileSystemNames",
+      "wireName": "file_system_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbLegalHoldEntity",
+      "parameter": "Ids",
+      "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbLegalHoldEntity",
+      "parameter": "Names",
+      "wireName": "names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbLegalHoldEntity",
+      "parameter": "Paths",
+      "wireName": "paths",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbLegalHoldEntity",
+      "parameter": "Recursive",
+      "wireName": "recursive",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -7443,6 +8143,36 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbKmip",
+      "parameter": "CaCertificate",
+      "wireName": "ca_certificate",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbKmip",
+      "parameter": "CaCertificateGroup",
+      "wireName": "ca_certificate_group",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbKmip",
+      "parameter": "Uris",
+      "wireName": "uris",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbLag",
       "parameter": "Name",
       "wireName": "names",
@@ -7463,6 +8193,36 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbLag",
+      "parameter": "AddPorts",
+      "wireName": "add_ports",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLag",
+      "parameter": "Ports",
+      "wireName": "ports",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLag",
+      "parameter": "RemovePorts",
+      "wireName": "remove_ports",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbLegalHold",
       "parameter": "Name",
       "wireName": "names",
@@ -7476,6 +8236,16 @@
       "cmdlet": "Update-PfbLegalHold",
       "parameter": "Id",
       "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLegalHold",
+      "parameter": "Description",
+      "wireName": "description",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -7493,6 +8263,66 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbLegalHoldEntity",
+      "parameter": "FileSystemIds",
+      "wireName": "file_system_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLegalHoldEntity",
+      "parameter": "FileSystemNames",
+      "wireName": "file_system_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLegalHoldEntity",
+      "parameter": "Ids",
+      "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLegalHoldEntity",
+      "parameter": "Paths",
+      "wireName": "paths",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLegalHoldEntity",
+      "parameter": "Recursive",
+      "wireName": "recursive",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLegalHoldEntity",
+      "parameter": "Released",
+      "wireName": "released",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbLifecycleRule",
       "parameter": "Name",
       "wireName": "names",
@@ -7506,6 +8336,96 @@
       "cmdlet": "Update-PfbLifecycleRule",
       "parameter": "Id",
       "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLifecycleRule",
+      "parameter": "BucketIds",
+      "wireName": "bucket_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLifecycleRule",
+      "parameter": "BucketNames",
+      "wireName": "bucket_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLifecycleRule",
+      "parameter": "ConfirmDate",
+      "wireName": "confirm_date",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLifecycleRule",
+      "parameter": "AbortIncompleteMultipartUploadsAfter",
+      "wireName": "abort_incomplete_multipart_uploads_after",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLifecycleRule",
+      "parameter": "Enabled",
+      "wireName": "enabled",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLifecycleRule",
+      "parameter": "KeepCurrentVersionFor",
+      "wireName": "keep_current_version_for",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLifecycleRule",
+      "parameter": "KeepCurrentVersionUntil",
+      "wireName": "keep_current_version_until",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLifecycleRule",
+      "parameter": "KeepPreviousVersionFor",
+      "wireName": "keep_previous_version_for",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLifecycleRule",
+      "parameter": "Prefix",
+      "wireName": "prefix",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -8063,6 +8983,36 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbAsyncLog",
+      "parameter": "EndTime",
+      "wireName": "end_time",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbAsyncLog",
+      "parameter": "HardwareComponents",
+      "wireName": "hardware_components",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbAsyncLog",
+      "parameter": "StartTime",
+      "wireName": "start_time",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbLogTargetFileSystem",
       "parameter": "Name",
       "wireName": "names",
@@ -8083,6 +9033,46 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbLogTargetFileSystem",
+      "parameter": "FileSystem",
+      "wireName": "file_system",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLogTargetFileSystem",
+      "parameter": "KeepFor",
+      "wireName": "keep_for",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLogTargetFileSystem",
+      "parameter": "KeepSize",
+      "wireName": "keep_size",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLogTargetFileSystem",
+      "parameter": "NewName",
+      "wireName": "name",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbLogTargetObjectStore",
       "parameter": "Name",
       "wireName": "names",
@@ -8097,6 +9087,46 @@
       "parameter": "Id",
       "wireName": "ids",
       "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLogTargetObjectStore",
+      "parameter": "Bucket",
+      "wireName": "bucket",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLogTargetObjectStore",
+      "parameter": "LogNamePrefix",
+      "wireName": "log_name_prefix",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLogTargetObjectStore",
+      "parameter": "LogRotate",
+      "wireName": "log_rotate",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbLogTargetObjectStore",
+      "parameter": "NewName",
+      "wireName": "name",
+      "status": "not-found-in-resource",
       "matchedKey": null,
       "specValues": null,
       "stableSinceOldestVersion": null,
@@ -8143,6 +9173,46 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbSnmpManager",
+      "parameter": "SnmpHost",
+      "wireName": "host",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSnmpManager",
+      "parameter": "NewName",
+      "wireName": "name",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSnmpManager",
+      "parameter": "V2c",
+      "wireName": "v2c",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSnmpManager",
+      "parameter": "V3",
+      "wireName": "v3",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbSyslogServer",
       "parameter": "Name",
       "wireName": "names",
@@ -8156,6 +9226,26 @@
       "cmdlet": "Update-PfbSyslogServer",
       "parameter": "Id",
       "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSyslogServer",
+      "parameter": "Sources",
+      "wireName": "sources",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSyslogServer",
+      "parameter": "Uri",
+      "wireName": "uri",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -8753,6 +9843,16 @@
       "recommendation": null
     },
     {
+      "cmdlet": "New-PfbNetworkInterface",
+      "parameter": "AttachedServers",
+      "wireName": "attached_servers",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "New-PfbNetworkInterfaceTlsPolicy",
       "parameter": "MemberName",
       "wireName": "member_names",
@@ -8766,6 +9866,26 @@
       "cmdlet": "New-PfbNetworkInterfaceTlsPolicy",
       "parameter": "PolicyName",
       "wireName": "policy_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNetworkInterfaceTlsPolicy",
+      "parameter": "MemberId",
+      "wireName": "member_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNetworkInterfaceTlsPolicy",
+      "parameter": "PolicyId",
+      "wireName": "policy_ids",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -8933,6 +10053,76 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbDns",
+      "parameter": "Name",
+      "wireName": "names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbDns",
+      "parameter": "Id",
+      "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbDns",
+      "parameter": "CaCertificate",
+      "wireName": "ca_certificate",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbDns",
+      "parameter": "CaCertificateGroup",
+      "wireName": "ca_certificate_group",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbDns",
+      "parameter": "NewName",
+      "wireName": "name",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbDns",
+      "parameter": "Services",
+      "wireName": "services",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbDns",
+      "parameter": "Sources",
+      "wireName": "sources",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbNetworkInterface",
       "parameter": "Name",
       "wireName": "names",
@@ -8963,6 +10153,36 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbNetworkInterface",
+      "parameter": "AttachedServers",
+      "wireName": "attached_servers",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbNetworkInterface",
+      "parameter": "RdmaEnabled",
+      "wireName": "rdma_enabled",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbNetworkInterface",
+      "parameter": "Services",
+      "wireName": "services",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbNetworkInterfaceConnector",
       "parameter": "Name",
       "wireName": "names",
@@ -8976,6 +10196,46 @@
       "cmdlet": "Update-PfbNetworkInterfaceConnector",
       "parameter": "Id",
       "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbNetworkInterfaceConnector",
+      "parameter": "LaneSpeed",
+      "wireName": "lane_speed",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbNetworkInterfaceConnector",
+      "parameter": "LanesPerPort",
+      "wireName": "lanes_per_port",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbNetworkInterfaceConnector",
+      "parameter": "PortCount",
+      "wireName": "port_count",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbNetworkInterfaceConnector",
+      "parameter": "PortSpeed",
+      "wireName": "port_speed",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -9026,6 +10286,26 @@
       "cmdlet": "Update-PfbSubnet",
       "parameter": "Mtu",
       "wireName": "mtu",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSubnet",
+      "parameter": "LinkAggregationGroup",
+      "wireName": "link_aggregation_group",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSubnet",
+      "parameter": "Vlan",
+      "wireName": "vlan",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -9245,7 +10525,7 @@
     {
       "cmdlet": "New-PfbNodeGroupNode",
       "parameter": "GroupName",
-      "wireName": "group_names",
+      "wireName": "node_group_names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -9255,7 +10535,27 @@
     {
       "cmdlet": "New-PfbNodeGroupNode",
       "parameter": "MemberName",
-      "wireName": "member_names",
+      "wireName": "node_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNodeGroupNode",
+      "parameter": "GroupId",
+      "wireName": "node_group_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNodeGroupNode",
+      "parameter": "MemberId",
+      "wireName": "node_ids",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -9323,6 +10623,46 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbNode",
+      "parameter": "ManagementAddress",
+      "wireName": "management_address",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbNode",
+      "parameter": "NewName",
+      "wireName": "name",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbNode",
+      "parameter": "NodeKey",
+      "wireName": "node_key",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbNode",
+      "parameter": "SerialNumber",
+      "wireName": "serial_number",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbNodeGroup",
       "parameter": "Name",
       "wireName": "names",
@@ -9337,6 +10677,16 @@
       "parameter": "Id",
       "wireName": "ids",
       "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbNodeGroup",
+      "parameter": "NewName",
+      "wireName": "name",
+      "status": "not-found-in-resource",
       "matchedKey": null,
       "specValues": null,
       "stableSinceOldestVersion": null,
@@ -10853,6 +12203,26 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbObjectStoreAccountExport",
+      "parameter": "ExportEnabled",
+      "wireName": "export_enabled",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbObjectStoreAccountExport",
+      "parameter": "Policy",
+      "wireName": "policy",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbObjectStoreRemoteCredential",
       "parameter": "Name",
       "wireName": "names",
@@ -10873,6 +12243,46 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbObjectStoreRemoteCredential",
+      "parameter": "AccessKeyId",
+      "wireName": "access_key_id",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbObjectStoreRemoteCredential",
+      "parameter": "NewName",
+      "wireName": "name",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbObjectStoreRemoteCredential",
+      "parameter": "Remote",
+      "wireName": "remote",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbObjectStoreRemoteCredential",
+      "parameter": "SecretAccessKey",
+      "wireName": "secret_access_key",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbObjectStoreRole",
       "parameter": "Name",
       "wireName": "names",
@@ -10886,6 +12296,26 @@
       "cmdlet": "Update-PfbObjectStoreRole",
       "parameter": "Id",
       "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbObjectStoreRole",
+      "parameter": "Account",
+      "wireName": "account",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbObjectStoreRole",
+      "parameter": "MaxSessionDuration",
+      "wireName": "max_session_duration",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -10916,6 +12346,56 @@
       "cmdlet": "Update-PfbObjectStoreVirtualHost",
       "parameter": "Id",
       "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbObjectStoreVirtualHost",
+      "parameter": "AddAttachedServers",
+      "wireName": "add_attached_servers",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbObjectStoreVirtualHost",
+      "parameter": "AttachedServers",
+      "wireName": "attached_servers",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbObjectStoreVirtualHost",
+      "parameter": "Hostname",
+      "wireName": "hostname",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbObjectStoreVirtualHost",
+      "parameter": "NewName",
+      "wireName": "name",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbObjectStoreVirtualHost",
+      "parameter": "RemoveAttachedServers",
+      "wireName": "remove_attached_servers",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -13028,6 +14508,56 @@
       "recommendation": null
     },
     {
+      "cmdlet": "New-PfbNetworkAccessRule",
+      "parameter": "Client",
+      "wireName": "client",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNetworkAccessRule",
+      "parameter": "Index",
+      "wireName": "index",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNetworkAccessRule",
+      "parameter": "BeforeRuleId",
+      "wireName": "before_rule_id",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNetworkAccessRule",
+      "parameter": "BeforeRuleName",
+      "wireName": "before_rule_name",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNetworkAccessRule",
+      "parameter": "Versions",
+      "wireName": "versions",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "New-PfbNfsExportPolicy",
       "parameter": "Name",
       "wireName": "names",
@@ -13051,6 +14581,126 @@
       "cmdlet": "New-PfbNfsExportRule",
       "parameter": "PolicyId",
       "wireName": "policy_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNfsExportRule",
+      "parameter": "Anongid",
+      "wireName": "anongid",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNfsExportRule",
+      "parameter": "Anonuid",
+      "wireName": "anonuid",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNfsExportRule",
+      "parameter": "Atime",
+      "wireName": "atime",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNfsExportRule",
+      "parameter": "Client",
+      "wireName": "client",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNfsExportRule",
+      "parameter": "Fileid32bit",
+      "wireName": "fileid_32bit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNfsExportRule",
+      "parameter": "Index",
+      "wireName": "index",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNfsExportRule",
+      "parameter": "Policy",
+      "wireName": "policy",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNfsExportRule",
+      "parameter": "Secure",
+      "wireName": "secure",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNfsExportRule",
+      "parameter": "Security",
+      "wireName": "security",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNfsExportRule",
+      "parameter": "BeforeRuleId",
+      "wireName": "before_rule_id",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNfsExportRule",
+      "parameter": "BeforeRuleName",
+      "wireName": "before_rule_name",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbNfsExportRule",
+      "parameter": "Versions",
+      "wireName": "versions",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -13139,8 +14789,8 @@
     },
     {
       "cmdlet": "New-PfbPolicyFileSystemReplicaLink",
-      "parameter": "MemberName",
-      "wireName": "member_names",
+      "parameter": "LocalFileSystemName",
+      "wireName": "local_file_system_names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -13151,6 +14801,36 @@
       "cmdlet": "New-PfbPolicyFileSystemReplicaLink",
       "parameter": "MemberId",
       "wireName": "member_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbPolicyFileSystemReplicaLink",
+      "parameter": "LocalFileSystemId",
+      "wireName": "local_file_system_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbPolicyFileSystemReplicaLink",
+      "parameter": "RemoteName",
+      "wireName": "remote_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbPolicyFileSystemReplicaLink",
+      "parameter": "RemoteId",
+      "wireName": "remote_ids",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -13208,6 +14888,16 @@
       "recommendation": null
     },
     {
+      "cmdlet": "New-PfbQosPolicyMember",
+      "parameter": "MemberType",
+      "wireName": "member_types",
+      "status": "collision",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "New-PfbS3ExportPolicy",
       "parameter": "Name",
       "wireName": "names",
@@ -13231,6 +14921,46 @@
       "cmdlet": "New-PfbS3ExportRule",
       "parameter": "PolicyId",
       "wireName": "policy_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbS3ExportRule",
+      "parameter": "Name",
+      "wireName": "names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbS3ExportRule",
+      "parameter": "Actions",
+      "wireName": "actions",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbS3ExportRule",
+      "parameter": "Effect",
+      "wireName": "effect",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbS3ExportRule",
+      "parameter": "Resources",
+      "wireName": "resources",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -13268,6 +14998,56 @@
       "recommendation": null
     },
     {
+      "cmdlet": "New-PfbSmbClientRule",
+      "parameter": "Client",
+      "wireName": "client",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbSmbClientRule",
+      "parameter": "Index",
+      "wireName": "index",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbSmbClientRule",
+      "parameter": "BeforeRuleId",
+      "wireName": "before_rule_id",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbSmbClientRule",
+      "parameter": "BeforeRuleName",
+      "wireName": "before_rule_name",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbSmbClientRule",
+      "parameter": "Versions",
+      "wireName": "versions",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "New-PfbSmbSharePolicy",
       "parameter": "Name",
       "wireName": "names",
@@ -13291,6 +15071,16 @@
       "cmdlet": "New-PfbSmbShareRule",
       "parameter": "PolicyId",
       "wireName": "policy_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbSmbShareRule",
+      "parameter": "Principal",
+      "wireName": "principal",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -14198,6 +15988,56 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbQosPolicy",
+      "parameter": "Enabled",
+      "wireName": "enabled",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbQosPolicy",
+      "parameter": "Location",
+      "wireName": "location",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbQosPolicy",
+      "parameter": "MaxTotalBytesPerSec",
+      "wireName": "max_total_bytes_per_sec",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbQosPolicy",
+      "parameter": "MaxTotalOpsPerSec",
+      "wireName": "max_total_ops_per_sec",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbQosPolicy",
+      "parameter": "NewName",
+      "wireName": "name",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbS3ExportPolicy",
       "parameter": "Name",
       "wireName": "names",
@@ -14308,6 +16148,56 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbSshCaPolicy",
+      "parameter": "Enabled",
+      "wireName": "enabled",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSshCaPolicy",
+      "parameter": "Location",
+      "wireName": "location",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSshCaPolicy",
+      "parameter": "NewName",
+      "wireName": "name",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSshCaPolicy",
+      "parameter": "SigningAuthority",
+      "wireName": "signing_authority",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbSshCaPolicy",
+      "parameter": "StaticAuthorizedPrincipals",
+      "wireName": "static_authorized_principals",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbStorageClassTieringPolicy",
       "parameter": "Name",
       "wireName": "names",
@@ -14321,6 +16211,56 @@
       "cmdlet": "Update-PfbStorageClassTieringPolicy",
       "parameter": "Id",
       "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbStorageClassTieringPolicy",
+      "parameter": "ArchivalRules",
+      "wireName": "archival_rules",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbStorageClassTieringPolicy",
+      "parameter": "Enabled",
+      "wireName": "enabled",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbStorageClassTieringPolicy",
+      "parameter": "Location",
+      "wireName": "location",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbStorageClassTieringPolicy",
+      "parameter": "NewName",
+      "wireName": "name",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbStorageClassTieringPolicy",
+      "parameter": "RetrievalRules",
+      "wireName": "retrieval_rules",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -14348,6 +16288,106 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbTlsPolicy",
+      "parameter": "ApplianceCertificate",
+      "wireName": "appliance_certificate",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbTlsPolicy",
+      "parameter": "ClientCertificatesRequired",
+      "wireName": "client_certificates_required",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbTlsPolicy",
+      "parameter": "DisabledTlsCiphers",
+      "wireName": "disabled_tls_ciphers",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbTlsPolicy",
+      "parameter": "Enabled",
+      "wireName": "enabled",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbTlsPolicy",
+      "parameter": "EnabledTlsCiphers",
+      "wireName": "enabled_tls_ciphers",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbTlsPolicy",
+      "parameter": "Location",
+      "wireName": "location",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbTlsPolicy",
+      "parameter": "MinTlsVersion",
+      "wireName": "min_tls_version",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbTlsPolicy",
+      "parameter": "NewName",
+      "wireName": "name",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbTlsPolicy",
+      "parameter": "TrustedClientCertificateAuthority",
+      "wireName": "trusted_client_certificate_authority",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbTlsPolicy",
+      "parameter": "VerifyClientCertificateTrust",
+      "wireName": "verify_client_certificate_trust",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbWormPolicy",
       "parameter": "Name",
       "wireName": "names",
@@ -14361,6 +16401,66 @@
       "cmdlet": "Update-PfbWormPolicy",
       "parameter": "Id",
       "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbWormPolicy",
+      "parameter": "DefaultRetention",
+      "wireName": "default_retention",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbWormPolicy",
+      "parameter": "Enabled",
+      "wireName": "enabled",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbWormPolicy",
+      "parameter": "Location",
+      "wireName": "location",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbWormPolicy",
+      "parameter": "MaxRetention",
+      "wireName": "max_retention",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbWormPolicy",
+      "parameter": "MinRetention",
+      "wireName": "min_retention",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbWormPolicy",
+      "parameter": "Mode",
+      "wireName": "mode",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -14890,7 +16990,7 @@
     {
       "cmdlet": "Update-PfbRealmDefaults",
       "parameter": "Name",
-      "wireName": "names",
+      "wireName": "realm_names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -14900,7 +17000,17 @@
     {
       "cmdlet": "Update-PfbRealmDefaults",
       "parameter": "Id",
-      "wireName": "ids",
+      "wireName": "realm_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbRealmDefaults",
+      "parameter": "ObjectStore",
+      "wireName": "object_store",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -15688,6 +17798,46 @@
       "recommendation": null
     },
     {
+      "cmdlet": "New-PfbArrayConnection",
+      "parameter": "CaCertificateGroup",
+      "wireName": "ca_certificate_group",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbArrayConnection",
+      "parameter": "Encrypted",
+      "wireName": "encrypted",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbArrayConnection",
+      "parameter": "Remote",
+      "wireName": "remote",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbArrayConnection",
+      "parameter": "Throttle",
+      "wireName": "throttle",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "New-PfbFileSystemReplicaLink",
       "parameter": "LocalFileSystemName",
       "wireName": "local_file_system_names",
@@ -15749,8 +17899,8 @@
     },
     {
       "cmdlet": "New-PfbFileSystemReplicaLinkPolicy",
-      "parameter": "MemberName",
-      "wireName": "member_names",
+      "parameter": "LocalFileSystemName",
+      "wireName": "local_file_system_names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -15761,6 +17911,36 @@
       "cmdlet": "New-PfbFileSystemReplicaLinkPolicy",
       "parameter": "MemberId",
       "wireName": "member_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbFileSystemReplicaLinkPolicy",
+      "parameter": "LocalFileSystemId",
+      "wireName": "local_file_system_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbFileSystemReplicaLinkPolicy",
+      "parameter": "RemoteId",
+      "wireName": "remote_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbFileSystemReplicaLinkPolicy",
+      "parameter": "RemoteName",
+      "wireName": "remote_names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -15779,8 +17959,18 @@
     },
     {
       "cmdlet": "New-PfbFleetMember",
-      "parameter": "MemberName",
-      "wireName": "member_names",
+      "parameter": "FleetId",
+      "wireName": "fleet_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbFleetMember",
+      "parameter": "Members",
+      "wireName": "members",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -15978,6 +18168,86 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbArrayConnection",
+      "parameter": "ManagementAddress",
+      "wireName": "management_address",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbArrayConnection",
+      "parameter": "ReplicationAddresses",
+      "wireName": "replication_addresses",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbArrayConnection",
+      "parameter": "CaCertificateGroup",
+      "wireName": "ca_certificate_group",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbArrayConnection",
+      "parameter": "Encrypted",
+      "wireName": "encrypted",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbArrayConnection",
+      "parameter": "Remote",
+      "wireName": "remote",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbArrayConnection",
+      "parameter": "Throttle",
+      "wireName": "throttle",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbArrayConnection",
+      "parameter": "RemoteId",
+      "wireName": "remote_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbArrayConnection",
+      "parameter": "RemoteName",
+      "wireName": "remote_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbFleet",
       "parameter": "Name",
       "wireName": "names",
@@ -15998,6 +18268,16 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Update-PfbFleet",
+      "parameter": "NewName",
+      "wireName": "name",
+      "status": "not-found-in-resource",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Update-PfbTarget",
       "parameter": "Name",
       "wireName": "names",
@@ -16012,6 +18292,36 @@
       "parameter": "Id",
       "wireName": "ids",
       "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbTarget",
+      "parameter": "Address",
+      "wireName": "address",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbTarget",
+      "parameter": "CaCertificateGroup",
+      "wireName": "ca_certificate_group",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbTarget",
+      "parameter": "NewName",
+      "wireName": "name",
+      "status": "not-found-in-resource",
       "matchedKey": null,
       "specValues": null,
       "stableSinceOldestVersion": null,
@@ -16089,6 +18399,16 @@
     },
     {
       "cmdlet": "New-PfbServer",
+      "parameter": "DnsName",
+      "wireName": "dns",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbServer",
       "parameter": "LocalDirectoryService",
       "wireName": "local_directory_service",
       "status": "no-spec-enum-found",
@@ -16131,6 +18451,16 @@
       "cmdlet": "Update-PfbServer",
       "parameter": "Id",
       "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbServer",
+      "parameter": "DnsName",
+      "wireName": "dns",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -16826,10 +19156,6 @@
       "parameter": "Name"
     },
     {
-      "cmdlet": "New-PfbNetworkInterface",
-      "parameter": "AttachedServers"
-    },
-    {
       "cmdlet": "New-PfbNodeGroup",
       "parameter": "Name"
     },
@@ -16951,15 +19277,7 @@
     },
     {
       "cmdlet": "New-PfbServer",
-      "parameter": "DnsName"
-    },
-    {
-      "cmdlet": "New-PfbServer",
       "parameter": "CreateDirectoryService"
-    },
-    {
-      "cmdlet": "Update-PfbServer",
-      "parameter": "DnsName"
     }
   ],
   "typedUnresolved": [

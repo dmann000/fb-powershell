@@ -453,14 +453,14 @@ Describe 'Get-PfbCmdletParameterInventory' {
         $rec.Surface | Should -Be 'Typed'
     }
 
-    It 'classifies a parameter fed through a pipeline transform as AttributesOnly, not a guessed wire name' {
-        # $AttachedServers is assigned via `@($AttachedServers | ForEach-Object { @{ name = $_ } })`
-        # -- deliberately NOT matched by the simple-assignment resolver. Since this cmdlet also
-        # has an -Attributes escape hatch, it must be classified AttributesOnly, not silently
-        # dropped and not force-matched to a wrong wire name.
+    It 'resolves a parameter fed through an array projection to its OUTER key' {
+        # $AttachedServers is assigned via `@($AttachedServers | ForEach-Object { @{ name = $_ } })`.
+        # PR #60 deliberately refused this shape rather than guess; the projection resolver now
+        # credits it with the outer key (`attached_servers`), which is the only name the
+        # capability map knows -- there is no `attached_servers.name` field in it.
         $rec = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureNetworkInterface' -and $_.Parameter -eq 'AttachedServers' }
-        $rec.WireName | Should -BeNullOrEmpty
-        $rec.Surface | Should -Be 'AttributesOnly'
+        $rec.WireName | Should -Be 'attached_servers'
+        $rec.Surface | Should -Be 'Typed'
     }
 
     It 'resolves a parameter with no -Attributes escape hatch via a simple assignment' {
@@ -839,12 +839,16 @@ Describe 'Nested single-key reference-object awareness' {
         Get-PfbNestedReferenceWireNameForParameter -FunctionAst $funcAst -ParameterName 'Policy' | Should -BeNullOrEmpty
     }
 
-    It 'refuses a nested value produced by a pipeline transform rather than referencing the parameter' {
+    It 'resolves a nested value produced by an array projection of the parameter' {
+        # Was 'refuses a nested value produced by a pipeline transform' under PR #60. The
+        # projection shape is now recognised; the shapes that genuinely cannot be attributed
+        # (multi-key items, $_.Member, filtered pipelines) are covered in the
+        # 'Array-of-references projection awareness' Describe block.
         $tokens = $null; $errs = $null
         $ast = [System.Management.Automation.Language.Parser]::ParseInput(
             'function Test-Fixture { param([string[]]$Servers) $body = @{}; $body["attached_servers"] = @($Servers | ForEach-Object { @{ name = $_ } }) }', [ref]$tokens, [ref]$errs)
         $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
-        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $funcAst -ParameterName 'Servers' | Should -BeNullOrEmpty
+        (Get-PfbNestedReferenceWireNameForParameter -FunctionAst $funcAst -ParameterName 'Servers').WireName | Should -Be 'attached_servers'
     }
 
     It 'refuses a non-literal outer key' {
@@ -853,6 +857,142 @@ Describe 'Nested single-key reference-object awareness' {
             'function Test-Fixture { param([string]$Name, [string]$Key) $body = @{}; $body[$Key] = @{ name = $Name } }', [ref]$tokens, [ref]$errs)
         $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
         Get-PfbNestedReferenceWireNameForParameter -FunctionAst $funcAst -ParameterName 'Name' | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Array-of-references projection awareness' {
+    # The API models a LIST of references as an array of single-key sub-objects, and the
+    # module builds it with `@($Param | ForEach-Object { @{ name = $_ } })`. The parameter's
+    # identity is the pipeline SOURCE -- the innermost value is $_, which names nothing --
+    # so this cannot route through Test-PfbWireValueIsParameter like the scalar form does.
+    # As with the scalar form, the wire name is the OUTER key.
+
+    BeforeAll {
+        function Get-TestFunctionAst {
+            param([string]$Source)
+            $tokens = $null; $errs = $null
+            $ast = [System.Management.Automation.Language.Parser]::ParseInput($Source, [ref]$tokens, [ref]$errs)
+            $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
+        }
+    }
+
+    It 'resolves an index-assigned projection to its outer key' {
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([string[]]$Servers) $body = @{}; $body["attached_servers"] = @($Servers | ForEach-Object { @{ name = $_ } }) }'
+        $result = Get-PfbNestedReferenceWireNameForParameter -FunctionAst $f -ParameterName 'Servers'
+        $result.WireName | Should -Be 'attached_servers'
+        $result.TargetVariable | Should -Be 'body'
+    }
+
+    It 'resolves a projection inside a hashtable-literal initializer' {
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([string[]]$DnsName) $body = @{ dns = @($DnsName | ForEach-Object { @{ name = $_ } }) } }'
+        (Get-PfbNestedReferenceWireNameForParameter -FunctionAst $f -ParameterName 'DnsName').WireName | Should -Be 'dns'
+    }
+
+    It 'resolves a projection that is not wrapped in @()' {
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([string[]]$Servers) $body = @{}; $body["attached_servers"] = $Servers | ForEach-Object { @{ name = $_ } } }'
+        (Get-PfbNestedReferenceWireNameForParameter -FunctionAst $f -ParameterName 'Servers').WireName | Should -Be 'attached_servers'
+    }
+
+    It 'accepts the % alias for ForEach-Object' {
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([string[]]$Servers) $body = @{}; $body["attached_servers"] = @($Servers | % { @{ name = $_ } }) }'
+        (Get-PfbNestedReferenceWireNameForParameter -FunctionAst $f -ParameterName 'Servers').WireName | Should -Be 'attached_servers'
+    }
+
+    It 'does not require the inner key to be "name"' {
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([string[]]$Ids) $body = @{}; $body["ports"] = @($Ids | ForEach-Object { @{ id = $_ } }) }'
+        (Get-PfbNestedReferenceWireNameForParameter -FunctionAst $f -ParameterName 'Ids').WireName | Should -Be 'ports'
+    }
+
+    It 'reports queryParams as the target variable when the projection is keyed there' {
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([string[]]$Servers) $queryParams = @{}; $queryParams["attached_servers"] = @($Servers | ForEach-Object { @{ name = $_ } }) }'
+        (Get-PfbNestedReferenceWireNameForParameter -FunctionAst $f -ParameterName 'Servers').TargetVariable | Should -Be 'queryParams'
+    }
+
+    It 'refuses a MULTI-key projection hashtable, whose per-field ownership cannot be attributed to one parameter' {
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([object[]]$Tags) $body = @{}; $body["tags"] = @($Tags | ForEach-Object { @{ key = $_; value = 1 } }) }'
+        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $f -ParameterName 'Tags' | Should -BeNullOrEmpty
+    }
+
+    It 'refuses an innermost value that is a member access rather than the bare $_' {
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([object[]]$Servers) $body = @{}; $body["attached_servers"] = @($Servers | ForEach-Object { @{ name = $_.Name } }) }'
+        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $f -ParameterName 'Servers' | Should -BeNullOrEmpty
+    }
+
+    It 'refuses an innermost value that is a bare variable OTHER than $_' {
+        # Mutation-table coverage (Step 7, "innermost is $_" guard): the member-access test
+        # above is caught earlier, by the VariableExpressionAst cast itself failing on
+        # `$_.Name`. This shape's innermost value IS a bare VariableExpressionAst, just not
+        # named `_` -- so only the UserPath -eq '_' check stops a constant, non-per-element
+        # value (here, a sibling parameter) from being wrongly credited to $Servers.
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([string[]]$Servers, [string]$Other) $body = @{}; $body["attached_servers"] = @($Servers | ForEach-Object { @{ name = $Other } }) }'
+        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $f -ParameterName 'Servers' | Should -BeNullOrEmpty
+    }
+
+    It 'refuses a projection whose pipeline source is a DIFFERENT parameter' {
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([string[]]$Servers, [string[]]$Other) $body = @{}; $body["attached_servers"] = @($Other | ForEach-Object { @{ name = $_ } }) }'
+        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $f -ParameterName 'Servers' | Should -BeNullOrEmpty
+    }
+
+    It 'refuses a projection whose pipeline source is not a bare variable' {
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([string[]]$Servers) $body = @{}; $body["attached_servers"] = @("literal" | ForEach-Object { @{ name = $_ } }) }'
+        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $f -ParameterName 'Servers' | Should -BeNullOrEmpty
+    }
+
+    It 'refuses a FILTERED pipeline -- the wire value is a subset, so the parameter does not cover the field' {
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([string[]]$Servers) $body = @{}; $body["attached_servers"] = @($Servers | Where-Object { $_ } | ForEach-Object { @{ name = $_ } }) }'
+        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $f -ParameterName 'Servers' | Should -BeNullOrEmpty
+    }
+
+    It 'refuses a ForEach-Object carrying arguments other than its script block' {
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([string[]]$Servers) $body = @{}; $body["attached_servers"] = @($Servers | ForEach-Object -Process { @{ name = $_ } }) }'
+        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $f -ParameterName 'Servers' | Should -BeNullOrEmpty
+    }
+
+    It 'refuses a projection keyed into a variable that is neither body nor queryParams' {
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([string[]]$Servers) $nfsBody = @{}; $nfsBody["attached_servers"] = @($Servers | ForEach-Object { @{ name = $_ } }) }'
+        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $f -ParameterName 'Servers' | Should -BeNullOrEmpty
+    }
+
+    It 'refuses a projection under a non-literal outer key' {
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([string[]]$Servers, [string]$Key) $body = @{}; $body[$Key] = @($Servers | ForEach-Object { @{ name = $_ } }) }'
+        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $f -ParameterName 'Servers' | Should -BeNullOrEmpty
+    }
+
+    It 'lets a DIRECT assignment win over a projection for the same parameter, whatever the source order' {
+        # The ordering guarantee that keeps this change strictly additive: projection matching
+        # lives inside the nested resolver, which runs as its own pass AFTER both direct-
+        # assignment passes, so it can only turn an unresolved parameter Typed -- never rename
+        # an already-resolved wire name. Mirrors the scalar-form test above.
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([string[]]$Servers) $body = @{}; $body["attached_servers"] = @($Servers | ForEach-Object { @{ name = $_ } }); $body["servers"] = @($Servers) }'
+        (Get-PfbWireNameForParameter -FunctionAst $f -ParameterName 'Servers').WireName | Should -Be 'servers'
+    }
+
+    It 'refuses a pipeline with a trailing step after ForEach-Object' {
+        # Mutation-table coverage (Step 7, "pipeline length" guard): the FILTERED-pipeline
+        # test above puts its extra stage BEFORE ForEach-Object, so it is (redundantly)
+        # also caught by the command-name check on element[1]. This shape puts the extra
+        # stage AFTER ForEach-Object, so element[1] genuinely IS ForEach-Object and only the
+        # pipeline-length check (`-ne 2`, not `-lt 2`) stops it being wrongly credited.
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([string[]]$Servers) $body = @{}; $body["attached_servers"] = @($Servers | ForEach-Object { @{ name = $_ } } | Sort-Object) }'
+        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $f -ParameterName 'Servers' | Should -BeNullOrEmpty
+    }
+
+    It 'refuses a ForEach-Object script block followed by a trailing named argument' {
+        # Mutation-table coverage (Step 7, "command arg count" guard): the existing
+        # `-Process { ... }` test above puts its extra argument BEFORE the script block, so
+        # index 1 is a CommandParameterAst and is (redundantly) also caught by the
+        # scriptBlockExpr cast. This shape puts the extra argument AFTER the script block, so
+        # index 1 genuinely IS the script block, and only the CommandElements.Count check
+        # (`-ne 2`, not `-lt 2`) stops it being wrongly credited.
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([string[]]$Servers) $body = @{}; $body["attached_servers"] = @($Servers | ForEach-Object { @{ name = $_ } } -ErrorAction Stop) }'
+        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $f -ParameterName 'Servers' | Should -BeNullOrEmpty
+    }
+
+    It 'refuses a projection piped through a command other than ForEach-Object/%' {
+        # Mutation-table coverage (Step 7, "command name" guard): dropping the
+        # -notin @('ForEach-Object','%') check would let any command through, e.g. `Get-Item`.
+        $f = Get-TestFunctionAst 'function Test-Fixture { param([string[]]$Servers) $body = @{}; $body["attached_servers"] = @($Servers | Get-Item { @{ name = $_ } }) }'
+        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $f -ParameterName 'Servers' | Should -BeNullOrEmpty
     }
 }
 
