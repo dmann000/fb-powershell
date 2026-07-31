@@ -729,7 +729,7 @@ Describe 'Build-PfbApiDriftReport (Task 8: regression canaries + spot-checks aga
             $t8PhantomExcludedSet.Count | Should -Be $t8Manifest.phantomFieldCount
         }
 
-        It 'restricting the same diff to high-confidence-only gaps reproduces the doc-comment-pinned 13' {
+        It 'restricting the same diff to high-confidence-only gaps still yields a non-vacuous phantom-exclusion set' {
             if (-not $t8HasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
             $populationHigh = @($t8PopulationRaw | Where-Object { $_.Confidence.Level -eq 'high' })
             $reportedHigh = @($t8ReportedRaw | Where-Object { $_.Confidence.Level -eq 'high' })
@@ -737,7 +737,14 @@ Describe 'Build-PfbApiDriftReport (Task 8: regression canaries + spot-checks aga
             $reportedHighSet = Get-T8TripleSet -Gaps $reportedHigh
             $phantomHighSet = [System.Collections.Generic.HashSet[string]]::new([string[]]@($populationHighSet))
             $phantomHighSet.ExceptWith([string[]]@($reportedHighSet))
-            $phantomHighSet.Count | Should -Be 13
+            # No independent recount is available here (unlike phantomFieldCount above, which
+            # self-consistency-checks against the manifest) -- so this can only assert
+            # non-vacuousness. The doc-comment example this used to pin against
+            # (tools/lib/PfbApiDriftTools.ps1's Get-PfbParameterCoverageGaps: "13 real
+            # (endpoint, field) pairs hit this against fb2.27 today") is illustrative prose,
+            # not a contract; pinning a test to that exact number reproduced the same
+            # live-data-literal anti-pattern this whole effort exists to remove.
+            $phantomHighSet.Count | Should -BeGreaterThan 0 -Because 'a vacuous/zero count would mean high-confidence phantom-field exclusion silently stopped happening without anyone noticing here'
         }
 
         It 'the in-memory reported set matches the real committed Reports/PfbApiDriftReport.json on disk exactly (no serialization-only divergence)' {
