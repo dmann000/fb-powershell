@@ -120,6 +120,7 @@ $scriptDir = $PSScriptRoot
 . (Join-Path $scriptDir 'lib/PfbValueEnumTools.ps1')
 . (Join-Path $scriptDir 'lib/PfbCmdletParamTools.ps1')
 . (Join-Path $scriptDir 'lib/PfbApiDriftTools.ps1')
+. (Join-Path $scriptDir 'lib/PfbContextRuleTools.ps1')
 
 $repoRoot = Split-Path -Parent $scriptDir
 if (-not $SpecsDirectory)      { $SpecsDirectory = Join-Path $scriptDir 'specs' }
@@ -538,6 +539,42 @@ $validateSetDrift = @(Get-PfbValidateSetDrift -CmdletInventory $inventory -Histo
 $newValidateSetCandidates = @($fieldCmdletMap.entries | Where-Object { $_.status -eq 'matched' } |
     ForEach-Object { [ordered]@{ cmdlet = $_.cmdlet; parameter = $_.parameter; wireName = $_.wireName; specValues = $_.specValues; recommendation = $_.recommendation } })
 
+# --- Category 5: spec-vs-module assumption (Fusion context_names verb rule) ---
+# Categorically different from categories 1-4. Those ask "does the module cover what the
+# API offers?"; this one asks "is an assumption baked into the module still true?". The
+# module's cardinality rule is EXECUTED from its single declared home
+# (Private/Test-PfbContextMultiValueCapable.ps1, dot-sourced by PfbContextRuleTools.ps1),
+# never re-derived here -- a check that re-implements its own rule verifies nothing.
+#
+# Sourced from the capability map, whose component data is last-seen-wins across
+# analysedVersions, i.e. it describes $newestAnalysedVersion's wire shape. Stated
+# explicitly in the Markdown section below, because this category's headline number
+# genuinely changes between REST versions (the one historical disagreement,
+# DELETE /management-access-policies, was present in fb2.26/fb2.27 and fixed upstream in
+# fb2.28) and an unlabelled count would be actively misleading.
+$contextFacts = @(Get-PfbContextParameterFact -CapabilityMap $capabilityMap)
+$contextRuleDisagreements = @(Get-PfbContextVerbRuleDisagreement -Fact $contextFacts |
+    ForEach-Object {
+        [ordered]@{
+            endpoint            = $_.Endpoint
+            method              = $_.Method
+            contextComponent    = $_.ContextComponent
+            ruleSaysMultiValue  = $_.RuleSaysMultiValue
+            specSaysMultiValue  = $_.SpecSaysMultiValue
+            declaresAllowErrors = $_.DeclaresAllowErrors
+            summary             = $_.Summary
+        }
+    })
+$contextAllowErrorsAnomalyResult = Get-PfbContextAllowErrorsAnomaly -Fact $contextFacts
+$contextAllowErrorsAnomalies = [ordered]@{
+    multiValueWithoutAllowErrors = @($contextAllowErrorsAnomalyResult.MultiValueWithoutAllowErrors |
+        ForEach-Object { [ordered]@{ endpoint = $_.Endpoint; method = $_.Method; contextComponent = $_.ContextComponent } })
+    singleValueWithAllowErrors   = @($contextAllowErrorsAnomalyResult.SingleValueWithAllowErrors |
+        ForEach-Object { [ordered]@{ endpoint = $_.Endpoint; method = $_.Method; contextComponent = $_.ContextComponent } })
+}
+$contextUnresolvedComponents = @(Get-PfbContextUnresolvedComponent -Fact $contextFacts |
+    ForEach-Object { [ordered]@{ endpoint = $_.Endpoint; method = $_.Method } })
+
 $manifest = [ordered]@{
     schemaVersion             = 1
     # See the generatedFrom-split block above: two distinctly-named keys instead of one
@@ -554,6 +591,15 @@ $manifest = [ordered]@{
     conventionStrength        = $conventionStrength
     validateSetDrift          = $validateSetDrift
     newValidateSetCandidates  = $newValidateSetCandidates
+    contextVerbRule           = [ordered]@{
+        # The version this category's numbers describe -- never omit it, see the block
+        # where these are computed.
+        componentSourceVersion       = $newestAnalysedVersion
+        endpointsWithContextNames    = $contextFacts.Count
+        disagreements                = $contextRuleDisagreements
+        allowErrorsAnomalies         = $contextAllowErrorsAnomalies
+        unresolvedComponents         = $contextUnresolvedComponents
+    }
 }
 
 $outputDir = Split-Path -Parent $OutputPath
@@ -608,6 +654,7 @@ $mdLines.Add("- Partial-confidence endpoints (see ``How to read this report`` ab
 $mdLines.Add("- Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): $($systemicGaps.Count)")
 $mdLines.Add("- ValidateSet drift: $($validateSetDrift.Count)")
 $mdLines.Add("- New ValidateSet candidates: $($newValidateSetCandidates.Count)")
+$mdLines.Add("- Context verb-rule disagreements (fb$newestAnalysedVersion): $($contextRuleDisagreements.Count)")
 
 if ($systemicGaps.Count -gt 0) {
     $mdLines.Add(''); $mdLines.Add('## Systemic gaps'); $mdLines.Add('')
@@ -688,6 +735,70 @@ if ($newValidateSetCandidates.Count -gt 0) {
     $mdLines.Add('| Cmdlet | Parameter | Spec values |'); $mdLines.Add('|---|---|---|')
     foreach ($c in $newValidateSetCandidates) { $mdLines.Add("| ``$($c.cmdlet)`` | ``-$($c.parameter)`` | $($c.specValues -join ', ') |") }
 }
+
+# Emitted UNCONDITIONALLY, unlike every section above -- for this category "nothing to
+# report" is itself the finding (the baked-in assumption still holds), and a section that
+# disappears when clean is indistinguishable from a section that never ran.
+$mdLines.Add(''); $mdLines.Add('## Spec-vs-module assumptions: `context_names` verb rule'); $mdLines.Add('')
+$mdLines.Add('Every category above asks *"does the module cover what the API offers?"*. This one asks a different question: *"is an assumption baked into the module still true?"*')
+$mdLines.Add('')
+$mdLines.Add('The module hardcodes a cardinality rule -- **`GET` is multi-context-capable; `POST`/`PUT`/`PATCH`/`DELETE` are single-context-only** -- declared in exactly one place, `Private/Test-PfbContextMultiValueCapable.ps1`, which this check *executes* rather than re-derives. The spec expresses the same property only through which component `context_names` `$ref`s: `Context_names_get` (multi-value) versus `Context_names` (size-1). Those components have identical schemas and there is no `maxItems` -- the size-1 restriction lives only in free-text `description` -- so the component name is the sole mechanical signal available to check the assumption against.')
+$mdLines.Add('')
+$mdLines.Add("Measured against **fb$newestAnalysedVersion** (the newest analysed version; the capability map's component data is last-seen-wins, so it describes that version's wire shape). $($contextFacts.Count) endpoints declare ``context_names``.")
+$mdLines.Add('')
+$mdLines.Add('**A disagreement is not automatically a spec bug.** The case worth catching is a genuine multi-context mutation endpoint, where the *module* would be the wrong side. A human decides which side is wrong, each time.')
+$mdLines.Add('')
+if ($contextRuleDisagreements.Count -eq 0) {
+    $mdLines.Add("**No disagreements.** The module rule and the spec's component identity agree on all $($contextFacts.Count) endpoints in fb$newestAnalysedVersion.")
+    $mdLines.Add('')
+    $mdLines.Add('For provenance: fb2.26 and fb2.27 each carried exactly one disagreement -- `DELETE /management-access-policies` referencing `Context_names_get` -- investigated and confirmed an upstream documentation defect, with no exception ever implemented in the module. REST 2.28 corrected that reference to `Context_names`. The module rule was right and was left untouched.')
+}
+else {
+    $mdLines.Add("**$($contextRuleDisagreements.Count) disagreement(s).**")
+    $mdLines.Add('')
+    $mdLines.Add('| Endpoint | Method | Referenced component | Module rule | Spec | Declares `allow_errors` |'); $mdLines.Add('|---|---|---|---|---|---|')
+    foreach ($d in $contextRuleDisagreements) {
+        $ruleCell = if ($d.ruleSaysMultiValue) { 'multi-value' } else { 'size-1' }
+        $specCell = if ($d.specSaysMultiValue) { 'multi-value' } else { 'size-1' }
+        $aeCell = if ($d.declaresAllowErrors) { 'yes' } else { 'no' }
+        $mdLines.Add("| ``$($d.endpoint)`` | $($d.method) | ``$($d.contextComponent)`` | $ruleCell | $specCell | $aeCell |")
+    }
+    $mdLines.Add('')
+    $mdLines.Add('`allow_errors` is corroborating evidence, not a cardinality signal: a genuinely multi-value endpoint would almost certainly declare it, so a multi-value component *without* it points towards a spec defect rather than a real API change.')
+}
+
+# Deliberately a SEPARATE subsection from the disagreement table above, and scoped to
+# endpoints where rule and spec AGREE on cardinality. These are a different anomaly;
+# conflating the two muddies both, and double-counting one endpoint as both would
+# overstate the problem.
+$mdLines.Add('')
+$mdLines.Add('### `allow_errors` co-occurrence anomalies')
+$mdLines.Add('')
+$mdLines.Add('Separate from the cardinality question above, and scoped to endpoints where the rule and the spec already agree -- so nothing listed here is also listed as a disagreement.')
+$mdLines.Add('')
+$multiWithoutAE = @($contextAllowErrorsAnomalies.multiValueWithoutAllowErrors)
+$singleWithAE = @($contextAllowErrorsAnomalies.singleValueWithAllowErrors)
+$mdLines.Add("**Agreed multi-value, but does not declare ``allow_errors`` ($($multiWithoutAE.Count)):**")
+$mdLines.Add('')
+if ($multiWithoutAE.Count -eq 0) { $mdLines.Add('_None._') }
+else { foreach ($m in $multiWithoutAE) { $mdLines.Add("- ``$($m.endpoint)``") } }
+$mdLines.Add('')
+$mdLines.Add("These matter for context injection: a caller with a multi-value context active would have ``allow_errors`` injected into an endpoint that does not declare it. Whether injection is *gated* on the endpoint declaring the parameter, or sent regardless, is a behavioural decision owned by the context-injection work -- this report states the affected endpoints and does not presume the answer.")
+$mdLines.Add('')
+$mdLines.Add("**Agreed size-1, but declares ``allow_errors`` ($($singleWithAE.Count)) -- the mirror image:**")
+$mdLines.Add('')
+if ($singleWithAE.Count -eq 0) { $mdLines.Add('_None._') }
+else { foreach ($s in $singleWithAE) { $mdLines.Add("- ``$($s.endpoint)``") } }
+
+if ($contextUnresolvedComponents.Count -gt 0) {
+    $mdLines.Add('')
+    $mdLines.Add("### Unresolved `context_names` components ($($contextUnresolvedComponents.Count))")
+    $mdLines.Add('')
+    $mdLines.Add('These endpoints declare `context_names` with no resolvable `$ref` component, so their cardinality cannot be checked at all. They are **not** scored as size-1 -- doing so would hide a genuine multi-value endpoint behind the module''s hardcoded throw.')
+    $mdLines.Add('')
+    foreach ($u in $contextUnresolvedComponents) { $mdLines.Add("- ``$($u.endpoint)``") }
+}
+
 $mdLines.Add('')
 
 Set-Content -Path $ReportPath -Value ($mdLines -join "`n") -Encoding UTF8
