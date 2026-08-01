@@ -319,18 +319,6 @@
       "minVersion": "2.24"
     },
     {
-      "endpoint": "GET /file-systems/user-group-quota-policies",
-      "minVersion": "2.25"
-    },
-    {
-      "endpoint": "POST /file-systems/user-group-quota-policies",
-      "minVersion": "2.25"
-    },
-    {
-      "endpoint": "DELETE /file-systems/user-group-quota-policies",
-      "minVersion": "2.25"
-    },
-    {
       "endpoint": "GET /file-system-junctions",
       "minVersion": "2.25"
     },
@@ -340,22 +328,6 @@
     },
     {
       "endpoint": "DELETE /file-system-junctions",
-      "minVersion": "2.25"
-    },
-    {
-      "endpoint": "GET /file-system-group-quotas",
-      "minVersion": "2.25"
-    },
-    {
-      "endpoint": "GET /file-systems/groups",
-      "minVersion": "2.25"
-    },
-    {
-      "endpoint": "GET /file-system-user-quotas",
-      "minVersion": "2.25"
-    },
-    {
-      "endpoint": "GET /file-systems/users",
       "minVersion": "2.25"
     },
     {
@@ -384,54 +356,6 @@
     },
     {
       "endpoint": "GET /remote-realms",
-      "minVersion": "2.25"
-    },
-    {
-      "endpoint": "GET /user-group-quota-policies",
-      "minVersion": "2.25"
-    },
-    {
-      "endpoint": "POST /user-group-quota-policies",
-      "minVersion": "2.25"
-    },
-    {
-      "endpoint": "PATCH /user-group-quota-policies",
-      "minVersion": "2.25"
-    },
-    {
-      "endpoint": "DELETE /user-group-quota-policies",
-      "minVersion": "2.25"
-    },
-    {
-      "endpoint": "GET /user-group-quota-policies/rules",
-      "minVersion": "2.25"
-    },
-    {
-      "endpoint": "POST /user-group-quota-policies/rules",
-      "minVersion": "2.25"
-    },
-    {
-      "endpoint": "DELETE /user-group-quota-policies/rules",
-      "minVersion": "2.25"
-    },
-    {
-      "endpoint": "PATCH /user-group-quota-policies/rules",
-      "minVersion": "2.25"
-    },
-    {
-      "endpoint": "GET /user-group-quota-policies/file-systems",
-      "minVersion": "2.25"
-    },
-    {
-      "endpoint": "POST /user-group-quota-policies/file-systems",
-      "minVersion": "2.25"
-    },
-    {
-      "endpoint": "DELETE /user-group-quota-policies/file-systems",
-      "minVersion": "2.25"
-    },
-    {
-      "endpoint": "GET /user-group-quota-policies/members",
       "minVersion": "2.25"
     },
     {
@@ -1230,6 +1154,24 @@
         ],
         "escapeHatchOnly": [],
         "caveat": "one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability"
+      },
+      "annotations": []
+    },
+    {
+      "endpoint": "DELETE /file-systems/user-group-quota-policies",
+      "cmdlets": [
+        "Remove-PfbFileSystemUserGroupQuotaPolicy"
+      ],
+      "missingQueryParameters": [
+        "context_names"
+      ],
+      "missingBodyProperties": [],
+      "readOnlyFields": [],
+      "confidence": {
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
       },
       "annotations": []
     },
@@ -2066,6 +2008,60 @@
       "endpoint": "DELETE /ssh-certificate-authority-policies/arrays",
       "cmdlets": [
         "Remove-PfbSshCaPolicyArray"
+      ],
+      "missingQueryParameters": [
+        "context_names"
+      ],
+      "missingBodyProperties": [],
+      "readOnlyFields": [],
+      "confidence": {
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
+      },
+      "annotations": []
+    },
+    {
+      "endpoint": "DELETE /user-group-quota-policies",
+      "cmdlets": [
+        "Remove-PfbUserGroupQuotaPolicy"
+      ],
+      "missingQueryParameters": [
+        "context_names"
+      ],
+      "missingBodyProperties": [],
+      "readOnlyFields": [],
+      "confidence": {
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
+      },
+      "annotations": []
+    },
+    {
+      "endpoint": "DELETE /user-group-quota-policies/file-systems",
+      "cmdlets": [
+        "Remove-PfbUserGroupQuotaPolicyFileSystem"
+      ],
+      "missingQueryParameters": [
+        "context_names"
+      ],
+      "missingBodyProperties": [],
+      "readOnlyFields": [],
+      "confidence": {
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
+      },
+      "annotations": []
+    },
+    {
+      "endpoint": "DELETE /user-group-quota-policies/rules",
+      "cmdlets": [
+        "Remove-PfbUserGroupQuotaPolicyRule"
       ],
       "missingQueryParameters": [
         "context_names"
@@ -3285,6 +3281,25 @@
       "annotations": []
     },
     {
+      "endpoint": "GET /file-system-group-quotas",
+      "cmdlets": [
+        "Get-PfbFileSystemGroupQuota"
+      ],
+      "missingQueryParameters": [
+        "allow_errors",
+        "context_names"
+      ],
+      "missingBodyProperties": [],
+      "readOnlyFields": [],
+      "confidence": {
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
+      },
+      "annotations": []
+    },
+    {
       "endpoint": "GET /file-system-replica-links",
       "cmdlets": [
         "Get-PfbFileSystemReplicaLink"
@@ -3416,6 +3431,25 @@
       "annotations": []
     },
     {
+      "endpoint": "GET /file-system-user-quotas",
+      "cmdlets": [
+        "Get-PfbFileSystemUserQuota"
+      ],
+      "missingQueryParameters": [
+        "allow_errors",
+        "context_names"
+      ],
+      "missingBodyProperties": [],
+      "readOnlyFields": [],
+      "confidence": {
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
+      },
+      "annotations": []
+    },
+    {
       "endpoint": "GET /file-systems",
       "cmdlets": [
         "Get-PfbFileSystem"
@@ -3440,6 +3474,25 @@
       "endpoint": "GET /file-systems/audit-policies",
       "cmdlets": [
         "Get-PfbFileSystemAuditPolicy"
+      ],
+      "missingQueryParameters": [
+        "allow_errors",
+        "context_names"
+      ],
+      "missingBodyProperties": [],
+      "readOnlyFields": [],
+      "confidence": {
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
+      },
+      "annotations": []
+    },
+    {
+      "endpoint": "GET /file-systems/groups",
+      "cmdlets": [
+        "Get-PfbFileSystemGroup"
       ],
       "missingQueryParameters": [
         "allow_errors",
@@ -3589,6 +3642,44 @@
       ],
       "missingQueryParameters": [
         "storage_class_names"
+      ],
+      "missingBodyProperties": [],
+      "readOnlyFields": [],
+      "confidence": {
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
+      },
+      "annotations": []
+    },
+    {
+      "endpoint": "GET /file-systems/user-group-quota-policies",
+      "cmdlets": [
+        "Get-PfbFileSystemUserGroupQuotaPolicy"
+      ],
+      "missingQueryParameters": [
+        "allow_errors",
+        "context_names"
+      ],
+      "missingBodyProperties": [],
+      "readOnlyFields": [],
+      "confidence": {
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
+      },
+      "annotations": []
+    },
+    {
+      "endpoint": "GET /file-systems/users",
+      "cmdlets": [
+        "Get-PfbFileSystemUser"
+      ],
+      "missingQueryParameters": [
+        "allow_errors",
+        "context_names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -5445,6 +5536,97 @@
         "file_system_ids",
         "uids",
         "user_names"
+      ],
+      "missingBodyProperties": [],
+      "readOnlyFields": [],
+      "confidence": {
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
+      },
+      "annotations": []
+    },
+    {
+      "endpoint": "GET /user-group-quota-policies",
+      "cmdlets": [
+        "Get-PfbUserGroupQuotaPolicy"
+      ],
+      "missingQueryParameters": [
+        "allow_errors",
+        "context_names",
+        "ids",
+        "names"
+      ],
+      "missingBodyProperties": [],
+      "readOnlyFields": [],
+      "confidence": {
+        "level": "partial",
+        "unresolvedParameters": [
+          {
+            "parameter": "Id",
+            "surface": "TypedUnresolved",
+            "file": "Public/Policy/Get-PfbUserGroupQuotaPolicy.ps1",
+            "line": 38
+          },
+          {
+            "parameter": "Name",
+            "surface": "TypedUnresolved",
+            "file": "Public/Policy/Get-PfbUserGroupQuotaPolicy.ps1",
+            "line": 35
+          }
+        ],
+        "escapeHatchOnly": [],
+        "caveat": "one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability"
+      },
+      "annotations": []
+    },
+    {
+      "endpoint": "GET /user-group-quota-policies/file-systems",
+      "cmdlets": [
+        "Get-PfbUserGroupQuotaPolicyFileSystem"
+      ],
+      "missingQueryParameters": [
+        "allow_errors",
+        "context_names"
+      ],
+      "missingBodyProperties": [],
+      "readOnlyFields": [],
+      "confidence": {
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
+      },
+      "annotations": []
+    },
+    {
+      "endpoint": "GET /user-group-quota-policies/members",
+      "cmdlets": [
+        "Get-PfbUserGroupQuotaPolicyMember"
+      ],
+      "missingQueryParameters": [
+        "allow_errors",
+        "context_names"
+      ],
+      "missingBodyProperties": [],
+      "readOnlyFields": [],
+      "confidence": {
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
+      },
+      "annotations": []
+    },
+    {
+      "endpoint": "GET /user-group-quota-policies/rules",
+      "cmdlets": [
+        "Get-PfbUserGroupQuotaPolicyRule"
+      ],
+      "missingQueryParameters": [
+        "allow_errors",
+        "context_names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -8894,6 +9076,64 @@
       "annotations": []
     },
     {
+      "endpoint": "PATCH /user-group-quota-policies",
+      "cmdlets": [
+        "Update-PfbUserGroupQuotaPolicy"
+      ],
+      "missingQueryParameters": [
+        "context_names"
+      ],
+      "missingBodyProperties": [
+        "enabled",
+        "name"
+      ],
+      "readOnlyFields": [
+        "context",
+        "id",
+        "is_local",
+        "policy_type",
+        "realms",
+        "version"
+      ],
+      "confidence": {
+        "level": "partial",
+        "unresolvedParameters": [
+          {
+            "parameter": "Enabled",
+            "surface": "AttributesOnly",
+            "file": "Public/Policy/Update-PfbUserGroupQuotaPolicy.ps1",
+            "line": 36
+          }
+        ],
+        "escapeHatchOnly": [
+          "Enabled"
+        ],
+        "caveat": "body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability"
+      },
+      "annotations": []
+    },
+    {
+      "endpoint": "PATCH /user-group-quota-policies/rules",
+      "cmdlets": [
+        "Update-PfbUserGroupQuotaPolicyRule"
+      ],
+      "missingQueryParameters": [
+        "context_names"
+      ],
+      "missingBodyProperties": [],
+      "readOnlyFields": [
+        "id",
+        "name"
+      ],
+      "confidence": {
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
+      },
+      "annotations": []
+    },
+    {
       "endpoint": "PATCH /workloads",
       "cmdlets": [
         "Update-PfbWorkload"
@@ -10674,6 +10914,24 @@
       "endpoint": "POST /file-systems/policies",
       "cmdlets": [
         "New-PfbFileSystemPolicy"
+      ],
+      "missingQueryParameters": [
+        "context_names"
+      ],
+      "missingBodyProperties": [],
+      "readOnlyFields": [],
+      "confidence": {
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
+      },
+      "annotations": []
+    },
+    {
+      "endpoint": "POST /file-systems/user-group-quota-policies",
+      "cmdlets": [
+        "New-PfbFileSystemUserGroupQuotaPolicy"
       ],
       "missingQueryParameters": [
         "context_names"
@@ -13430,6 +13688,88 @@
       "annotations": []
     },
     {
+      "endpoint": "POST /user-group-quota-policies",
+      "cmdlets": [
+        "New-PfbUserGroupQuotaPolicy"
+      ],
+      "missingQueryParameters": [
+        "context_names"
+      ],
+      "missingBodyProperties": [
+        "enabled",
+        "name"
+      ],
+      "readOnlyFields": [
+        "id",
+        "is_local",
+        "policy_type",
+        "realms"
+      ],
+      "confidence": {
+        "level": "partial",
+        "unresolvedParameters": [
+          {
+            "parameter": "Enabled",
+            "surface": "AttributesOnly",
+            "file": "Public/Policy/New-PfbUserGroupQuotaPolicy.ps1",
+            "line": 49
+          }
+        ],
+        "escapeHatchOnly": [
+          "Enabled"
+        ],
+        "caveat": "body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability"
+      },
+      "annotations": []
+    },
+    {
+      "endpoint": "POST /user-group-quota-policies/file-systems",
+      "cmdlets": [
+        "New-PfbUserGroupQuotaPolicyFileSystem"
+      ],
+      "missingQueryParameters": [
+        "context_names"
+      ],
+      "missingBodyProperties": [],
+      "readOnlyFields": [],
+      "confidence": {
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
+      },
+      "annotations": []
+    },
+    {
+      "endpoint": "POST /user-group-quota-policies/rules",
+      "cmdlets": [
+        "New-PfbUserGroupQuotaPolicyRule"
+      ],
+      "missingQueryParameters": [
+        "context_names"
+      ],
+      "missingBodyProperties": [
+        "enforced"
+      ],
+      "readOnlyFields": [],
+      "confidence": {
+        "level": "partial",
+        "unresolvedParameters": [
+          {
+            "parameter": "Enforced",
+            "surface": "AttributesOnly",
+            "file": "Public/Policy/New-PfbUserGroupQuotaPolicyRule.ps1",
+            "line": 57
+          }
+        ],
+        "escapeHatchOnly": [
+          "Enforced"
+        ],
+        "caveat": "body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability"
+      },
+      "annotations": []
+    },
+    {
       "endpoint": "POST /workloads",
       "cmdlets": [
         "New-PfbWorkload"
@@ -13536,8 +13876,8 @@
   "systemicGaps": [
     {
       "name": "context_names",
-      "endpointCount": 254,
-      "queryEndpointCount": 254,
+      "endpointCount": 269,
+      "queryEndpointCount": 269,
       "bodyEndpointCount": 0,
       "endpoints": [
         "DELETE /admins/api-tokens",
@@ -13568,6 +13908,7 @@
         "DELETE /file-systems/audit-policies",
         "DELETE /file-systems/locks",
         "DELETE /file-systems/policies",
+        "DELETE /file-systems/user-group-quota-policies",
         "DELETE /lifecycle-rules",
         "DELETE /log-targets/file-systems",
         "DELETE /log-targets/object-store",
@@ -13603,6 +13944,9 @@
         "DELETE /smb-share-policies/rules",
         "DELETE /ssh-certificate-authority-policies/admins",
         "DELETE /ssh-certificate-authority-policies/arrays",
+        "DELETE /user-group-quota-policies",
+        "DELETE /user-group-quota-policies/file-systems",
+        "DELETE /user-group-quota-policies/rules",
         "DELETE /workloads",
         "DELETE /workloads/tags",
         "DELETE /worm-data-policies",
@@ -13644,18 +13988,23 @@
         "GET /directory-services/test",
         "GET /dns",
         "GET /file-system-exports",
+        "GET /file-system-group-quotas",
         "GET /file-system-replica-links",
         "GET /file-system-replica-links/policies",
         "GET /file-system-replica-links/transfer",
         "GET /file-system-snapshots",
         "GET /file-system-snapshots/policies",
         "GET /file-system-snapshots/transfer",
+        "GET /file-system-user-quotas",
         "GET /file-systems",
         "GET /file-systems/audit-policies",
+        "GET /file-systems/groups",
         "GET /file-systems/locks",
         "GET /file-systems/locks/clients",
         "GET /file-systems/policies",
         "GET /file-systems/sessions",
+        "GET /file-systems/user-group-quota-policies",
+        "GET /file-systems/users",
         "GET /file-systems/worm-data-policies",
         "GET /lifecycle-rules",
         "GET /log-targets/file-systems",
@@ -13712,6 +14061,9 @@
         "GET /targets",
         "GET /usage/groups",
         "GET /usage/users",
+        "GET /user-group-quota-policies/file-systems",
+        "GET /user-group-quota-policies/members",
+        "GET /user-group-quota-policies/rules",
         "GET /workloads",
         "GET /workloads/placement-recommendations",
         "GET /workloads/tags",
@@ -13739,6 +14091,7 @@
         "PATCH /s3-export-policies/rules",
         "PATCH /smb-client-policies/rules",
         "PATCH /smb-share-policies/rules",
+        "PATCH /user-group-quota-policies/rules",
         "PATCH /worm-data-policies",
         "POST /admins/api-tokens",
         "POST /admins/management-access-policies",
@@ -13762,6 +14115,7 @@
         "POST /file-systems/audit-policies",
         "POST /file-systems/locks/nlm-reclamations",
         "POST /file-systems/policies",
+        "POST /file-systems/user-group-quota-policies",
         "POST /lifecycle-rules",
         "POST /log-targets/file-systems",
         "POST /log-targets/object-store",
@@ -13793,6 +14147,7 @@
         "POST /smb-share-policies/rules",
         "POST /ssh-certificate-authority-policies/admins",
         "POST /ssh-certificate-authority-policies/arrays",
+        "POST /user-group-quota-policies/file-systems",
         "POST /workloads"
       ],
       "annotations": [
@@ -13807,8 +14162,8 @@
     },
     {
       "name": "allow_errors",
-      "endpointCount": 110,
-      "queryEndpointCount": 110,
+      "endpointCount": 118,
+      "queryEndpointCount": 118,
       "bodyEndpointCount": 0,
       "endpoints": [
         "GET /active-directory/test",
@@ -13849,18 +14204,23 @@
         "GET /directory-services/test",
         "GET /dns",
         "GET /file-system-exports",
+        "GET /file-system-group-quotas",
         "GET /file-system-replica-links",
         "GET /file-system-replica-links/policies",
         "GET /file-system-replica-links/transfer",
         "GET /file-system-snapshots",
         "GET /file-system-snapshots/policies",
         "GET /file-system-snapshots/transfer",
+        "GET /file-system-user-quotas",
         "GET /file-systems",
         "GET /file-systems/audit-policies",
+        "GET /file-systems/groups",
         "GET /file-systems/locks",
         "GET /file-systems/locks/clients",
         "GET /file-systems/policies",
         "GET /file-systems/sessions",
+        "GET /file-systems/user-group-quota-policies",
+        "GET /file-systems/users",
         "GET /file-systems/worm-data-policies",
         "GET /lifecycle-rules",
         "GET /log-targets/file-systems",
@@ -13916,6 +14276,9 @@
         "GET /targets",
         "GET /usage/groups",
         "GET /usage/users",
+        "GET /user-group-quota-policies/file-systems",
+        "GET /user-group-quota-policies/members",
+        "GET /user-group-quota-policies/rules",
         "GET /workloads",
         "GET /workloads/placement-recommendations",
         "GET /workloads/tags",
@@ -16845,7 +17208,7 @@
   "conventionStrength": [
     {
       "name": "names",
-      "cmdletCount": 308,
+      "cmdletCount": 314,
       "cmdlets": [
         "Get-PfbActiveDirectory",
         "Get-PfbAdmin",
@@ -16968,6 +17331,7 @@
         "Get-PfbTarget",
         "Get-PfbTargetPerformanceReplication",
         "Get-PfbTlsPolicy",
+        "Get-PfbUserGroupQuotaPolicyRule",
         "Get-PfbWorkload",
         "Get-PfbWorkloadPlacementRecommendation",
         "Get-PfbWormPolicy",
@@ -17011,6 +17375,7 @@
         "New-PfbSmbClientPolicy",
         "New-PfbSmbSharePolicy",
         "New-PfbSubnet",
+        "New-PfbUserGroupQuotaPolicy",
         "New-PfbWorkload",
         "Remove-PfbActiveDirectory",
         "Remove-PfbAdminCache",
@@ -17082,6 +17447,8 @@
         "Remove-PfbSyslogServer",
         "Remove-PfbTarget",
         "Remove-PfbTlsPolicy",
+        "Remove-PfbUserGroupQuotaPolicy",
+        "Remove-PfbUserGroupQuotaPolicyRule",
         "Remove-PfbWorkload",
         "Remove-PfbWormPolicy",
         "Set-PfbPresetWorkload",
@@ -17153,13 +17520,15 @@
         "Update-PfbSyslogServer",
         "Update-PfbTarget",
         "Update-PfbTlsPolicy",
+        "Update-PfbUserGroupQuotaPolicy",
+        "Update-PfbUserGroupQuotaPolicyRule",
         "Update-PfbWorkload",
         "Update-PfbWormPolicy"
       ]
     },
     {
       "name": "ids",
-      "cmdletCount": 219,
+      "cmdletCount": 224,
       "cmdlets": [
         "Get-PfbAdmin",
         "Get-PfbAdminCache",
@@ -17250,6 +17619,7 @@
         "Get-PfbSyslogServer",
         "Get-PfbTarget",
         "Get-PfbTlsPolicy",
+        "Get-PfbUserGroupQuotaPolicyRule",
         "Get-PfbWorkload",
         "Get-PfbWorkloadPlacementRecommendation",
         "Get-PfbWormPolicy",
@@ -17315,6 +17685,8 @@
         "Remove-PfbSyslogServer",
         "Remove-PfbTarget",
         "Remove-PfbTlsPolicy",
+        "Remove-PfbUserGroupQuotaPolicy",
+        "Remove-PfbUserGroupQuotaPolicyRule",
         "Remove-PfbWorkload",
         "Remove-PfbWormPolicy",
         "Set-PfbPresetWorkload",
@@ -17378,13 +17750,15 @@
         "Update-PfbSyslogServer",
         "Update-PfbTarget",
         "Update-PfbTlsPolicy",
+        "Update-PfbUserGroupQuotaPolicy",
+        "Update-PfbUserGroupQuotaPolicyRule",
         "Update-PfbWorkload",
         "Update-PfbWormPolicy"
       ]
     },
     {
       "name": "filter",
-      "cmdletCount": 193,
+      "cmdletCount": 202,
       "cmdlets": [
         "Get-PfbActiveDirectory",
         "Get-PfbAdmin",
@@ -17450,7 +17824,9 @@
         "Get-PfbFileSystem",
         "Get-PfbFileSystemAuditPolicy",
         "Get-PfbFileSystemExport",
+        "Get-PfbFileSystemGroup",
         "Get-PfbFileSystemGroupPerformance",
+        "Get-PfbFileSystemGroupQuota",
         "Get-PfbFileSystemPolicy",
         "Get-PfbFileSystemReplicaLink",
         "Get-PfbFileSystemReplicaLinkPolicy",
@@ -17460,7 +17836,10 @@
         "Get-PfbFileSystemSnapshotPolicy",
         "Get-PfbFileSystemSnapshotTransfer",
         "Get-PfbFileSystemStorageClass",
+        "Get-PfbFileSystemUser",
+        "Get-PfbFileSystemUserGroupQuotaPolicy",
         "Get-PfbFileSystemUserPerformance",
+        "Get-PfbFileSystemUserQuota",
         "Get-PfbFileSystemWormPolicy",
         "Get-PfbFleet",
         "Get-PfbFleetKey",
@@ -17575,6 +17954,10 @@
         "Get-PfbTlsPolicyMember",
         "Get-PfbUsageGroup",
         "Get-PfbUsageUser",
+        "Get-PfbUserGroupQuotaPolicy",
+        "Get-PfbUserGroupQuotaPolicyFileSystem",
+        "Get-PfbUserGroupQuotaPolicyMember",
+        "Get-PfbUserGroupQuotaPolicyRule",
         "Get-PfbWorkload",
         "Get-PfbWorkloadPlacementRecommendation",
         "Get-PfbWormPolicy",
@@ -17583,7 +17966,7 @@
     },
     {
       "name": "limit",
-      "cmdletCount": 190,
+      "cmdletCount": 199,
       "cmdlets": [
         "Get-PfbAdmin",
         "Get-PfbAdminCache",
@@ -17647,7 +18030,9 @@
         "Get-PfbFileSystem",
         "Get-PfbFileSystemAuditPolicy",
         "Get-PfbFileSystemExport",
+        "Get-PfbFileSystemGroup",
         "Get-PfbFileSystemGroupPerformance",
+        "Get-PfbFileSystemGroupQuota",
         "Get-PfbFileSystemPolicy",
         "Get-PfbFileSystemReplicaLink",
         "Get-PfbFileSystemReplicaLinkPolicy",
@@ -17657,7 +18042,10 @@
         "Get-PfbFileSystemSnapshotPolicy",
         "Get-PfbFileSystemSnapshotTransfer",
         "Get-PfbFileSystemStorageClass",
+        "Get-PfbFileSystemUser",
+        "Get-PfbFileSystemUserGroupQuotaPolicy",
         "Get-PfbFileSystemUserPerformance",
+        "Get-PfbFileSystemUserQuota",
         "Get-PfbFileSystemWormPolicy",
         "Get-PfbFleet",
         "Get-PfbFleetKey",
@@ -17771,6 +18159,10 @@
         "Get-PfbTlsPolicyMember",
         "Get-PfbUsageGroup",
         "Get-PfbUsageUser",
+        "Get-PfbUserGroupQuotaPolicy",
+        "Get-PfbUserGroupQuotaPolicyFileSystem",
+        "Get-PfbUserGroupQuotaPolicyMember",
+        "Get-PfbUserGroupQuotaPolicyRule",
         "Get-PfbWorkload",
         "Get-PfbWorkloadPlacementRecommendation",
         "Get-PfbWormPolicy",
@@ -17779,7 +18171,7 @@
     },
     {
       "name": "sort",
-      "cmdletCount": 171,
+      "cmdletCount": 180,
       "cmdlets": [
         "Get-PfbAdmin",
         "Get-PfbAdminCache",
@@ -17838,7 +18230,9 @@
         "Get-PfbFileSystem",
         "Get-PfbFileSystemAuditPolicy",
         "Get-PfbFileSystemExport",
+        "Get-PfbFileSystemGroup",
         "Get-PfbFileSystemGroupPerformance",
+        "Get-PfbFileSystemGroupQuota",
         "Get-PfbFileSystemPolicy",
         "Get-PfbFileSystemReplicaLink",
         "Get-PfbFileSystemReplicaLinkPolicy",
@@ -17848,7 +18242,10 @@
         "Get-PfbFileSystemSnapshotPolicy",
         "Get-PfbFileSystemSnapshotTransfer",
         "Get-PfbFileSystemStorageClass",
+        "Get-PfbFileSystemUser",
+        "Get-PfbFileSystemUserGroupQuotaPolicy",
         "Get-PfbFileSystemUserPerformance",
+        "Get-PfbFileSystemUserQuota",
         "Get-PfbFileSystemWormPolicy",
         "Get-PfbFleet",
         "Get-PfbFleetKey",
@@ -17949,6 +18346,10 @@
         "Get-PfbTlsPolicy",
         "Get-PfbUsageGroup",
         "Get-PfbUsageUser",
+        "Get-PfbUserGroupQuotaPolicy",
+        "Get-PfbUserGroupQuotaPolicyFileSystem",
+        "Get-PfbUserGroupQuotaPolicyMember",
+        "Get-PfbUserGroupQuotaPolicyRule",
         "Get-PfbWorkload",
         "Get-PfbWorkloadPlacementRecommendation",
         "Get-PfbWormPolicy"
@@ -17956,7 +18357,7 @@
     },
     {
       "name": "policy_names",
-      "cmdletCount": 108,
+      "cmdletCount": 118,
       "cmdlets": [
         "Add-PfbDataEvictionPolicyFileSystem",
         "Get-PfbAdminManagementAccessPolicy",
@@ -17975,6 +18376,7 @@
         "Get-PfbFileSystemPolicy",
         "Get-PfbFileSystemReplicaLinkPolicy",
         "Get-PfbFileSystemSnapshotPolicy",
+        "Get-PfbFileSystemUserGroupQuotaPolicy",
         "Get-PfbFileSystemWormPolicy",
         "Get-PfbManagementAccessPolicyAdmin",
         "Get-PfbManagementAccessPolicyDirectoryRole",
@@ -18003,6 +18405,9 @@
         "Get-PfbSshCaPolicyMember",
         "Get-PfbStorageClassTieringPolicyMember",
         "Get-PfbTlsPolicyMember",
+        "Get-PfbUserGroupQuotaPolicyFileSystem",
+        "Get-PfbUserGroupQuotaPolicyMember",
+        "Get-PfbUserGroupQuotaPolicyRule",
         "Get-PfbWormPolicyMember",
         "New-PfbAdminManagementAccessPolicy",
         "New-PfbAdminSshCaPolicy",
@@ -18017,6 +18422,7 @@
         "New-PfbFileSystemExport",
         "New-PfbFileSystemPolicy",
         "New-PfbFileSystemReplicaLinkPolicy",
+        "New-PfbFileSystemUserGroupQuotaPolicy",
         "New-PfbManagementAccessPolicyAdmin",
         "New-PfbManagementAccessPolicyDirectoryRole",
         "New-PfbNetworkAccessRule",
@@ -18035,6 +18441,8 @@
         "New-PfbSmbShareRule",
         "New-PfbSshCaPolicyAdmin",
         "New-PfbSshCaPolicyArray",
+        "New-PfbUserGroupQuotaPolicyFileSystem",
+        "New-PfbUserGroupQuotaPolicyRule",
         "Remove-PfbAdminManagementAccessPolicy",
         "Remove-PfbAdminSshCaPolicy",
         "Remove-PfbArraySshCaPolicy",
@@ -18048,6 +18456,7 @@
         "Remove-PfbFileSystemPolicy",
         "Remove-PfbFileSystemReplicaLinkPolicy",
         "Remove-PfbFileSystemSnapshotPolicy",
+        "Remove-PfbFileSystemUserGroupQuotaPolicy",
         "Remove-PfbManagementAccessPolicyAdmin",
         "Remove-PfbManagementAccessPolicyDirectoryRole",
         "Remove-PfbNetworkAccessRule",
@@ -18065,12 +18474,14 @@
         "Remove-PfbSmbClientRule",
         "Remove-PfbSmbShareRule",
         "Remove-PfbSshCaPolicyAdmin",
-        "Remove-PfbSshCaPolicyArray"
+        "Remove-PfbSshCaPolicyArray",
+        "Remove-PfbUserGroupQuotaPolicyFileSystem",
+        "Remove-PfbUserGroupQuotaPolicyRule"
       ]
     },
     {
       "name": "member_names",
-      "cmdletCount": 98,
+      "cmdletCount": 105,
       "cmdlets": [
         "Add-PfbDataEvictionPolicyFileSystem",
         "Get-PfbAdminManagementAccessPolicy",
@@ -18090,6 +18501,7 @@
         "Get-PfbFileSystemPolicy",
         "Get-PfbFileSystemReplicaLinkPolicy",
         "Get-PfbFileSystemSnapshotPolicy",
+        "Get-PfbFileSystemUserGroupQuotaPolicy",
         "Get-PfbFileSystemWormPolicy",
         "Get-PfbFleetMember",
         "Get-PfbLegalHoldEntity",
@@ -18116,6 +18528,8 @@
         "Get-PfbSshCaPolicyMember",
         "Get-PfbStorageClassTieringPolicyMember",
         "Get-PfbTlsPolicyMember",
+        "Get-PfbUserGroupQuotaPolicyFileSystem",
+        "Get-PfbUserGroupQuotaPolicyMember",
         "Get-PfbWormPolicyMember",
         "New-PfbAdminManagementAccessPolicy",
         "New-PfbAdminSshCaPolicy",
@@ -18130,6 +18544,7 @@
         "New-PfbFileSystemAuditPolicy",
         "New-PfbFileSystemExport",
         "New-PfbFileSystemPolicy",
+        "New-PfbFileSystemUserGroupQuotaPolicy",
         "New-PfbManagementAccessPolicyAdmin",
         "New-PfbManagementAccessPolicyDirectoryRole",
         "New-PfbNetworkInterfaceTlsPolicy",
@@ -18141,6 +18556,7 @@
         "New-PfbQosPolicyMember",
         "New-PfbSshCaPolicyAdmin",
         "New-PfbSshCaPolicyArray",
+        "New-PfbUserGroupQuotaPolicyFileSystem",
         "Remove-PfbAdminManagementAccessPolicy",
         "Remove-PfbAdminSshCaPolicy",
         "Remove-PfbArraySshCaPolicy",
@@ -18155,6 +18571,7 @@
         "Remove-PfbFileSystemPolicy",
         "Remove-PfbFileSystemReplicaLinkPolicy",
         "Remove-PfbFileSystemSnapshotPolicy",
+        "Remove-PfbFileSystemUserGroupQuotaPolicy",
         "Remove-PfbFleetMember",
         "Remove-PfbLocalGroupMember",
         "Remove-PfbManagementAccessPolicyAdmin",
@@ -18169,12 +18586,13 @@
         "Remove-PfbPolicyFileSystemReplicaLink",
         "Remove-PfbQosPolicyMember",
         "Remove-PfbSshCaPolicyAdmin",
-        "Remove-PfbSshCaPolicyArray"
+        "Remove-PfbSshCaPolicyArray",
+        "Remove-PfbUserGroupQuotaPolicyFileSystem"
       ]
     },
     {
       "name": "policy_ids",
-      "cmdletCount": 88,
+      "cmdletCount": 98,
       "cmdlets": [
         "Add-PfbDataEvictionPolicyFileSystem",
         "Get-PfbAdminManagementAccessPolicy",
@@ -18190,6 +18608,7 @@
         "Get-PfbFileSystemPolicy",
         "Get-PfbFileSystemReplicaLinkPolicy",
         "Get-PfbFileSystemSnapshotPolicy",
+        "Get-PfbFileSystemUserGroupQuotaPolicy",
         "Get-PfbFileSystemWormPolicy",
         "Get-PfbManagementAccessPolicyAdmin",
         "Get-PfbManagementAccessPolicyDirectoryRole",
@@ -18218,6 +18637,9 @@
         "Get-PfbSshCaPolicyMember",
         "Get-PfbStorageClassTieringPolicyMember",
         "Get-PfbTlsPolicyMember",
+        "Get-PfbUserGroupQuotaPolicyFileSystem",
+        "Get-PfbUserGroupQuotaPolicyMember",
+        "Get-PfbUserGroupQuotaPolicyRule",
         "Get-PfbWormPolicyMember",
         "New-PfbAdminManagementAccessPolicy",
         "New-PfbAdminSshCaPolicy",
@@ -18228,6 +18650,7 @@
         "New-PfbFileSystemAuditPolicy",
         "New-PfbFileSystemPolicy",
         "New-PfbFileSystemReplicaLinkPolicy",
+        "New-PfbFileSystemUserGroupQuotaPolicy",
         "New-PfbManagementAccessPolicyAdmin",
         "New-PfbManagementAccessPolicyDirectoryRole",
         "New-PfbNetworkAccessRule",
@@ -18241,6 +18664,8 @@
         "New-PfbSmbShareRule",
         "New-PfbSshCaPolicyAdmin",
         "New-PfbSshCaPolicyArray",
+        "New-PfbUserGroupQuotaPolicyFileSystem",
+        "New-PfbUserGroupQuotaPolicyRule",
         "Remove-PfbAdminManagementAccessPolicy",
         "Remove-PfbAdminSshCaPolicy",
         "Remove-PfbArraySshCaPolicy",
@@ -18252,6 +18677,7 @@
         "Remove-PfbFileSystemPolicy",
         "Remove-PfbFileSystemReplicaLinkPolicy",
         "Remove-PfbFileSystemSnapshotPolicy",
+        "Remove-PfbFileSystemUserGroupQuotaPolicy",
         "Remove-PfbManagementAccessPolicyAdmin",
         "Remove-PfbManagementAccessPolicyDirectoryRole",
         "Remove-PfbNetworkAccessRule",
@@ -18263,12 +18689,14 @@
         "Remove-PfbSmbClientRule",
         "Remove-PfbSmbShareRule",
         "Remove-PfbSshCaPolicyAdmin",
-        "Remove-PfbSshCaPolicyArray"
+        "Remove-PfbSshCaPolicyArray",
+        "Remove-PfbUserGroupQuotaPolicyFileSystem",
+        "Remove-PfbUserGroupQuotaPolicyRule"
       ]
     },
     {
       "name": "member_ids",
-      "cmdletCount": 78,
+      "cmdletCount": 85,
       "cmdlets": [
         "Add-PfbDataEvictionPolicyFileSystem",
         "Get-PfbAdminManagementAccessPolicy",
@@ -18286,6 +18714,7 @@
         "Get-PfbFileSystemPolicy",
         "Get-PfbFileSystemReplicaLinkPolicy",
         "Get-PfbFileSystemSnapshotPolicy",
+        "Get-PfbFileSystemUserGroupQuotaPolicy",
         "Get-PfbFileSystemWormPolicy",
         "Get-PfbLegalHoldEntity",
         "Get-PfbManagementAccessPolicyAdmin",
@@ -18310,6 +18739,8 @@
         "Get-PfbSshCaPolicyMember",
         "Get-PfbStorageClassTieringPolicyMember",
         "Get-PfbTlsPolicyMember",
+        "Get-PfbUserGroupQuotaPolicyFileSystem",
+        "Get-PfbUserGroupQuotaPolicyMember",
         "Get-PfbWormPolicyMember",
         "New-PfbAdminManagementAccessPolicy",
         "New-PfbAdminSshCaPolicy",
@@ -18320,6 +18751,7 @@
         "New-PfbFileSystemAuditPolicy",
         "New-PfbFileSystemPolicy",
         "New-PfbFileSystemReplicaLinkPolicy",
+        "New-PfbFileSystemUserGroupQuotaPolicy",
         "New-PfbManagementAccessPolicyAdmin",
         "New-PfbManagementAccessPolicyDirectoryRole",
         "New-PfbNetworkInterfaceTlsPolicy",
@@ -18328,6 +18760,7 @@
         "New-PfbQosPolicyMember",
         "New-PfbSshCaPolicyAdmin",
         "New-PfbSshCaPolicyArray",
+        "New-PfbUserGroupQuotaPolicyFileSystem",
         "Remove-PfbAdminManagementAccessPolicy",
         "Remove-PfbAdminSshCaPolicy",
         "Remove-PfbArraySshCaPolicy",
@@ -18341,18 +18774,20 @@
         "Remove-PfbFileSystemPolicy",
         "Remove-PfbFileSystemReplicaLinkPolicy",
         "Remove-PfbFileSystemSnapshotPolicy",
+        "Remove-PfbFileSystemUserGroupQuotaPolicy",
         "Remove-PfbManagementAccessPolicyAdmin",
         "Remove-PfbManagementAccessPolicyDirectoryRole",
         "Remove-PfbPolicyFileSystem",
         "Remove-PfbPolicyFileSystemReplicaLink",
         "Remove-PfbQosPolicyMember",
         "Remove-PfbSshCaPolicyAdmin",
-        "Remove-PfbSshCaPolicyArray"
+        "Remove-PfbSshCaPolicyArray",
+        "Remove-PfbUserGroupQuotaPolicyFileSystem"
       ]
     },
     {
       "name": "total_only",
-      "cmdletCount": 30,
+      "cmdletCount": 39,
       "cmdlets": [
         "Get-PfbBucket",
         "Get-PfbBucketPerformance",
@@ -18361,13 +18796,18 @@
         "Get-PfbFileLockClient",
         "Get-PfbFileSystem",
         "Get-PfbFileSystemExport",
+        "Get-PfbFileSystemGroup",
         "Get-PfbFileSystemGroupPerformance",
+        "Get-PfbFileSystemGroupQuota",
         "Get-PfbFileSystemReplicaLinkTransfer",
         "Get-PfbFileSystemSession",
         "Get-PfbFileSystemSnapshot",
         "Get-PfbFileSystemSnapshotTransfer",
         "Get-PfbFileSystemStorageClass",
+        "Get-PfbFileSystemUser",
+        "Get-PfbFileSystemUserGroupQuotaPolicy",
         "Get-PfbFileSystemUserPerformance",
+        "Get-PfbFileSystemUserQuota",
         "Get-PfbObjectStoreAccessPolicy",
         "Get-PfbObjectStoreAccessPolicyAction",
         "Get-PfbObjectStoreAccessPolicyRole",
@@ -18383,7 +18823,11 @@
         "Get-PfbObjectStoreUserAccessPolicy",
         "Get-PfbOpenFile",
         "Get-PfbRealm",
-        "Get-PfbServer"
+        "Get-PfbServer",
+        "Get-PfbUserGroupQuotaPolicy",
+        "Get-PfbUserGroupQuotaPolicyFileSystem",
+        "Get-PfbUserGroupQuotaPolicyMember",
+        "Get-PfbUserGroupQuotaPolicyRule"
       ]
     },
     {
@@ -18480,6 +18924,25 @@
       ]
     },
     {
+      "name": "file_system_names",
+      "cmdletCount": 13,
+      "cmdlets": [
+        "Get-PfbFileSystemGroup",
+        "Get-PfbFileSystemGroupPerformance",
+        "Get-PfbFileSystemGroupQuota",
+        "Get-PfbFileSystemUser",
+        "Get-PfbFileSystemUserPerformance",
+        "Get-PfbFileSystemUserQuota",
+        "Get-PfbQuotaGroup",
+        "Get-PfbQuotaUser",
+        "Get-PfbUsageGroup",
+        "Get-PfbUsageUser",
+        "New-PfbLegalHoldEntity",
+        "New-PfbUserGroupQuotaPolicy",
+        "Update-PfbLegalHoldEntity"
+      ]
+    },
+    {
       "name": "enabled",
       "cmdletCount": 10,
       "cmdlets": [
@@ -18496,17 +18959,45 @@
       ]
     },
     {
-      "name": "file_system_names",
+      "name": "file_system_ids",
+      "cmdletCount": 9,
+      "cmdlets": [
+        "Get-PfbFileSystemGroup",
+        "Get-PfbFileSystemGroupPerformance",
+        "Get-PfbFileSystemGroupQuota",
+        "Get-PfbFileSystemUser",
+        "Get-PfbFileSystemUserPerformance",
+        "Get-PfbFileSystemUserQuota",
+        "New-PfbLegalHoldEntity",
+        "New-PfbUserGroupQuotaPolicy",
+        "Update-PfbLegalHoldEntity"
+      ]
+    },
+    {
+      "name": "location",
       "cmdletCount": 8,
       "cmdlets": [
-        "Get-PfbFileSystemGroupPerformance",
-        "Get-PfbFileSystemUserPerformance",
-        "Get-PfbQuotaGroup",
-        "Get-PfbQuotaUser",
-        "Get-PfbUsageGroup",
-        "Get-PfbUsageUser",
-        "New-PfbLegalHoldEntity",
-        "Update-PfbLegalHoldEntity"
+        "New-PfbUserGroupQuotaPolicy",
+        "Update-PfbManagementAccessPolicy",
+        "Update-PfbQosPolicy",
+        "Update-PfbSshCaPolicy",
+        "Update-PfbStorageClassTieringPolicy",
+        "Update-PfbTlsPolicy",
+        "Update-PfbUserGroupQuotaPolicy",
+        "Update-PfbWormPolicy"
+      ]
+    },
+    {
+      "name": "group_names",
+      "cmdletCount": 7,
+      "cmdlets": [
+        "Get-PfbFileSystemGroup",
+        "Get-PfbFileSystemGroupQuota",
+        "Get-PfbLocalGroupMember",
+        "Get-PfbNodeGroupNode",
+        "New-PfbLocalGroupMember",
+        "Remove-PfbLocalGroupMember",
+        "Remove-PfbNodeGroupNode"
       ]
     },
     {
@@ -18519,18 +19010,6 @@
         "Update-PfbDns",
         "Update-PfbKmip",
         "Update-PfbTarget"
-      ]
-    },
-    {
-      "name": "location",
-      "cmdletCount": 6,
-      "cmdlets": [
-        "Update-PfbManagementAccessPolicy",
-        "Update-PfbQosPolicy",
-        "Update-PfbSshCaPolicy",
-        "Update-PfbStorageClassTieringPolicy",
-        "Update-PfbTlsPolicy",
-        "Update-PfbWormPolicy"
       ]
     },
     {
@@ -18557,17 +19036,6 @@
       ]
     },
     {
-      "name": "group_names",
-      "cmdletCount": 5,
-      "cmdlets": [
-        "Get-PfbLocalGroupMember",
-        "Get-PfbNodeGroupNode",
-        "New-PfbLocalGroupMember",
-        "Remove-PfbLocalGroupMember",
-        "Remove-PfbNodeGroupNode"
-      ]
-    },
-    {
       "name": "local_file_system_names",
       "cmdletCount": 5,
       "cmdlets": [
@@ -18590,13 +19058,35 @@
       ]
     },
     {
-      "name": "file_system_ids",
+      "name": "rules",
+      "cmdletCount": 5,
+      "cmdlets": [
+        "New-PfbPolicy",
+        "New-PfbUserGroupQuotaPolicy",
+        "Update-PfbManagementAccessPolicy",
+        "Update-PfbPolicy",
+        "Update-PfbUserGroupQuotaPolicy"
+      ]
+    },
+    {
+      "name": "versions",
+      "cmdletCount": 5,
+      "cmdlets": [
+        "New-PfbNetworkAccessRule",
+        "New-PfbNfsExportRule",
+        "New-PfbSmbClientRule",
+        "Remove-PfbUserGroupQuotaPolicy",
+        "Update-PfbUserGroupQuotaPolicy"
+      ]
+    },
+    {
+      "name": "quota_limit",
       "cmdletCount": 4,
       "cmdlets": [
-        "Get-PfbFileSystemGroupPerformance",
-        "Get-PfbFileSystemUserPerformance",
-        "New-PfbLegalHoldEntity",
-        "Update-PfbLegalHoldEntity"
+        "New-PfbBucket",
+        "New-PfbUserGroupQuotaPolicyRule",
+        "Update-PfbBucket",
+        "Update-PfbUserGroupQuotaPolicyRule"
       ]
     },
     {
@@ -18755,24 +19245,6 @@
       ]
     },
     {
-      "name": "rules",
-      "cmdletCount": 3,
-      "cmdlets": [
-        "New-PfbPolicy",
-        "Update-PfbManagementAccessPolicy",
-        "Update-PfbPolicy"
-      ]
-    },
-    {
-      "name": "versions",
-      "cmdletCount": 3,
-      "cmdlets": [
-        "New-PfbNetworkAccessRule",
-        "New-PfbNfsExportRule",
-        "New-PfbSmbClientRule"
-      ]
-    },
-    {
       "name": "actions",
       "cmdletCount": 2,
       "cmdlets": [
@@ -18818,6 +19290,14 @@
       "cmdlets": [
         "New-PfbQuotaGroup",
         "Update-PfbLogTargetFileSystem"
+      ]
+    },
+    {
+      "name": "gids",
+      "cmdletCount": 2,
+      "cmdlets": [
+        "Get-PfbFileSystemGroup",
+        "Get-PfbFileSystemGroupQuota"
       ]
     },
     {
@@ -18877,14 +19357,6 @@
       ]
     },
     {
-      "name": "quota_limit",
-      "cmdletCount": 2,
-      "cmdlets": [
-        "New-PfbBucket",
-        "Update-PfbBucket"
-      ]
-    },
-    {
       "name": "recursive",
       "cmdletCount": 2,
       "cmdlets": [
@@ -18906,6 +19378,22 @@
       "cmdlets": [
         "New-PfbFileSystemExport",
         "Update-PfbFileSystemExport"
+      ]
+    },
+    {
+      "name": "uids",
+      "cmdletCount": 2,
+      "cmdlets": [
+        "Get-PfbFileSystemUser",
+        "Get-PfbFileSystemUserQuota"
+      ]
+    },
+    {
+      "name": "user_names",
+      "cmdletCount": 2,
+      "cmdlets": [
+        "Get-PfbFileSystemUser",
+        "Get-PfbFileSystemUserQuota"
       ]
     },
     {
@@ -19626,11 +20114,6 @@
       "cmdlets": []
     },
     {
-      "name": "gids",
-      "cmdletCount": 0,
-      "cmdlets": []
-    },
-    {
       "name": "group_gids",
       "cmdletCount": 0,
       "cmdlets": []
@@ -19976,17 +20459,7 @@
       "cmdlets": []
     },
     {
-      "name": "uids",
-      "cmdletCount": 0,
-      "cmdlets": []
-    },
-    {
       "name": "unreachable",
-      "cmdletCount": 0,
-      "cmdlets": []
-    },
-    {
-      "name": "user_names",
       "cmdletCount": 0,
       "cmdlets": []
     },

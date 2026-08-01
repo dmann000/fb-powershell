@@ -5513,6 +5513,86 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Get-PfbFileSystemGroup",
+      "parameter": "FileSystemName",
+      "wireName": "file_system_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemGroup",
+      "parameter": "FileSystemId",
+      "wireName": "file_system_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemGroup",
+      "parameter": "GroupName",
+      "wireName": "group_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemGroup",
+      "parameter": "GroupId",
+      "wireName": "gids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemGroup",
+      "parameter": "Filter",
+      "wireName": "filter",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemGroup",
+      "parameter": "Sort",
+      "wireName": "sort",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemGroup",
+      "parameter": "Limit",
+      "wireName": "limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemGroup",
+      "parameter": "TotalOnly",
+      "wireName": "total_only",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Get-PfbFileSystemGroupPerformance",
       "parameter": "Name",
       "wireName": "file_system_names",
@@ -5596,6 +5676,86 @@
       "cmdlet": "Get-PfbFileSystemGroupPerformance",
       "parameter": "Resolution",
       "wireName": "resolution",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemGroupQuota",
+      "parameter": "FileSystemName",
+      "wireName": "file_system_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemGroupQuota",
+      "parameter": "FileSystemId",
+      "wireName": "file_system_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemGroupQuota",
+      "parameter": "GroupName",
+      "wireName": "group_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemGroupQuota",
+      "parameter": "GroupId",
+      "wireName": "gids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemGroupQuota",
+      "parameter": "Filter",
+      "wireName": "filter",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemGroupQuota",
+      "parameter": "Sort",
+      "wireName": "sort",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemGroupQuota",
+      "parameter": "Limit",
+      "wireName": "limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemGroupQuota",
+      "parameter": "TotalOnly",
+      "wireName": "total_only",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -5783,6 +5943,176 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Get-PfbFileSystemUser",
+      "parameter": "FileSystemName",
+      "wireName": "file_system_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUser",
+      "parameter": "FileSystemId",
+      "wireName": "file_system_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUser",
+      "parameter": "UserName",
+      "wireName": "user_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUser",
+      "parameter": "UserId",
+      "wireName": "uids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUser",
+      "parameter": "UserSid",
+      "wireName": "user_sids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUser",
+      "parameter": "Filter",
+      "wireName": "filter",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUser",
+      "parameter": "Sort",
+      "wireName": "sort",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUser",
+      "parameter": "Limit",
+      "wireName": "limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUser",
+      "parameter": "TotalOnly",
+      "wireName": "total_only",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUserGroupQuotaPolicy",
+      "parameter": "PolicyName",
+      "wireName": "policy_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUserGroupQuotaPolicy",
+      "parameter": "PolicyId",
+      "wireName": "policy_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUserGroupQuotaPolicy",
+      "parameter": "MemberName",
+      "wireName": "member_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUserGroupQuotaPolicy",
+      "parameter": "MemberId",
+      "wireName": "member_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUserGroupQuotaPolicy",
+      "parameter": "Filter",
+      "wireName": "filter",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUserGroupQuotaPolicy",
+      "parameter": "Sort",
+      "wireName": "sort",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUserGroupQuotaPolicy",
+      "parameter": "Limit",
+      "wireName": "limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUserGroupQuotaPolicy",
+      "parameter": "TotalOnly",
+      "wireName": "total_only",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Get-PfbFileSystemUserPerformance",
       "parameter": "Name",
       "wireName": "file_system_names",
@@ -5866,6 +6196,96 @@
       "cmdlet": "Get-PfbFileSystemUserPerformance",
       "parameter": "Resolution",
       "wireName": "resolution",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUserQuota",
+      "parameter": "FileSystemName",
+      "wireName": "file_system_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUserQuota",
+      "parameter": "FileSystemId",
+      "wireName": "file_system_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUserQuota",
+      "parameter": "UserName",
+      "wireName": "user_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUserQuota",
+      "parameter": "UserId",
+      "wireName": "uids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUserQuota",
+      "parameter": "UserSid",
+      "wireName": "user_sids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUserQuota",
+      "parameter": "Filter",
+      "wireName": "filter",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUserQuota",
+      "parameter": "Sort",
+      "wireName": "sort",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUserQuota",
+      "parameter": "Limit",
+      "wireName": "limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemUserQuota",
+      "parameter": "TotalOnly",
+      "wireName": "total_only",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -6193,6 +6613,66 @@
       "recommendation": null
     },
     {
+      "cmdlet": "New-PfbFileSystemUserGroupQuotaPolicy",
+      "parameter": "PolicyName",
+      "wireName": "policy_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbFileSystemUserGroupQuotaPolicy",
+      "parameter": "PolicyId",
+      "wireName": "policy_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbFileSystemUserGroupQuotaPolicy",
+      "parameter": "MemberName",
+      "wireName": "member_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbFileSystemUserGroupQuotaPolicy",
+      "parameter": "MemberId",
+      "wireName": "member_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbFileSystemUserGroupQuotaPolicy",
+      "parameter": "DeleteExistingUserGroupQuotaSettings",
+      "wireName": "delete_existing_user_group_quota_settings",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbFileSystemUserGroupQuotaPolicy",
+      "parameter": "IgnoreUsage",
+      "wireName": "ignore_usage",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "New-PfbNlmReclamation",
       "parameter": "Name",
       "wireName": "names",
@@ -6356,6 +6836,46 @@
       "cmdlet": "Remove-PfbFileSystemSession",
       "parameter": "Name",
       "wireName": "names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbFileSystemUserGroupQuotaPolicy",
+      "parameter": "PolicyName",
+      "wireName": "policy_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbFileSystemUserGroupQuotaPolicy",
+      "parameter": "PolicyId",
+      "wireName": "policy_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbFileSystemUserGroupQuotaPolicy",
+      "parameter": "MemberName",
+      "wireName": "member_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbFileSystemUserGroupQuotaPolicy",
+      "parameter": "MemberId",
+      "wireName": "member_ids",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -14278,6 +14798,286 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicy",
+      "parameter": "Filter",
+      "wireName": "filter",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicy",
+      "parameter": "Sort",
+      "wireName": "sort",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicy",
+      "parameter": "Limit",
+      "wireName": "limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicy",
+      "parameter": "TotalOnly",
+      "wireName": "total_only",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyFileSystem",
+      "parameter": "PolicyName",
+      "wireName": "policy_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyFileSystem",
+      "parameter": "PolicyId",
+      "wireName": "policy_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyFileSystem",
+      "parameter": "MemberName",
+      "wireName": "member_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyFileSystem",
+      "parameter": "MemberId",
+      "wireName": "member_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyFileSystem",
+      "parameter": "Filter",
+      "wireName": "filter",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyFileSystem",
+      "parameter": "Sort",
+      "wireName": "sort",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyFileSystem",
+      "parameter": "Limit",
+      "wireName": "limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyFileSystem",
+      "parameter": "TotalOnly",
+      "wireName": "total_only",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyMember",
+      "parameter": "PolicyName",
+      "wireName": "policy_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyMember",
+      "parameter": "PolicyId",
+      "wireName": "policy_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyMember",
+      "parameter": "MemberName",
+      "wireName": "member_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyMember",
+      "parameter": "MemberId",
+      "wireName": "member_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyMember",
+      "parameter": "Filter",
+      "wireName": "filter",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyMember",
+      "parameter": "Sort",
+      "wireName": "sort",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyMember",
+      "parameter": "Limit",
+      "wireName": "limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyMember",
+      "parameter": "TotalOnly",
+      "wireName": "total_only",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyRule",
+      "parameter": "PolicyName",
+      "wireName": "policy_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyRule",
+      "parameter": "PolicyId",
+      "wireName": "policy_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyRule",
+      "parameter": "Name",
+      "wireName": "names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyRule",
+      "parameter": "Id",
+      "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyRule",
+      "parameter": "Filter",
+      "wireName": "filter",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyRule",
+      "parameter": "Sort",
+      "wireName": "sort",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyRule",
+      "parameter": "Limit",
+      "wireName": "limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicyRule",
+      "parameter": "TotalOnly",
+      "wireName": "total_only",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Get-PfbWormPolicy",
       "parameter": "Name",
       "wireName": "names",
@@ -15168,6 +15968,166 @@
       "recommendation": null
     },
     {
+      "cmdlet": "New-PfbUserGroupQuotaPolicy",
+      "parameter": "Name",
+      "wireName": "names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbUserGroupQuotaPolicy",
+      "parameter": "FileSystemName",
+      "wireName": "file_system_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbUserGroupQuotaPolicy",
+      "parameter": "FileSystemId",
+      "wireName": "file_system_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbUserGroupQuotaPolicy",
+      "parameter": "Location",
+      "wireName": "location",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbUserGroupQuotaPolicy",
+      "parameter": "Rules",
+      "wireName": "rules",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbUserGroupQuotaPolicyFileSystem",
+      "parameter": "PolicyName",
+      "wireName": "policy_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbUserGroupQuotaPolicyFileSystem",
+      "parameter": "PolicyId",
+      "wireName": "policy_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbUserGroupQuotaPolicyFileSystem",
+      "parameter": "MemberName",
+      "wireName": "member_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbUserGroupQuotaPolicyFileSystem",
+      "parameter": "MemberId",
+      "wireName": "member_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbUserGroupQuotaPolicyFileSystem",
+      "parameter": "DeleteExistingUserGroupQuotaSettings",
+      "wireName": "delete_existing_user_group_quota_settings",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbUserGroupQuotaPolicyFileSystem",
+      "parameter": "IgnoreUsage",
+      "wireName": "ignore_usage",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbUserGroupQuotaPolicyRule",
+      "parameter": "PolicyName",
+      "wireName": "policy_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbUserGroupQuotaPolicyRule",
+      "parameter": "PolicyId",
+      "wireName": "policy_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbUserGroupQuotaPolicyRule",
+      "parameter": "Subject",
+      "wireName": "subject",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbUserGroupQuotaPolicyRule",
+      "parameter": "QuotaLimit",
+      "wireName": "quota_limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbUserGroupQuotaPolicyRule",
+      "parameter": "IgnoreUsage",
+      "wireName": "ignore_usage",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Remove-PfbAuditFileSystemPolicy",
       "parameter": "Name",
       "wireName": "names",
@@ -15811,6 +16771,116 @@
       "cmdlet": "Remove-PfbTlsPolicy",
       "parameter": "Id",
       "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbUserGroupQuotaPolicy",
+      "parameter": "Name",
+      "wireName": "names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbUserGroupQuotaPolicy",
+      "parameter": "Id",
+      "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbUserGroupQuotaPolicy",
+      "parameter": "Version",
+      "wireName": "versions",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbUserGroupQuotaPolicyFileSystem",
+      "parameter": "PolicyName",
+      "wireName": "policy_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbUserGroupQuotaPolicyFileSystem",
+      "parameter": "PolicyId",
+      "wireName": "policy_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbUserGroupQuotaPolicyFileSystem",
+      "parameter": "MemberName",
+      "wireName": "member_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbUserGroupQuotaPolicyFileSystem",
+      "parameter": "MemberId",
+      "wireName": "member_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbUserGroupQuotaPolicyRule",
+      "parameter": "Name",
+      "wireName": "names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbUserGroupQuotaPolicyRule",
+      "parameter": "Id",
+      "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbUserGroupQuotaPolicyRule",
+      "parameter": "PolicyName",
+      "wireName": "policy_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbUserGroupQuotaPolicyRule",
+      "parameter": "PolicyId",
+      "wireName": "policy_ids",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -16381,6 +17451,106 @@
       "cmdlet": "Update-PfbTlsPolicy",
       "parameter": "VerifyClientCertificateTrust",
       "wireName": "verify_client_certificate_trust",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbUserGroupQuotaPolicy",
+      "parameter": "Name",
+      "wireName": "names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbUserGroupQuotaPolicy",
+      "parameter": "Id",
+      "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbUserGroupQuotaPolicy",
+      "parameter": "Location",
+      "wireName": "location",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbUserGroupQuotaPolicy",
+      "parameter": "Rules",
+      "wireName": "rules",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbUserGroupQuotaPolicy",
+      "parameter": "IgnoreUsage",
+      "wireName": "ignore_usage",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbUserGroupQuotaPolicy",
+      "parameter": "Version",
+      "wireName": "versions",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbUserGroupQuotaPolicyRule",
+      "parameter": "Name",
+      "wireName": "names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbUserGroupQuotaPolicyRule",
+      "parameter": "Id",
+      "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbUserGroupQuotaPolicyRule",
+      "parameter": "QuotaLimit",
+      "wireName": "quota_limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbUserGroupQuotaPolicyRule",
+      "parameter": "IgnoreUsage",
+      "wireName": "ignore_usage",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -19200,6 +20370,14 @@
       "parameter": "Name"
     },
     {
+      "cmdlet": "New-PfbUserGroupQuotaPolicy",
+      "parameter": "Enabled"
+    },
+    {
+      "cmdlet": "New-PfbUserGroupQuotaPolicyRule",
+      "parameter": "Enforced"
+    },
+    {
       "cmdlet": "New-PfbWormPolicy",
       "parameter": "Name"
     },
@@ -19233,6 +20411,10 @@
     },
     {
       "cmdlet": "Update-PfbSmbSharePolicy",
+      "parameter": "Enabled"
+    },
+    {
+      "cmdlet": "Update-PfbUserGroupQuotaPolicy",
       "parameter": "Enabled"
     },
     {
@@ -19392,6 +20574,14 @@
     {
       "cmdlet": "Get-PfbHardwareTemperature",
       "parameter": "Limit"
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicy",
+      "parameter": "Name"
+    },
+    {
+      "cmdlet": "Get-PfbUserGroupQuotaPolicy",
+      "parameter": "Id"
     },
     {
       "cmdlet": "Remove-PfbQuotaGroup",

@@ -9,7 +9,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - matched: 1
 - collision: 1
 - not-found-in-resource: 29
-- no-spec-enum-found: 1867
+- no-spec-enum-found: 1984
 
 | Cmdlet | Parameter | Wire name | Status | Spec values | Recommendation |
 |---|---|---|---|---|---|
@@ -45,7 +45,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 | `Update-PfbTarget` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbWorkload` | `-NewName` | name | not-found-in-resource |  |  |
 
-## Attributes-only parameters (no typed field to attach either mechanism to): 65
+## Attributes-only parameters (no typed field to attach either mechanism to): 68
 
 - `Update-PfbAlert -Flagged`
 - `Update-PfbAlertWatcher -Enabled`
@@ -92,6 +92,8 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `New-PfbSshCaPolicy -Name`
 - `New-PfbStorageClassTieringPolicy -Name`
 - `New-PfbTlsPolicy -Name`
+- `New-PfbUserGroupQuotaPolicy -Enabled`
+- `New-PfbUserGroupQuotaPolicyRule -Enforced`
 - `New-PfbWormPolicy -Name`
 - `Update-PfbAuditFileSystemPolicy -Enabled`
 - `Update-PfbAuditObjectStorePolicy -Enabled`
@@ -101,6 +103,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `Update-PfbS3ExportPolicy -Enabled`
 - `Update-PfbSmbClientPolicy -Enabled`
 - `Update-PfbSmbSharePolicy -Enabled`
+- `Update-PfbUserGroupQuotaPolicy -Enabled`
 - `New-PfbQuotaUser -FileSystemName`
 - `New-PfbQuotaUser -UserName`
 - `New-PfbQuotaUser -UserId`
@@ -113,7 +116,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `New-PfbTarget -Name`
 - `New-PfbServer -CreateDirectoryService`
 
-## Typed but unresolved wire name (needs manual inspection): 37
+## Typed but unresolved wire name (needs manual inspection): 39
 
 - `Get-PfbAlert -Flagged`
 - `Get-PfbApiVersion -Endpoint`
@@ -143,6 +146,8 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `New-PfbFileSystemSnapshot -SourceName`
 - `Remove-PfbFileSystemSnapshot -Eradicate`
 - `Get-PfbHardwareTemperature -Limit`
+- `Get-PfbUserGroupQuotaPolicy -Name`
+- `Get-PfbUserGroupQuotaPolicy -Id`
 - `Remove-PfbQuotaGroup -FileSystemName`
 - `Remove-PfbQuotaGroup -GroupName`
 - `Remove-PfbQuotaUser -FileSystemName`
