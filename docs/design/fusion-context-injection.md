@@ -23,6 +23,11 @@ corrects one claim rev 2 stated as settled:
 - **HTTP 207 and the `errors` response array** are specified as a response-layer
   requirement.
 - **A cross-array authorization precondition** (`authorization_model`) is specified.
+- **Fleet-scoped *mutations* are specified.** Rev 2, and rev 3 as first drafted, characterized
+  fleet-scoped endpoints from `GET` evidence alone. Live testing of `POST`/`PUT`/`DELETE
+  /presets/workload` on 2026-08-02 found the no-context default *fails* on a mutation rather
+  than resolving to a local view, so omitting context is not a safe default there. This has a
+  consequence for shipped code -- see "Fleet-scoped mutations have no usable default".
 - **The capability-map staleness question is decided** rather than left implicit, and the
   dissenting view is recorded.
 - **Phasing is corrected.** Rev 2 put `Invoke-PfbInContext` in Phase 2 while relying on it
@@ -110,11 +115,12 @@ from the kind.
 
 ### Array-scoped versus fleet-scoped endpoints
 
-Each resource type accepts only the context kind it is scoped to. Measured behavior:
+Each resource type accepts only the context kind it is scoped to. Measured behavior, for
+**reads**:
 
 | `context_names` value | array-scoped (`/file-systems`, `/arrays`) | fleet-scoped (`/presets/workload`, `/topology-groups`) |
 |---|---|---|
-| *(not specified)* | local array | the local array's view of the fleet object |
+| *(not specified)* | local array | the local array's view of the fleet object -- but see below, list-only |
 | bare **remote array** name | works -- switches target | rejected -- `code 13 "Invalid context."` |
 | bare **fleet** name | rejected -- `code 42 "Cannot specify context that is a fleet"` | **works** -- targets the fleet-level object |
 | `<fleet>.arrays` | works -- fans out across fleet members | rejected -- `code 13 "Invalid context."` |
@@ -127,6 +133,41 @@ the fleet name, and `.arrays` is not meaningful there.
 Because the server's rejection messages are inconsistent across kinds and the `.arrays`
 suffix is undocumented, the module validates kind-vs-scope **client-side** and produces one
 uniform error rather than relaying the server's grab-bag of messages.
+
+#### Fleet-scoped mutations have no usable default
+
+The table above is derived from `GET` probes. Mutations differ in the first row, and the
+difference is the one that matters: **on a fleet-scoped endpoint, omitting `context_names`
+does not resolve to a local view -- it fails.** Measured against `/presets/workload` on
+FB-A, 2026-08-02, as a dynamic-model admin:
+
+| Call | Context | Result |
+|---|---|---|
+| `POST` | *(none)* | `code 13 "Creating a preset in the array context is not supported."` |
+| `PUT`, `DELETE` | *(none)* | `code 6 "Preset does not exist."` |
+| `POST`/`PUT`/`DELETE` | bare **fleet** name | **works** |
+| `POST` | bare **member array** name | `code 13 "Invalid context."` |
+| `GET`, unfiltered | *(none)* | works -- returns the replicated copy |
+| `GET ?names=...` | *(none)* | `code 6 "Preset does not exist."` |
+| `GET ?names=...` | bare **fleet** name | works |
+
+Two things follow.
+
+**The local view is list-only.** An unfiltered read with no context returns the object, yet
+the same object is not addressable *by name* without fleet context. So "the local array's
+view of the fleet object" is weaker than it reads: sufficient to enumerate, insufficient to
+resolve a name against. Any cmdlet that targets by `names=` is in the mutation case, not the
+read case, regardless of its verb.
+
+**This is not a future concern -- it describes shipped code.** No cmdlet in
+`Public/Presets/` has ever sent `context_names`, so five of the six preset operations are
+non-functional today: every write, plus every name-scoped read. Only the unfiltered `Get`
+works. This is tracked separately from the design; the point here is that context injection
+is not an enhancement for these endpoints but the thing that makes them work at all, which
+is a reason to keep them in Phase 1 rather than deferring them.
+
+The design consequence is that a fleet-scoped endpoint cannot be left to the no-context
+default the way an array-scoped one can. See Open Question 7.
 
 ### The local-context short-circuit -- a testing trap
 
@@ -142,6 +183,11 @@ Two consequences:
 - The module deliberately does not copy this behavior. See "Local context is still a
   context."
 
+**The short-circuit does not extend to mutations.** `POST`/`PUT`/`DELETE /presets/workload`
+fail with local or absent context (see "Fleet-scoped mutations have no usable default"), so
+the forgiving behavior a `GET` probe observes is read-only. A tester who establishes the
+short-circuit on reads and generalizes it to writes will conclude the endpoint is broken.
+
 ---
 
 ## Design
@@ -151,6 +197,26 @@ Two consequences:
 Every request funnels through `Invoke-PfbApiRequest`. That is the one place context is
 resolved and injected, so no public cmdlet changes and the "zero change across ~520
 signatures" property holds.
+
+**With exceptions, which this design depends on being closed.** The claim above was stated
+as settled in rev 2 and is not quite true. Five public cmdlets call `Invoke-RestMethod`
+directly. Three are connection lifecycle -- `Connect-PfbArray`, `Disconnect-PfbArray`,
+`Get-PfbApiVersion` -- and are legitimately outside the choke point, since they run before or
+around the connection the shared path requires; none of them takes a context. The other two
+are ordinary write cmdlets that simply bypassed it:
+
+| Cmdlet | Status |
+|---|---|
+| `Set-PfbPresetWorkload` | **Closed.** Folded onto the shared path (issue #76); `Invoke-PfbApiRequest` gained `PUT` to make that possible. |
+| `Set-PfbWorkloadTag` | **Open** (issue #77). The last resource cmdlet routing around the choke point. |
+
+This matters more than a tidiness note. A cmdlet that bypasses `Invoke-PfbApiRequest` gets no
+context injection, and does so *silently* -- the injection path cannot warn about a caller it
+never sees. `Set-PfbPresetWorkload` showed what that costs: a fleet-scoped write that could
+not work, with nothing in the module able to say why. Whether `/workloads/tags/batch` is
+fleet-scoped has not been tested, so the same failure is possible but unconfirmed there.
+Closing #77 is a prerequisite for this design holding as written rather than a parallel
+cleanup: until it lands, "every request" has a counterexample.
 
 ### 2. Context state lives on the connection object
 
@@ -609,6 +675,20 @@ immediately when a static-model admin sets or uses any cross-array context:
 A user hitting the raw "Operation not permitted" has no obvious reason to suspect their *auth
 method* rather than their fleet setup.
 
+#### `code 20` masks every other finding -- a testing precondition
+
+The client-side check earns its keep for diagnosis as much as ergonomics. Connected as a
+static-model admin, **every** call to a fleet-scoped endpoint returns `code 20`, read and
+write alike, whatever the context value. That is indistinguishable from the endpoint being
+unsupported on the platform, and it is not a hypothetical: during issue #76 testing on
+2026-08-02 it produced the confident and wrong conclusion "presets are unsupported on FB-A."
+Re-running as a dynamic-model admin turned the same calls into `code 6` / `code 13` /
+`code 24` -- real semantic answers, and the entire basis of the mutation table above.
+
+**Never conclude an endpoint is unsupported from a `code 20`.** Establish
+`authorization_model: dynamic` before any context probe; a static-model session cannot
+distinguish "not permitted for you" from "not implemented here."
+
 ---
 
 ## Capability-map staleness
@@ -798,9 +878,16 @@ context-targeting failures with the active context name(s).** (Open Question 3.)
   array-scoped endpoints and vice versa, with one uniform error.
 - **`authorization_model` gate** -- a static-model admin setting or using any cross-array
   context throws client-side.
+- **Fleet-scoped mutation with no context** -- whatever Open Question 7 resolves to, the
+  behavior is asserted rather than left to the endpoint. A `New-`/`Set-`/`Remove-PfbPresetWorkload`
+  call with no context must not reach the wire only to come back `code 13`.
+- **Name-scoped read on a fleet-scoped endpoint** -- `?names=` with no context must behave
+  like a mutation, not like an unfiltered list. This is the case a verb-shaped test misses.
 
-Live verification must use a **remote** fleet member. A self-context test passes for the wrong
-reason (see "The local-context short-circuit").
+Live verification must use a **remote** fleet member, and must run as a **dynamic**-model
+admin. A self-context test passes for the wrong reason (see "The local-context
+short-circuit"); a static-model session fails every probe with `code 20` for the wrong reason
+(see section 11). Both produce confident, wrong conclusions -- the second one already has.
 
 ---
 
@@ -849,6 +936,23 @@ reason (see "The local-context short-circuit").
    wrong "size-1" locally blocks a call that would have worked. This is consistent with the
    module's capability-check principle but it is a behavioral choice, and it has one live
    instance (`GET /snmp-managers/test`). Confirm, or fail closed.
+7. **What should a fleet-scoped endpoint do with no context set?** Array-scoped endpoints have
+   a sensible no-context default -- the local array. Fleet-scoped ones do not: on a mutation or
+   a name-scoped read the call is guaranteed to fail (`code 13` / `code 6`). Three options, and
+   this doc does not pick one:
+   - **Send nothing, let it fail.** Honest and simple, but every preset cmdlet stays broken
+     out of the box and the error names neither the cause nor the fix.
+   - **Throw client-side**, naming the fleet requirement. Consistent with the
+     `authorization_model` gate and the kind-vs-scope validation, both of which already
+     convert an obscure server code into an actionable message.
+   - **Default to the fleet** when the endpoint is fleet-scoped and no context is set. Most
+     ergonomic and matches the only value the endpoint accepts, but it means synthesizing a
+     context the caller never asked for -- and discovering the fleet name costs a call.
+
+   The third conflicts with the goal "never let a context request be silently dropped" only in
+   spirit, not in letter, since nothing is being dropped. Worth deciding explicitly rather than
+   by default. Note this also needs a way to know an endpoint is fleet-scoped, which the
+   capability map does not currently record.
 
 ---
 
@@ -933,6 +1037,27 @@ Passing `topology_group_names=nonexistent` clears it, after which the endpoint r
 as expected. **A `code 24` from that endpoint is not evidence either way** -- it means the
 context check was never reached.
 
+**FB-A (Purity//FB 4.8.2, REST 2.26), fleet `cc-test-fleet`, 2026-08-02** -- the first probe
+of fleet-scoped **mutations**, run as a dynamic-model admin during issue #76 live testing. A
+full `POST` -> `PUT` (revision 1 -> 2) -> `DELETE` round trip on `/presets/workload` succeeded
+under `context_names=<fleet>`, and each verb was also probed with no context and with a member
+array name:
+
+- With **no context**, `POST` returns `code 13 "Creating a preset in the array context is not
+  supported."`, and `PUT`/`DELETE` return `code 6 "Preset does not exist."` The local-context
+  short-circuit that makes a `GET` succeed does not apply to mutations.
+- With a **member array** name, `POST` returns `code 13 "Invalid context."` Only the bare
+  fleet name is accepted, on every verb -- confirming for writes what rev 3 had established
+  for reads.
+- `GET` with no context is **list-only**: unfiltered returns the replicated preset, while
+  `?names=<preset>` returns `code 6`. Name resolution requires fleet context even on a read.
+- As the static-model `pureuser`, all of the above return `code 20` instead, with no way to
+  tell them apart -- see section 11.
+- Preset bodies require a `storage_class` reference (`name` + `id` + `resource_type`) that
+  need not resolve: FB-A reports storage classes unsupported and offers no create verb for
+  them at 2.28, yet the preset is accepted, because a preset is a fleet-database template
+  rather than a provisioned object.
+
 **FB-A and a second simulator (Purity//FB 4.6.5 / REST 2.22)** -- silent acceptance of
 never-supported `context_names` on `/alert-watchers` across a create/patch/delete round trip;
 clean wire-400 (`code 24`) for recorded-but-too-old on `/admins` and `/dns`.
@@ -972,3 +1097,5 @@ Tracked so the module's workarounds can be retired with evidence when each is fi
 | `GET /audits` processed `context_names` though 2.26/2.27 did not record it | **Fixed** in 2.28: declares `Context_names_get`, `allow_errors` and `207`. Recorded in the map; no workaround needed. |
 | `GET /snmp-managers/test` processes `context_names` though no scanned version records it | **Open.** A map gap within the scanned range, not staleness. The predicate falls back to the verb and returns capable on no evidence -- see section 8. |
 | The `errors` envelope field is applied by authoring convention to 15 endpoints that cannot return a partial failure | **Cosmetic**, but it makes the field useless as a capability signal. |
+| Both `context_names` components describe the value as "the name of an array in the same fleet **or** the name of the fleet itself". On fleet-scoped endpoints only the second branch is legal -- a member array yields `code 13` on every verb | **Open.** Same root cause as the `Context_names_get` row above: a shared component describing a parameter whose legal values are endpoint-scoped. Harmless on array-scoped endpoints; on fleet-scoped ones it documents a value that never works. The module resolves this client-side via kind-vs-scope validation rather than waiting on the contract. |
+| Nothing in the spec marks an endpoint as fleet-scoped versus array-scoped | **Open.** The distinction is real and load-bearing -- it decides which context kinds are legal and whether a no-context call can succeed at all -- but it is derivable only from live testing or from the resource's semantics. Blocks a data-driven answer to Open Question 7. |
