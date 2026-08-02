@@ -28,6 +28,11 @@ corrects one claim rev 2 stated as settled:
   /presets/workload` on 2026-08-02 found the no-context default *fails* on a mutation rather
   than resolving to a local view, so omitting context is not a safe default there. This has a
   consequence for shipped code -- see "Fleet-scoped mutations have no usable default".
+- **Context scope is specified as curated metadata** (section 12). Rev 2 and rev 3 both promised
+  client-side kind-vs-scope validation without saying where scope comes from; it is in no spec
+  field, so the module has to carry it. This is also what lets the module tell a user *"this
+  command requires a fleet context"* instead of relaying `code 13`, which subsumes open
+  question 3 and unblocks open question 7.
 - **The capability-map staleness question is decided** rather than left implicit, and the
   dissenting view is recorded.
 - **Phasing is corrected.** Rev 2 put `Invoke-PfbInContext` in Phase 2 while relying on it
@@ -689,6 +694,106 @@ Re-running as a dynamic-model admin turned the same calls into `code 6` / `code 
 `authorization_model: dynamic` before any context probe; a static-model session cannot
 distinguish "not permitted for you" from "not implemented here."
 
+### 12. Context scope is metadata, and the module has to supply it
+
+Two earlier sections promise something this design never delivers. "Array-scoped versus
+fleet-scoped endpoints" states that the module "validates kind-vs-scope **client-side** and
+produces one uniform error." "Fleet-scoped mutations have no usable default" needs to know
+an endpoint is fleet-scoped before it can say anything useful about a missing context.
+Neither says where scope comes from. It has to come from somewhere, and it cannot come from
+the API.
+
+#### There is no signal in the spec
+
+Checked at fb2.28. Operation `tags` are resource groupings (`Presets`, `File Systems`,
+`Buckets`), and fleet-scoped and array-scoped endpoints are indistinguishable under them.
+Nothing else marks scope either -- recorded in Appendix B.
+
+Cardinality is not a proxy. A fleet-scoped endpoint is necessarily size-1, because it has
+exactly one meaningful context, but so is every array-scoped mutation. Size-1 is implied by
+fleet scope and does not imply it back.
+
+So scope is **curated data**. The question is whether curation is affordable, and it is:
+
+| Resource family | Context-capable endpoints | Scope |
+|---|---|---|
+| Presets (`/presets/workload`, all five verbs) | 5 | **fleet** -- live-tested |
+| Topology Groups (`/topology-groups`, `/members`, `/arrays`) | 8 | **fleet** -- live-tested (GETs) |
+| Realms (`GET /realms`, `GET`/`PATCH /realms/defaults`) | 3 | **unknown** -- untested |
+| Fleets, Realm Connections | 0 | n/a -- fleet management itself takes no context |
+| Everything else | ~360 | array, or presumed so |
+
+Thirteen confirmed entries under two resource families, out of 376 endpoints recording
+`context_names`. That is a table, not a maintenance programme. Note the shape of the result:
+fleet-scoped endpoints are not scattered through the API, they are exactly the endpoints of
+the two resource types that live in the fleet database.
+
+#### Representation
+
+A `contextScope` field per endpoint in the capability map, alongside the existing
+`parameterComponentOverrides`, populated by the generator from a curated list with
+per-entry provenance (live-tested versus inferred). **Default `array`**, which is the
+fail-safe direction: mis-marking a fleet-scoped endpoint as array-scoped costs the caller
+the extra guidance and leaves today's behavior, while the reverse would throw on a call that
+would have worked. That matches the fail-open principle section 8 already argues for.
+
+Realms are marked `unknown` rather than guessed. `unknown` behaves as `array` at runtime and
+exists so the gap is visible in the data instead of hidden behind a default.
+
+#### What it buys, and why it answers two open questions
+
+One field, three consumers:
+
+**1. Validation** -- the kind-vs-scope check becomes a map lookup instead of a hardcoded list,
+so it is declared in one place and checked by the maintainer drift report, exactly as the
+cardinality rule is.
+
+**2. Errors that say what to do.** This is the point. The failures a user actually hits are
+`code 13 "Invalid context."`, `code 6 "Preset does not exist."`, and `code 42 "Cannot specify
+context that is a fleet."` None names the cause and none suggests a fix; `code 6` actively
+misleads, since the preset does exist. With scope in hand the module can say so before the
+call, or annotate it after:
+
+> `Set-PfbPresetWorkload` targets a fleet-scoped resource, which requires a fleet context.
+> The current context is the local array. Set one with
+> `Set-PfbContext -Fleet <name>`, or run this call in a fleet context with
+> `Invoke-PfbInContext -Fleet <name> { ... }`.
+> Get the fleet name from `Get-PfbFleet`.
+
+and, for the inverse:
+
+> `Get-PfbFileSystem` targets an array-scoped resource; a fleet name is not a valid context
+> for it. Use a member array name, or `<fleet>.arrays` to fan out across the fleet.
+
+**3. Discoverability before the error.** Every affected cmdlet's comment-based help gains a
+`.NOTES` line stating the context requirement, generated from the same field so it cannot
+drift from the validation. A user reading `Get-Help New-PfbPresetWorkload` learns the
+requirement without hitting `code 13` first.
+
+This subsumes two open questions rather than sitting beside them. **Open Question 3**
+(annotating fleet-membership failures with the context name) is consumer 2's after-the-call
+half. **Open Question 7** (what a fleet-scoped endpoint should do with no context) becomes
+answerable: of its three options, "throw client-side" is only attractive if the throw can be
+*specific*, and scope metadata is what makes it specific. Without this field the best
+available message is a generic "this might need a fleet context"; with it, the message names
+the resource, the requirement, and the cmdlet that fixes it.
+
+It does not settle the third option, defaulting to the fleet. Scope tells the module a fleet
+context is required; it does not supply the fleet's name, which still costs a call to
+discover. Recommendation is to throw with guidance in the first pass and revisit
+default-to-fleet once `Get-PfbFleet` is on the connection path.
+
+#### Drift
+
+The exposure is a new fleet-scoped resource appearing in a later REST version and being
+silently treated as array-scoped. That is the benign direction -- it degrades to current
+behavior -- but it should still be visible. The maintainer drift report already compares
+rule against spec for cardinality; it should also flag any endpoint that newly declares
+`context_names` under a resource family the curated list marks fleet-scoped, so a new verb
+on `/presets/workload` or a new topology-group sub-resource surfaces for classification
+rather than defaulting quietly. Cross-version scope changes are not a concern in the way
+component identity is: a resource does not migrate between the fleet database and an array.
+
 ---
 
 ## Capability-map staleness
@@ -898,6 +1003,8 @@ short-circuit"); a static-model session fails every probe with `code 20` for the
   connection; central capability-gated hard-throw injection with the ordering fixes;
   `Set-PfbContext` / `Clear-PfbContext`; `Invoke-PfbInContext`; kind and fan-out with
   client-side kind-vs-scope validation; the data-driven cardinality rule and its throw; the
+  `contextScope` map field and the scope-aware guidance messages built on it (section 12) --
+  Phase 1 because kind-vs-scope validation cannot be implemented without it; the
   `authorization_model` precondition; the connect-time staleness warning; `Get-PfbFleetMember`
   top-level `MemberName`/`FleetName` and the `Set-PfbContext` pipeline binding.
 - **Phase 2**: `allow_errors` end-to-end -- surfacing, default rules, and the response-layer
@@ -924,7 +1031,9 @@ short-circuit"); a static-model session fails every probe with `code 20` for the
    legitimate if discoverability is valued over predictability. Confirm.
 3. **Context-name annotation on fleet-membership failures.** Recommendation is to annotate
    `code 42` and similar with the active context name(s). Confirm, or accept as a known rough
-   edge.
+   edge. **Section 12 proposes the mechanism**: with `contextScope` in the map the annotation
+   can name the required context *kind* and the cmdlet that sets it, not just echo the context
+   that failed. What remains open is scope of effort, not feasibility.
 4. **Multi-value mutating writes.** This doc chooses throw, narrow-to-one. Confirm throw-only
    for the first pass.
 5. **Cross-platform context.** Can a FlashBlade connection carry a FlashArray context within the
@@ -951,8 +1060,13 @@ short-circuit"); a static-model session fails every probe with `code 20` for the
 
    The third conflicts with the goal "never let a context request be silently dropped" only in
    spirit, not in letter, since nothing is being dropped. Worth deciding explicitly rather than
-   by default. Note this also needs a way to know an endpoint is fleet-scoped, which the
-   capability map does not currently record.
+   by default.
+
+   **Section 12 supplies the missing input** -- a `contextScope` field, without which none of
+   the three options can be implemented, since the module cannot currently tell a fleet-scoped
+   endpoint from an array-scoped one. With it, the recommendation is the second option: throw
+   client-side with a message naming the requirement and the cmdlet that satisfies it.
+   Default-to-fleet stays open, blocked on discovering the fleet name without an extra call.
 
 ---
 
@@ -1098,4 +1212,4 @@ Tracked so the module's workarounds can be retired with evidence when each is fi
 | `GET /snmp-managers/test` processes `context_names` though no scanned version records it | **Open.** A map gap within the scanned range, not staleness. The predicate falls back to the verb and returns capable on no evidence -- see section 8. |
 | The `errors` envelope field is applied by authoring convention to 15 endpoints that cannot return a partial failure | **Cosmetic**, but it makes the field useless as a capability signal. |
 | Both `context_names` components describe the value as "the name of an array in the same fleet **or** the name of the fleet itself". On fleet-scoped endpoints only the second branch is legal -- a member array yields `code 13` on every verb | **Open.** Same root cause as the `Context_names_get` row above: a shared component describing a parameter whose legal values are endpoint-scoped. Harmless on array-scoped endpoints; on fleet-scoped ones it documents a value that never works. The module resolves this client-side via kind-vs-scope validation rather than waiting on the contract. |
-| Nothing in the spec marks an endpoint as fleet-scoped versus array-scoped | **Open.** The distinction is real and load-bearing -- it decides which context kinds are legal and whether a no-context call can succeed at all -- but it is derivable only from live testing or from the resource's semantics. Blocks a data-driven answer to Open Question 7. |
+| Nothing in the spec marks an endpoint as fleet-scoped versus array-scoped | **Open, worked around.** The distinction is real and load-bearing -- it decides which context kinds are legal and whether a no-context call can succeed at all -- but it is derivable neither from `tags` (resource groupings, checked at 2.28) nor from cardinality (fleet scope implies size-1, not the reverse). The module curates it instead: section 12. Thirteen endpoints across two resource families, so the workaround is cheap; it should still be retired if the API ever declares scope. |
