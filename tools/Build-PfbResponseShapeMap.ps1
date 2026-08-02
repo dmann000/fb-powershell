@@ -60,6 +60,14 @@ $specFiles = $specFiles | ForEach-Object {
     }
 } | Where-Object { $_ } | Sort-Object Major, Minor
 
+# Guard AGAIN on the parsed set, not just the glob. A directory whose fb*.json files all fail
+# the version regex clears the check above, and without this the run would go on to write a
+# well-formed artifact with an empty generatedFrom -- silently replacing the real
+# Data/PfbResponseShapeMap.json with an empty one.
+if (-not $specFiles) {
+    throw "No spec files in '$SpecsDirectory' have a parseable fb<major>.<minor>.json name. Run Update-PfbApiSpecs.ps1 first."
+}
+
 # endpointKey -> record. Typed Dictionary, not a Hashtable: endpoint keys are safe, but the
 # per-field dictionaries below hold API field names, where a field named 'keys'/'count'/
 # 'values' would shadow real member access on a Hashtable.
@@ -141,8 +149,13 @@ foreach ($epKey in ($endpoints.get_Keys() | Sort-Object)) {
         responseItemProperties = $present['items']
     }
 
-    # Emitted only when non-empty: 11 removal records exist across the entire API surface,
-    # so ~500 empty arrays would be pure noise in a tracked artifact.
+    # Emitted only when non-empty -- across all 496 endpoints just 7 removal records exist, so
+    # ~500 empty arrays would be pure noise in a tracked artifact. The count is 7 rather than
+    # the larger number a naive version-to-version diff reports because "removed" here means
+    # absent from the endpoint's own lastSeenVersion: a field that disappears for a single
+    # version and then returns is still present in the newest spec and is deliberately NOT
+    # counted. (Both known instances -- GET /active-directory at 2.12, GET /buckets/performance
+    # at 2.20 -- were spec-authoring errors corrected in the following release.)
     if ($removed.Count -gt 0) {
         $endpointRecord.removedResponseFields = @($removed | Sort-Object { $_.location }, { $_.field })
     }

@@ -36,6 +36,21 @@ BeforeAll {
             }
         }
     }
+
+    # Same response node as above, but lets several paths be declared in a CHOSEN order within
+    # one spec, so emission order can be asserted against insertion order.
+    function New-MultiPathShapeSpecFixture {
+        param(
+            # Ordered array of [PSCustomObject]@{ Path; EnvelopeProperties; ItemProperties }
+            [Parameter(Mandatory)][object[]]$Endpoints
+        )
+        $paths = [PSCustomObject]@{}
+        foreach ($ep in $Endpoints) {
+            $single = New-ShapeSpecFixture -EnvelopeProperties $ep.EnvelopeProperties -ItemProperties $ep.ItemProperties
+            $paths | Add-Member -NotePropertyName $ep.Path -NotePropertyValue $single.paths.'/api/2.0/widgets'
+        }
+        [PSCustomObject]@{ paths = $paths }
+    }
 }
 
 Describe 'Build-PfbResponseShapeMap' {
@@ -135,6 +150,43 @@ Describe 'Build-PfbResponseShapeMap' {
         & $script:BuilderPath -SpecsDirectory $specs -OutputPath $b | Out-Null
 
         (Get-FileHash $a -Algorithm SHA256).Hash | Should -Be (Get-FileHash $b -Algorithm SHA256).Hash
+    }
+
+    It 'emits endpoint keys and field names in sorted order, not insertion order' {
+        # Dictionary<T> enumeration is stable for a fixed insertion sequence, so a
+        # two-runs-hash-equal check passes even with every Sort-Object deleted. This asserts the
+        # literal emitted order instead. Both fixtures declare paths zebras-before-alphas, and
+        # 'alpha' is introduced at 9.1 AFTER 'mango'/'zebra' were inserted at 9.0 -- so without
+        # sorting the emission would be zebras-then-alphas and mango,zebra,alpha.
+        $specs = Join-Path $TestDrive 'specs8'; New-Item -ItemType Directory -Path $specs -Force | Out-Null
+        New-MultiPathShapeSpecFixture -Endpoints @(
+            [PSCustomObject]@{ Path = '/api/2.0/zebras'; EnvelopeProperties = @('items'); ItemProperties = @('mango', 'zebra') }
+            [PSCustomObject]@{ Path = '/api/2.0/alphas'; EnvelopeProperties = @('items'); ItemProperties = @('name') }
+        ) | ConvertTo-Json -Depth 20 | Set-Content (Join-Path $specs 'fb9.0.json')
+        New-MultiPathShapeSpecFixture -Endpoints @(
+            [PSCustomObject]@{ Path = '/api/2.0/zebras'; EnvelopeProperties = @('items'); ItemProperties = @('mango', 'zebra', 'alpha') }
+            [PSCustomObject]@{ Path = '/api/2.0/alphas'; EnvelopeProperties = @('items'); ItemProperties = @('name') }
+        ) | ConvertTo-Json -Depth 20 | Set-Content (Join-Path $specs 'fb9.1.json')
+
+        $out = Join-Path $TestDrive 'map8.json'
+        & $script:BuilderPath -SpecsDirectory $specs -OutputPath $out | Out-Null
+
+        $map = Get-Content $out -Raw | ConvertFrom-Json
+        @($map.endpoints.PSObject.Properties.Name) | Should -Be @('GET /alphas', 'GET /zebras')
+        @($map.endpoints.'GET /zebras'.responseItemProperties.PSObject.Properties.Name) |
+            Should -Be @('alpha', 'mango', 'zebra')
+    }
+
+    It 'throws rather than emitting an empty map when no spec filename parses' {
+        $specs = Join-Path $TestDrive 'specs9'; New-Item -ItemType Directory -Path $specs -Force | Out-Null
+        # Matches the fb*.json glob but not the fb<major>.<minor> version regex.
+        New-ShapeSpecFixture -EnvelopeProperties @('items') -ItemProperties @('name') |
+            ConvertTo-Json -Depth 20 | Set-Content (Join-Path $specs 'fbXYZ.json')
+
+        $out = Join-Path $TestDrive 'map9.json'
+        { & $script:BuilderPath -SpecsDirectory $specs -OutputPath $out -WarningAction SilentlyContinue } |
+            Should -Throw -ExpectedMessage '*parseable*'
+        Test-Path $out | Should -BeFalse
     }
 
     It 'does not let an API field named "keys" shadow dictionary members' {
