@@ -19,8 +19,13 @@ function Invoke-PfbApiRequest {
         [Parameter(Mandatory)]
         [string]$Endpoint,
 
+        # Hashtable OR array: a few endpoints (PUT /workloads/tags/batch, POST /nodes/batch,
+        # POST /resource-accesses/batch) declare a top-level JSON array as their request body.
+        # Matches Assert-PfbApiCapability's -Body, which this is forwarded into unmodified --
+        # see the type note there for why ICollection rather than IEnumerable or [object].
+        # Every existing caller passes a [hashtable] (or $null), all of which bind unchanged.
         [Parameter()]
-        [hashtable]$Body,
+        [System.Collections.ICollection]$Body,
 
         [Parameter()]
         [hashtable]$QueryParams,
@@ -99,8 +104,13 @@ function Invoke-PfbApiRequest {
 
     # GET/DELETE never carry a body: the guard is a whitelist, not a "not GET" test, so a new
     # verb has to be added here deliberately rather than inheriting body serialisation.
+    #
+    # -InputObject, NOT the pipeline: the pipeline unrolls a collection, so a one-element
+    # array body would arrive at ConvertTo-Json as its bare element and serialise to a JSON
+    # object instead of a one-element array. A hashtable is never unrolled by the pipeline,
+    # so the hashtable path's output is byte-identical either way.
     if ($Body -and ($Method -eq 'POST' -or $Method -eq 'PATCH' -or $Method -eq 'PUT')) {
-        $restParams['Body'] = ($Body | ConvertTo-Json -Depth 10 -Compress)
+        $restParams['Body'] = (ConvertTo-Json -InputObject $Body -Depth 10 -Compress)
     }
 
     # SSL handling
