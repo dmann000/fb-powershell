@@ -665,14 +665,22 @@ pull requests. The `SSOT_API_KEY`/`SSOT_BASE_URI`/`SSOT_TOPIC_ID` secrets are op
 when any are absent, the version-map step is skipped gracefully and only the capability
 map updates (see item 3 above).
 
-`Build-PfbValueEnumMap.ps1`, `Build-PfbFieldCmdletMap.ps1`, and `Build-PfbApiDriftReport.ps1`
-all run as part of the same weekly/dispatch job, right after the capability map is rebuilt,
-so `Reports/PfbValueEnumMap.json`, `Reports/PfbFieldCmdletMap.json`, and
-`Reports/PfbApiDriftReport.json` (+ their Markdown companions) stay fresh alongside
+`Build-PfbValueEnumMap.ps1`, `Build-PfbFieldCmdletMap.ps1`, `Build-PfbResponseShapeMap.ps1`,
+and `Build-PfbApiDriftReport.ps1` all run as part of the same weekly/dispatch job, right
+after the capability map is rebuilt, so `Reports/PfbValueEnumMap.json`,
+`Reports/PfbFieldCmdletMap.json`, `Reports/PfbApiDriftReport.json` (+ their Markdown
+companions) and `Data/PfbResponseShapeMap.json` stay fresh alongside
 `Data/PfbCapabilityMap.json`.
 
-`Build-PfbResponseShapeMap.ps1` is **not** in that workflow yet, so a CI-generated drift
-report currently reuses the committed `Data/PfbResponseShapeMap.json` rather than
-regenerating it (and would emit the explicit "Not analysed" banner rather than a silent
-empty section if the file were ever absent). Adding it to the workflow — before the
-drift-report step, since the report reads its output — is a follow-on decision.
+`Build-PfbResponseShapeMap.ps1` sits between `Build-PfbFieldCmdletMap.ps1` and
+`Build-PfbApiDriftReport.ps1`, and that position is required in both directions. It must
+come **after** the spec-fetch step, because the generator only walks `tools/specs/` and
+never fetches anything itself — run before the fetch, it would build the map from whatever
+the restored cache happened to hold. It must come **before** the drift-report step, because
+the report reads `Data/PfbResponseShapeMap.json`; run after, CI would emit a report derived
+from the stale committed map and then overwrite that map, leaving a report and a map that
+disagree with no error to signal it. (If the file were ever absent entirely the report emits
+an explicit "Not analysed" banner rather than a silently empty section, so a missing map is
+at least visible — but a *stale* one is not, which is why the ordering rather than the
+presence check is what protects the report.) The drift report's three response-shape counts
+are also surfaced in the workflow's PR body via the `drift_summary` output.
