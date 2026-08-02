@@ -40,24 +40,13 @@ function Set-PfbWorkloadTag {
     if ($ResourceName) { $queryParams['resource_names'] = $ResourceName -join ',' }
     if ($ResourceId)   { $queryParams['resource_ids']   = $ResourceId -join ',' }
 
-    # -InputObject, NOT the pipeline. The pipeline unrolls $Tags, so a one-element
-    # [hashtable[]] -- which [ValidateCount(1, 30)] explicitly permits -- reaches
-    # ConvertTo-Json as a bare hashtable and serialises to a JSON object instead of a
-    # one-element array. The endpoint requires an array (minItems 1), so the single-tag
-    # case was rejected on the wire. -InputObject serialises the collection as a whole.
-    $jsonBody = ConvertTo-Json -InputObject $Tags -Depth 5
-
     if ($PSCmdlet.ShouldProcess(($ResourceName + $ResourceId -join ', '), "Apply $($Tags.Count) tag(s)")) {
-        # Direct REST call bypassing the hashtable-only -Body parameter on Invoke-PfbApiRequest.
-        $apiVer = $Array.ApiVersion
-        $qs = ConvertTo-PfbQueryString -Parameters $queryParams
-        $uri = "https://$($Array.Endpoint)/api/${apiVer}/workloads/tags/batch${qs}"
-        $headers = @{ 'Content-Type' = 'application/json'; 'x-auth-token' = $Array.AuthToken }
-        $restParams = @{ Method = 'PUT'; Uri = $uri; Headers = $headers; Body = $jsonBody }
-        if ($Array.SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -ge 6) {
-            $restParams['SkipCertificateCheck'] = $true
-        }
-        Write-Verbose "FlashBlade API: PUT $uri"
-        Invoke-RestMethod @restParams
+        # $Tags goes over as the body unmodified: this endpoint's body IS the tag array, not
+        # an object wrapping one. Serialisation happens in the shared path, which uses
+        # ConvertTo-Json -InputObject -- so the one-element array stays an array. That is the
+        # same guarantee the local ConvertTo-Json deleted here used to provide; the
+        # single-tag test asserting it is unchanged and still passes through this path.
+        Invoke-PfbApiRequest -Array $Array -Method PUT -Endpoint 'workloads/tags/batch' `
+            -Body $Tags -QueryParams $queryParams
     }
 }
