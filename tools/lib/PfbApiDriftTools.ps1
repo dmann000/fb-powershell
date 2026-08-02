@@ -1434,8 +1434,10 @@ function Get-PfbResponseShapeFindings {
           Removals -- a response field that existed in some analysed version and is absent
             from the newest analysed version in which its endpoint still exists. This is the
             genuinely dangerous case and the one thing this axis catches that nothing else
-            can: cmdlets pass responses through raw (508 of 523 emit Invoke-PfbApiRequest
-            directly, with no projection anywhere), so the module holds no schema of its own
+            can: cmdlets pass responses through raw (measured 2026-08-01 over Public/'s 542
+            functions -- 533 call Invoke-PfbApiRequest at all, and in 526 of those every call
+            is a statement-level pipeline whose result is emitted directly, never captured or
+            projected), so the module holds no schema of its own
             and a user script binding a removed field silently receives $null.
 
           RenameCandidates -- a removal and a still-present field on the same endpoint and

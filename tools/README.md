@@ -412,11 +412,17 @@ Everything above tracks the **request** side — which endpoints, query paramete
 request-body fields exist in which REST version. `Data/PfbResponseShapeMap.json` is the
 **response** side: for every endpoint (496 of them, across the 29 analysed REST versions
 2.0-2.28), the set of fields the spec says its response returns, each with the version it
-was first seen in and the version it was last seen in, plus each endpoint's own
-first/last-seen version. `Get-PfbResponseShapeFindings` (`tools/lib/PfbApiDriftTools.ps1`)
-turns that history into the drift report's response-side categories: field **removals**,
-**rename candidates** (a removal and an addition on the same endpoint in the same
-version), and unhandled envelope fields such as `errors`.
+was first seen in — plus, for fields that have since disappeared, the version they were
+last seen in — and each endpoint's own first/last-seen version. (Present fields carry a
+scalar `introducedVersion` only: `responseEnvelope`/`responseItemProperties` are
+`{field: version}`, and their last-seen version is implicitly the endpoint's own
+`lastSeenVersion`. An explicit `lastSeenVersion` appears only on `removedResponseFields`
+entries.) `Get-PfbResponseShapeFindings` (`tools/lib/PfbApiDriftTools.ps1`) turns that
+history into the drift report's response-side categories: field **removals**, **rename
+candidates** (a removal paired with a still-present field on the same endpoint and in the
+same location that first appears in the version *immediately after* the removed field's
+last-seen version — adjacency, not co-occurrence, and reported as a candidate rather than
+asserted), and unhandled envelope fields such as `errors`.
 
 **It is a separate file from `Data/PfbCapabilityMap.json`, deliberately, because it has no
 runtime consumer.** `Private/Get-PfbCapabilityMap.ps1` loads the 298,841-byte capability
@@ -448,7 +454,10 @@ of never surfacing a transient wobble as a finding. The two known cases:
 `GET /active-directory`'s `continuation_token` and `total_item_count` (broken in 2.12,
 fixed in 2.13 — the response schema dropped its `allOf` composition), and
 `GET /buckets/performance`'s `max_total_bytes_per_sec` and `max_total_ops_per_sec` (broken
-in 2.20, fixed in 2.21 — `items[]` `$ref`s the wrong sibling component). Accepted: a
+in 2.20, fixed in 2.21 — fb2.20 drops the `BucketPerformanceItems` component from the
+document **entirely** (it is defined in both 2.19 and 2.21) and repoints the response's
+`items[]` at the sibling `BucketPerformance` component, which has never carried those two
+fields; this is a dropped component, not a mistyped `$ref`). Accepted: a
 one-release wobble that the vendor has already fixed is not actionable for this module,
 and reporting it would put four known-false rows in front of every reader of the 7 real
 ones.
@@ -471,9 +480,21 @@ measured and rejected: it produced 13 findings, of which 11 were duplicates of a
 parent already reported and the remaining 2 were a spec-authoring false positive — zero new
 real signal, at **2.2x** the artifact size.
 
-**Why additions are not findings.** 508 of the module's 523 cmdlets emit
-`Invoke-PfbApiRequest`'s result directly, without reshaping it, so a field the API *adds*
-to a response reaches the caller automatically with no code change at all. There is nothing
+**Why additions are not findings.** The module reshapes almost nothing on the way out.
+Measured over `Public/` on 2026-08-01 (542 `.ps1` files, one function each): **533 call
+`Invoke-PfbApiRequest` at all** — the 9 that never do are session/credential helpers
+(`Connect-PfbArray`, `Disconnect-PfbArray`, `Get-PfbConnection`, `Get-PfbApiVersion`, the
+three `*-PfbCredential` cmdlets) plus two cmdlets that deliberately bypass
+`Invoke-PfbApiRequest` and issue their REST call directly, because its `-Method`
+`ValidateSet`/hashtable-only `-Body` cannot express what they need
+(`Set-PfbPresetWorkload`, `Set-PfbWorkloadTag`) — and in
+**526 of those 533, every one of those calls is a statement-level pipeline whose result is
+emitted directly**, never captured into a variable or piped onward. (Only 7 capture or
+post-process it, e.g. `Test-PfbConnection`, `Remove-PfbFileSystem`, `Get-PfbQuotaUser`.)
+State the counting rule whenever you quote these: "calls it at all" and "emits its result
+directly" are different questions with different answers, and an unqualified figure is what
+made an earlier version of this paragraph wrong. Consequently a field the API *adds* to a
+response reaches the caller automatically with no code change at all. There is nothing
 to fix and therefore nothing to report. Only removals (a property callers may already
 depend on that has gone away), renames, and unread envelope fields represent work.
 

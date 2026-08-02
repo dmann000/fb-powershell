@@ -9,8 +9,8 @@
 
     THIS ARTIFACT HAS NO RUNTIME CONSUMER BY DESIGN. It is deliberately a separate file
     from Data/PfbCapabilityMap.json, which Private/Get-PfbCapabilityMap.ps1 lazily loads and
-    caches into every user session: merging this axis in would cost +35% on every module
-    import for data no runtime code reads. Nothing may gate an API call on response data --
+    caches into every user session: merging this axis in would add 242,917 bytes to a
+    298,841-byte file -- +81% on every module import -- for data no runtime code reads. Nothing may gate an API call on response data --
     Assert-PfbApiCapability guards request construction only, and a missing response field
     is never a reason to refuse a call.
 
