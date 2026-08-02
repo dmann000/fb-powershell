@@ -28,11 +28,15 @@ corrects one claim rev 2 stated as settled:
   /presets/workload` on 2026-08-02 found the no-context default *fails* on a mutation rather
   than resolving to a local view, so omitting context is not a safe default there. This has a
   consequence for shipped code -- see "Fleet-scoped mutations have no usable default".
-- **Context scope is specified as curated metadata** (section 12). Rev 2 and rev 3 both promised
-  client-side kind-vs-scope validation without saying where scope comes from; it is in no spec
-  field, so the module has to carry it. This is also what lets the module tell a user *"this
-  command requires a fleet context"* instead of relaying `code 13`, which subsumes open
-  question 3 and unblocks open question 7.
+- **Context scope is specified, and sourced from the spec** (section 12). Rev 2 and rev 3 both
+  promised client-side kind-vs-scope validation without saying where scope comes from. It turns
+  out fb2.28 declares it in `x-pure-remote-execution-context-domains-override` -- on five
+  endpoints, agreeing exactly with live testing -- alongside a flag,
+  `x-pure-incomplete-gre`, marking the 28 operations whose remote-execution annotation upstream
+  knows to be unfinished. The module reads the declared value, curates only the flagged gap, and
+  ships the result in the capability map. This is also what lets it tell a user *"this command
+  requires a fleet context"* instead of relaying `code 13`, which subsumes open question 3 and
+  unblocks open question 7.
 - **The capability-map staleness question is decided** rather than left implicit, and the
   dissenting view is recorded.
 - **Phasing is corrected.** Rev 2 put `Invoke-PfbInContext` in Phase 2 while relying on it
@@ -703,42 +707,128 @@ an endpoint is fleet-scoped before it can say anything useful about a missing co
 Neither says where scope comes from. It has to come from somewhere, and it cannot come from
 the API.
 
-#### There is no signal in the spec
+#### The spec declares scope -- in vendor extensions, from 2.28
 
-Checked at fb2.28. Operation `tags` are resource groupings (`Presets`, `File Systems`,
-`Buckets`), and fleet-scoped and array-scoped endpoints are indistinguishable under them.
-Nothing else marks scope either -- recorded in Appendix B.
+The obvious places are empty. Operation `tags` are resource groupings (`Presets`,
+`File Systems`), and fleet-scoped and array-scoped endpoints are indistinguishable under
+them. Cardinality is not a proxy either: a fleet-scoped endpoint is necessarily size-1, but
+so is every array-scoped mutation, so size-1 is implied by fleet scope and does not imply it
+back.
 
-Cardinality is not a proxy. A fleet-scoped endpoint is necessarily size-1, because it has
-exactly one meaningful context, but so is every array-scoped mutation. Size-1 is implied by
-fleet scope and does not imply it back.
+The signal is in three `x-pure-*` vendor extensions, all of which arrive or expand
+substantially at **fb2.28**:
 
-So scope is **curated data**. The question is whether curation is affordable, and it is:
+| Extension | 2.22 | 2.24 | 2.26 | 2.27 | 2.28 | Meaning |
+|---|---|---|---|---|---|---|
+| `x-pure-remote-execution-context-domains-override` | 0 | 0 | 0 | 0 | **5** | The context domains this operation accepts, overriding the default |
+| `x-pure-block-remote-execution` | 0 | 2 | 2 | 4 | **266** | Remote execution not supported here at all |
+| `x-pure-incomplete-gre` | 0 | 0 | 0 | 0 | **28** | Global Remote Execution annotation is **known incomplete** on this operation |
 
-| Resource family | Context-capable endpoints | Scope |
-|---|---|---|
-| Presets (`/presets/workload`, all five verbs) | 5 | **fleet** -- live-tested |
-| Topology Groups (`/topology-groups`, `/members`, `/arrays`) | 8 | **fleet** -- live-tested (GETs) |
-| Realms (`GET /realms`, `GET`/`PATCH /realms/defaults`) | 3 | **unknown** -- untested |
-| Fleets, Realm Connections | 0 | n/a -- fleet management itself takes no context |
-| Everything else | ~360 | array, or presumed so |
+The override carries exactly the fact this section needs, and it agrees with live testing
+without qualification:
 
-Thirteen confirmed entries under two resource families, out of 376 endpoints recording
-`context_names`. That is a table, not a maintenance programme. Note the shape of the result:
-fleet-scoped endpoints are not scattered through the API, they are exactly the endpoints of
-the two resource types that live in the fleet database.
+```
+GET    /presets/workload   ->  ARRAY|FLEET
+PUT    /presets/workload   ->  FLEET
+POST   /presets/workload   ->  FLEET
+DELETE /presets/workload   ->  FLEET
+PATCH  /presets/workload   ->  FLEET
+```
+
+Read that against the mutation table in "Fleet-scoped mutations have no usable default":
+reads are legal in either domain, writes are fleet-only. That is precisely what the wire did
+on 2026-08-02, derived independently. The two agreeing is the strongest evidence in this
+document for either.
+
+#### But it covers five endpoints, so curation does not go away
+
+Those five are the only operations in the API carrying the override. Topology groups --
+fleet-scoped on the same live evidence -- carry no override at all.
+
+`x-pure-incomplete-gre` explains why, and is the more useful of the three extensions. It
+marks 28 operations whose remote-execution annotation upstream considers unfinished, and it
+contains **every endpoint this design has had to establish by live testing**: all four
+fleet-scoped GETs from section 8, all five preset operations, `GET /realms`, and
+`GET /workloads/tags`. It is upstream's own machine-readable statement of the defect
+Appendix B tracks as "open, in review."
+
+So the three extensions are not three independent signals. They are a partially-completed
+annotation pass plus a flag marking where it is incomplete. Treat them accordingly:
+
+| Endpoint state | Scope source |
+|---|---|
+| Has an override | **Trust it.** Declared, and live-verified where we could check |
+| No override, not flagged incomplete | Default `array` |
+| Flagged `x-pure-incomplete-gre` | **Do not trust the absence of an override.** Curated value if we have live evidence, `unknown` otherwise |
+
+That reduces curation to the third row: topology groups (8 endpoints, fleet, live-tested)
+and `GET /realms` plus `/realms/defaults` (unknown, untested). Down from thirteen
+hand-maintained entries to eight, each now justified against a declared upstream flag rather
+than resting on our testing alone -- and the list has an exit condition, since entries retire
+as the override is filled in.
 
 #### Representation
 
 A `contextScope` field per endpoint in the capability map, alongside the existing
-`parameterComponentOverrides`, populated by the generator from a curated list with
-per-entry provenance (live-tested versus inferred). **Default `array`**, which is the
-fail-safe direction: mis-marking a fleet-scoped endpoint as array-scoped costs the caller
-the extra guidance and leaves today's behavior, while the reverse would throw on a call that
-would have worked. That matches the fail-open principle section 8 already argues for.
+`parameterComponentOverrides`, populated by the generator: from the override where present,
+from the curated table where the endpoint is flagged incomplete, and `array` otherwise. Each
+entry records provenance -- `declared`, `live-tested`, or `unknown` -- so the curated set is
+visibly temporary.
 
-Realms are marked `unknown` rather than guessed. `unknown` behaves as `array` at runtime and
-exists so the gap is visible in the data instead of hidden behind a default.
+**Default `array`**, which is the fail-safe direction: mis-marking a fleet-scoped endpoint as
+array-scoped costs the caller the extra guidance and leaves today's behavior, while the
+reverse would throw on a call that would have worked. That matches the fail-open principle
+section 8 already argues for.
+
+Scope is not version-gated even though the extensions only exist at 2.28. A resource does not
+migrate between the fleet database and an array, so last-seen-wins is correct here in a way it
+is not for component identity (section 8). The 2.28 annotations describe 2.23-era endpoints
+accurately.
+
+#### Encoding it in the shipped map
+
+The signal being in the spec does not put it in the module -- `tools/Build-PfbCapabilityMap.ps1`
+reads none of the `x-pure-*` extensions today, and `Data/PfbCapabilityMap.json` is
+`schemaVersion 1` with no field to hold this. Concretely required:
+
+1. **Generator reads the three extensions.** The map is already built across 2.0-2.28 with
+   last-seen-wins, so a value present only in the 2.28 document lands correctly with no
+   change to the version-merging logic.
+2. **`contextScope` becomes an additive per-endpoint field**, alongside `minVersion`,
+   `parameters`, `bodyProperties` and `parameterComponentOverrides`. Additive, so existing
+   readers are unaffected -- but **bump `schemaVersion` to 2** rather than growing the shape
+   silently, since `Get-PfbCapabilityMap` is the single gate through which every consumer
+   sees it.
+3. **The curated table lives in the generator**, not in `Private/`. Runtime code must read
+   scope from the shipped map and nowhere else; a curated list consulted at runtime would be
+   a second source of truth for the same fact, which is the failure mode section 8 exists to
+   avoid. The map is the interface; curation is a build-time input to it.
+4. **A drift test asserts the five declared overrides still match** what the generator emits,
+   and flags any curated entry whose endpoint has since gained an override -- so the curated
+   set shrinks on its own as upstream finishes the annotation pass, instead of quietly
+   shadowing better data.
+
+This rides the existing capability-map workflow (`.github/workflows/update-api-capability-map.yml`),
+so there is no new pipeline -- one generator change, one schema bump, one test.
+
+Note the ordering consequence: the map has to carry `contextScope` before any of the guidance
+in this section can be written, which puts the generator work at the front of Phase 1 rather
+than alongside it.
+
+#### Consequences for section 8
+
+Two, both worth Don's judgement rather than a unilateral edit here:
+
+- **`x-pure-incomplete-gre` belongs in the drift check.** Section 8 ratifies
+  `Context_names_get` AND `allow_errors` as the cardinality rule and notes that two-signal
+  comparison "cannot see both sides being wrong in the same direction." This flag is upstream
+  telling us exactly where that risk lives, and all four endpoints the verb rule got wrong
+  carry it. It is a strong candidate for a third signal in the maintainer report -- not as a
+  cardinality predicate, which it is not, but as a "prefer live evidence here" marker.
+- **`x-pure-block-remote-execution` contradicts `context_names` on 11 endpoints** that declare
+  both. All 11 are inside the 28 flagged incomplete, which is self-consistent -- the flag says
+  the annotation is unfinished -- but it means `block` cannot be used as a runtime signal
+  without excluding the flagged set first. Recorded in Appendix B.
 
 #### What it buys, and why it answers two open questions
 
@@ -1172,6 +1262,15 @@ array name:
   them at 2.28, yet the preset is accepted, because a preset is a fleet-database template
   rather than a provisioned object.
 
+**Spec vendor extensions, fb2.28, 2026-08-02** -- `x-pure-remote-execution-context-domains-override`
+declares `ARRAY|FLEET` for `GET /presets/workload` and `FLEET` for its `PUT`/`POST`/`DELETE`/`PATCH`.
+This was found *after* the live testing above and matches it exactly, on all five operations,
+including the read/write asymmetry. Two independent derivations of the same fact. The extension
+exists only at 2.28 (0 occurrences at 2.22-2.27); `x-pure-block-remote-execution` goes 2 -> 4 -> 266
+across 2.24/2.27/2.28 and `x-pure-incomplete-gre` appears at 2.28 with 28. The public Redoc page
+at `code.purestorage.com` embeds this same document -- identical extension counts -- and adds
+nothing beyond it.
+
 **FB-A and a second simulator (Purity//FB 4.6.5 / REST 2.22)** -- silent acceptance of
 never-supported `context_names` on `/alert-watchers` across a create/patch/delete round trip;
 clean wire-400 (`code 24`) for recorded-but-too-old on `/admins` and `/dns`.
@@ -1212,4 +1311,6 @@ Tracked so the module's workarounds can be retired with evidence when each is fi
 | `GET /snmp-managers/test` processes `context_names` though no scanned version records it | **Open.** A map gap within the scanned range, not staleness. The predicate falls back to the verb and returns capable on no evidence -- see section 8. |
 | The `errors` envelope field is applied by authoring convention to 15 endpoints that cannot return a partial failure | **Cosmetic**, but it makes the field useless as a capability signal. |
 | Both `context_names` components describe the value as "the name of an array in the same fleet **or** the name of the fleet itself". On fleet-scoped endpoints only the second branch is legal -- a member array yields `code 13` on every verb | **Open.** Same root cause as the `Context_names_get` row above: a shared component describing a parameter whose legal values are endpoint-scoped. Harmless on array-scoped endpoints; on fleet-scoped ones it documents a value that never works. The module resolves this client-side via kind-vs-scope validation rather than waiting on the contract. |
-| Nothing in the spec marks an endpoint as fleet-scoped versus array-scoped | **Open, worked around.** The distinction is real and load-bearing -- it decides which context kinds are legal and whether a no-context call can succeed at all -- but it is derivable neither from `tags` (resource groupings, checked at 2.28) nor from cardinality (fleet scope implies size-1, not the reverse). The module curates it instead: section 12. Thirteen endpoints across two resource families, so the workaround is cheap; it should still be retired if the API ever declares scope. |
+| Endpoint scope (fleet versus array) is declared on only 5 of the endpoints that need it | **Partially fixed at 2.28.** `x-pure-remote-execution-context-domains-override` declares it correctly for all five `/presets/workload` operations and agrees exactly with live testing; no other operation carries it, including the live-confirmed fleet-scoped topology-group endpoints. Not derivable from `tags` or from cardinality. The module curates the gap -- section 12 -- and retires entries as the override is filled in. |
+| `x-pure-block-remote-execution` is `true` on 11 endpoints that also declare `context_names` | **Open**, and self-flagged: all 11 are inside the 28 marked `x-pure-incomplete-gre`, so upstream already records the annotation as unfinished. Consequence for us: `block` cannot be used as a runtime signal without first excluding the flagged set. The 11 are the five presets, three `arrays/ssh-certificate-authority-policies` verbs, `GET /audit-file-systems-policy-operations`, `GET /realms`, and `GET /storage-class-tiering-policies/members`. |
+| `info.x-pure-description-ref` points at `../custom_descriptions/FB-api-introduction.md`, which is not in the document | **Open**, and cosmetic for our purposes. The referenced prose ships in neither the JSON nor the public Redoc rendering, so whatever it says about remote execution is unavailable from either source. `info.description` is a 108-character boilerplate line in its place. |
