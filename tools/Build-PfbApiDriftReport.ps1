@@ -108,6 +108,7 @@ param(
     [string]$PrivateDirectory,
     [string]$CapabilityMapPath,
     [string]$FieldCmdletMapPath,
+    [string]$ResponseShapeMapPath,
     [string]$OutputPath,
     [string]$ReportPath,
     [string]$SinceVersion
@@ -136,6 +137,29 @@ if (-not (Test-Path $FieldCmdletMapPath)) { throw "Field-cmdlet map not found at
 
 $capabilityMap = Get-Content -Path $CapabilityMapPath -Raw | ConvertFrom-Json -Depth 20
 $fieldCmdletMap = Get-Content -Path $FieldCmdletMapPath -Raw | ConvertFrom-Json -Depth 20
+
+if (-not $ResponseShapeMapPath) {
+    $ResponseShapeMapPath = Join-Path $repoRoot 'Data/PfbResponseShapeMap.json'
+}
+
+# Response-shape findings are optional: the map is a separate artifact with no runtime
+# consumer, so a report generated before it exists should degrade to empty lists rather
+# than fail. Absence is reported honestly below rather than rendered as "no drift".
+$responseFindings = [PSCustomObject]@{
+    Removals                = @()
+    RenameCandidates        = @()
+    UnhandledEnvelopeFields = @()
+}
+$responseShapeMapPresent = Test-Path $ResponseShapeMapPath
+if ($responseShapeMapPresent) {
+    $responseShapeMap = Get-Content -Path $ResponseShapeMapPath -Raw | ConvertFrom-Json
+    $responseFindings = Get-PfbResponseShapeFindings `
+        -ResponseShapeMap $responseShapeMap `
+        -RequestHandlerPath (Join-Path $repoRoot 'Private/Invoke-PfbApiRequest.ps1')
+}
+else {
+    Write-Warning "Response shape map not found at '$ResponseShapeMapPath'; response-shape drift categories will be empty. Run tools/Build-PfbResponseShapeMap.ps1."
+}
 
 $inventory = Get-PfbCmdletParameterInventory -PublicDirectory $PublicDirectory
 $calledEndpoints = Get-PfbModuleCalledEndpoints -PublicDirectory $PublicDirectory -PrivateDirectory $PrivateDirectory
@@ -607,6 +631,27 @@ $manifest = [ordered]@{
     conventionStrength        = $conventionStrength
     validateSetDrift          = $validateSetDrift
     newValidateSetCandidates  = $newValidateSetCandidates
+    responseFieldRemovals           = @($responseFindings.Removals | ForEach-Object {
+            [ordered]@{
+                endpoint          = $_.Endpoint
+                field             = $_.Field
+                location          = $_.Location
+                introducedVersion = $_.IntroducedVersion
+                lastSeenVersion   = $_.LastSeenVersion
+            }
+        })
+    responseFieldRenameCandidates   = @($responseFindings.RenameCandidates | ForEach-Object {
+            [ordered]@{
+                endpoint = $_.Endpoint
+                location = $_.Location
+                from     = $_.From
+                to       = $_.To
+                version  = $_.Version
+            }
+        })
+    unhandledResponseEnvelopeFields = @($responseFindings.UnhandledEnvelopeFields | ForEach-Object {
+            [ordered]@{ field = $_.Field; endpointCount = $_.EndpointCount }
+        })
     contextCardinality        = [ordered]@{
         # The version this category's numbers describe -- never omit it, see the block
         # where these are computed.
@@ -676,6 +721,9 @@ $mdLines.Add("- Systemic gaps (distinct field names collapsed across high-confid
 $mdLines.Add("- ValidateSet drift: $($validateSetDrift.Count)")
 $mdLines.Add("- New ValidateSet candidates: $($newValidateSetCandidates.Count)")
 $mdLines.Add("- Context cardinality signal disagreements (fb$newestAnalysedVersion): $($contextSignalDisagreements.Count)")
+$mdLines.Add(('- Removed response fields: **{0}**' -f @($responseFindings.Removals).Count))
+$mdLines.Add(('- Response rename candidates: **{0}**' -f @($responseFindings.RenameCandidates).Count))
+$mdLines.Add(('- Envelope fields not read by `Invoke-PfbApiRequest`: **{0}**' -f @($responseFindings.UnhandledEnvelopeFields).Count))
 
 if ($systemicGaps.Count -gt 0) {
     $mdLines.Add(''); $mdLines.Add('## Systemic gaps'); $mdLines.Add('')
@@ -739,6 +787,60 @@ if ($readOnlyRows.Count -gt 0) {
     $mdLines.Add('')
     $mdLines.Add('| Endpoint | Cmdlets | Read-only fields |'); $mdLines.Add('|---|---|---|')
     foreach ($g in $readOnlyRows) { $mdLines.Add("| ``$($g.endpoint)`` | $($g.cmdlets -join ', ') | $($g.readOnlyFields -join ', ') |") }
+}
+
+$mdLines.Add(''); $mdLines.Add('## Response-shape drift'); $mdLines.Add('')
+if (-not $responseShapeMapPresent) {
+    $mdLines.Add('> **Not analysed.** `Data/PfbResponseShapeMap.json` was not found when this report was generated. Run `tools/Build-PfbResponseShapeMap.ps1`. The absence of findings below does *not* mean there is no response drift.')
+}
+else {
+    $mdLines.Add('Cmdlets pass API responses through raw -- there is no projection anywhere in `Public/`, so the module holds no schema of its own. A **removed or renamed** response field therefore reaches user scripts as a silent `$null`, which no other report category can detect. **Added** response fields are deliberately not reported: they surface automatically and need no module change.')
+    $mdLines.Add('')
+
+    $mdLines.Add('### Removed response fields')
+    $mdLines.Add('')
+    if (@($responseFindings.Removals).Count -eq 0) {
+        $mdLines.Add('_None._')
+    }
+    else {
+        $mdLines.Add('| Endpoint | Location | Field | Introduced | Last seen |')
+        $mdLines.Add('|---|---|---|---|---|')
+        foreach ($r in $responseFindings.Removals) {
+            $mdLines.Add(('| `{0}` | {1} | `{2}` | {3} | {4} |' -f $r.Endpoint, $r.Location, $r.Field, $r.IntroducedVersion, $r.LastSeenVersion))
+        }
+    }
+    $mdLines.Add('')
+
+    $mdLines.Add('### Rename candidates')
+    $mdLines.Add('')
+    $mdLines.Add('_A removal and an addition adjacent in version on the same endpoint. Suggestive, not proof -- confirm against the spec before acting._')
+    $mdLines.Add('')
+    if (@($responseFindings.RenameCandidates).Count -eq 0) {
+        $mdLines.Add('_None._')
+    }
+    else {
+        $mdLines.Add('| Endpoint | Location | From | To | Version |')
+        $mdLines.Add('|---|---|---|---|---|')
+        foreach ($r in $responseFindings.RenameCandidates) {
+            $mdLines.Add(('| `{0}` | {1} | `{2}` | `{3}` | {4} |' -f $r.Endpoint, $r.Location, $r.From, $r.To, $r.Version))
+        }
+    }
+    $mdLines.Add('')
+
+    $mdLines.Add('### Response envelope fields not read by `Invoke-PfbApiRequest`')
+    $mdLines.Add('')
+    $mdLines.Add('_Informational coverage observation, not a correctness claim -- many envelope keys legitimately need no handling there. It cannot tell whether a field is handled correctly, only whether it is referenced at all._')
+    $mdLines.Add('')
+    if (@($responseFindings.UnhandledEnvelopeFields).Count -eq 0) {
+        $mdLines.Add('_None._')
+    }
+    else {
+        $mdLines.Add('| Envelope field | Endpoints declaring it |')
+        $mdLines.Add('|---|---|')
+        foreach ($r in $responseFindings.UnhandledEnvelopeFields) {
+            $mdLines.Add(('| `{0}` | {1} |' -f $r.Field, $r.EndpointCount))
+        }
+    }
 }
 
 if ($uncoveredEndpoints.Count -gt 0) {

@@ -962,3 +962,55 @@ function Get-PfbFixtureGamma {
         $t7ReportText | Should -Match 'Systemic gaps \(distinct field names[^:]*: 1'
     }
 }
+
+Describe 'Build-PfbApiDriftReport response-shape integration' {
+    # BeforeDiscovery, NOT BeforeAll: Pester evaluates -Skip: at DISCOVERY time, before any
+    # BeforeAll block has run. Setting these in BeforeAll would leave $script:realJson null
+    # during discovery, so every -Skip: would evaluate `-not (Test-Path $null)` = $true and
+    # silently skip the whole Describe -- a green run that tested nothing.
+    BeforeDiscovery {
+        $script:reportRoot = Split-Path -Parent $PSScriptRoot
+        $script:realJson = Join-Path $script:reportRoot 'Reports/PfbApiDriftReport.json'
+        $script:realMd = Join-Path $script:reportRoot 'Reports/PfbApiDriftReport.md'
+    }
+
+    # BeforeDiscovery above is what feeds the -Skip: expressions and must stay. It is not
+    # sufficient on its own: Pester's RUN phase uses a separate scope, so variables set during
+    # discovery read back as $null inside each It body. This block re-binds the same paths for
+    # the run phase. Both blocks are required -- neither replaces the other.
+    BeforeAll {
+        $script:reportRoot = Split-Path -Parent $PSScriptRoot
+        $script:realJson = Join-Path $script:reportRoot 'Reports/PfbApiDriftReport.json'
+        $script:realMd = Join-Path $script:reportRoot 'Reports/PfbApiDriftReport.md'
+    }
+
+    It 'emits the three response-shape keys in the JSON manifest' -Skip:(-not (Test-Path $script:realJson)) {
+        $r = Get-Content $script:realJson -Raw | ConvertFrom-Json
+        $r.PSObject.Properties.Name | Should -Contain 'responseFieldRemovals'
+        $r.PSObject.Properties.Name | Should -Contain 'responseFieldRenameCandidates'
+        $r.PSObject.Properties.Name | Should -Contain 'unhandledResponseEnvelopeFields'
+    }
+
+    It 'reports the known real removals' -Skip:(-not (Test-Path $script:realJson)) {
+        $r = Get-Content $script:realJson -Raw | ConvertFrom-Json
+        $fields = @($r.responseFieldRemovals | ForEach-Object { $_.field })
+        $fields | Should -Contain 'copyable'
+        $fields | Should -Contain 'server'
+        $fields | Should -Contain 'remote'
+        # NOT max_total_ops_per_sec: it is absent at 2.20 only and present at 2.28, so it is
+        # correctly not a removal. Asserting it here would lock in a false positive.
+        $fields | Should -Not -Contain 'max_total_ops_per_sec'
+        @($r.responseFieldRemovals).Count | Should -Be 7
+    }
+
+    It 'surfaces the $response.errors worked example' -Skip:(-not (Test-Path $script:realJson)) {
+        $r = Get-Content $script:realJson -Raw | ConvertFrom-Json
+        $errorsRow = $r.unhandledResponseEnvelopeFields | Where-Object { $_.field -eq 'errors' }
+        $errorsRow | Should -Not -BeNullOrEmpty
+        $errorsRow.endpointCount | Should -BeGreaterThan 100
+    }
+
+    It 'renders a Response-shape drift section in the Markdown' -Skip:(-not (Test-Path $script:realMd)) {
+        (Get-Content $script:realMd -Raw) | Should -Match '## Response-shape drift'
+    }
+}

@@ -20509,6 +20509,126 @@
       "recommendation": "ArgumentCompleter"
     }
   ],
+  "responseFieldRemovals": [
+    {
+      "endpoint": "GET /arrays/performance/replication",
+      "field": "remote",
+      "location": "items",
+      "introducedVersion": "2.0",
+      "lastSeenVersion": "2.10"
+    },
+    {
+      "endpoint": "GET /file-system-snapshots",
+      "field": "copyable",
+      "location": "items",
+      "introducedVersion": "2.0",
+      "lastSeenVersion": "2.10"
+    },
+    {
+      "endpoint": "GET /network-interfaces",
+      "field": "server",
+      "location": "items",
+      "introducedVersion": "2.16",
+      "lastSeenVersion": "2.19"
+    },
+    {
+      "endpoint": "PATCH /file-system-snapshots",
+      "field": "copyable",
+      "location": "items",
+      "introducedVersion": "2.0",
+      "lastSeenVersion": "2.10"
+    },
+    {
+      "endpoint": "PATCH /network-interfaces",
+      "field": "server",
+      "location": "items",
+      "introducedVersion": "2.16",
+      "lastSeenVersion": "2.19"
+    },
+    {
+      "endpoint": "POST /file-system-snapshots",
+      "field": "copyable",
+      "location": "items",
+      "introducedVersion": "2.0",
+      "lastSeenVersion": "2.10"
+    },
+    {
+      "endpoint": "POST /network-interfaces",
+      "field": "server",
+      "location": "items",
+      "introducedVersion": "2.16",
+      "lastSeenVersion": "2.19"
+    }
+  ],
+  "responseFieldRenameCandidates": [
+    {
+      "endpoint": "GET /network-interfaces",
+      "location": "items",
+      "from": "server",
+      "to": "attached_servers",
+      "version": "2.20"
+    },
+    {
+      "endpoint": "PATCH /network-interfaces",
+      "location": "items",
+      "from": "server",
+      "to": "attached_servers",
+      "version": "2.20"
+    },
+    {
+      "endpoint": "POST /network-interfaces",
+      "location": "items",
+      "from": "server",
+      "to": "attached_servers",
+      "version": "2.20"
+    }
+  ],
+  "unhandledResponseEnvelopeFields": [
+    {
+      "field": "errors",
+      "endpointCount": 140
+    },
+    {
+      "field": "total",
+      "endpointCount": 28
+    },
+    {
+      "field": "context",
+      "endpointCount": 7
+    },
+    {
+      "field": "access_token",
+      "endpointCount": 1
+    },
+    {
+      "field": "expires_in",
+      "endpointCount": 1
+    },
+    {
+      "field": "issued_token_type",
+      "endpointCount": 1
+    },
+    {
+      "field": "login_banner",
+      "endpointCount": 1
+    },
+    {
+      "field": "more_items_remaining",
+      "endpointCount": 1
+    },
+    {
+      "field": "token_type",
+      "endpointCount": 1
+    },
+    {
+      "field": "username",
+      "endpointCount": 1
+    },
+    {
+      "field": "versions",
+      "endpointCount": 1
+    }
+  ],
   "contextCardinality": {
     "componentSourceVersion": "2.28",
     "http207SignalAvailable": true,
