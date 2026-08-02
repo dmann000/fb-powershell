@@ -64,6 +64,79 @@ Describe 'Invoke-PfbApiRequest - HttpTimeoutMs is applied' {
     }
 }
 
+Describe 'Invoke-PfbApiRequest - PUT support' {
+    It 'sends Method PUT with a serialised JSON body' {
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            [PSCustomObject]@{ items = @() }
+        } -ParameterFilter { $Uri -like '*presets/workload*' }
+
+        InModuleScope PureStorageFlashBladePowerShell {
+            $array = [PSCustomObject]@{
+                Endpoint = 'fb.test'; ApiVersion = '2.26'; AuthToken = 'tok'
+                ApiToken = $null; AuthMethod = 'ApiToken'; SkipCertificateCheck = $false
+            }
+            Invoke-PfbApiRequest -Array $array -Method PUT -Endpoint 'presets/workload' -Body @{ name = 'p1' } | Out-Null
+        }
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod -Times 1 -Exactly -ParameterFilter {
+            $Method -eq 'PUT' -and $Body -eq '{"name":"p1"}'
+        }
+    }
+
+    It 'sends no Body key on a PUT with no -Body' {
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            [PSCustomObject]@{ items = @() }
+        } -ParameterFilter { $Uri -like '*presets/workload*' }
+
+        InModuleScope PureStorageFlashBladePowerShell {
+            $array = [PSCustomObject]@{
+                Endpoint = 'fb.test'; ApiVersion = '2.26'; AuthToken = 'tok'
+                ApiToken = $null; AuthMethod = 'ApiToken'; SkipCertificateCheck = $false
+            }
+            Invoke-PfbApiRequest -Array $array -Method PUT -Endpoint 'presets/workload' | Out-Null
+        }
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod -Times 1 -Exactly -ParameterFilter {
+            $Method -eq 'PUT' -and $null -eq $Body
+        }
+    }
+
+    # Guards against widening the :100 body guard too far -- a body handed to a verb that must
+    # not carry one should be dropped, exactly as it was before PUT was added.
+    It 'still sends no Body on GET or DELETE even when -Body is supplied' -ForEach @(
+        @{ Verb = 'GET' }
+        @{ Verb = 'DELETE' }
+    ) {
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            [PSCustomObject]@{ items = @() }
+        } -ParameterFilter { $Uri -like '*file-systems*' }
+
+        InModuleScope PureStorageFlashBladePowerShell -Parameters @{ Verb = $Verb } {
+            param($Verb)
+            $array = [PSCustomObject]@{
+                Endpoint = 'fb.test'; ApiVersion = '2.26'; AuthToken = 'tok'
+                ApiToken = $null; AuthMethod = 'ApiToken'; SkipCertificateCheck = $false
+            }
+            Invoke-PfbApiRequest -Array $array -Method $Verb -Endpoint 'file-systems' -Body @{ name = 'x' } | Out-Null
+        }
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod -Times 1 -Exactly -ParameterFilter {
+            $null -eq $Body
+        }
+    }
+
+    It 'still rejects a verb outside the ValidateSet' {
+        InModuleScope PureStorageFlashBladePowerShell {
+            $array = [PSCustomObject]@{
+                Endpoint = 'fb.test'; ApiVersion = '2.26'; AuthToken = 'tok'
+                ApiToken = $null; AuthMethod = 'ApiToken'; SkipCertificateCheck = $false
+            }
+            { Invoke-PfbApiRequest -Array $array -Method 'TRACE' -Endpoint 'file-systems' } |
+                Should -Throw
+        }
+    }
+}
+
 Describe 'Invoke-PfbApiRequest - AutoPaginate honors -Limit' {
     It 'stops paginating and trims results once the running total reaches the requested limit' {
         $script:pageCallCount = 0
