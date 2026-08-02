@@ -1330,3 +1330,92 @@ Describe 'Task 6 real-data invariants (systemic gaps + convention strength, skip
         $ratio | Should -BeLessThan 0.55
     }
 }
+
+Describe 'Get-PfbResponseShapeFindings' {
+    BeforeAll {
+        $script:fixtureMap = [PSCustomObject]@{
+            schemaVersion = 1
+            generatedFrom = @('2.0', '2.1', '2.2')
+            endpoints     = [PSCustomObject]@{
+                'GET /widgets'  = [PSCustomObject]@{
+                    minVersion             = '2.0'
+                    lastSeenVersion        = '2.2'
+                    responseEnvelope       = [PSCustomObject]@{ items = '2.0'; errors = '2.1' }
+                    responseItemProperties = [PSCustomObject]@{ name = '2.0'; widget_name = '2.2' }
+                    removedResponseFields  = @(
+                        [PSCustomObject]@{ field = 'wname'; location = 'items'; introducedVersion = '2.0'; lastSeenVersion = '2.1' }
+                    )
+                }
+                'GET /gadgets' = [PSCustomObject]@{
+                    minVersion             = '2.0'
+                    lastSeenVersion        = '2.2'
+                    responseEnvelope       = [PSCustomObject]@{ items = '2.0' }
+                    responseItemProperties = [PSCustomObject]@{ name = '2.0' }
+                }
+            }
+        }
+
+        $script:handlerPath = Join-Path $TestDrive 'Invoke-PfbApiRequest.ps1'
+        @'
+if ($null -ne $response.items) { $allItems.Add($response.items) }
+if ($null -ne $response.total_item_count) { $totalItemCount = $response.total_item_count }
+if ($response.continuation_token) { $more = $true }
+'@ | Set-Content $script:handlerPath
+    }
+
+    It 'flattens removals one record per endpoint and field' {
+        $f = Get-PfbResponseShapeFindings -ResponseShapeMap $script:fixtureMap -RequestHandlerPath $script:handlerPath
+        @($f.Removals).Count | Should -Be 1
+        $f.Removals[0].Endpoint | Should -Be 'GET /widgets'
+        $f.Removals[0].Field | Should -Be 'wname'
+        $f.Removals[0].LastSeenVersion | Should -Be '2.1'
+    }
+
+    It 'pairs a removal with a same-version addition as a rename CANDIDATE' {
+        $f = Get-PfbResponseShapeFindings -ResponseShapeMap $script:fixtureMap -RequestHandlerPath $script:handlerPath
+        @($f.RenameCandidates).Count | Should -Be 1
+        $f.RenameCandidates[0].From | Should -Be 'wname'
+        $f.RenameCandidates[0].To | Should -Be 'widget_name'
+        $f.RenameCandidates[0].Endpoint | Should -Be 'GET /widgets'
+    }
+
+    It 'reports errors as an envelope field the request handler never reads' {
+        $f = Get-PfbResponseShapeFindings -ResponseShapeMap $script:fixtureMap -RequestHandlerPath $script:handlerPath
+        $names = @($f.UnhandledEnvelopeFields | ForEach-Object { $_.Field })
+        $names | Should -Contain 'errors'
+        $names | Should -Not -Contain 'items'
+        $names | Should -Not -Contain 'total_item_count'
+    }
+
+    It 'counts how many endpoints declare each unhandled envelope field' {
+        $f = Get-PfbResponseShapeFindings -ResponseShapeMap $script:fixtureMap -RequestHandlerPath $script:handlerPath
+        ($f.UnhandledEnvelopeFields | Where-Object { $_.Field -eq 'errors' }).EndpointCount | Should -Be 1
+    }
+
+    It 'emits deterministically sorted collections' {
+        $a = Get-PfbResponseShapeFindings -ResponseShapeMap $script:fixtureMap -RequestHandlerPath $script:handlerPath
+        $b = Get-PfbResponseShapeFindings -ResponseShapeMap $script:fixtureMap -RequestHandlerPath $script:handlerPath
+        ($a.Removals | ConvertTo-Json -Depth 6) | Should -Be ($b.Removals | ConvertTo-Json -Depth 6)
+        ($a.UnhandledEnvelopeFields | ConvertTo-Json -Depth 6) | Should -Be ($b.UnhandledEnvelopeFields | ConvertTo-Json -Depth 6)
+    }
+
+    It 'does not treat an unrelated later addition as a rename' {
+        $map = [PSCustomObject]@{
+            generatedFrom = @('2.0', '2.1', '2.2')
+            endpoints     = [PSCustomObject]@{
+                'GET /widgets' = [PSCustomObject]@{
+                    minVersion             = '2.0'
+                    lastSeenVersion        = '2.2'
+                    responseEnvelope       = [PSCustomObject]@{ items = '2.0' }
+                    # introduced at 2.2, but the removal was last seen at 2.0 -> not adjacent
+                    responseItemProperties = [PSCustomObject]@{ unrelated = '2.2' }
+                    removedResponseFields  = @(
+                        [PSCustomObject]@{ field = 'gone'; location = 'items'; introducedVersion = '2.0'; lastSeenVersion = '2.0' }
+                    )
+                }
+            }
+        }
+        $f = Get-PfbResponseShapeFindings -ResponseShapeMap $map -RequestHandlerPath $script:handlerPath
+        @($f.RenameCandidates).Count | Should -Be 0
+    }
+}
