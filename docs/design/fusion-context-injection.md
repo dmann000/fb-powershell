@@ -7,49 +7,15 @@ Revised with live-testing evidence and design input from: Justin Emerson, Wes Me
 Related: Fusion / fleet support, `Private/Invoke-PfbApiRequest.ps1`, capability map
 (`Data/PfbCapabilityMap.json`), `Private/Assert-PfbApiCapability.ps1`
 
-## What changed since rev 2
-
-Rev 2 fixed rev 1's two central errors (silent skip -> hard throw; module script scope ->
-connection-object state). Both survive unchanged. Rev 3 closes gaps rev 2 left open and
-corrects one claim rev 2 stated as settled:
-
-- **`allow_errors` is specified.** Rev 2 did not mention it at all, though it is one of the
-  two parameters this feature exists to inject.
-- **`context_names` is a family of context kinds**, not an array name. Rev 2 treated it
-  throughout as "a specific fleet member."
-- **The verb rule is withdrawn.** Rev 2 proposed treating every `GET` as
-  multi-context-capable. Live testing on 2026-08-01 disproved that for four endpoints.
-  Cardinality is now data-driven from the capability map.
-- **HTTP 207 and the `errors` response array** are specified as a response-layer
-  requirement.
-- **A cross-array authorization precondition** (`authorization_model`) is specified.
-- **Fleet-scoped *mutations* are specified.** Rev 2, and rev 3 as first drafted, characterized
-  fleet-scoped endpoints from `GET` evidence alone. Live testing of `POST`/`PUT`/`DELETE
-  /presets/workload` on 2026-08-02 found the no-context default *fails* on a mutation rather
-  than resolving to a local view, so omitting context is not a safe default there. This has a
-  consequence for shipped code -- see "Fleet-scoped mutations have no usable default".
-- **Context scope is specified, and sourced from the spec** (section 12). Rev 2 and rev 3 both
-  promised client-side kind-vs-scope validation without saying where scope comes from. It turns
-  out fb2.28 declares it in `x-pure-remote-execution-context-domains-override` -- on five
-  endpoints, agreeing exactly with live testing -- alongside a flag,
-  `x-pure-incomplete-gre`, marking the 28 operations whose remote-execution annotation upstream
-  knows to be unfinished. The module reads the declared value, curates only the flagged gap, and
-  ships the result in the capability map. This is also what lets it tell a user *"this command
-  requires a fleet context"* instead of relaying `code 13`, which subsumes open question 3 and
-  unblocks open question 7.
-- **The capability-map staleness question is decided** rather than left implicit, and the
-  dissenting view is recorded.
-- **Phasing is corrected.** Rev 2 put `Invoke-PfbInContext` in Phase 2 while relying on it
-  in Phase 1 as the documented escape hatch from the Phase 1 hard throw.
-
-Everything asserted below about wire behavior was measured against real arrays. See
-Appendix A. Section 8's rule and its supporting figures were independently reproduced
-against the specs, and re-verified on a live fleet using a **remote** member, by a second
-agent implementing the predicate.
-
 **Scope of this document.** This is the design only. The cardinality predicate ships ahead of
 it on its own branch; the implementation described here lands as a separate PR built on top of
 that one.
+
+**How to read the evidence.** Every claim below about wire behavior is measured against real
+arrays rather than read from the spec. The measurements are in Appendix A; the known spec
+defects the design works around are in Appendix B; the spec and capability-map figures the
+design's counts rest on are in Appendix C. Appendix D states the two preconditions any live
+context probe must satisfy to mean anything. Appendix E is the revision history.
 
 ---
 
@@ -100,9 +66,7 @@ The naive fix -- add a `-Context` parameter to every affected cmdlet -- is a non
 
 ## Background: `context_names` is a family of context kinds
 
-This is the correction everything below depends on. Following an architecture discussion
-with Wes Mertes and live testing against a real 3-array fleet, `context_names` addresses
-**four distinct things**:
+Everything below depends on this. `context_names` addresses **four distinct things**:
 
 1. **A single array** in the fleet -- switch this call's target to that array.
 2. **A Fleet** -- address the fleet-level object itself. A Workload Preset is stored at the
@@ -124,8 +88,8 @@ from the kind.
 
 ### Array-scoped versus fleet-scoped endpoints
 
-Each resource type accepts only the context kind it is scoped to. Measured behavior, for
-**reads**:
+Each resource type accepts only the context kind it is scoped to. For **reads** (measured --
+Appendix A):
 
 | `context_names` value | array-scoped (`/file-systems`, `/arrays`) | fleet-scoped (`/presets/workload`, `/topology-groups`) |
 |---|---|---|
@@ -145,10 +109,9 @@ uniform error rather than relaying the server's grab-bag of messages.
 
 #### Fleet-scoped mutations have no usable default
 
-The table above is derived from `GET` probes. Mutations differ in the first row, and the
-difference is the one that matters: **on a fleet-scoped endpoint, omitting `context_names`
-does not resolve to a local view -- it fails.** Measured against `/presets/workload` on
-FB-A, 2026-08-02, as a dynamic-model admin:
+Mutations differ from the table above in its first row, and the difference is the one that
+matters: **on a fleet-scoped endpoint, omitting `context_names` does not resolve to a local
+view -- it fails.** On `/presets/workload` (measured -- Appendix A):
 
 | Call | Context | Result |
 |---|---|---|
@@ -178,24 +141,20 @@ is a reason to keep them in Phase 1 rather than deferring them.
 The design consequence is that a fleet-scoped endpoint cannot be left to the no-context
 default the way an array-scoped one can. See Open Question 7.
 
-### The local-context short-circuit -- a testing trap
+### The local-context short-circuit
 
 Middleware resolves `context_names` before scope validation: if the context matches the
 **local** array, the call executes locally and no context validation happens at all. So
 `GET /presets/workload?context_names=<local array>` returns 200 on a fleet-scoped endpoint
 that rejects every other array name with `code 13`.
 
-Two consequences:
-
-- **A self-context test proves nothing** about whether an endpoint supports a context kind.
-  Any live verification of context behavior must use a *remote* member.
-- The module deliberately does not copy this behavior. See "Local context is still a
-  context."
-
 **The short-circuit does not extend to mutations.** `POST`/`PUT`/`DELETE /presets/workload`
 fail with local or absent context (see "Fleet-scoped mutations have no usable default"), so
-the forgiving behavior a `GET` probe observes is read-only. A tester who establishes the
-short-circuit on reads and generalizes it to writes will conclude the endpoint is broken.
+the forgiving behavior a `GET` observes is read-only.
+
+The module deliberately does not copy this behavior -- see "Local context is still a
+context." The short-circuit also constrains how any of this can be verified, because a
+self-context probe passes for the wrong reason; that consequence is Appendix D.
 
 ---
 
@@ -207,12 +166,11 @@ Every request funnels through `Invoke-PfbApiRequest`. That is the one place cont
 resolved and injected, so no public cmdlet changes and the "zero change across ~520
 signatures" property holds.
 
-**With exceptions, which this design depends on being closed.** The claim above was stated
-as settled in rev 2 and is not quite true. Five public cmdlets call `Invoke-RestMethod`
-directly. Three are connection lifecycle -- `Connect-PfbArray`, `Disconnect-PfbArray`,
-`Get-PfbApiVersion` -- and are legitimately outside the choke point, since they run before or
-around the connection the shared path requires; none of them takes a context. The other two
-are ordinary write cmdlets that simply bypassed it:
+**With exceptions, which this design depends on being closed.** Five public cmdlets call
+`Invoke-RestMethod` directly. Three are connection lifecycle -- `Connect-PfbArray`,
+`Disconnect-PfbArray`, `Get-PfbApiVersion` -- and are legitimately outside the choke point,
+since they run before or around the connection the shared path requires; none of them takes a
+context. The other two are ordinary write cmdlets that simply bypass it:
 
 | Cmdlet | Status |
 |---|---|
@@ -332,47 +290,40 @@ validating anything. The reason: a cmdlet that works only *some* of the time, de
 which array the context happens to name, is a worse contract than one that fails
 consistently. A caller who wants to touch the local system should `Clear-PfbContext` (or
 `Invoke-PfbInContext -Context @()`) and say so, rather than setting a context that means "no
-context." Settled with Wes on 2026-07-23.
+context."
 
 #### Why "always send, let the array error" was rejected
 
-Two hypotheses were live-tested:
+The strategy assumes that sending a parameter an endpoint cannot honor produces an error to
+surface. In the case that matters, it does not:
 
 - **Endpoint that never supported `context_names`** (`/alert-watchers`): the array **silently
-  accepted** the parameter -- HTTP 200, real create/update mutations applied, zero mention of
-  `context_names`. There is no error to surface.
+  accepts** the parameter -- HTTP 200, real create/update mutations applied, zero mention of
+  `context_names`. There is no error to surface. This is the majority behavior across the GET
+  endpoints that never recorded `context_names`, and it includes the fleet-management surface
+  itself (`/fleets`, `/fleets/members`); the audited proportion is in Appendix A.
 - **Parameter recorded but introduced later than the requested version** (`GET /admins` via
   `/api/2.10/`, `GET /dns` via `/api/2.22/`): cleanly rejected, HTTP 400, `code 24`. This case
   `Assert-PfbApiCapability` already catches locally today.
 
-An audit of all 113 GET endpoints that never recorded `context_names` (REST <= 2.26) found
-**90 of 113 silently accept** a bogus value, including the fleet-management surface itself
-(`/fleets`, `/fleets/members`), and **2 endpoints that do process the parameter despite the
-map, at the time of the audit, never recording it** (`GET /audits`; `GET /snmp-managers/test`).
-21 were inconclusive.
+More broadly, the array performs **no query-parameter validation at all** on reads. An
+entirely invented parameter returns 200, and `allow_errors=not_a_boolean` returns 200 even on
+an endpoint that genuinely declares `allow_errors`. **Accepting a parameter is therefore not
+evidence that an endpoint supports it**, which is why every capability decision below is made
+client-side from the map rather than by probing the wire.
 
-Only one of those two is still a map gap. **`GET /audits` was fixed upstream at 2.28**, where
-it now declares `Context_names_get`, `allow_errors` and a `207` -- a fully consistent
-endpoint, recorded in the map, requiring nothing special. `GET /snmp-managers/test` remains
-unrecorded at every scanned version; see section 8 for what the rule does with it.
+The converse holds too: an endpoint can process `context_names` without any scanned spec
+version recording it. `GET /snmp-managers/test` does exactly that; section 8 states what the
+rule does with it, and Appendix B tracks it as a map gap.
 
-Re-confirmed 2026-08-01, and more broadly: the array performs **no query-parameter validation
-at all** on reads. An entirely invented parameter returns 200, and
-`allow_errors=not_a_boolean` returns 200 even on an endpoint that genuinely declares
-`allow_errors`. **Accepting a parameter is therefore not evidence that an endpoint supports
-it**, which is why every capability decision below is made client-side from the map rather
-than by probing the wire.
-
-### 5. Implementation ordering (two non-obvious requirements)
+### 5. Implementation ordering (three non-obvious requirements)
 
 1. **Inject before the existing `Assert-PfbApiCapability` call**
    (`Invoke-PfbApiRequest.ps1` line 41), not "immediately before the request is built"
    (which is near URL construction, around lines 77-80 -- after Assert has already run). If
    `context_names` lands in `$QueryParams` after Assert executes, Assert never sees it and the
-   version check this design leans on never fires.
-   > The original live test that "confirmed" the version gate called `Invoke-PfbApiRequest`
-   > with `context_names` *already present* in `-QueryParams`, which is not how injection
-   > delivers it. The ordering fix is what makes the real code path match the tested behavior.
+   version check this design leans on never fires. This ordering is also what makes the real
+   code path match the behavior the version gate has been verified against -- see Appendix D.
 2. **Mutate `$QueryParams`, not the built query string.** The `-AutoPaginate` loop rebuilds
    the query string from `$QueryParams` on every page (lines 224-230). Appending
    `context_names` to the first page's URI would drop it from page 2 onward. Not
@@ -447,8 +398,8 @@ function Invoke-PfbInContext {
 - **Non-pipeable by design** -- its pipeline payload would have to be the scriptblock, which no
   cmdlet emits.
 
-This is **Phase 1**, not Phase 2. It is the documented escape hatch from the Phase 1 hard
-throw, so shipping the throw without it would ship a gate with no key.
+This is **Phase 1**. It is the documented escape hatch from the Phase 1 hard throw, so
+shipping the throw without it would ship a gate with no key.
 
 ### 8. Cardinality: which endpoints actually accept multiple contexts
 
@@ -458,28 +409,30 @@ The plural parameter is two spec components that both surface as `context_names`
 - **`Context_names`** -- "the context names must be an **array of size 1**." The restriction
   lives only in free-text description, with no structured `maxItems`.
 
-#### The verb rule is withdrawn
+#### The verb does not determine cardinality
 
-Rev 2 proposed treating this split as clean by verb -- `GET` multi-value, mutations size-1.
-**That is false.** Live-tested 2026-08-01 against FB-A, with two valid fleet-member names:
+The split is not clean by verb -- `GET` multi-value, mutations size-1 -- however plausible
+that reads. Four fleet-scoped `GET`s reject a two-name context outright:
 
-```
-GET /presets/workload?context_names=FB-A,FB-C          -> 400 code 15 "Multiple location contexts are not allowed."
-GET /topology-groups?context_names=FB-A,FB-C           -> 400 code 15
-GET /topology-groups/members?context_names=FB-A,FB-C   -> 400 code 15
-GET /topology-groups/arrays?context_names=FB-A,FB-C    -> 400 code 15
-GET /file-systems?context_names=FB-A,FB-C              -> 400 code 20 "Operation not permitted."   (control)
-GET /admins, GET /arrays  (same query)                 -> 400 code 20                              (controls)
-```
+- `GET /presets/workload`
+- `GET /topology-groups`
+- `GET /topology-groups/members`
+- `GET /topology-groups/arrays`
 
-`code 15` fires *before* the cross-array authorization gate that produces `code 20`, so it is
-a structural property of the endpoint, not a permission artifact. It is also independent of
-name validity: `FB-A,no-such-array` yields `code 15` on these four but `code 42 "Cannot find
-array in fleet"` on `/file-systems`.
+Each returns `400 code 15 "Multiple location contexts are not allowed."` on a context of two
+valid fleet-member names, where `/file-systems`, `/admins` and `/arrays` reach
+`400 code 20 "Operation not permitted."` on the same input. `code 15` fires *before* the
+cross-array authorization gate that produces `code 20`, so it is a structural property of the
+endpoint, not a permission artifact. It is also independent of name validity:
+`FB-A,no-such-array` yields `code 15` on these four but `code 42 "Cannot find array in fleet"`
+on `/file-systems`. (Measured -- Appendix A.)
 
 These four are fleet-scoped endpoints. A fleet-scoped endpoint has exactly one meaningful
 context -- the fleet -- so multi-value is not merely restricted there, it is meaningless.
 Their spec entries reference `Context_names_get` in error.
+
+Cardinality is therefore data-driven from the capability map rather than inferred from the
+verb.
 
 #### The rule the module implements
 
@@ -487,12 +440,13 @@ Their spec entries reference `Context_names_get` in error.
 > resolves to component `Context_names_get` AND the endpoint also declares `allow_errors`.**
 
 Both facts are already recorded per endpoint in `Data/PfbCapabilityMap.json`, so this is a map
-lookup -- no new derivation and no new tooling. Against the committed map (`generatedFrom`
-2.0-2.28, describing 2.28) that is **135** multi-context-capable endpoints of the 139
-referencing the multi-value component; against fb2.27 it is 134 of 139.
+lookup -- no new derivation and no new tooling. Against the committed map the rule admits all
+but a handful of the endpoints referencing the multi-value component; the exact populations,
+at each scanned version, are in Appendix C.
 
 Why `allow_errors` rather than the component name alone: the component reference is wrong for
-five endpoints, while `allow_errors` is correct on every case for which evidence exists. A
+the fleet-scoped GETs above, plus one `DELETE` since corrected upstream (counted per version in
+Appendix C), while `allow_errors` is correct on every case for which evidence exists. A
 genuinely multi-context endpoint needs a partial-failure story, so the absence of
 `allow_errors` is strong evidence the endpoint cannot fan out -- which is exactly how the
 upstream bug report characterizes the defect ("missing e.g. `allow_errors` / HTTP 207 /
@@ -522,12 +476,11 @@ is actually reached; an unknown verb carrying a component signal is decided on e
 
 #### The conjunct is what makes the rule version-robust
 
-An unplanned property, worth stating because it is a real argument for the two-signal rule over
-the component alone. Four endpoints changed component across versions --
-`DELETE /management-access-policies` (2.28), and `DELETE`/`PATCH /nfs-export-policies/rules`
-plus `PATCH /object-store-roles/object-store-trust-policies/upload` (2.22) -- all
-`Context_names_get` to `Context_names`. **None changes the rule's verdict**, because all four
-declare no `allow_errors` at any version, so the conjunct absorbs the instability.
+A real argument for the two-signal rule over the component alone. Component identity is not
+stable across versions: four endpoints have flipped from `Context_names_get` to
+`Context_names` (named, with the versions, in Appendix C). **None changes the rule's
+verdict**, because all four declare no `allow_errors` at any version, so the conjunct absorbs
+the instability.
 
 That is currently luck rather than design, and the exposure should be tracked. The capability
 map is last-seen-wins with **no version dimension on component identity**, so an endpoint that
@@ -550,16 +503,17 @@ is found to do something worse than 400.
 
 #### Signals considered, and their reliability
 
-Counts are **version-specific and moving**, so both scanned versions are given. The
-reliability judgements are unchanged between them; only the populations differ.
+| Signal | Reliability as a cardinality signal |
+|---|---|
+| References `Context_names_get` | Wrong for the fleet-scoped GETs, plus one `DELETE` that is fixed at 2.28 |
+| Declares `allow_errors` | Correct on every case with evidence |
+| Declares an HTTP `207` response | Correct, but stricter -- excludes endpoints of unknown status |
+| Carries an `errors` envelope field | **Unreliable** -- applied by authoring convention |
+| Satisfies the ratified rule | -- |
 
-| Signal | fb2.27 | fb2.28 | Reliability as a cardinality signal |
-|---|---|---|---|
-| References `Context_names_get` | 139 | 139 | Wrong for 5 at 2.27, 4 at 2.28 (the fleet-scoped GETs, plus one DELETE that is fixed at 2.28) |
-| Declares `allow_errors` | 135 | 136 | Correct on every case with evidence |
-| Declares an HTTP `207` response | 124 | 132 | Correct, but stricter -- excludes endpoints of unknown status (11 at 2.27, 4 at 2.28) |
-| Carries an `errors` envelope field | 139 | 139 | **Unreliable** -- applied by authoring convention |
-| Satisfies the ratified rule | 134 | 135 | -- |
+Populations are version-specific and moving, and are tabulated at both scanned versions in
+Appendix C. The reliability judgements above are unchanged between them; only the populations
+differ.
 
 The `errors` envelope arrives via an `allOf`-composed `_errorContextResponse` component and is
 present on 15 endpoints that declare no `207`, including all four fleet-scoped GETs. It says
@@ -567,15 +521,12 @@ nothing about fan-out capability and must not be used as a signal.
 
 `207` is the strictest signal and the one upstream tooling uses, but gating on it would treat
 endpoints of unknown status as size-1 on no evidence, blocking calls that may well work --
-contrary to the module's founding capability-check principle. That set is shrinking as 207
-coverage grows: 11 at fb2.27 (`/realms`, `/file-systems/sessions`, `/file-systems/locks` and
-the management-authentication-policies family), down to 4 at fb2.28
-(`/realms`, `/arrays/ssh-certificate-authority-policies`,
-`/audit-file-systems-policy-operations`, `/log-targets/file-systems`). The argument does not
-depend on the size of the set, only on its being non-empty. It is also **not
-available at runtime**: the capability map records the request surface only, with no response
-data at all. `207` therefore serves as a corroborating signal for the maintainer drift check,
-sourced from the specs under `tools/`, and never as a runtime gate.
+contrary to the module's founding capability-check principle. That set is shrinking as `207`
+coverage grows (Appendix C names it at both scanned versions); the argument does not depend on
+the size of the set, only on its being non-empty. `207` is also **not available at runtime**:
+the capability map records the request surface only, with no response data at all. It
+therefore serves as a corroborating signal for the maintainer drift check, sourced from the
+specs under `tools/`, and never as a runtime gate.
 
 #### Behavior when a multi-value context meets a size-1 endpoint
 
@@ -655,11 +606,11 @@ collide on `Invoke-PfbApiRequest`.
 
 ### 11. Precondition: cross-array context requires a dynamic-authorization-model admin
 
-Live-tested: **every `context_names` call targeting anything other than the connected array's
-own local context** -- a single-value switch, an explicit multi-array list, or `.arrays`
-fan-out -- fails with `code 20 "Operation not permitted."` when connected as the local
-`pureuser`, and succeeds for an LDAP-authenticated admin. There is no single-vs-multi
-distinction; a bare single-array switch fails exactly like fan-out does.
+**Every `context_names` call targeting anything other than the connected array's own local
+context** -- a single-value switch, an explicit multi-array list, or `.arrays` fan-out --
+fails with `code 20 "Operation not permitted."` when connected as the local `pureuser`, and
+succeeds for an LDAP-authenticated admin. There is no single-vs-multi distinction; a bare
+single-array switch fails exactly like fan-out does. (Measured -- Appendix A.)
 
 This is **not** a "`pureuser` vs everyone" distinction:
 
@@ -669,10 +620,10 @@ This is **not** a "`pureuser` vs everyone" distinction:
   `authorization_model: static`.
 - Only **LDAP/SAML remote-user admins** get `authorization_model: dynamic`.
 
-Confirmed on FB-A, where `GET /admins` reports `pureuser` as `static` and the LDAP admin as
-`dynamic`. Independently documented: "Only AD/LDAP authenticated users are allowed to execute
-fleet commands or do remote provisioning... Non-LDAP users (`pureuser`, `puresupport`, etc.)
-are disallowed to issue cross-array requests."
+`GET /admins` reports the model per admin, which is what makes the check implementable. The
+vendor documentation states the same rule independently: "Only AD/LDAP authenticated users are
+allowed to execute fleet commands or do remote provisioning... Non-LDAP users (`pureuser`,
+`puresupport`, etc.) are disallowed to issue cross-array requests."
 
 **Recommendation: check client-side** at `Connect-PfbArray` / `Set-PfbContext` and throw
 immediately when a static-model admin sets or uses any cross-array context:
@@ -684,28 +635,23 @@ immediately when a static-model admin sets or uses any cross-array context:
 A user hitting the raw "Operation not permitted" has no obvious reason to suspect their *auth
 method* rather than their fleet setup.
 
-#### `code 20` masks every other finding -- a testing precondition
+#### `code 20` masks every other finding
 
-The client-side check earns its keep for diagnosis as much as ergonomics. Connected as a
+The client-side check earns its keep for diagnosis as much as for ergonomics. Connected as a
 static-model admin, **every** call to a fleet-scoped endpoint returns `code 20`, read and
 write alike, whatever the context value. That is indistinguishable from the endpoint being
-unsupported on the platform, and it is not a hypothetical: during issue #76 testing on
-2026-08-02 it produced the confident and wrong conclusion "presets are unsupported on FB-A."
-Re-running as a dynamic-model admin turned the same calls into `code 6` / `code 13` /
-`code 24` -- real semantic answers, and the entire basis of the mutation table above.
-
-**Never conclude an endpoint is unsupported from a `code 20`.** Establish
-`authorization_model: dynamic` before any context probe; a static-model session cannot
-distinguish "not permitted for you" from "not implemented here."
+unsupported on the platform: a static-model session cannot tell "not permitted for you" from
+"not implemented here." Converting the condition into an explicit statement about the admin's
+authorization model, before the call, is the difference between a diagnosable failure and a
+dead end. The testing precondition that follows from the same fact is in Appendix D.
 
 ### 12. Context scope is metadata, and the module has to supply it
 
-Two earlier sections promise something this design never delivers. "Array-scoped versus
-fleet-scoped endpoints" states that the module "validates kind-vs-scope **client-side** and
-produces one uniform error." "Fleet-scoped mutations have no usable default" needs to know
-an endpoint is fleet-scoped before it can say anything useful about a missing context.
-Neither says where scope comes from. It has to come from somewhere, and it cannot come from
-the API.
+Two earlier sections depend on the module knowing whether an endpoint is fleet-scoped or
+array-scoped. "Array-scoped versus fleet-scoped endpoints" has it validating kind-vs-scope
+**client-side** and producing one uniform error; "Fleet-scoped mutations have no usable
+default" needs the same fact before it can say anything useful about a missing context. This
+section is where that fact comes from.
 
 #### The spec declares scope -- in vendor extensions, from 2.28
 
@@ -718,14 +664,14 @@ back.
 The signal is in three `x-pure-*` vendor extensions, all of which arrive or expand
 substantially at **fb2.28**:
 
-| Extension | 2.22 | 2.24 | 2.26 | 2.27 | 2.28 | Meaning |
-|---|---|---|---|---|---|---|
-| `x-pure-remote-execution-context-domains-override` | 0 | 0 | 0 | 0 | **5** | The context domains this operation accepts, overriding the default |
-| `x-pure-block-remote-execution` | 0 | 2 | 2 | 4 | **266** | Remote execution not supported here at all |
-| `x-pure-incomplete-gre` | 0 | 0 | 0 | 0 | **28** | Global Remote Execution annotation is **known incomplete** on this operation |
+| Extension | Meaning |
+|---|---|
+| `x-pure-remote-execution-context-domains-override` | The context domains this operation accepts, overriding the default |
+| `x-pure-block-remote-execution` | Remote execution not supported here at all |
+| `x-pure-incomplete-gre` | Global Remote Execution annotation is **known incomplete** on this operation |
 
-The override carries exactly the fact this section needs, and it agrees with live testing
-without qualification:
+Per-version occurrence counts for all three are in Appendix C. The override carries exactly
+the fact this section needs, and it agrees with live testing without qualification:
 
 ```
 GET    /presets/workload   ->  ARRAY|FLEET
@@ -736,9 +682,9 @@ PATCH  /presets/workload   ->  FLEET
 ```
 
 Read that against the mutation table in "Fleet-scoped mutations have no usable default":
-reads are legal in either domain, writes are fleet-only. That is precisely what the wire did
-on 2026-08-02, derived independently. The two agreeing is the strongest evidence in this
-document for either.
+reads are legal in either domain, writes are fleet-only -- precisely what the wire does. The
+declaration and the measurement are independent derivations of the same fact, and their
+agreeing is the strongest evidence in this document for either. (Appendix A.)
 
 #### But it covers five endpoints, so curation does not go away
 
@@ -817,7 +763,7 @@ than alongside it.
 
 #### Consequences for section 8
 
-Two, both worth Don's judgement rather than a unilateral edit here:
+Two, both flagged for decision rather than settled here:
 
 - **`x-pure-incomplete-gre` belongs in the drift check.** Section 8 ratifies
   `Context_names_get` AND `allow_errors` as the cardinality rule and notes that two-signal
@@ -999,8 +945,7 @@ $fb = Get-PfbFleetMember -FleetName 'fleet-prod' | Set-PfbContext
 **`$fb | Set-PfbContext` is dropped as redundant.** Piece (c) trades away piping the
 *connection* in. That trade is correct: `Set-PfbContext -Array $fb -Context 'b'` and the
 implicit-default form already cover it, and it is the only thing standing between us and the
-far more valuable `Get-PfbFleetMember | Set-PfbContext`. (Rev 2 documented
-`$fb = $fb | Set-PfbContext -Context 'b'` as the durable path; that form is withdrawn.)
+far more valuable `Get-PfbFleetMember | Set-PfbContext`.
 
 **`IsLocal` is deliberately not surfaced.** The obvious third property looks useful -- filter
 out the local array before scoping a context -- but `is_local` is relative to *the call's
@@ -1062,7 +1007,7 @@ context-targeting failures with the active context name(s).** (Open Question 3.)
 - **Pagination** -- `context_names` persists across pages.
 - **Cardinality** -- a multi-value context on an endpoint that is not multi-context-capable
   throws; a capable endpoint injects. Include one of the four fleet-scoped endpoints as a
-  fixture, since they are the case the verb rule got wrong.
+  fixture, since they are the case a verb-shaped rule gets wrong.
 - **Local context is not special-cased** -- a context naming the local array still throws on an
   endpoint that does not support `context_names`.
 - **`allow_errors`** -- injected only when the endpoint declares it; defaulted `$true` only when
@@ -1080,9 +1025,9 @@ context-targeting failures with the active context name(s).** (Open Question 3.)
   like a mutation, not like an unfiltered list. This is the case a verb-shaped test misses.
 
 Live verification must use a **remote** fleet member, and must run as a **dynamic**-model
-admin. A self-context test passes for the wrong reason (see "The local-context
-short-circuit"); a static-model session fails every probe with `code 20` for the wrong reason
-(see section 11). Both produce confident, wrong conclusions -- the second one already has.
+admin. A self-context test passes for the wrong reason; a static-model session fails every
+probe with `code 20` for the wrong reason. Both produce confident, wrong conclusions.
+**Appendix D** states both preconditions and the probing caveats that go with them.
 
 ---
 
@@ -1102,9 +1047,6 @@ short-circuit"); a static-model session fails every probe with `code 20` for the
 - **Phase 3**: `context_ids`; `Get-PfbTopologyGroupMember`; an explicit multi-value mutating
   fan-out helper if wanted; display of the active context in `Get-PfbArrayConnection`; `Realm`
   as a context kind when the API ships it.
-
-> Rev 2's phasing deferred `Invoke-PfbInContext` to Phase 2 while Phase 1 depended on it as the
-> escape hatch from the Phase 1 throw. That is corrected above.
 
 ---
 
@@ -1162,16 +1104,16 @@ short-circuit"); a static-model session fails every probe with `code 20` for the
 
 ## Alternatives considered and rejected
 
-- **Silent skip-injection when the endpoint does not support `context_names`** (rev 1's step 3).
-  For a mutating call it produces a *successful* request that silently landed on the local array
-  -- worse than an error.
+- **Silent skip-injection when the endpoint does not support `context_names`.** For a mutating
+  call it produces a *successful* request that silently landed on the local array -- worse than
+  an error.
 - **"Always send `context_names`, let the array's error surface."** 90 of 113 never-supported
   GET endpoints silently accept and ignore it, and the array performs no query-parameter
   validation at all on reads. There is no error to surface.
 - **Softening reads (`GET`) to `Write-Warning`.** Warnings are routinely suppressed in the
   automation most likely to set a read-scoped context.
-- **The verb rule as the cardinality rule** (rev 2). Falsified by live testing: four
-  fleet-scoped `GET`s reject multi-value context with `code 15`.
+- **The verb as the cardinality rule.** Falsified by live testing: four fleet-scoped `GET`s
+  reject multi-value context with `code 15`.
 - **Gating cardinality on the component name alone.** Wrong for five endpoints, and it cannot
   distinguish a spec defect from a real capability.
 - **Gating cardinality on HTTP `207`.** The strictest and most accurate signal, and the one
@@ -1209,11 +1151,21 @@ kind; topology-group fan-out correctly excluding a non-member array; the `author
 gate; the `items` + `errors` + `location_context` response shape.
 
 **FB-A (Purity//FB 4.8.2, REST 2.26), fleet coordinator of `cc-test-fleet` with FB-C as a
-member, 2026-08-01:**
+member, 2026-08-01.** A two-name context, both names valid fleet members:
 
-- All four fleet-scoped GETs reject any two-name context with `code 15`, while `/file-systems`,
-  `/admins`, and `/arrays` reach `code 20` on the same input -- `code 15` precedes the
-  authorization gate.
+```
+GET /presets/workload?context_names=FB-A,FB-C          -> 400 code 15 "Multiple location contexts are not allowed."
+GET /topology-groups?context_names=FB-A,FB-C           -> 400 code 15
+GET /topology-groups/members?context_names=FB-A,FB-C   -> 400 code 15
+GET /topology-groups/arrays?context_names=FB-A,FB-C    -> 400 code 15
+GET /file-systems?context_names=FB-A,FB-C              -> 400 code 20 "Operation not permitted."   (control)
+GET /admins, GET /arrays  (same query)                 -> 400 code 20                              (controls)
+```
+
+All four fleet-scoped GETs reject any two-name context with `code 15`, while `/file-systems`,
+`/admins`, and `/arrays` reach `code 20` on the same input -- `code 15` precedes the
+authorization gate. Also measured on the same array:
+
 - `code 15` is independent of name validity (`FB-A,no-such-array` also yields it, where
   `/file-systems` yields `code 42`).
 - Fleet-scoped endpoints accept a bare fleet name (200) and reject `<fleet>.arrays` (`code 13`);
@@ -1234,12 +1186,8 @@ the four fleet-scoped GETs return `code 15` on a two-name context, while `/file-
 is the load-bearing half -- a one-name context yields `code 13` on the size-1 set and `code 20`
 on the capable set, so `code 15` tracks cardinality and not context rejection.
 
-**Probing caveat:** `GET /topology-groups/arrays` cannot be probed bare. Its own parameter
-validation runs *before* the context check and returns `code 24` ("`recursive` must be used
-with `topology_group_names` or `topology_group_ids`") when the fleet has no topology groups.
-Passing `topology_group_names=nonexistent` clears it, after which the endpoint returns `code 15`
-as expected. **A `code 24` from that endpoint is not evidence either way** -- it means the
-context check was never reached.
+**Probing caveat:** `GET /topology-groups/arrays` cannot be probed bare; its own parameter
+validation runs before the context check. See Appendix D.
 
 **FB-A (Purity//FB 4.8.2, REST 2.26), fleet `cc-test-fleet`, 2026-08-02** -- the first probe
 of fleet-scoped **mutations**, run as a dynamic-model admin during issue #76 live testing. A
@@ -1256,7 +1204,7 @@ array name:
 - `GET` with no context is **list-only**: unfiltered returns the replicated preset, while
   `?names=<preset>` returns `code 6`. Name resolution requires fleet context even on a read.
 - As the static-model `pureuser`, all of the above return `code 20` instead, with no way to
-  tell them apart -- see section 11.
+  tell them apart -- see section 11 and Appendix D.
 - Preset bodies require a `storage_class` reference (`name` + `id` + `resource_type`) that
   need not resolve: FB-A reports storage classes unsupported and offers no create verb for
   them at 2.28, yet the preset is accepted, because a preset is a fleet-database template
@@ -1265,11 +1213,8 @@ array name:
 **Spec vendor extensions, fb2.28, 2026-08-02** -- `x-pure-remote-execution-context-domains-override`
 declares `ARRAY|FLEET` for `GET /presets/workload` and `FLEET` for its `PUT`/`POST`/`DELETE`/`PATCH`.
 This was found *after* the live testing above and matches it exactly, on all five operations,
-including the read/write asymmetry. Two independent derivations of the same fact. The extension
-exists only at 2.28 (0 occurrences at 2.22-2.27); `x-pure-block-remote-execution` goes 2 -> 4 -> 266
-across 2.24/2.27/2.28 and `x-pure-incomplete-gre` appears at 2.28 with 28. The public Redoc page
-at `code.purestorage.com` embeds this same document -- identical extension counts -- and adds
-nothing beyond it.
+including the read/write asymmetry. Two independent derivations of the same fact. Per-version
+occurrence counts for all three extensions are in Appendix C.
 
 **FB-A and a second simulator (Purity//FB 4.6.5 / REST 2.22)** -- silent acceptance of
 never-supported `context_names` on `/alert-watchers` across a create/patch/delete round trip;
@@ -1279,18 +1224,9 @@ clean wire-400 (`code 24`) for recorded-but-too-old on `/admins` and `/dns`.
 map gaps at the time of the audit (`GET /audits`, since fixed at 2.28; `GET /snmp-managers/test`,
 still open), 21 inconclusive. POST/PATCH/DELETE not audited.
 
-**Spec analysis** -- at fb2.27: 139 endpoints reference `Context_names_get`, 236 reference
-`Context_names`, 135 declare `allow_errors`, 124 declare a `207` response, 139 carry an
-`errors` envelope field; 134 satisfy the cardinality rule. At fb2.28: 139 / 136 declaring
-`allow_errors` / 132 declaring `207`; 135 satisfy the rule.
-`DELETE /management-access-policies` is corrected to `Context_names` at 2.28, and `GET /audits`
-becomes fully consistent, while the four fleet-scoped GETs are unchanged.
-Independently reproduced 2026-08-01 by a second agent working from the specs directly.
-
-**Capability map** (`generatedFrom` 2.0-2.28) -- 376 endpoints record `context_names`, of which
-136 also record `allow_errors`; 139 resolve to `Context_names_get`, 237 to `Context_names`, 0 to
-no component. 135 satisfy the cardinality rule. The map records the request surface only; it
-holds no response data, so HTTP 207 is not available at runtime.
+**Static spec analysis and capability-map figures** are tabulated separately, in Appendix C.
+The spec-derived figures were independently reproduced 2026-08-01 by a second agent working
+from the spec documents directly.
 
 **Not verified** -- `PATCH /directory-services/test`, the one size-1 endpoint declaring
 `allow_errors`, was not probed (mutating verb). Whether the wire's clean-rejection behavior
@@ -1314,3 +1250,182 @@ Tracked so the module's workarounds can be retired with evidence when each is fi
 | Endpoint scope (fleet versus array) is declared on only 5 of the endpoints that need it | **Partially fixed at 2.28.** `x-pure-remote-execution-context-domains-override` declares it correctly for all five `/presets/workload` operations and agrees exactly with live testing; no other operation carries it, including the live-confirmed fleet-scoped topology-group endpoints. Not derivable from `tags` or from cardinality. The module curates the gap -- section 12 -- and retires entries as the override is filled in. |
 | `x-pure-block-remote-execution` is `true` on 11 endpoints that also declare `context_names` | **Open**, and self-flagged: all 11 are inside the 28 marked `x-pure-incomplete-gre`, so upstream already records the annotation as unfinished. Consequence for us: `block` cannot be used as a runtime signal without first excluding the flagged set. The 11 are the five presets, three `arrays/ssh-certificate-authority-policies` verbs, `GET /audit-file-systems-policy-operations`, `GET /realms`, and `GET /storage-class-tiering-policies/members`. |
 | `info.x-pure-description-ref` points at `../custom_descriptions/FB-api-introduction.md`, which is not in the document | **Open**, and cosmetic for our purposes. The referenced prose ships in neither the JSON nor the public Redoc rendering, so whatever it says about remote execution is unavailable from either source. `info.description` is a 108-character boilerplate line in its place. |
+
+## Appendix C: spec and capability-map figures
+
+Populations are version-specific and move as upstream fills in its annotations, so figures are
+given for both scanned spec versions. The design's reliability judgements do not change
+between them; only the populations do.
+
+### Cardinality signals, by spec version
+
+| Signal | fb2.27 | fb2.28 |
+|---|---|---|
+| References `Context_names_get` | 139 | 139 |
+| Declares `allow_errors` | 135 | 136 |
+| Declares an HTTP `207` response | 124 | 132 |
+| Carries an `errors` envelope field | 139 | 139 |
+| Satisfies the ratified cardinality rule | 134 | 135 |
+
+At fb2.27, 236 endpoints reference the size-1 `Context_names` component.
+
+The component reference is wrong for **5** endpoints at 2.27 and **4** at 2.28: the four
+fleet-scoped GETs (section 8), plus `DELETE /management-access-policies`, which is corrected
+to `Context_names` at 2.28. `GET /audits` also becomes fully consistent at 2.28. The four
+fleet-scoped GETs are unchanged between the two versions.
+
+### Endpoints of unknown `207` status
+
+The set a `207`-based cardinality rule would exclude on no evidence, which is why `207` is not
+the runtime gate (section 8). It is shrinking as `207` coverage grows, but the argument
+depends only on its being non-empty.
+
+| Version | Count | Endpoints |
+|---|---|---|
+| fb2.27 | 11 | `/realms`, `/file-systems/sessions`, `/file-systems/locks`, and the management-authentication-policies family |
+| fb2.28 | 4 | `/realms`, `/arrays/ssh-certificate-authority-policies`, `/audit-file-systems-policy-operations`, `/log-targets/file-systems` |
+
+### Endpoints whose component identity changed across versions
+
+All four moved from `Context_names_get` to `Context_names`. None declares `allow_errors` at
+any version, so the conjunct absorbs the change and none alters the rule's verdict
+(section 8).
+
+| Endpoint | Version of the change |
+|---|---|
+| `DELETE /management-access-policies` | 2.28 |
+| `DELETE /nfs-export-policies/rules` | 2.22 |
+| `PATCH /nfs-export-policies/rules` | 2.22 |
+| `PATCH /object-store-roles/object-store-trust-policies/upload` | 2.22 |
+
+Endpoints that flipped component *while* declaring `allow_errors`, which is the case the map's
+missing version dimension could not survive: **0**.
+
+### Capability map
+
+`Data/PfbCapabilityMap.json`, `generatedFrom` 2.0-2.28, describing 2.28: **376** endpoints
+record `context_names`, of which **136** also record `allow_errors`; **139** resolve to
+`Context_names_get`, **237** to `Context_names`, and **0** to no component. **135** satisfy the
+cardinality rule -- 135 of the 139 referencing the multi-value component, against 134 of 139 at
+fb2.27. The map records the request surface only; it holds no response data, so HTTP 207 is not
+available at runtime.
+
+### Vendor extensions, by spec version
+
+Occurrences of each `x-pure-*` extension (section 12):
+
+| Extension | 2.22 | 2.24 | 2.26 | 2.27 | 2.28 |
+|---|---|---|---|---|---|
+| `x-pure-remote-execution-context-domains-override` | 0 | 0 | 0 | 0 | **5** |
+| `x-pure-block-remote-execution` | 0 | 2 | 2 | 4 | **266** |
+| `x-pure-incomplete-gre` | 0 | 0 | 0 | 0 | **28** |
+
+The public Redoc page at `code.purestorage.com` embeds the same 2.28 document -- identical
+extension counts -- and adds nothing beyond it.
+
+## Appendix D: live-testing preconditions
+
+Two properties of the platform make a naive context probe return a confident wrong answer, and
+both have already done so. Any live verification of anything in this document has to satisfy
+both preconditions before its results mean anything.
+
+### Probe from a remote member, never the local array
+
+The local-context short-circuit resolves a context naming the connected array before any scope
+validation runs, so the call executes locally and returns 200 whatever the endpoint's real
+context support is. **A self-context test therefore proves nothing** about whether an endpoint
+supports a context kind. Use a *remote* fleet member.
+
+The short-circuit is also read-only. A tester who establishes it on `GET`s and generalizes to
+writes will conclude the endpoint is broken, since `POST`/`PUT`/`DELETE /presets/workload` fail
+with a local or absent context.
+
+### Probe as a dynamic-authorization-model admin
+
+Connected as a static-model admin, **every** call to a fleet-scoped endpoint returns
+`code 20 "Operation not permitted."` -- read and write alike, whatever the context value
+(section 11). That is indistinguishable from the endpoint being unsupported on the platform,
+and it is not hypothetical: during issue #76 testing on 2026-08-02 it produced the confident
+and wrong conclusion "presets are unsupported on FB-A." Re-running as a dynamic-model admin
+turned the same calls into `code 6` / `code 13` / `code 24` -- real semantic answers, and the
+entire basis of the mutation table in "Fleet-scoped mutations have no usable default."
+
+**Never conclude an endpoint is unsupported from a `code 20`.** Establish
+`authorization_model: dynamic` before any context probe.
+
+### `GET /topology-groups/arrays` cannot be probed bare
+
+Its own parameter validation runs *before* the context check and returns `code 24`
+("`recursive` must be used with `topology_group_names` or `topology_group_ids`") when the fleet
+has no topology groups. Passing `topology_group_names=nonexistent` clears it, after which the
+endpoint returns `code 15` as expected. **A `code 24` from that endpoint is not evidence either
+way** -- it means the context check was never reached.
+
+### Exercise the injection path, not a hand-assembled request
+
+An early live test that "confirmed" the version gate called `Invoke-PfbApiRequest` with
+`context_names` *already present* in `-QueryParams`, which is not how injection delivers it, so
+it exercised a path the shipped code would not take. Requirement 1 of section 5 -- inject
+before `Assert-PfbApiCapability` -- is what makes the real code path match that tested
+behavior. A test that supplies the parameter itself cannot detect the ordering bug.
+
+## Appendix E: revision history
+
+Kept so the document's corrections stay traceable without being carried in the body. Nothing
+here is a live design statement: where a revision withdrew something, the body already reflects
+the withdrawal.
+
+### Rev 1 -> rev 2
+
+Rev 2 fixed rev 1's two central errors -- silent skip-injection became a hard throw, and
+ambient context moved from module `$script:` scope onto the connection object. Both survive
+unchanged in rev 3.
+
+### Rev 2 -> rev 3
+
+Rev 3 closes gaps rev 2 left open and corrects one claim rev 2 stated as settled:
+
+- **`allow_errors` is specified.** Rev 2 did not mention it at all, though it is one of the
+  two parameters this feature exists to inject.
+- **`context_names` is a family of context kinds**, not an array name. Rev 2 treated it
+  throughout as "a specific fleet member." Established in an architecture discussion with Wes
+  Mertes together with live testing against a real 3-array fleet.
+- **The verb rule is withdrawn.** Rev 2 proposed treating every `GET` as
+  multi-context-capable. Live testing on 2026-08-01 disproved that for four endpoints.
+  Cardinality is now data-driven from the capability map (section 8).
+- **HTTP 207 and the `errors` response array** are specified as a response-layer requirement
+  (section 10).
+- **A cross-array authorization precondition** (`authorization_model`) is specified
+  (section 11).
+- **Fleet-scoped *mutations* are specified.** Rev 2, and rev 3 as first drafted, characterized
+  fleet-scoped endpoints from `GET` evidence alone. Live testing of `POST`/`PUT`/`DELETE
+  /presets/workload` on 2026-08-02 found the no-context default *fails* on a mutation rather
+  than resolving to a local view, so omitting context is not a safe default there. This has a
+  consequence for shipped code -- see "Fleet-scoped mutations have no usable default".
+- **Context scope is specified, and sourced from the spec** (section 12). Rev 2 and rev 3 both
+  promised client-side kind-vs-scope validation without saying where scope comes from. fb2.28
+  declares it in `x-pure-remote-execution-context-domains-override` -- on five endpoints,
+  agreeing exactly with live testing -- alongside a flag, `x-pure-incomplete-gre`, marking the
+  28 operations whose remote-execution annotation upstream knows to be unfinished. The module
+  reads the declared value, curates only the flagged gap, and ships the result in the
+  capability map. This is also what lets it tell a user *"this command requires a fleet
+  context"* instead of relaying `code 13`, which subsumes Open Question 3 and unblocks
+  Open Question 7.
+- **The capability-map staleness question is decided** rather than left implicit, and the
+  dissenting view is recorded -- see "Capability-map staleness".
+- **Phasing is corrected.** Rev 2 put `Invoke-PfbInContext` in Phase 2 while relying on it
+  in Phase 1 as the documented escape hatch from the Phase 1 hard throw.
+- **The durable-context idiom is corrected.** Rev 2 documented
+  `$fb = $fb | Set-PfbContext -Context 'b'` as the durable path; that form is withdrawn,
+  because the pipeline slot now belongs to `Get-PfbFleetMember | Set-PfbContext` -- see
+  "Ergonomics".
+- **The single-choke-point claim is qualified.** Rev 2 stated it as settled. Two ordinary write
+  cmdlets bypass `Invoke-PfbApiRequest`; one is closed and one is still open (section 1).
+
+### Dated decisions and consults
+
+| Date | Record |
+|---|---|
+| 2026-07-23 | Local context is still a context -- the module does not copy the server's local short-circuit. Settled with Wes Mertes. |
+| 2026-08-01 | The verb rule falsified on four fleet-scoped GETs; cardinality becomes data-driven. Spec figures and the rule's verdict independently reproduced by a second agent, on the specs and against a live fleet using a remote member. |
+| 2026-08-02 | Fleet-scoped mutations characterized during issue #76 live testing; context scope sourced from the fb2.28 vendor extensions. |
