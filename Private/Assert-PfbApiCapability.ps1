@@ -24,8 +24,21 @@ function Assert-PfbApiCapability {
         [Parameter(Mandatory)]
         [string]$Endpoint,
 
+        # Hashtable OR array. Invoke-PfbApiRequest forwards its own -Body straight into this
+        # parameter, and a few endpoints declare a top-level JSON array as their request body,
+        # so this must admit both or the forwarding call fails at bind time.
+        #
+        # ICollection, not IEnumerable and not a bare [object]. IEnumerable looks narrower but
+        # is worse: System.String implements it, so PowerShell happily converts -Body 42 into
+        # the string "42" instead of rejecting it. ICollection admits every dictionary and
+        # list shape (Hashtable, Hashtable[], Object[], OrderedDictionary, List<T>) while
+        # still rejecting strings, numbers, booleans and PSCustomObjects exactly as
+        # [hashtable] did, and -- unlike a ValidateScript, which rejects an explicit $null
+        # even under [AllowNull()] -- it still accepts the $null this function is handed on
+        # every bodyless call. Verified under both PowerShell 5.1 and 7.
+        # See the array-body note on the body-field loop below for how each shape is treated.
         [Parameter()]
-        [hashtable]$Body,
+        [System.Collections.ICollection]$Body,
 
         [Parameter()]
         [hashtable]$QueryParams,
@@ -72,7 +85,21 @@ function Assert-PfbApiCapability {
         }
     }
 
-    if ($Body) {
+    # Dictionary bodies only, and deliberately so. An array body's per-element fields are NOT
+    # checked, because the capability map records nothing to check them against:
+    # tools/Build-PfbCapabilityMap.ps1 fills bodyProperties from Get-PfbSchemaPropertyNames,
+    # whose schema walk resolves $ref and allOf but never descends through an array schema's
+    # "items". Every array-bodied endpoint in the spec -- PUT /workloads/tags/batch,
+    # POST /nodes/batch, POST /resource-accesses/batch -- therefore carries
+    # "bodyProperties": {} in Data/PfbCapabilityMap.json, so a union-of-element-fields check
+    # would compare every field against an empty map and could never fire. Skipping is an
+    # honest no-op; the alternative is a gate that only looks like one. Teaching the map to
+    # record per-element fields is its own change, and this loop picks it up for free if a
+    # future map representation ever lands.
+    #
+    # Endpoint minVersion and query-parameter checks above still run for array-bodied calls,
+    # which is gating those endpoints previously had none of.
+    if ($Body -is [System.Collections.IDictionary]) {
         foreach ($propName in $Body.Keys) {
             $introducedIn = $entry.bodyProperties.$propName
             if ($introducedIn -and -not (Test-PfbVersionAtLeast -Have $effectiveVersion -Need $introducedIn)) {
