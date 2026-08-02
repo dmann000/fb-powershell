@@ -310,6 +310,11 @@ than by probing the wire.
    cannot import it from where it currently sits, so implementing in this order would silently
    force a second copy of the rule -- the exact duplication the single-declared-rule design
    exists to prevent. Move it first, then consume it from both sides.
+   > Tracked as **issue #74**. Do this as the first commit of the implementation PR, not as a
+   > separate piece of work: only the resolution step belongs in `Private/`, while
+   > `Get-PfbContextParameterFact`'s record-shaping and HTTP 207 merging stay in `tools/`, so
+   > landing it separately means touching the same functions twice. `tools/` may depend on
+   > `Private/`; the reverse is what this fixes.
 
 ### 6. `Set-PfbContext` / `Clear-PfbContext`
 
