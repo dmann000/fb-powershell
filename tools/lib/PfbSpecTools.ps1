@@ -653,6 +653,126 @@ function Get-PfbSpecCapabilities {
     return $results
 }
 
+function Get-PfbResponseSchema {
+    <#
+    .SYNOPSIS
+        Returns the schema node of an operation's first 2xx response that carries a JSON
+        media type, or $null if it has none.
+    .DESCRIPTION
+        Response codes are examined in ascending string order ('200' before '204'), so a
+        200 wins over a 201/204 when an operation declares several. 'application/json' is
+        preferred; if absent, the first declared media type is used, matching the request-side
+        behaviour in Get-PfbSpecCapabilities.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowNull()]
+        $Operation,
+
+        [Parameter(Mandatory)]
+        $Spec
+    )
+
+    if ($null -eq $Operation -or -not $Operation.responses) { return $null }
+
+    $codes = @($Operation.responses.PSObject.Properties.Name |
+            Where-Object { $_ -match '^2\d\d$' } | Sort-Object)
+
+    foreach ($code in $codes) {
+        $response = Resolve-PfbRef -Node $Operation.responses.$code -Spec $Spec
+        if ($null -eq $response -or -not $response.content) { continue }
+
+        $mediaTypes = $response.content.PSObject.Properties.Name
+        $mediaKey = if ($mediaTypes -contains 'application/json') {
+            'application/json'
+        }
+        else {
+            $mediaTypes | Select-Object -First 1
+        }
+        if (-not $mediaKey) { continue }
+
+        if ($response.content.$mediaKey.schema) { return $response.content.$mediaKey.schema }
+    }
+
+    return $null
+}
+
+function Get-PfbSpecResponseShapes {
+    <#
+    .SYNOPSIS
+        Flattens a FlashBlade OpenAPI document into one response-shape record per
+        (HTTP method, normalized path): the 2xx envelope's top-level property names, and the
+        property names of the items[] array's element schema one level deep.
+    .DESCRIPTION
+        Granularity is deliberately TWO levels and no more -- the envelope, and items[]
+        element properties. Depth 3 was measured and rejected: of 13 depth-3 disappearances
+        across all 29 cached specs, 11 are children of a parent already caught at level 1
+        (duplicates needing rollup suppression) and the other 2 are a confirmed spec-authoring
+        false positive (items[].local_snapshot.resource_type, dropped from the inline schema
+        text at fb2.11, not from the API). It costs 2.2x the artifact for zero true findings.
+        See docs/superpowers/specs/2026-08-01-response-shape-drift-design.md.
+
+        MaxDepth defaults to 32, NOT to the 8 used elsewhere in this file. This is
+        load-bearing, not incidental: several fb2.12-2.16 schemas nest allOf more deeply
+        than 8, and reading them truncated makes real fields look absent -- which an
+        accumulator across versions then records as a REMOVAL. Measured: 184 false removals
+        at depth 8 versus a true total of 11 at depth 32. Do not "simplify" this to match
+        the other defaults in this file.
+
+        Reuses Get-PfbSchemaPropertyWalkAccumulators (and therefore
+        Add-PfbSchemaPropertyNodes) rather than introducing a second allOf/$ref walker --
+        one walker, per the toolchain's standing decision.
+    .OUTPUTS
+        [PSCustomObject]@{ Method; Path; EnvelopeProperties = string[]; ItemProperties = string[] }
+        Both collections are sorted for deterministic output.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Spec,
+
+        [int]$MaxDepth = 32
+    )
+
+    $results = [System.Collections.Generic.List[object]]::new()
+    if (-not $Spec.paths) { return $results }
+
+    foreach ($rawPath in $Spec.paths.PSObject.Properties.Name) {
+        $pathItem = $Spec.paths.$rawPath
+        $normalizedPath = ConvertTo-PfbNormalizedPath -Path $rawPath
+
+        foreach ($methodName in $pathItem.PSObject.Properties.Name) {
+            if ($script:PfbHttpMethods -notcontains $methodName) { continue }
+
+            $schema = Get-PfbResponseSchema -Operation $pathItem.$methodName -Spec $Spec
+            if ($null -eq $schema) { continue }
+
+            $envelopeProperties = @(Get-PfbSchemaPropertyNames -Schema $schema -Spec $Spec -MaxDepth $MaxDepth)
+
+            # Reach items[]'s element schema through the SAME walk, so an envelope that
+            # declares items behind an allOf/$ref chain is handled identically to an inline one.
+            $itemProperties = @()
+            $walk = Get-PfbSchemaPropertyWalkAccumulators -Schema $schema -Spec $Spec -MaxDepth $MaxDepth
+            if ($walk.PropertyNodesByName.ContainsKey('items')) {
+                $itemsResolved = Resolve-PfbRef -Node $walk.PropertyNodesByName['items'][0] -Spec $Spec
+                if ($null -ne $itemsResolved -and $itemsResolved.type -eq 'array' -and $itemsResolved.items) {
+                    $itemProperties = @(Get-PfbSchemaPropertyNames -Schema $itemsResolved.items -Spec $Spec -MaxDepth $MaxDepth)
+                }
+            }
+
+            $results.Add([PSCustomObject]@{
+                    Method             = $methodName.ToUpper()
+                    Path               = $normalizedPath
+                    EnvelopeProperties = @($envelopeProperties | Sort-Object)
+                    ItemProperties     = @($itemProperties | Sort-Object)
+                })
+        }
+    }
+
+    return $results
+}
+
 function Get-PfbSwaggerIndexVersions {
     <#
     .SYNOPSIS
