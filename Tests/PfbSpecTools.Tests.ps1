@@ -560,3 +560,168 @@ Describe 'Get-PfbSwaggerIndexVersions' {
         Get-PfbSwaggerIndexVersions -IndexHtml '<html></html>' | Should -BeNullOrEmpty
     }
 }
+
+Describe 'Get-PfbResponseSchema' {
+    It 'returns the first 2xx application/json response schema' {
+        $op = [PSCustomObject]@{
+            responses = [PSCustomObject]@{
+                '200' = [PSCustomObject]@{
+                    content = [PSCustomObject]@{
+                        'application/json' = [PSCustomObject]@{
+                            schema = [PSCustomObject]@{ marker = 'yes' }
+                        }
+                    }
+                }
+                '400' = [PSCustomObject]@{ description = 'bad' }
+            }
+        }
+        $result = Get-PfbResponseSchema -Operation $op -Spec ([PSCustomObject]@{})
+        $result.marker | Should -Be 'yes'
+    }
+
+    It 'returns $null when no 2xx response carries a schema' {
+        $op = [PSCustomObject]@{
+            responses = [PSCustomObject]@{ '400' = [PSCustomObject]@{ description = 'bad' } }
+        }
+        Get-PfbResponseSchema -Operation $op -Spec ([PSCustomObject]@{}) | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Get-PfbSpecResponseShapes' {
+    BeforeAll {
+        $script:shapeSpec = [PSCustomObject]@{
+            paths = [PSCustomObject]@{
+                '/api/2.0/file-systems' = [PSCustomObject]@{
+                    get = [PSCustomObject]@{
+                        responses = [PSCustomObject]@{
+                            '200' = [PSCustomObject]@{
+                                content = [PSCustomObject]@{
+                                    'application/json' = [PSCustomObject]@{
+                                        schema = [PSCustomObject]@{
+                                            properties = [PSCustomObject]@{
+                                                items              = [PSCustomObject]@{
+                                                    type  = 'array'
+                                                    items = [PSCustomObject]@{
+                                                        properties = [PSCustomObject]@{
+                                                            name      = [PSCustomObject]@{ type = 'string' }
+                                                            destroyed = [PSCustomObject]@{ type = 'boolean' }
+                                                        }
+                                                    }
+                                                }
+                                                total_item_count   = [PSCustomObject]@{ type = 'integer' }
+                                                errors             = [PSCustomObject]@{ type = 'array' }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    It 'extracts envelope properties including errors' {
+        $shapes = @(Get-PfbSpecResponseShapes -Spec $script:shapeSpec)
+        $shapes.Count | Should -Be 1
+        $shapes[0].Method | Should -Be 'GET'
+        $shapes[0].Path | Should -Be '/file-systems'
+        $shapes[0].EnvelopeProperties | Should -Contain 'errors'
+        $shapes[0].EnvelopeProperties | Should -Contain 'total_item_count'
+    }
+
+    It 'descends one level into items[] and no further' {
+        $shapes = @(Get-PfbSpecResponseShapes -Spec $script:shapeSpec)
+        $shapes[0].ItemProperties | Should -Contain 'name'
+        $shapes[0].ItemProperties | Should -Contain 'destroyed'
+        # depth 3 is deliberately excluded -- nothing dotted is ever emitted
+        @($shapes[0].ItemProperties | Where-Object { $_ -like '*.*' }).Count | Should -Be 0
+    }
+
+    It 'emits deterministically sorted collections' {
+        $shapes = @(Get-PfbSpecResponseShapes -Spec $script:shapeSpec)
+        $shapes[0].EnvelopeProperties | Should -Be (@($shapes[0].EnvelopeProperties) | Sort-Object)
+        $shapes[0].ItemProperties | Should -Be (@($shapes[0].ItemProperties) | Sort-Object)
+    }
+}
+
+Describe 'Get-PfbSpecResponseShapes -MaxDepth (regression: the 184-false-removal trap)' {
+    BeforeAll {
+        # An allOf chain 10 levels deep -- deeper than the walker's default MaxDepth of 8.
+        # This mirrors components.schemas.FileSystem in fb2.13-2.16, which reads 4 properties
+        # at depth 8 and 21 at depth 16. Reading it at the default would report the deep
+        # property as absent, which the accumulator would then record as a REMOVAL.
+        $schemas = [PSCustomObject]@{}
+        $schemas | Add-Member -NotePropertyName 'Level9' -NotePropertyValue ([PSCustomObject]@{
+                properties = [PSCustomObject]@{ deep_field = [PSCustomObject]@{ type = 'string' } }
+            })
+        foreach ($i in 8..0) {
+            $schemas | Add-Member -NotePropertyName "Level$i" -NotePropertyValue ([PSCustomObject]@{
+                    allOf = @([PSCustomObject]@{ '$ref' = "#/components/schemas/Level$($i + 1)" })
+                })
+        }
+        $script:deepSpec = [PSCustomObject]@{
+            components = [PSCustomObject]@{ schemas = $schemas }
+            paths      = [PSCustomObject]@{
+                '/api/2.0/deep' = [PSCustomObject]@{
+                    get = [PSCustomObject]@{
+                        responses = [PSCustomObject]@{
+                            '200' = [PSCustomObject]@{
+                                content = [PSCustomObject]@{
+                                    'application/json' = [PSCustomObject]@{
+                                        schema = [PSCustomObject]@{
+                                            properties = [PSCustomObject]@{
+                                                items = [PSCustomObject]@{
+                                                    type  = 'array'
+                                                    # 'shallow_field' sits inline on the items element schema, ALONGSIDE the
+                                                    # deep allOf chain, and is reachable at any MaxDepth. It exists purely to
+                                                    # give the depth-8 test below a positive anchor: without it, that test's
+                                                    # only assertion is a negative one, and an implementation that returned
+                                                    # nothing at all would satisfy it just as well as a correctly
+                                                    # depth-truncated one. See that It's own comment.
+                                                    items = [PSCustomObject]@{
+                                                        properties = [PSCustomObject]@{ shallow_field = [PSCustomObject]@{ type = 'string' } }
+                                                        allOf      = @([PSCustomObject]@{ '$ref' = '#/components/schemas/Level0' })
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    It 'finds a property nested deeper than the default MaxDepth of 8' {
+        $shapes = @(Get-PfbSpecResponseShapes -Spec $script:deepSpec)
+        $shapes[0].ItemProperties | Should -Contain 'deep_field'
+        # At the real default BOTH are reached; contrast with the depth-8 test below, where
+        # only the shallow one survives. The pair is what makes the difference attributable
+        # to depth rather than to the walk having failed outright.
+        $shapes[0].ItemProperties | Should -Contain 'shallow_field'
+    }
+
+    It 'would MISS that property at the default depth -- proving the constraint is real' {
+        $shapes = @(Get-PfbSpecResponseShapes -Spec $script:deepSpec -MaxDepth 8)
+
+        # POSITIVE ANCHORS FIRST, and they are the entire point of this ordering. The
+        # assertion this test exists for is a NEGATIVE one, and a negative assertion about a
+        # collection is satisfied by every degenerate outcome as well as by the intended one:
+        # if the function returned an empty list, $shapes[0] would be $null and
+        # `$null | Should -Not -Contain 'deep_field'` would pass, testing nothing. (Confirmed
+        # by mutation: gutting Get-PfbSpecResponseShapes to return an empty list left this
+        # test green.) These two anchors fail on that mutant, so reaching the negative below
+        # proves the walk really ran, really produced this endpoint's record, and really
+        # populated ItemProperties -- and that the ONLY thing missing at depth 8 is the
+        # property that needs more than 8 levels to reach.
+        $shapes.Count | Should -Be 1
+        $shapes[0].ItemProperties | Should -Contain 'shallow_field'
+
+        $shapes[0].ItemProperties | Should -Not -Contain 'deep_field'
+    }
+}

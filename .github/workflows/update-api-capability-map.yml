@@ -81,6 +81,15 @@ jobs:
         shell: pwsh
         run: ./tools/Build-PfbFieldCmdletMap.ps1
 
+      # Position is load-bearing, do not reorder: this must run AFTER "Fetch all published
+      # REST API spec versions" (the generator walks tools/specs/ and never fetches) and
+      # BEFORE "Build API drift report" (the report reads Data/PfbResponseShapeMap.json).
+      # Placed after the report, CI would build the report from the stale committed map and
+      # then overwrite it -- a report and map that disagree, with no error raised.
+      - name: Build response shape map
+        shell: pwsh
+        run: ./tools/Build-PfbResponseShapeMap.ps1
+
       - name: Build API drift report
         shell: pwsh
         run: ./tools/Build-PfbApiDriftReport.ps1
@@ -133,7 +142,13 @@ jobs:
           $queryFieldCount = (@($drift.parameterGaps.missingQueryParameters) | Measure-Object).Count
           $bodyFieldCount = (@($drift.parameterGaps.missingBodyProperties) | Measure-Object).Count
           $readOnlyFieldCount = (@($drift.parameterGaps.readOnlyFields) | Measure-Object).Count
-          $driftSummary = "$($drift.uncoveredEndpoints.Count) uncovered endpoints, $($drift.parameterGaps.Count) endpoints with parameter gaps ($queryFieldCount missing query fields, $bodyFieldCount missing body fields, $readOnlyFieldCount read-only fields), $($drift.systemicGaps.Count) systemic gaps, $($drift.validateSetDrift.Count) ValidateSet drift findings, $($drift.newValidateSetCandidates.Count) new ValidateSet candidates"
+          # Same @() guard as above, for the same reason: ConvertFrom-Json yields a bare
+          # object for a single-element array and $null for a missing key, so a direct
+          # .Count is unreliable for both.
+          $responseRemovalCount = (@($drift.responseFieldRemovals) | Measure-Object).Count
+          $responseRenameCount = (@($drift.responseFieldRenameCandidates) | Measure-Object).Count
+          $unhandledEnvelopeCount = (@($drift.unhandledResponseEnvelopeFields) | Measure-Object).Count
+          $driftSummary = "$($drift.uncoveredEndpoints.Count) uncovered endpoints, $($drift.parameterGaps.Count) endpoints with parameter gaps ($queryFieldCount missing query fields, $bodyFieldCount missing body fields, $readOnlyFieldCount read-only fields), $($drift.systemicGaps.Count) systemic gaps, $($drift.validateSetDrift.Count) ValidateSet drift findings, $($drift.newValidateSetCandidates.Count) new ValidateSet candidates, $responseRemovalCount response field removals (one per endpoint+field pair), $responseRenameCount response field rename candidates, $unhandledEnvelopeCount unhandled response envelope fields"
           "drift_summary=$driftSummary" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Open pull request
@@ -154,6 +169,8 @@ jobs:
               `Data/PfbCapabilityMap.json` from the full history.
             - Updated `Data/PfbVersionMap.json` if an `SSOT_API_KEY` secret is
               configured; otherwise left untouched (see `tools/Update-PfbVersionMap.ps1`).
+            - Rebuilt `Data/PfbResponseShapeMap.json`, the response-side counterpart to the
+              capability map, which feeds the drift report's response-shape findings.
             - Rebuilt `Reports/PfbValueEnumMap.json`, `Reports/PfbFieldCmdletMap.json`, and
               `Reports/PfbApiDriftReport.json` (+ their Markdown companions) -- see
               `Reports/README.md` for what each answers.

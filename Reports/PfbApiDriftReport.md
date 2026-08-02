@@ -31,6 +31,9 @@ This report accepts **false positives in order to eliminate false negatives**. A
 - ValidateSet drift: 0
 - New ValidateSet candidates: 1
 - Context cardinality signal disagreements (fb2.28): 9
+- Removed response fields: **7**
+- Response rename candidates: **3**
+- Envelope fields not read by `Invoke-PfbApiRequest`: **11**
 
 ## Systemic gaps
 
@@ -709,6 +712,50 @@ The capability map knows these body properties exist, but the newest analysed sp
 | `POST /user-group-quota-policies` | New-PfbUserGroupQuotaPolicy | id, is_local, policy_type, realms |
 | `POST /workloads/placement-recommendations` | New-PfbWorkloadPlacementRecommendation | context, created, expires, id, more_results_available, name, progress, results, status |
 | `POST /worm-data-policies` | New-PfbWormPolicy | context, id, is_local, name, policy_type, realms |
+
+## Response-shape drift
+
+Cmdlets pass API responses through raw -- there is no projection anywhere in `Public/`, so the module holds no schema of its own. A **removed or renamed** response field therefore reaches user scripts as a silent `$null`, which no other report category can detect. **Added** response fields are deliberately not reported: they surface automatically and need no module change.
+
+### Removed response fields
+
+| Endpoint | Location | Field | Introduced | Last seen |
+|---|---|---|---|---|
+| `GET /arrays/performance/replication` | items | `remote` | 2.0 | 2.10 |
+| `GET /file-system-snapshots` | items | `copyable` | 2.0 | 2.10 |
+| `GET /network-interfaces` | items | `server` | 2.16 | 2.19 |
+| `PATCH /file-system-snapshots` | items | `copyable` | 2.0 | 2.10 |
+| `PATCH /network-interfaces` | items | `server` | 2.16 | 2.19 |
+| `POST /file-system-snapshots` | items | `copyable` | 2.0 | 2.10 |
+| `POST /network-interfaces` | items | `server` | 2.16 | 2.19 |
+
+### Rename candidates
+
+_A removal and an addition adjacent in version on the same endpoint. Suggestive, not proof -- confirm against the spec before acting._
+
+| Endpoint | Location | From | To | Version |
+|---|---|---|---|---|
+| `GET /network-interfaces` | items | `server` | `attached_servers` | 2.20 |
+| `PATCH /network-interfaces` | items | `server` | `attached_servers` | 2.20 |
+| `POST /network-interfaces` | items | `server` | `attached_servers` | 2.20 |
+
+### Response envelope fields not read by `Invoke-PfbApiRequest`
+
+_Informational coverage observation, not a correctness claim -- many envelope keys legitimately need no handling there. It cannot tell whether a field is handled correctly, only whether it is referenced at all._
+
+| Envelope field | Endpoints declaring it |
+|---|---|
+| `errors` | 140 |
+| `total` | 28 |
+| `context` | 7 |
+| `access_token` | 1 |
+| `expires_in` | 1 |
+| `issued_token_type` | 1 |
+| `login_banner` | 1 |
+| `more_items_remaining` | 1 |
+| `token_type` | 1 |
+| `username` | 1 |
+| `versions` | 1 |
 
 ## Uncovered endpoints
 

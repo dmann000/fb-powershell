@@ -1330,3 +1330,207 @@ Describe 'Task 6 real-data invariants (systemic gaps + convention strength, skip
         $ratio | Should -BeLessThan 0.55
     }
 }
+
+Describe 'Get-PfbResponseShapeFindings' {
+    BeforeAll {
+        $script:fixtureMap = [PSCustomObject]@{
+            schemaVersion = 1
+            generatedFrom = @('2.0', '2.1', '2.2')
+            endpoints     = [PSCustomObject]@{
+                'GET /widgets'  = [PSCustomObject]@{
+                    minVersion             = '2.0'
+                    lastSeenVersion        = '2.2'
+                    responseEnvelope       = [PSCustomObject]@{ items = '2.0'; errors = '2.1'; total_item_count = '2.0' }
+                    responseItemProperties = [PSCustomObject]@{ name = '2.0'; widget_name = '2.2' }
+                    removedResponseFields  = @(
+                        [PSCustomObject]@{ field = 'wname'; location = 'items'; introducedVersion = '2.0'; lastSeenVersion = '2.1' }
+                    )
+                }
+                'GET /gadgets' = [PSCustomObject]@{
+                    minVersion             = '2.0'
+                    lastSeenVersion        = '2.2'
+                    responseEnvelope       = [PSCustomObject]@{ items = '2.0'; errors = '2.1' }
+                    responseItemProperties = [PSCustomObject]@{ name = '2.0' }
+                }
+                'POST /keytabs/upload' = [PSCustomObject]@{
+                    minVersion             = '2.0'
+                    lastSeenVersion        = '2.2'
+                    responseEnvelope       = [PSCustomObject]@{}
+                    responseItemProperties = [PSCustomObject]@{}
+                }
+            }
+        }
+
+        $script:handlerPath = Join-Path $TestDrive 'Invoke-PfbApiRequest.ps1'
+        @'
+if ($null -ne $response.items) { $allItems.Add($response.items) }
+if ($null -ne $response.total_item_count) { $totalItemCount = $response.total_item_count }
+if ($response.continuation_token) { $more = $true }
+'@ | Set-Content $script:handlerPath
+    }
+
+    It 'flattens removals one record per endpoint and field' {
+        $f = Get-PfbResponseShapeFindings -ResponseShapeMap $script:fixtureMap -RequestHandlerPath $script:handlerPath
+        @($f.Removals).Count | Should -Be 1
+        $f.Removals[0].Endpoint | Should -Be 'GET /widgets'
+        $f.Removals[0].Field | Should -Be 'wname'
+        $f.Removals[0].LastSeenVersion | Should -Be '2.1'
+    }
+
+    It 'pairs a removal with a same-version addition as a rename CANDIDATE' {
+        $f = Get-PfbResponseShapeFindings -ResponseShapeMap $script:fixtureMap -RequestHandlerPath $script:handlerPath
+        @($f.RenameCandidates).Count | Should -Be 1
+        $f.RenameCandidates[0].From | Should -Be 'wname'
+        $f.RenameCandidates[0].To | Should -Be 'widget_name'
+        $f.RenameCandidates[0].Endpoint | Should -Be 'GET /widgets'
+    }
+
+    It 'reports errors as an envelope field the request handler never reads' {
+        $f = Get-PfbResponseShapeFindings -ResponseShapeMap $script:fixtureMap -RequestHandlerPath $script:handlerPath
+        $names = @($f.UnhandledEnvelopeFields | ForEach-Object { $_.Field })
+        $names | Should -Contain 'errors'
+        $names | Should -Not -Contain 'items'
+        $names | Should -Not -Contain 'total_item_count'
+    }
+
+    It 'counts how many endpoints declare each unhandled envelope field, with endpoint count not occurrence count' {
+        $f = Get-PfbResponseShapeFindings -ResponseShapeMap $script:fixtureMap -RequestHandlerPath $script:handlerPath
+        ($f.UnhandledEnvelopeFields | Where-Object { $_.Field -eq 'errors' }).EndpointCount | Should -Be 2
+    }
+
+    It 'sorts removals by Endpoint/Location/Field independent of JSON key order' {
+        # Removals declared in non-alphabetical order on GET /apple
+        $map = [PSCustomObject]@{
+            generatedFrom = @('2.0', '2.1')
+            endpoints     = [PSCustomObject]@{
+                'GET /apple' = [PSCustomObject]@{
+                    minVersion             = '2.0'
+                    lastSeenVersion        = '2.1'
+                    responseEnvelope       = [PSCustomObject]@{ items = '2.0' }
+                    responseItemProperties = [PSCustomObject]@{}
+                    removedResponseFields  = @(
+                        [PSCustomObject]@{ field = 'yankee'; location = 'items'; introducedVersion = '2.0'; lastSeenVersion = '2.1' }
+                        [PSCustomObject]@{ field = 'alpha'; location = 'items'; introducedVersion = '2.0'; lastSeenVersion = '2.1' }
+                    )
+                }
+            }
+        }
+        $handler = Join-Path $TestDrive 'Invoke-PfbApiRequest-removals.ps1'
+        @'
+if ($null -ne $response.items) { $allItems.Add($response.items) }
+'@ | Set-Content $handler
+        $f = Get-PfbResponseShapeFindings -ResponseShapeMap $map -RequestHandlerPath $handler
+        # Natural emission order from removedResponseFields array: [yankee, alpha]
+        # Sorted order by Endpoint, Location, Field: [alpha, yankee]
+        @($f.Removals).Count | Should -Be 2
+        $f.Removals[0].Field | Should -Be 'alpha'
+        $f.Removals[1].Field | Should -Be 'yankee'
+    }
+
+    It 'sorts rename candidates by Endpoint/Location/From independent of removal declaration order' {
+        # Three candidates whose NATURAL emission order (removedResponseFields declaration
+        # order) contradicts the sorted order on BOTH remaining sort keys. The Endpoint key
+        # cannot be defeated by a fixture -- the endpoint loop itself already iterates
+        # $endpointNames sorted -- so this fixture puts all three on one endpoint and
+        # exercises Location (envelope < items) and From (alpha < zulu) instead.
+        #
+        # Each removal is given a DISTINCT successor version, and each bag holds exactly one
+        # field at that version, so every removal yields exactly one candidate rather than a
+        # cross-product of every same-version field in the bag.
+        #   zulu  (items)    lastSeen 2.0 -> successor 2.1 -> zulu_new  (2.1)
+        #   alpha (items)    lastSeen 2.1 -> successor 2.2 -> alpha_new (2.2)
+        #   mike  (envelope) lastSeen 2.2 -> successor 2.3 -> mike_new  (2.3)
+        $map = [PSCustomObject]@{
+            generatedFrom = @('2.0', '2.1', '2.2', '2.3')
+            endpoints     = [PSCustomObject]@{
+                'POST /apple' = [PSCustomObject]@{
+                    minVersion             = '2.0'
+                    lastSeenVersion        = '2.3'
+                    responseEnvelope       = [PSCustomObject]@{ items = '2.0'; mike_new = '2.3' }
+                    responseItemProperties = [PSCustomObject]@{ zulu_new = '2.1'; alpha_new = '2.2' }
+                    removedResponseFields  = @(
+                        [PSCustomObject]@{ field = 'zulu'; location = 'items'; introducedVersion = '2.0'; lastSeenVersion = '2.0' }
+                        [PSCustomObject]@{ field = 'alpha'; location = 'items'; introducedVersion = '2.0'; lastSeenVersion = '2.1' }
+                        [PSCustomObject]@{ field = 'mike'; location = 'envelope'; introducedVersion = '2.0'; lastSeenVersion = '2.2' }
+                    )
+                }
+            }
+        }
+        $handler = Join-Path $TestDrive 'Invoke-PfbApiRequest-candidates.ps1'
+        @'
+if ($null -ne $response.items) { $allItems.Add($response.items) }
+'@ | Set-Content $handler
+        $f = Get-PfbResponseShapeFindings -ResponseShapeMap $map -RequestHandlerPath $handler
+        # Natural emission order (declaration order): [zulu(items), alpha(items), mike(envelope)]
+        # Sorted by Endpoint, Location, From:          [mike(envelope), alpha(items), zulu(items)]
+        @($f.RenameCandidates).Count | Should -Be 3
+        @($f.RenameCandidates | ForEach-Object { "$($_.Location)/$($_.From)->$($_.To)" }) | Should -Be @(
+            'envelope/mike->mike_new'
+            'items/alpha->alpha_new'
+            'items/zulu->zulu_new'
+        )
+    }
+
+    It 'sorts unhandled envelope fields by EndpointCount desc/Field asc with differing counts' {
+        # zulu appears on 2 endpoints, alpha and bravo on 1 each
+        # Correct sort: zulu (2), alpha (1), bravo (1) — count takes precedence
+        $map = [PSCustomObject]@{
+            generatedFrom = @('2.0', '2.1')
+            endpoints     = [PSCustomObject]@{
+                'GET /zebra' = [PSCustomObject]@{
+                    minVersion             = '2.0'
+                    lastSeenVersion        = '2.1'
+                    responseEnvelope       = [PSCustomObject]@{ zulu = '2.0'; alpha = '2.0' }
+                    responseItemProperties = [PSCustomObject]@{}
+                }
+                'POST /apple' = [PSCustomObject]@{
+                    minVersion             = '2.0'
+                    lastSeenVersion        = '2.1'
+                    responseEnvelope       = [PSCustomObject]@{ zulu = '2.0'; bravo = '2.0' }
+                    responseItemProperties = [PSCustomObject]@{}
+                }
+            }
+        }
+        $handler = Join-Path $TestDrive 'Invoke-PfbApiRequest-envelope.ps1'
+        @'
+if ($null -ne $response.items) { $allItems.Add($response.items) }
+'@ | Set-Content $handler
+        $f = Get-PfbResponseShapeFindings -ResponseShapeMap $map -RequestHandlerPath $handler
+        # Alphabetical order alone: alpha (1), bravo (1), zulu (2)
+        # With EndpointCount desc: zulu (2), alpha (1), bravo (1)
+        @($f.UnhandledEnvelopeFields).Count | Should -Be 3
+        $f.UnhandledEnvelopeFields[0].Field | Should -Be 'zulu'
+        $f.UnhandledEnvelopeFields[0].EndpointCount | Should -Be 2
+        $f.UnhandledEnvelopeFields[1].Field | Should -Be 'alpha'
+        $f.UnhandledEnvelopeFields[1].EndpointCount | Should -Be 1
+        $f.UnhandledEnvelopeFields[2].Field | Should -Be 'bravo'
+        $f.UnhandledEnvelopeFields[2].EndpointCount | Should -Be 1
+    }
+
+    It 'does not throw when an endpoint has an empty responseEnvelope' {
+        # This covers the null-handling fix for envelopes that are empty objects {}
+        $f = Get-PfbResponseShapeFindings -ResponseShapeMap $script:fixtureMap -RequestHandlerPath $script:handlerPath
+        $f | Should -Not -BeNullOrEmpty
+        @($f.Removals).Count | Should -Be 1
+    }
+
+    It 'does not treat an unrelated later addition as a rename' {
+        $map = [PSCustomObject]@{
+            generatedFrom = @('2.0', '2.1', '2.2')
+            endpoints     = [PSCustomObject]@{
+                'GET /widgets' = [PSCustomObject]@{
+                    minVersion             = '2.0'
+                    lastSeenVersion        = '2.2'
+                    responseEnvelope       = [PSCustomObject]@{ items = '2.0' }
+                    # introduced at 2.2, but the removal was last seen at 2.0 -> not adjacent
+                    responseItemProperties = [PSCustomObject]@{ unrelated = '2.2' }
+                    removedResponseFields  = @(
+                        [PSCustomObject]@{ field = 'gone'; location = 'items'; introducedVersion = '2.0'; lastSeenVersion = '2.0' }
+                    )
+                }
+            }
+        }
+        $f = Get-PfbResponseShapeFindings -ResponseShapeMap $map -RequestHandlerPath $script:handlerPath
+        @($f.RenameCandidates).Count | Should -Be 0
+    }
+}

@@ -1423,3 +1423,126 @@ function Get-PfbNonActionableParameters {
 
     return @($script:PfbNonActionableParameters + $derivedNames | Select-Object -Unique | Sort-Object)
 }
+
+function Get-PfbResponseShapeFindings {
+    <#
+    .SYNOPSIS
+        Derives response-side drift findings from Data/PfbResponseShapeMap.json.
+    .DESCRIPTION
+        Three categories, deliberately asymmetric with the request side:
+
+          Removals -- a response field that existed in some analysed version and is absent
+            from the newest analysed version in which its endpoint still exists. This is the
+            genuinely dangerous case and the one thing this axis catches that nothing else
+            can: cmdlets pass responses through raw (measured 2026-08-01 over Public/'s 542
+            functions -- 533 call Invoke-PfbApiRequest at all, and in 526 of those every call
+            is a statement-level pipeline whose result is emitted directly, never captured or
+            projected), so the module holds no schema of its own
+            and a user script binding a removed field silently receives $null.
+
+          RenameCandidates -- a removal and a still-present field on the same endpoint and
+            in the same location, where the new field appears in the version immediately
+            after the old one vanished. Reported as a CANDIDATE and never asserted: adjacency
+            is suggestive, not proof.
+
+          UnhandledEnvelopeFields -- envelope field names no `$response.<name>` reference in
+            Private/Invoke-PfbApiRequest.ps1 ever reads. Informational: many envelope keys
+            legitimately need no handling in that function. This is a COVERAGE observation,
+            not a correctness claim -- it cannot tell whether a field is handled correctly,
+            only whether it is mentioned at all.
+
+        ADDITIONS ARE DELIBERATELY NOT A FINDING. Because responses pass through raw, a new
+        response field reaches the caller with no module change required, so an "added field"
+        row would be pure noise. This inverts the request side's emphasis, and the inversion
+        is the point.
+    .OUTPUTS
+        [PSCustomObject]@{ Removals; RenameCandidates; UnhandledEnvelopeFields }
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $ResponseShapeMap,
+
+        [string]$RequestHandlerPath
+    )
+
+    $removals = [System.Collections.Generic.List[object]]::new()
+    $renameCandidates = [System.Collections.Generic.List[object]]::new()
+    $envelopeEndpointCounts = [System.Collections.Generic.Dictionary[string, int]]::new()
+
+    $orderedVersions = @($ResponseShapeMap.generatedFrom)
+
+    function Get-NextVersion {
+        param([string]$Version, [string[]]$Ordered)
+        $index = [Array]::IndexOf($Ordered, $Version)
+        if ($index -lt 0 -or $index -ge ($Ordered.Count - 1)) { return $null }
+        return $Ordered[$index + 1]
+    }
+
+    $endpointNames = @($ResponseShapeMap.endpoints.PSObject.Properties.Name | Sort-Object)
+
+    foreach ($epKey in $endpointNames) {
+        $endpoint = $ResponseShapeMap.endpoints.$epKey
+
+        foreach ($name in @($endpoint.responseEnvelope.PSObject.Properties | ForEach-Object { $_.Name })) {
+            if (-not $envelopeEndpointCounts.ContainsKey($name)) { $envelopeEndpointCounts[$name] = 0 }
+            $envelopeEndpointCounts[$name]++
+        }
+
+        if ($endpoint.PSObject.Properties.Name -notcontains 'removedResponseFields') { continue }
+
+        foreach ($removed in @($endpoint.removedResponseFields)) {
+            $removals.Add([PSCustomObject]@{
+                    Endpoint          = $epKey
+                    Field             = $removed.field
+                    Location          = $removed.location
+                    IntroducedVersion = $removed.introducedVersion
+                    LastSeenVersion   = $removed.lastSeenVersion
+                })
+
+            $successorVersion = Get-NextVersion -Version $removed.lastSeenVersion -Ordered $orderedVersions
+            if (-not $successorVersion) { continue }
+
+            $bag = if ($removed.location -eq 'envelope') {
+                $endpoint.responseEnvelope
+            }
+            else {
+                $endpoint.responseItemProperties
+            }
+
+            foreach ($candidateName in @($bag.PSObject.Properties | ForEach-Object { $_.Name } | Sort-Object)) {
+                if ($bag.$candidateName -ne $successorVersion) { continue }
+                $renameCandidates.Add([PSCustomObject]@{
+                        Endpoint = $epKey
+                        Location = $removed.location
+                        From     = $removed.field
+                        To       = $candidateName
+                        Version  = $successorVersion
+                    })
+            }
+        }
+    }
+
+    $unhandled = [System.Collections.Generic.List[object]]::new()
+    if ($RequestHandlerPath -and (Test-Path $RequestHandlerPath)) {
+        $handlerText = Get-Content -Path $RequestHandlerPath -Raw
+        $referenced = [System.Collections.Generic.HashSet[string]]::new()
+        foreach ($m in [regex]::Matches($handlerText, '\$response\.([A-Za-z_][A-Za-z0-9_]*)')) {
+            [void]$referenced.Add($m.Groups[1].Value)
+        }
+
+        foreach ($name in ($envelopeEndpointCounts.get_Keys() | Sort-Object)) {
+            if ($referenced.Contains($name)) { continue }
+            $unhandled.Add([PSCustomObject]@{
+                    Field         = $name
+                    EndpointCount = $envelopeEndpointCounts[$name]
+                })
+        }
+    }
+
+    return [PSCustomObject]@{
+        Removals                = @($removals | Sort-Object Endpoint, Location, Field)
+        RenameCandidates        = @($renameCandidates | Sort-Object Endpoint, Location, From)
+        UnhandledEnvelopeFields = @($unhandled | Sort-Object { -$_.EndpointCount }, { $_.Field })
+    }
+}

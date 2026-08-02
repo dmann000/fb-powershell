@@ -118,7 +118,18 @@ Run in this order:
    ./tools/Build-PfbValueEnumMap.ps1
    ```
 
-5. **`Build-PfbApiDriftReport.ps1`** — the newest addition (see `Reports/README.md`): composes
+5. **`Build-PfbResponseShapeMap.ps1`** — builds `Data/PfbResponseShapeMap.json`, the
+   *response*-side counterpart to the capability map (see "Response-shape drift" below).
+   Loads the same cached specs and diffs each endpoint's response body across versions.
+   Must run **before** `Build-PfbApiDriftReport.ps1`, which reads the file it writes (and
+   which degrades to an explicit "Not analysed" banner, never a silent empty section, if
+   it is missing).
+
+   ```powershell
+   ./tools/Build-PfbResponseShapeMap.ps1
+   ```
+
+6. **`Build-PfbApiDriftReport.ps1`** — the newest addition (see `Reports/README.md`): composes
    the capability map, cmdlet inventory, and value-enum data above into one combined
    "what's changed that we haven't caught up to" report, covering uncovered endpoints, new
    parameters on endpoints we already call, drift on existing `ValidateSet`s, and new
@@ -395,6 +406,103 @@ Run in this order:
    Use resolved (endpoint, field) pairs (`Get-PfbSchemaPropertyDetails`'s own single resolving
    walker, decision 3) for any future metric here, never a raw annotation-site count.
 
+## Response-shape drift (`Build-PfbResponseShapeMap.ps1`)
+
+Everything above tracks the **request** side — which endpoints, query parameters, and
+request-body fields exist in which REST version. `Data/PfbResponseShapeMap.json` is the
+**response** side: for every endpoint (496 of them, across the 29 analysed REST versions
+2.0-2.28), the set of fields the spec says its response returns, each with the version it
+was first seen in — plus, for fields that have since disappeared, the version they were
+last seen in — and each endpoint's own first/last-seen version. (Present fields carry a
+scalar `introducedVersion` only: `responseEnvelope`/`responseItemProperties` are
+`{field: version}`, and their last-seen version is implicitly the endpoint's own
+`lastSeenVersion`. An explicit `lastSeenVersion` appears only on `removedResponseFields`
+entries.) `Get-PfbResponseShapeFindings` (`tools/lib/PfbApiDriftTools.ps1`) turns that
+history into the drift report's response-side categories: field **removals**, **rename
+candidates** (a removal paired with a still-present field on the same endpoint and in the
+same location that first appears in the version *immediately after* the removed field's
+last-seen version — adjacency, not co-occurrence, and reported as a candidate rather than
+asserted), and unhandled envelope fields such as `errors`.
+
+**It is a separate file from `Data/PfbCapabilityMap.json`, deliberately, because it has no
+runtime consumer.** `Private/Get-PfbCapabilityMap.ps1` loads the 298,841-byte capability
+map into *every* user session; merging the response axis into it would add 242,917 bytes,
+**+81%**, to that load — paid by every user of the module, forever, to serve an analysis
+that only the drift report reads. And nothing may ever gate an API call on response data:
+the capability check runs *before* the HTTP call, so response shape is not information it
+could act on even in principle. The two artifacts answer different questions for different
+audiences, so they stay in different files.
+
+**The monotonicity rule.** Presence is tracked at both ends: `introducedVersion` is
+**first-seen** (once a field has appeared, the version it appeared in never changes), and
+presence is **last-seen** (the newest analysed version whose spec still declares it). A
+field is a **removal** when its last-seen version is older than its endpoint's own
+`lastSeenVersion` — i.e. the field is absent from the newest analysed spec *in which its
+endpoint still appears*. Note the comparison is against the endpoint's **own** last-seen
+version, which is not necessarily the newest analysed version overall: a retired endpoint,
+last seen at some older version, would still have its own field removals reported. Today
+that distinction is invisible — all 496 endpoints have `lastSeenVersion` 2.28, so the two
+coincide — but it is the rule as implemented, and "the endpoint is still in the newest
+analysed spec" is not part of it. This is deliberately *not* the same rule as
+`readOnly`/`deprecated`, which are **last-seen-wins** (see item 2 above): `readOnly` is an attribute that flips back and forth
+and only its *current* value is meaningful, whereas presence is a monotonic timeline whose
+endpoints are both meaningful — when a field first appeared and whether it is still there.
+Applying last-seen-wins to presence would lose the introduction history; applying
+first-sight to `readOnly` would report a stale annotation as current.
+
+**Known blind spot: transient fields are not reported at all.** There are 11 field-removal
+*transition events* in the history but only **7** true removals. The other four are fields
+that vanish for exactly one release and come back, all caused by upstream spec-authoring
+defects, and all four are present again in fb2.28. The rule above — absent from the newest
+analysed version in which the endpoint still exists — correctly excludes them, at the cost
+of never surfacing a transient wobble as a finding. The two known cases:
+`GET /active-directory`'s `continuation_token` and `total_item_count` (broken in 2.12,
+fixed in 2.13 — the response schema dropped its `allOf` composition), and
+`GET /buckets/performance`'s `max_total_bytes_per_sec` and `max_total_ops_per_sec` (broken
+in 2.20, fixed in 2.21 — fb2.20 drops the `BucketPerformanceItems` component from the
+document **entirely** (it is defined in both 2.19 and 2.21) and repoints the response's
+`items[]` at the sibling `BucketPerformance` component, which has never carried those two
+fields; this is a dropped component, not a mistyped `$ref`). Accepted: a
+one-release wobble that the vendor has already fixed is not actionable for this module,
+and reporting it would put four known-false rows in front of every reader of the 7 real
+ones.
+
+**The depth trap — read this before changing any `MaxDepth`.** `Get-PfbSpecResponseShapes`
+(`tools/lib/PfbSpecTools.ps1`) defaults to **`MaxDepth 32`**, not the `8` used by the other
+walkers in that same file. This is not a stylistic inconsistency and must not be
+"normalised". fb2.12-2.16 contain deep `allOf` composition chains; at depth 8 those chains
+truncate, whole field sets go unseen in the middle of the history, and the presence
+accumulator then reports them as vanished — **184 false removals against a true total of
+7**. Worse, the failure is invisible from the newest spec: on fb2.28 every depth from 8 to
+32 produces identical results, so any check written against current data will look
+perfectly correct while the historical middle of the map is silently wrong. 184 removals is
+the depth-8 signature — if that number (or anything near it) ever appears, suspect the
+depth before suspecting the API.
+
+**Granularity: envelope plus `items[]`, one level deep.** Each endpoint records its
+top-level response envelope fields and the fields of one level of `items[]`. Depth 3 was
+measured and rejected: it produced 13 findings, of which 11 were duplicates of a level-1
+parent already reported and the remaining 2 were a spec-authoring false positive — zero new
+real signal, at **2.2x** the artifact size.
+
+**Why additions are not findings.** The module reshapes almost nothing on the way out.
+Measured over `Public/` on 2026-08-01 (542 `.ps1` files, one function each): **533 call
+`Invoke-PfbApiRequest` at all** — the 9 that never do are session/credential helpers
+(`Connect-PfbArray`, `Disconnect-PfbArray`, `Get-PfbConnection`, `Get-PfbApiVersion`, the
+three `*-PfbCredential` cmdlets) plus two cmdlets that deliberately bypass
+`Invoke-PfbApiRequest` and issue their REST call directly, because its `-Method`
+`ValidateSet`/hashtable-only `-Body` cannot express what they need
+(`Set-PfbPresetWorkload`, `Set-PfbWorkloadTag`) — and in
+**526 of those 533, every one of those calls is a statement-level pipeline whose result is
+emitted directly**, never captured into a variable or piped onward. (Only 7 capture or
+post-process it, e.g. `Test-PfbConnection`, `Remove-PfbFileSystem`, `Get-PfbQuotaUser`.)
+State the counting rule whenever you quote these: "calls it at all" and "emits its result
+directly" are different questions with different answers, and an unqualified figure is what
+made an earlier version of this paragraph wrong. Consequently a field the API *adds* to a
+response reaches the caller automatically with no code change at all. There is nothing
+to fix and therefore nothing to report. Only removals (a property callers may already
+depend on that has gone away), renames, and unread envelope fields represent work.
+
 ## What's deliberately NOT in the capability map
 
 The FlashBlade OpenAPI spec has no structural JSON Schema `enum` anywhere — verified
@@ -562,8 +670,22 @@ pull requests. The `SSOT_API_KEY`/`SSOT_BASE_URI`/`SSOT_TOPIC_ID` secrets are op
 when any are absent, the version-map step is skipped gracefully and only the capability
 map updates (see item 3 above).
 
-`Build-PfbValueEnumMap.ps1`, `Build-PfbFieldCmdletMap.ps1`, and `Build-PfbApiDriftReport.ps1`
-all run as part of the same weekly/dispatch job, right after the capability map is rebuilt,
-so `Reports/PfbValueEnumMap.json`, `Reports/PfbFieldCmdletMap.json`, and
-`Reports/PfbApiDriftReport.json` (+ their Markdown companions) stay fresh alongside
+`Build-PfbValueEnumMap.ps1`, `Build-PfbFieldCmdletMap.ps1`, `Build-PfbResponseShapeMap.ps1`,
+and `Build-PfbApiDriftReport.ps1` all run as part of the same weekly/dispatch job, right
+after the capability map is rebuilt, so `Reports/PfbValueEnumMap.json`,
+`Reports/PfbFieldCmdletMap.json`, `Reports/PfbApiDriftReport.json` (+ their Markdown
+companions) and `Data/PfbResponseShapeMap.json` stay fresh alongside
 `Data/PfbCapabilityMap.json`.
+
+`Build-PfbResponseShapeMap.ps1` sits between `Build-PfbFieldCmdletMap.ps1` and
+`Build-PfbApiDriftReport.ps1`, and that position is required in both directions. It must
+come **after** the spec-fetch step, because the generator only walks `tools/specs/` and
+never fetches anything itself — run before the fetch, it would build the map from whatever
+the restored cache happened to hold. It must come **before** the drift-report step, because
+the report reads `Data/PfbResponseShapeMap.json`; run after, CI would emit a report derived
+from the stale committed map and then overwrite that map, leaving a report and a map that
+disagree with no error to signal it. (If the file were ever absent entirely the report emits
+an explicit "Not analysed" banner rather than a silently empty section, so a missing map is
+at least visible — but a *stale* one is not, which is why the ordering rather than the
+presence check is what protects the report.) The drift report's three response-shape counts
+are also surfaced in the workflow's PR body via the `drift_summary` output.
