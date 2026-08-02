@@ -44,16 +44,7 @@ function Set-PfbPresetWorkload {
 
     $target = if ($Name) { $Name } else { $Id }
     if ($PSCmdlet.ShouldProcess($target, 'Replace workload preset (PUT)')) {
-        # PUT not supported by Invoke-PfbApiRequest's ValidateSet — call directly.
-        $apiVer = $Array.ApiVersion
-        $qs = ConvertTo-PfbQueryString -Parameters $queryParams
-        $uri = "https://$($Array.Endpoint)/api/${apiVer}/presets/workload${qs}"
-        $headers = @{ 'Content-Type' = 'application/json'; 'x-auth-token' = $Array.AuthToken }
-        $restParams = @{ Method = 'PUT'; Uri = $uri; Headers = $headers; Body = ($Attributes | ConvertTo-Json -Depth 15) }
-        if ($Array.SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -ge 6) {
-            $restParams['SkipCertificateCheck'] = $true
-        }
-        Write-Verbose "FlashBlade API: PUT $uri"
-        Invoke-RestMethod @restParams
+        Invoke-PfbApiRequest -Array $Array -Method PUT -Endpoint 'presets/workload' `
+            -Body $Attributes -QueryParams $queryParams
     }
 }

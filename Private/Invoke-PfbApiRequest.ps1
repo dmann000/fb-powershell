@@ -13,7 +13,7 @@ function Invoke-PfbApiRequest {
         [PSCustomObject]$Array,
 
         [Parameter(Mandatory)]
-        [ValidateSet('GET', 'POST', 'PATCH', 'DELETE')]
+        [ValidateSet('GET', 'POST', 'PATCH', 'PUT', 'DELETE')]
         [string]$Method,
 
         [Parameter(Mandatory)]
@@ -97,7 +97,9 @@ function Invoke-PfbApiRequest {
         Headers = $headers
     }
 
-    if ($Body -and ($Method -eq 'POST' -or $Method -eq 'PATCH')) {
+    # GET/DELETE never carry a body: the guard is a whitelist, not a "not GET" test, so a new
+    # verb has to be added here deliberately rather than inheriting body serialisation.
+    if ($Body -and ($Method -eq 'POST' -or $Method -eq 'PATCH' -or $Method -eq 'PUT')) {
         $restParams['Body'] = ($Body | ConvertTo-Json -Depth 10 -Compress)
     }
 
