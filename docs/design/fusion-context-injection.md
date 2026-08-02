@@ -41,7 +41,7 @@ The naive fix -- add a `-Context` parameter to every affected cmdlet -- is a non
 - Let a caller pick a fleet context once and have it apply to subsequent calls, with a
   per-call override that needs no session-wide change.
 - Support the full family of context kinds the API exposes -- a single array, a Fleet, a
-  Topology Group, and fan-out across member arrays.
+  Topology Group, and every member array of a fleet or group.
 - **Never let a context request be silently dropped.** A context-scoped call must either
   land where the caller asked or fail loudly -- never silently execute against the local
   array.
@@ -72,14 +72,24 @@ Everything below depends on this. `context_names` addresses **four distinct thin
 2. **A Fleet** -- address the fleet-level object itself. A Workload Preset is stored at the
    fleet level, not on any one array. This is *not* shorthand for "all arrays in the fleet."
 3. **A Topology Group** -- address the group object itself.
-4. **Fan-out across member arrays** -- a separate mechanism expressed by an **undocumented
-   `.arrays` suffix** (`<fleet-name>.arrays`, `<topology-group-name>.arrays`). This is the
-   only way to run a read against every array in a fleet or group.
+4. **Every member array of a fleet or group** -- a separate mechanism expressed by an
+   **undocumented `.arrays` suffix** (`<fleet-name>.arrays`, `<topology-group-name>.arrays`).
+   This is the only way to run a read against every array in a fleet or group. Membership is
+   resolved **server-side** and is **transitive**: `<group>.arrays` covers arrays reached
+   through nested sub-groups, not just direct members.
 
-Fan-out is orthogonal to the target kind: you do not infer "fan out to all members" from
-"the name is a fleet." You must ask for it with the `.arrays` suffix. The design therefore
-models a context as **a kind plus a separate fan-out flag**, rather than deriving fan-out
-from the kind.
+The `.arrays` form is orthogonal to the target kind: you do not infer "address all members"
+from "the name is a fleet." You must ask for it. The design therefore models a context as
+**a kind plus a separate form**, rather than deriving the form from the kind.
+
+> **Terminology.** Three things could be called "fan-out" and this document keeps them apart.
+> **`.arrays`** is one specific context form: a single request the server expands across a
+> resolved membership, read-only. **Server-side fan-out** is the general capability of an
+> endpoint to execute against more than one context in one request -- the subject of section 8,
+> and always qualified as "server-side" where the distinction matters. **Client-side fan-out**
+> is an N-request serial loop that could carry mutations; the module does not have one, it is
+> a stated non-goal, and the unqualified term is reserved for it. No user-facing parameter is
+> named `-FanOut`; the switch for `.arrays` is `-AllArrays`.
 
 > **Spec gap:** the OpenAPI `context_names` description never mentions `.arrays` in any
 > version from 2.17 through 2.28. It says only "an array in the fleet, or the fleet itself."
@@ -175,15 +185,16 @@ context. The other two are ordinary write cmdlets that simply bypass it:
 | Cmdlet | Status |
 |---|---|
 | `Set-PfbPresetWorkload` | **Closed.** Folded onto the shared path (issue #76); `Invoke-PfbApiRequest` gained `PUT` to make that possible. |
-| `Set-PfbWorkloadTag` | **Open** (issue #77). The last resource cmdlet routing around the choke point. |
+| `Set-PfbWorkloadTag` | **Closed pending merge.** Folded onto the shared path (issue #77, PR #81); `Invoke-PfbApiRequest` and `Assert-PfbApiCapability` gained array request bodies to make that possible. |
 
 This matters more than a tidiness note. A cmdlet that bypasses `Invoke-PfbApiRequest` gets no
 context injection, and does so *silently* -- the injection path cannot warn about a caller it
 never sees. `Set-PfbPresetWorkload` showed what that costs: a fleet-scoped write that could
-not work, with nothing in the module able to say why. Whether `/workloads/tags/batch` is
-fleet-scoped has not been tested, so the same failure is possible but unconfirmed there.
-Closing #77 is a prerequisite for this design holding as written rather than a parallel
-cleanup: until it lands, "every request" has a counterexample.
+not work, with nothing in the module able to say why. `/workloads/tags/batch` is
+**array-scoped**, so it does not repeat that specific failure -- but it declares
+`context_names` at 2.23 and so still needs injection to be reachable at all beyond the local
+array. Both closures are prerequisites for this design holding as written rather than
+parallel cleanups: until they land, "every request" has a counterexample.
 
 ### 2. Context state lives on the connection object
 
@@ -220,13 +231,13 @@ A context is not a bare `string[]`:
 | `Entries` | one or more context entries (below) |
 | `AllowErrors` | tri-state -- governs partial-failure tolerance; see the `allow_errors` section |
 
-Each **entry** carries its own kind and fan-out flag:
+Each **entry** carries its own kind and form:
 
 | Entry field | Meaning |
 |---|---|
 | `Name` | the context name |
 | `Kind` | `Array` (default) \| `Fleet` \| `TopologyGroup` |
-| `FanOut` | `bool` -- when `$true`, emit `<name>.arrays` instead of addressing the object |
+| `Form` | `Object` (default) \| `AllArrays` -- how the name is rendered on the wire |
 
 **Why kind is per-entry rather than one scalar for the whole context.** Mixed-kind context
 lists are on the near roadmap: with Fleet Users and Fleet Audits, `context_names` will accept
@@ -236,14 +247,26 @@ nothing now and is a breaking change to add later, so the object reserves the sh
 Phase 1 even though Phase 1 only ever populates entries of one kind. Same reasoning as
 reserving `AllowErrors` in Phase 1 while surfacing it in Phase 2.
 
+**Why `Form` is an enum and not a boolean.** A boolean can express exactly one alternative
+to the default, and the suffix vocabulary is already known to be open: `.arrays` is the only
+form the server accepts today, but an all-sub-groups equivalent, realm-as-context, and
+whatever else the suffix grammar grows would each need their own flag. Two booleans on one
+entry can also encode a meaningless state (both set), which an enum makes unrepresentable.
+The cost of the enum now is a type declaration; the cost of retrofitting it is a breaking
+change to a published parameter, since a `-AllArrays` switch and a `-Form` parameter cannot
+coexist cleanly. Same reasoning as making `Kind` per-entry.
+
 Wire composition from an entry:
 
-- `Kind = Array`, `FanOut = $false` -> bare array name.
-- `Kind = Fleet` / `TopologyGroup`, `FanOut = $false` -> bare fleet/group name (addresses
-  the object).
-- `FanOut = $true` -> `<name>.arrays`.
+| `Kind` | `Form` | Wire value |
+|---|---|---|
+| `Array` | `Object` | bare array name |
+| `Fleet` / `TopologyGroup` | `Object` | bare fleet/group name -- addresses the object itself |
+| `Fleet` / `TopologyGroup` | `AllArrays` | `<name>.arrays` |
+| `Array` | `AllArrays` | **invalid** -- rejected client-side; an array has no members |
 
-Reserved by implication, not implemented: `Realm` as a future kind.
+Reserved by implication, not implemented: `Realm` as a future kind, and further `Form`
+members as the suffix grammar grows.
 
 ### 4. Resolving and injecting context in `Invoke-PfbApiRequest`
 
@@ -349,7 +372,7 @@ Set-PfbContext
     [-Array] <PSCustomObject>   # ordinary param; defaults to the current default connection
     [-Context] <string[]>       # binds by property name (see Ergonomics)
     [-Kind <ContextKind>]       # Array (default) | Fleet | TopologyGroup
-    [-FanOut]                   # switch -> .arrays suffix
+    [-AllArrays]                # switch -> sets Form = AllArrays (.arrays suffix)
     [-AllowErrors]              # tri-state; see allow_errors
     -> always returns the new connection object
 
@@ -370,6 +393,13 @@ Clear-PfbContext
 - **`Clear-PfbContext` ships as its own cmdlet**, matching the `Set-`/`Clear-PfbCredential`
   precedent, and because `@()` must keep its distinct meaning at the `Invoke-PfbInContext`
   layer.
+- **`-AllArrays` is a switch over an enum field.** The switch is the ergonomic surface;
+  `Form` on the entry is the stored representation. A future form adds a sibling switch (or a
+  parameter set) without changing what is persisted -- see section 3.
+- **`-AllArrays` resolves membership before it returns.** The name must denote a real fleet or
+  topology group, so the cmdlet verifies it rather than deferring to the wire. This is the one
+  place the context cmdlets make a network call, and it is a deliberate exception to
+  "no hidden network calls" -- justified below.
 
 Both are **Phase 1**. Without them, a context set at connect can only be changed by
 reconnecting.
@@ -405,7 +435,7 @@ shipping the throw without it would ship a gate with no key.
 
 The plural parameter is two spec components that both surface as `context_names`:
 
-- **`Context_names_get`** -- documented multi-target fan-out, comma-separated.
+- **`Context_names_get`** -- documented multi-target server-side fan-out, comma-separated.
 - **`Context_names`** -- "the context names must be an **array of size 1**." The restriction
   lives only in free-text description, with no structured `maxItems`.
 
@@ -607,10 +637,10 @@ collide on `Invoke-PfbApiRequest`.
 ### 11. Precondition: cross-array context requires a dynamic-authorization-model admin
 
 **Every `context_names` call targeting anything other than the connected array's own local
-context** -- a single-value switch, an explicit multi-array list, or `.arrays` fan-out --
+context** -- a single-value switch, an explicit multi-array list, or an `.arrays` context --
 fails with `code 20 "Operation not permitted."` when connected as the local `pureuser`, and
 succeeds for an LDAP-authenticated admin. There is no single-vs-multi distinction; a bare
-single-array switch fails exactly like fan-out does. (Measured -- Appendix A.)
+single-array switch fails exactly like a multi-context call does. (Measured -- Appendix A.)
 
 This is **not** a "`pureuser` vs everyone" distinction:
 
@@ -799,7 +829,7 @@ call, or annotate it after:
 and, for the inverse:
 
 > `Get-PfbFileSystem` targets an array-scoped resource; a fleet name is not a valid context
-> for it. Use a member array name, or `<fleet>.arrays` to fan out across the fleet.
+> for it. Use a member array name, or `<fleet>.arrays` to target every array in the fleet.
 
 **3. Discoverability before the error.** Every affected cmdlet's comment-based help gains a
 `.NOTES` line stating the context requirement, generated from the same field so it cannot
@@ -895,7 +925,7 @@ because its lag has a silent rather than a clean wire-400 failure mode.
 
 ---
 
-## Ergonomics: `Get-PfbFleetMember` -> context
+## Ergonomics: piping into context
 
 A natural flow is discovering fleet members and piping them into a context cmdlet. Neither of
 these binds today:
@@ -959,11 +989,58 @@ may not accept `context_names` at all yet, which masks the problem today but doe
 valid for fan-out-capable `GET`s, rejected elsewhere. "Pipe all members into a durable context"
 is a *read-scoping* ergonomic and should be documented as such.
 
-**Topology groups get a cmdlet path, not a `Set-PfbContext` feature.** Rather than teaching
-`Set-PfbContext` to understand group membership, a `Get-PfbTopologyGroupMember` cmdlet feeds
-the same pipeline: `Get-PfbTopologyGroupMember -Group g | Set-PfbContext`. That reaches the
-same outcome as `<group>.arrays` for the read-scoping case while keeping group semantics out of
-the context cmdlet.
+### Whole-fleet and whole-group scope: `-AllArrays`
+
+The member-by-member pipeline above enumerates names client-side. `-AllArrays` instead emits
+the single `.arrays` context and lets the server resolve membership:
+
+```powershell
+$fb = Get-PfbFleet         | Set-PfbContext -AllArrays   # -> cc-test-fleet.arrays
+$fb = Get-PfbTopologyGroup | Set-PfbContext -AllArrays   # -> region-1.arrays
+```
+
+Both source cmdlets bind by property name on `Name`, the same mechanism piece (b) above
+establishes for `MemberName`.
+
+**Why this is not just sugar for piping members.** For topology groups the two are not
+equivalent, and the member pipeline is the wrong answer:
+
+- **A group's members may themselves be groups.** `GET /topology-groups/members` returns
+  direct members, which can be sub-groups rather than arrays. Piping them into a context
+  yields group names where array names are required. `.arrays` is transitive over the whole
+  sub-tree; enumerating members is not.
+- **Membership drifts.** A client-side name list is a snapshot taken when the pipeline ran.
+  `.arrays` is re-resolved by the server on every request, so a durable context stays correct
+  as arrays join or leave.
+- **One request, not N.** Enumerating costs a round trip per level of nesting before the real
+  call is made.
+
+So `Get-PfbTopologyGroupMember | Set-PfbContext` remains available and is correct for
+"scope to these specific members," but it is **not** the way to express "the whole group."
+
+**Membership is validated before the context is stored.** `-AllArrays` resolves the name
+against the array rather than trusting it:
+
+| `Kind` | Validation call | Available from |
+|---|---|---|
+| `TopologyGroup` | `GET /topology-groups/arrays?topology_group_names=<name>` | 2.26 |
+| `Fleet` | `GET /fleets?names=<name>` | 2.17 |
+
+The asymmetry is unavoidable -- there is no `/fleets/arrays` -- and it is why validation
+belongs in the context layer rather than being pushed onto either cmdlet.
+
+This is a deliberate exception to the design's preference against hidden network calls, and
+it is narrower than the inference this document rejects elsewhere. The rejected form was
+*inferring `Kind`* from topology on every context set, silently and unbidden. This is
+*confirming a name the caller explicitly supplied*, only when `-AllArrays` is passed, once,
+at the moment a durable context is established. The failure it prevents is the expensive one:
+a mistyped group name is accepted, stored, and then silently narrows or misdirects every
+subsequent call in the session, with `code 13` arriving far from its cause.
+
+For topology groups the validation call has a probing quirk that also applies here --
+`/topology-groups/arrays` returns `code 24` unless `topology_group_names` or
+`topology_group_ids` is supplied. The call above always supplies it, so the shipped path does
+not hit it; Appendix D records it because a bare probe does.
 
 ---
 
@@ -1016,6 +1093,11 @@ context-targeting failures with the active context name(s).** (Open Question 3.)
   `errors` entry, keyed by `location_context`; successful `items` still flow down the pipeline.
 - **Kind-vs-scope validation** -- a bare fleet or group name rejected client-side on
   array-scoped endpoints and vice versa, with one uniform error.
+- **`-AllArrays` composition and validation** -- that `Form = AllArrays` renders `<name>.arrays`
+  and not the bare name; that `Kind = Array` with `-AllArrays` is rejected client-side; that an
+  unresolvable group or fleet name throws at `Set-PfbContext` rather than being stored; and that
+  a nested sub-group's arrays are reached, which is the property distinguishing `.arrays` from
+  the member pipeline and the one a flat single-level fixture cannot detect.
 - **`authorization_model` gate** -- a static-model admin setting or using any cross-array
   context throws client-side.
 - **Fleet-scoped mutation with no context** -- whatever Open Question 7 resolves to, the
@@ -1034,19 +1116,43 @@ probe with `code 20` for the wrong reason. Both produce confident, wrong conclus
 ## Phasing
 
 - **Phase 1**: `-Context` on `Connect-PfbArray`; the `PfbContext` object (per-entry
-  `Kind`/`FanOut`, reserved `AllowErrors`) plus `.DefaultContext` / `.ContextOverride` on the
+  `Kind`/`Form`, reserved `AllowErrors`) plus `.DefaultContext` / `.ContextOverride` on the
   connection; central capability-gated hard-throw injection with the ordering fixes;
-  `Set-PfbContext` / `Clear-PfbContext`; `Invoke-PfbInContext`; kind and fan-out with
+  `Set-PfbContext` / `Clear-PfbContext`; `Invoke-PfbInContext`; kind and form with
   client-side kind-vs-scope validation; the data-driven cardinality rule and its throw; the
   `contextScope` map field and the scope-aware guidance messages built on it (section 12) --
   Phase 1 because kind-vs-scope validation cannot be implemented without it; the
   `authorization_model` precondition; the connect-time staleness warning; `Get-PfbFleetMember`
-  top-level `MemberName`/`FleetName` and the `Set-PfbContext` pipeline binding.
+  top-level `MemberName`/`FleetName` and the `Set-PfbContext` pipeline binding; `-AllArrays`
+  and the membership-resolution path it depends on.
 - **Phase 2**: `allow_errors` end-to-end -- surfacing, default rules, and the response-layer
   work (HTTP 207 recognition plus the `errors` branch with per-array non-terminating errors).
-- **Phase 3**: `context_ids`; `Get-PfbTopologyGroupMember`; an explicit multi-value mutating
-  fan-out helper if wanted; display of the active context in `Get-PfbArrayConnection`; `Realm`
-  as a context kind when the API ships it.
+- **Phase 3**: `context_ids`; an explicit multi-value mutating fan-out helper if wanted;
+  display of the active context in `Get-PfbArrayConnection`; `Realm` as a context kind when
+  the API ships it.
+
+### Ownership boundary with the topology-group cmdlets
+
+Topology-group **object management** -- `GET`/`POST`/`PATCH`/`DELETE /topology-groups` and the
+`/members` writes -- belongs to issue #38, not to this design. That split holds: those cmdlets
+inherit context injection at runtime like every other cmdlet and are not otherwise coupled to
+it. All seven topology-group endpoints declare `context_names` and none declares
+`allow_errors`, so they are uniformly single-context under section 8's rule and need no
+special handling here.
+
+Two things cross the boundary and are owned by **this** design instead:
+
+1. **Membership resolution** -- the `GET /topology-groups/arrays` and `GET /fleets` calls
+   backing `-AllArrays`. These are context plumbing, not object management, and live in
+   `Private/` beside the rest of the injection path.
+2. **A binding contract on #38.** `Get-PfbTopologyGroup` must emit a top-level `Name` property
+   that binds to `Set-PfbContext` by property name. This costs #38 nothing -- it is the
+   existing pipeline mechanism -- but stated as a requirement it cannot be missed, and without
+   it the documented `Get-PfbTopologyGroup | Set-PfbContext -AllArrays` form silently no-ops in
+   exactly the way "Ergonomics" describes for `Get-PfbFleetMember`.
+
+`Get-PfbTopologyGroupMember` is likewise #38's, and is no longer listed as a phase item here:
+this design's dependency is on `-AllArrays`, not on enumerating members.
 
 ---
 
@@ -1057,10 +1163,14 @@ probe with `code 20` for the wrong reason. Both produce confident, wrong conclus
    `QueryParams` and `Invoke-PfbApiRequest` is private. The tier is reachable only by
    module-internal code or a future cmdlet. Stated here so no reader assumes a path exists.
    Keep as defensive layering, or drop it?
-2. **Object-model surfacing of `Kind` / `FanOut`.** This doc assumes explicit `-Kind` (default
-   `Array`) plus a `-FanOut` switch with client-side validation. The alternative -- inferring
-   kind by querying the fleet's topology -- was rejected to avoid hidden network calls, but is
-   legitimate if discoverability is valued over predictability. Confirm.
+2. **Object-model surfacing of `Kind` / `Form`.** *Settled.* Explicit `-Kind` (default
+   `Array`) plus an `-AllArrays` switch over an enum-valued `Form` field (section 3). The
+   alternative -- inferring `Kind` by querying the fleet's topology on every context set --
+   stays rejected: it is unbidden, it runs on every call rather than on request, and it makes
+   the stored context depend on state the caller never named. The bounded membership check
+   `-AllArrays` performs is not that inference; see "Ergonomics" for why the two are
+   distinguished. What remains genuinely open is only whether the membership check should be
+   suppressible by a `-NoValidate`-style escape for offline or high-latency use.
 3. **Context-name annotation on fleet-membership failures.** Recommendation is to annotate
    `code 42` and similar with the active context name(s). Confirm, or accept as a known rough
    edge. **Section 12 proposes the mechanism**: with `contextScope` in the map the annotation
@@ -1216,6 +1326,35 @@ This was found *after* the live testing above and matches it exactly, on all fiv
 including the read/write asymmetry. Two independent derivations of the same fact. Per-version
 occurrence counts for all three extensions are in Appendix C.
 
+**FB-A (REST 2.26), fleet `cc-test-fleet`, 2026-08-02 -- `.arrays` through both interfaces.**
+Run as a dynamic-model LDAP admin, comparing the CLI against the REST path for the same
+context value:
+
+| Call | CLI | REST |
+|---|---|---|
+| `pureworkload --context cc-test-fleet.arrays` | exit 0 | 200 |
+| `pureworkload --context cc-test-fleet` | error | `code 42` "Cannot specify context that is a fleet" |
+| `pureworkload --context FB-B` | exit 0 | 200 |
+| `purepreset workload list --context cc-test-fleet` | exit 0 | 200 |
+| `purepreset workload list --context cc-test-fleet.arrays` | Invalid context | `code 13` |
+| `purepreset workload list --context FB-B` | Invalid context | `code 13` |
+| `puretgroup` / `GET /topology-groups --context <fleet>` | n/a | 200 |
+
+Three conclusions the design rests on:
+
+- **CLI and REST agree in every case**, so there is no interface-specific behavior to model.
+- **`.arrays` is real and shipped**, on array-scoped resources only. It is documented in the
+  CLI man page -- including that it is transitive over nested sub-groups -- and in no OpenAPI
+  version.
+- **The two context kinds are strictly disjoint.** Fleet-scoped endpoints take only the bare
+  fleet name; array-scoped endpoints take only array names and `.arrays`. Same parameter,
+  mutually exclusive vocabularies, and nothing in the parameter definition distinguishes them
+  -- which is what section 12's `contextScope` exists to supply.
+
+The `/workloads` family is the counter-example that fixes the polarity: it is **array-scoped**,
+the exact inverse of `/presets/workload`, despite both being Fusion-era additions. Scope does
+not follow from a resource being fleet-era.
+
 **FB-A and a second simulator (Purity//FB 4.6.5 / REST 2.22)** -- silent acceptance of
 never-supported `context_names` on `/alert-watchers` across a create/patch/delete round trip;
 clean wire-400 (`code 24`) for recorded-but-too-old on `/admins` and `/dns`.
@@ -1242,7 +1381,7 @@ Tracked so the module's workarounds can be retired with evidence when each is fi
 |---|---|
 | `DELETE /management-access-policies` referenced `Context_names_get` in 2.26/2.27 | **Fixed** in 2.28 (now `Context_names`). No exception was ever implemented in the module. |
 | `GET /presets/workload`, `GET /topology-groups`, `GET /topology-groups/arrays`, `GET /topology-groups/members` reference `Context_names_get` but are size-1 on the wire, and declare neither `allow_errors` nor `207` | **Open upstream, in review.** Reported as incomplete remote-execution support, with fixes in flight against both the spec and the server. Still present at 2.28. |
-| The `context_names` description never documents the `.arrays` suffix (2.17-2.28) | **Open.** The module's fan-out support rests on live testing and the administration guide, not the API contract. |
+| The `context_names` description never documents the `.arrays` suffix (2.17-2.28) | **Open**, and confirmed as a documentation gap rather than an unimplemented feature: the CLI man page documents `.arrays` properly, including its transitivity over nested sub-groups, and the CLI and REST paths behave identically on every probed case (Appendix A). The module's support for the form rests on that evidence, not on the API contract. |
 | `GET /audits` processed `context_names` though 2.26/2.27 did not record it | **Fixed** in 2.28: declares `Context_names_get`, `allow_errors` and `207`. Recorded in the map; no workaround needed. |
 | `GET /snmp-managers/test` processes `context_names` though no scanned version records it | **Open.** A map gap within the scanned range, not staleness. The predicate falls back to the verb and returns capable on no evidence -- see section 8. |
 | The `errors` envelope field is applied by authoring convention to 15 endpoints that cannot return a partial failure | **Cosmetic**, but it makes the field useless as a capability signal. |
@@ -1420,7 +1559,24 @@ Rev 3 closes gaps rev 2 left open and corrects one claim rev 2 stated as settled
   because the pipeline slot now belongs to `Get-PfbFleetMember | Set-PfbContext` -- see
   "Ergonomics".
 - **The single-choke-point claim is qualified.** Rev 2 stated it as settled. Two ordinary write
-  cmdlets bypass `Invoke-PfbApiRequest`; one is closed and one is still open (section 1).
+  cmdlets bypass `Invoke-PfbApiRequest`; both are now closed pending merge (section 1).
+- **`.arrays` is specified as a first-class context form, and `FanOut` is renamed.** Rev 3 as
+  first drafted modelled it as a `FanOut` boolean. Two changes: the field becomes an
+  enum-valued `Form`, because the suffix vocabulary is open and a boolean cannot be extended
+  without a breaking change; and the name "fan-out" is reserved for a possible future
+  client-side serial loop over N arrays, which differs from `.arrays` in request count,
+  failure semantics and mutability. The switch is `-AllArrays`.
+- **`Get-PfbTopologyGroupMember | Set-PfbContext` is withdrawn as the whole-group idiom.**
+  Rev 3 as first drafted offered it as reaching "the same outcome as `<group>.arrays`". It does
+  not: a group's members may themselves be groups, so the member pipeline yields group names
+  where array names are required, and it snapshots membership that `.arrays` re-resolves per
+  request. The cmdlet remains correct for scoping to specific members. See "Ergonomics".
+- **`-AllArrays` validates membership**, a deliberate and bounded exception to the
+  no-hidden-network-calls preference, which Open Question 2 previously left as an open choice
+  and now settles.
+- **The topology-group ownership boundary is stated** rather than left to be inferred from two
+  issues -- see "Phasing". Membership resolution is this design's; object management is #38's;
+  a binding contract crosses between them.
 
 ### Dated decisions and consults
 
@@ -1429,3 +1585,6 @@ Rev 3 closes gaps rev 2 left open and corrects one claim rev 2 stated as settled
 | 2026-07-23 | Local context is still a context -- the module does not copy the server's local short-circuit. Settled with Wes Mertes. |
 | 2026-08-01 | The verb rule falsified on four fleet-scoped GETs; cardinality becomes data-driven. Spec figures and the rule's verdict independently reproduced by a second agent, on the specs and against a live fleet using a remote member. |
 | 2026-08-02 | Fleet-scoped mutations characterized during issue #76 live testing; context scope sourced from the fb2.28 vendor extensions. |
+| 2026-08-02 | `.arrays` verified through both the CLI and REST on a 3-array fleet, with the two context kinds shown to be strictly disjoint. Reported back to Wes Mertes, together with the finding that his `purepreset workload list --context myFleet.arrays` example does not work on this build -- `.arrays` landed for array-scoped resources but not for fleet-scoped ones. |
+| 2026-08-02 | `Form` stored as an enum rather than a boolean, and "fan-out" reserved for a future client-side serial loop. Settled with the maintainer. |
+| 2026-08-02 | `-AllArrays` resolves membership before storing the context; topology-group object management stays with issue #38 under a stated binding contract. Settled with the maintainer. |
