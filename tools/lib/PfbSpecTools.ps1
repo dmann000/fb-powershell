@@ -717,8 +717,11 @@ function Get-PfbSpecResponseShapes {
         load-bearing, not incidental: several fb2.12-2.16 schemas nest allOf more deeply
         than 8, and reading them truncated makes real fields look absent -- which an
         accumulator across versions then records as a REMOVAL. Measured: 184 false removals
-        at depth 8 versus a true total of 11 at depth 32. Do not "simplify" this to match
-        the other defaults in this file.
+        at depth 8 versus a true total of 7 at depth 32. (7, not 11: there are 11 removal
+        TRANSITION EVENTS in the history, but four of them are fields that vanish for one
+        release and return, so they are present in their endpoint's newest analysed version
+        and are correctly not removals. See tools/README.md, "Known blind spot: transient
+        fields".) Do not "simplify" this to match the other defaults in this file.
 
         Reuses Get-PfbSchemaPropertyWalkAccumulators (and therefore
         Add-PfbSchemaPropertyNodes) rather than introducing a second allOf/$ref walker --

@@ -674,7 +674,16 @@ Describe 'Get-PfbSpecResponseShapes -MaxDepth (regression: the 184-false-removal
                                             properties = [PSCustomObject]@{
                                                 items = [PSCustomObject]@{
                                                     type  = 'array'
-                                                    items = [PSCustomObject]@{ '$ref' = '#/components/schemas/Level0' }
+                                                    # 'shallow_field' sits inline on the items element schema, ALONGSIDE the
+                                                    # deep allOf chain, and is reachable at any MaxDepth. It exists purely to
+                                                    # give the depth-8 test below a positive anchor: without it, that test's
+                                                    # only assertion is a negative one, and an implementation that returned
+                                                    # nothing at all would satisfy it just as well as a correctly
+                                                    # depth-truncated one. See that It's own comment.
+                                                    items = [PSCustomObject]@{
+                                                        properties = [PSCustomObject]@{ shallow_field = [PSCustomObject]@{ type = 'string' } }
+                                                        allOf      = @([PSCustomObject]@{ '$ref' = '#/components/schemas/Level0' })
+                                                    }
                                                 }
                                             }
                                         }
@@ -691,10 +700,28 @@ Describe 'Get-PfbSpecResponseShapes -MaxDepth (regression: the 184-false-removal
     It 'finds a property nested deeper than the default MaxDepth of 8' {
         $shapes = @(Get-PfbSpecResponseShapes -Spec $script:deepSpec)
         $shapes[0].ItemProperties | Should -Contain 'deep_field'
+        # At the real default BOTH are reached; contrast with the depth-8 test below, where
+        # only the shallow one survives. The pair is what makes the difference attributable
+        # to depth rather than to the walk having failed outright.
+        $shapes[0].ItemProperties | Should -Contain 'shallow_field'
     }
 
     It 'would MISS that property at the default depth -- proving the constraint is real' {
         $shapes = @(Get-PfbSpecResponseShapes -Spec $script:deepSpec -MaxDepth 8)
+
+        # POSITIVE ANCHORS FIRST, and they are the entire point of this ordering. The
+        # assertion this test exists for is a NEGATIVE one, and a negative assertion about a
+        # collection is satisfied by every degenerate outcome as well as by the intended one:
+        # if the function returned an empty list, $shapes[0] would be $null and
+        # `$null | Should -Not -Contain 'deep_field'` would pass, testing nothing. (Confirmed
+        # by mutation: gutting Get-PfbSpecResponseShapes to return an empty list left this
+        # test green.) These two anchors fail on that mutant, so reaching the negative below
+        # proves the walk really ran, really produced this endpoint's record, and really
+        # populated ItemProperties -- and that the ONLY thing missing at depth 8 is the
+        # property that needs more than 8 levels to reach.
+        $shapes.Count | Should -Be 1
+        $shapes[0].ItemProperties | Should -Contain 'shallow_field'
+
         $shapes[0].ItemProperties | Should -Not -Contain 'deep_field'
     }
 }

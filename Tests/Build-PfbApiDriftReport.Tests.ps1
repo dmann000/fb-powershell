@@ -963,7 +963,7 @@ function Get-PfbFixtureGamma {
     }
 }
 
-Describe 'Build-PfbApiDriftReport response-shape integration' {
+Describe 'Build-PfbApiDriftReport response-shape integration' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
     # BeforeDiscovery, NOT BeforeAll: Pester evaluates -Skip: at DISCOVERY time, before any
     # BeforeAll block has run. Setting these in BeforeAll would leave $script:realJson null
     # during discovery, so every -Skip: would evaluate `-not (Test-Path $null)` = $true and
@@ -972,6 +972,7 @@ Describe 'Build-PfbApiDriftReport response-shape integration' {
         $script:reportRoot = Split-Path -Parent $PSScriptRoot
         $script:realJson = Join-Path $script:reportRoot 'Reports/PfbApiDriftReport.json'
         $script:realMd = Join-Path $script:reportRoot 'Reports/PfbApiDriftReport.md'
+        $script:realShapeMap = Join-Path $script:reportRoot 'Data/PfbResponseShapeMap.json'
     }
 
     # BeforeDiscovery above is what feeds the -Skip: expressions and must stay. It is not
@@ -982,6 +983,7 @@ Describe 'Build-PfbApiDriftReport response-shape integration' {
         $script:reportRoot = Split-Path -Parent $PSScriptRoot
         $script:realJson = Join-Path $script:reportRoot 'Reports/PfbApiDriftReport.json'
         $script:realMd = Join-Path $script:reportRoot 'Reports/PfbApiDriftReport.md'
+        $script:realShapeMap = Join-Path $script:reportRoot 'Data/PfbResponseShapeMap.json'
     }
 
     It 'emits the three response-shape keys in the JSON manifest' -Skip:(-not (Test-Path $script:realJson)) {
@@ -1000,7 +1002,38 @@ Describe 'Build-PfbApiDriftReport response-shape integration' {
         # NOT max_total_ops_per_sec: it is absent at 2.20 only and present at 2.28, so it is
         # correctly not a removal. Asserting it here would lock in a false positive.
         $fields | Should -Not -Contain 'max_total_ops_per_sec'
-        @($r.responseFieldRemovals).Count | Should -Be 7
+    }
+
+    It 'surfaces every removal the response shape map holds, and invents none' -Skip:((-not (Test-Path $script:realJson)) -or (-not (Test-Path $script:realShapeMap))) {
+        # DERIVED, never a literal. A hardcoded count here would not be an artifact-regression
+        # check: .github/workflows/update-api-capability-map.yml regenerates
+        # Data/PfbResponseShapeMap.json from FRESHLY FETCHED specs (step "Build response shape
+        # map"), rebuilds the report from it, and only THEN runs this suite with
+        # Run.Exit = $true. A literal would therefore be an assertion about what FlashBlade
+        # currently publishes, and the first genuine new removal -- exactly the event this
+        # whole axis exists to detect -- would fail this test, abort the job before its
+        # "Check for changes"/"Open pull request" steps, and silently freeze EVERY map and
+        # report the workflow maintains. The detector's own success case must not disable the
+        # pipeline it lives in.
+        #
+        # The property asserted instead is the one actually worth pinning and the one that
+        # stays true across spec versions: the report faithfully surfaces the map's removals,
+        # one row per record, neither dropping nor inventing any.
+        $map = Get-Content $script:realShapeMap -Raw | ConvertFrom-Json
+        $expected = 0
+        foreach ($endpointProperty in $map.endpoints.PSObject.Properties) {
+            if ($endpointProperty.Value.PSObject.Properties.Name -contains 'removedResponseFields') {
+                $expected += @($endpointProperty.Value.removedResponseFields).Count
+            }
+        }
+
+        # Keeps the assertion non-vacuous. Without this, a map that somehow held zero removals
+        # would make the comparison below 0 -eq 0 and pass while testing nothing -- the same
+        # failure mode as asserting $null against a collection matcher.
+        $expected | Should -BeGreaterThan 0 -Because 'the committed map holds real removals; a zero expectation would make the comparison below vacuous'
+
+        $report = Get-Content $script:realJson -Raw | ConvertFrom-Json
+        @($report.responseFieldRemovals).Count | Should -Be $expected
     }
 
     It 'surfaces the $response.errors worked example' -Skip:(-not (Test-Path $script:realJson)) {

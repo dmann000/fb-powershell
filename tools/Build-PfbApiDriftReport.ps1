@@ -153,9 +153,27 @@ $responseFindings = [PSCustomObject]@{
 $responseShapeMapPresent = Test-Path $ResponseShapeMapPath
 if ($responseShapeMapPresent) {
     $responseShapeMap = Get-Content -Path $ResponseShapeMapPath -Raw | ConvertFrom-Json
+
+    # Built from $PrivateDirectory, NOT from $repoRoot. It defaults to <repoRoot>/Private
+    # (line 129) so the real run is unchanged, but a caller that passes -PrivateDirectory
+    # -- every synthetic-fixture test in Tests/Build-PfbApiDriftReport.Tests.ps1 does --
+    # must have that honoured here exactly as it is at the Get-PfbModuleCalledEndpoints and
+    # Get-PfbNonActionableParameters call sites below. Hardcoding $repoRoot here made those
+    # runs silently analyse the REAL Private/ tree.
+    $requestHandlerPath = Join-Path $PrivateDirectory 'Invoke-PfbApiRequest.ps1'
+
+    # Warn loudly on absence. Get-PfbResponseShapeFindings returns an EMPTY
+    # UnhandledEnvelopeFields list when the handler cannot be read, which is
+    # indistinguishable in the rendered report from "every envelope field is handled" --
+    # a broken lookup that reads as a clean bill of health. The removals and rename
+    # candidates are unaffected; only the envelope-coverage category needs the handler.
+    if (-not (Test-Path $requestHandlerPath)) {
+        Write-Warning "Request handler not found at '$requestHandlerPath'; the unhandled-response-envelope-fields category will be EMPTY. That is a skipped analysis, not a finding of zero."
+    }
+
     $responseFindings = Get-PfbResponseShapeFindings `
         -ResponseShapeMap $responseShapeMap `
-        -RequestHandlerPath (Join-Path $repoRoot 'Private/Invoke-PfbApiRequest.ps1')
+        -RequestHandlerPath $requestHandlerPath
 }
 else {
     Write-Warning "Response shape map not found at '$ResponseShapeMapPath'; response-shape drift categories will be empty. Run tools/Build-PfbResponseShapeMap.ps1."

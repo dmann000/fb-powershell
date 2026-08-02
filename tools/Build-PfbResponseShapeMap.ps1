@@ -1,3 +1,4 @@
+#Requires -Version 7.0
 <#
 .SYNOPSIS
     Builds Data/PfbResponseShapeMap.json -- the response-side counterpart to
@@ -79,6 +80,11 @@ foreach ($entry in $specFiles) {
     Write-Host "Processing $version ($($entry.File.Name))..." -ForegroundColor Cyan
     $processedVersions.Add($version)
 
+    # This line is the sole reason for the #Requires -Version 7.0 above: ConvertFrom-Json
+    # only gained -Depth in PowerShell 6.2, so under Windows PowerShell 5.1 it fails with
+    # "A parameter cannot be found that matches parameter name 'Depth'". Matches the -Depth
+    # the other tools/Build-*.ps1 spec readers pass; keep the #Requires and this line
+    # together if either ever changes.
     $spec = Get-Content -Path $entry.File.FullName -Raw | ConvertFrom-Json -Depth 64
     # MaxDepth is left at the function's own default of 32 -- see its help. Do not pass 8.
     $shapes = Get-PfbSpecResponseShapes -Spec $spec

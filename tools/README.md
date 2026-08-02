@@ -437,9 +437,14 @@ audiences, so they stay in different files.
 **first-seen** (once a field has appeared, the version it appeared in never changes), and
 presence is **last-seen** (the newest analysed version whose spec still declares it). A
 field is a **removal** when its last-seen version is older than its endpoint's own
-`lastSeenVersion` — i.e. the endpoint is still in the newest analysed spec, but the field
-is not. This is deliberately *not* the same rule as `readOnly`/`deprecated`, which are
-**last-seen-wins** (see item 2 above): `readOnly` is an attribute that flips back and forth
+`lastSeenVersion` — i.e. the field is absent from the newest analysed spec *in which its
+endpoint still appears*. Note the comparison is against the endpoint's **own** last-seen
+version, which is not necessarily the newest analysed version overall: a retired endpoint,
+last seen at some older version, would still have its own field removals reported. Today
+that distinction is invisible — all 496 endpoints have `lastSeenVersion` 2.28, so the two
+coincide — but it is the rule as implemented, and "the endpoint is still in the newest
+analysed spec" is not part of it. This is deliberately *not* the same rule as
+`readOnly`/`deprecated`, which are **last-seen-wins** (see item 2 above): `readOnly` is an attribute that flips back and forth
 and only its *current* value is meaningful, whereas presence is a monotonic timeline whose
 endpoints are both meaningful — when a field first appeared and whether it is still there.
 Applying last-seen-wins to presence would lose the introduction history; applying

@@ -53,7 +53,7 @@ BeforeAll {
     }
 }
 
-Describe 'Build-PfbResponseShapeMap' {
+Describe 'Build-PfbResponseShapeMap' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
     It 'records first-seen introducedVersion for fields present throughout' {
         $specs = Join-Path $TestDrive 'specs'; New-Item -ItemType Directory -Path $specs -Force | Out-Null
         New-ShapeSpecFixture -EnvelopeProperties @('items') -ItemProperties @('name') |
