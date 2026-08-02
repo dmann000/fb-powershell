@@ -120,6 +120,7 @@ $scriptDir = $PSScriptRoot
 . (Join-Path $scriptDir 'lib/PfbValueEnumTools.ps1')
 . (Join-Path $scriptDir 'lib/PfbCmdletParamTools.ps1')
 . (Join-Path $scriptDir 'lib/PfbApiDriftTools.ps1')
+. (Join-Path $scriptDir 'lib/PfbContextRuleTools.ps1')
 
 $repoRoot = Split-Path -Parent $scriptDir
 if (-not $SpecsDirectory)      { $SpecsDirectory = Join-Path $scriptDir 'specs' }
@@ -538,6 +539,58 @@ $validateSetDrift = @(Get-PfbValidateSetDrift -CmdletInventory $inventory -Histo
 $newValidateSetCandidates = @($fieldCmdletMap.entries | Where-Object { $_.status -eq 'matched' } |
     ForEach-Object { [ordered]@{ cmdlet = $_.cmdlet; parameter = $_.parameter; wireName = $_.wireName; specValues = $_.specValues; recommendation = $_.recommendation } })
 
+# --- Category 5: spec-vs-module assumption (Fusion context_names cardinality rule) ---
+# Categorically different from categories 1-4. Those ask "does the module cover what the
+# API offers?"; this one asks "is an assumption baked into the module still true?". The
+# module's cardinality rule is EXECUTED from its single declared home
+# (Private/Test-PfbContextMultiValueCapable.ps1, dot-sourced by PfbContextRuleTools.ps1),
+# never re-derived here -- a check that re-implements its own rule verifies nothing.
+#
+# The parameter signals come from the capability map, whose component data is
+# last-seen-wins across analysedVersions, i.e. it describes $newestAnalysedVersion's wire
+# shape. The HTTP 207 signal CANNOT come from the map -- it records the request surface
+# only, with no response data at all -- so it is read from that same version's spec, keeping
+# both halves on one version. When no spec is available the 207 signal is omitted entirely
+# rather than defaulted: Get-PfbContextParameterFact carries an unknown 207 as $null and
+# excludes it from comparison, so a missing spec narrows what this category can see but
+# never makes it report something false.
+# Plain if-statements with direct assignment, NOT `$x = if (...) { @() }`: an empty array
+# emitted as the value of a scriptblock collapses to $null, which here would silently
+# convert "checked the spec, no endpoint declares 207" into "207 was never checked", and
+# would hand a null $contextFacts to functions that require a collection.
+$context207Endpoints = $null
+if ($newestSpec) {
+    $context207Endpoints = [string[]]@(Get-PfbContextHttp207Endpoint -Spec $newestSpec)
+}
+$contextFacts = @()
+if ($null -ne $context207Endpoints) {
+    $contextFacts = @(Get-PfbContextParameterFact -CapabilityMap $capabilityMap -Http207Endpoint $context207Endpoints)
+}
+else {
+    $contextFacts = @(Get-PfbContextParameterFact -CapabilityMap $capabilityMap)
+}
+$contextSignalDisagreements = @(Get-PfbContextSignalDisagreement -Fact $contextFacts |
+    ForEach-Object {
+        [ordered]@{
+            endpoint                = $_.Endpoint
+            method                  = $_.Method
+            contextComponent        = $_.ContextComponent
+            shape                   = $_.Shape
+            ruleSaysMultiValue      = $_.RuleSaysMultiValue
+            componentSaysMultiValue = $_.ComponentSaysMultiValue
+            declaresAllowErrors     = $_.DeclaresAllowErrors
+            declaresHttp207         = $_.DeclaresHttp207
+            multiValueSignals       = @($_.MultiValueSignals)
+            sizeOneSignals          = @($_.SizeOneSignals)
+            summary                 = $_.Summary
+        }
+    })
+# A NAMED SUBSET of the above, never an additional category -- see the function's help.
+$contextSizeOneWithAllowErrors = @(Get-PfbContextSizeOneWithAllowErrors -Fact $contextFacts |
+    ForEach-Object { [ordered]@{ endpoint = $_.Endpoint; method = $_.Method; contextComponent = $_.ContextComponent } })
+$contextUnresolvedComponents = @(Get-PfbContextUnresolvedComponent -Fact $contextFacts |
+    ForEach-Object { [ordered]@{ endpoint = $_.Endpoint; method = $_.Method } })
+
 $manifest = [ordered]@{
     schemaVersion             = 1
     # See the generatedFrom-split block above: two distinctly-named keys instead of one
@@ -554,6 +607,20 @@ $manifest = [ordered]@{
     conventionStrength        = $conventionStrength
     validateSetDrift          = $validateSetDrift
     newValidateSetCandidates  = $newValidateSetCandidates
+    contextCardinality        = [ordered]@{
+        # The version this category's numbers describe -- never omit it, see the block
+        # where these are computed.
+        componentSourceVersion    = $newestAnalysedVersion
+        # $null (not $false) when no spec was available to read responses from, so a
+        # consumer can tell "no endpoint declares 207" from "207 was never checked".
+        http207SignalAvailable    = ($null -ne $context207Endpoints)
+        endpointsWithContextNames = $contextFacts.Count
+        multiContextCapable       = @($contextFacts | Where-Object { $_.RuleSaysMultiValue }).Count
+        signalDisagreements       = $contextSignalDisagreements
+        # Named subset of signalDisagreements, NOT an additional finding.
+        sizeOneWithAllowErrors    = $contextSizeOneWithAllowErrors
+        unresolvedComponents      = $contextUnresolvedComponents
+    }
 }
 
 $outputDir = Split-Path -Parent $OutputPath
@@ -608,6 +675,7 @@ $mdLines.Add("- Partial-confidence endpoints (see ``How to read this report`` ab
 $mdLines.Add("- Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): $($systemicGaps.Count)")
 $mdLines.Add("- ValidateSet drift: $($validateSetDrift.Count)")
 $mdLines.Add("- New ValidateSet candidates: $($newValidateSetCandidates.Count)")
+$mdLines.Add("- Context cardinality signal disagreements (fb$newestAnalysedVersion): $($contextSignalDisagreements.Count)")
 
 if ($systemicGaps.Count -gt 0) {
     $mdLines.Add(''); $mdLines.Add('## Systemic gaps'); $mdLines.Add('')
@@ -688,6 +756,88 @@ if ($newValidateSetCandidates.Count -gt 0) {
     $mdLines.Add('| Cmdlet | Parameter | Spec values |'); $mdLines.Add('|---|---|---|')
     foreach ($c in $newValidateSetCandidates) { $mdLines.Add("| ``$($c.cmdlet)`` | ``-$($c.parameter)`` | $($c.specValues -join ', ') |") }
 }
+
+# Emitted UNCONDITIONALLY, unlike every section above -- for this category "nothing to
+# report" is itself a finding, and a section that disappears when clean is
+# indistinguishable from a section that never ran.
+$mdLines.Add(''); $mdLines.Add('## Spec-vs-module assumptions: `context_names` cardinality'); $mdLines.Add('')
+$mdLines.Add('Every category above asks *"does the module cover what the API offers?"*. This one asks a different question: *"is an assumption baked into the module still true?"*')
+$mdLines.Add('')
+$mdLines.Add('The module''s cardinality rule -- **an endpoint is multi-context-capable if and only if its `context_names` resolves to component `Context_names_get` AND the endpoint declares `allow_errors`** -- is declared in exactly one place, `Private/Test-PfbContextMultiValueCapable.ps1`, which this check *executes* rather than re-derives. The HTTP verb is not the rule; it survives only as a fallback for an endpoint absent from the capability map. See section 8 of `docs/design/fusion-context-injection.md`.')
+$mdLines.Add('')
+$mdLines.Add('This is a **cross-signal** check, not a rule-versus-spec one. The earlier two-signal shape was structurally unable to see the defect that actually exists: four fleet-scoped GETs reference the multi-value component *and* are size-1 on the wire, so the rule and the component agreed while both were wrong. Any endpoint whose available signals do not all agree is reported below, including the case where the component agrees with the rule but the remaining signals dissent.')
+$mdLines.Add('')
+$mdLines.Add("Measured against **fb$newestAnalysedVersion** (the newest analysed version; the capability map's component data is last-seen-wins, so it describes that version's wire shape). $($contextFacts.Count) endpoints declare ``context_names``, of which **$(@($contextFacts | Where-Object { $_.RuleSaysMultiValue }).Count)** satisfy the rule.")
+$mdLines.Add('')
+if ($null -ne $context207Endpoints) {
+    $mdLines.Add("The HTTP 207 signal is read from ``tools/specs/fb$newestAnalysedVersion.json`` -- the capability map records the request surface only and holds no response data, so 207 is a corroborating signal for this report and never a runtime gate.")
+}
+else {
+    $mdLines.Add('**The HTTP 207 signal was unavailable** (no spec on disk for the newest analysed version), so it was excluded from comparison rather than assumed absent. Findings below are based on the component and `allow_errors` signals only.')
+}
+$mdLines.Add('')
+$mdLines.Add('**A disagreement is not automatically a spec defect.** The case worth catching is a genuine future multi-context endpoint, where the *module* would be the wrong side. A human decides which signal is wrong, each time.')
+$mdLines.Add('')
+if ($contextSignalDisagreements.Count -eq 0) {
+    $mdLines.Add("**No signal disagreements** across all $($contextFacts.Count) endpoints in fb$newestAnalysedVersion.")
+    $mdLines.Add('')
+    $mdLines.Add('Read this as *the available signals agree*, not as *the module is verified correct*. Signals agreeing is exactly the state the four fleet-scoped GETs were in under the previous two-signal check while being wrong on the wire. Only live testing settles behaviour; see Appendix A of the design doc for what has actually been probed.')
+}
+else {
+    $mdLines.Add("**$($contextSignalDisagreements.Count) endpoint(s) with disagreeing signals**, grouped by shape.")
+    $mdLines.Add('')
+    foreach ($shapeGroup in ($contextSignalDisagreements | Group-Object { $_.shape } | Sort-Object Name)) {
+        $mdLines.Add("#### ``$($shapeGroup.Name)`` ($($shapeGroup.Count))")
+        $mdLines.Add('')
+        switch ($shapeGroup.Name) {
+            'component-says-multi-value-but-no-allow-errors' {
+                $mdLines.Add('The component claims fan-out while the endpoint offers no partial-failure story. Strong evidence of a spec defect: this is the shape of the four fleet-scoped GETs confirmed size-1 on the wire, and of `DELETE /management-access-policies` before its 2.28 correction.')
+            }
+            'size-1-component-but-declares-allow-errors' {
+                $mdLines.Add('The mirror case -- a size-1 component on an endpoint that nonetheless declares `allow_errors`. Named again below.')
+            }
+            'rule-says-capable-but-declares-no-207' {
+                $mdLines.Add('Component and `allow_errors` both say fan-out, but no HTTP 207 is declared, so partial failure has no documented response shape. Status genuinely unknown -- which is precisely why 207 is a corroborating signal here and never a runtime gate: treating these as size-1 would block calls that may well work.')
+            }
+            default {
+                $mdLines.Add('An endpoint declaring a partial-failure response while no other signal says it fans out.')
+            }
+        }
+        $mdLines.Add('')
+        $mdLines.Add('| Endpoint | Method | Component | Declares `allow_errors` | Declares 207 | Module rule |'); $mdLines.Add('|---|---|---|---|---|---|')
+        foreach ($d in $shapeGroup.Group) {
+            $aeCell = if ($d.declaresAllowErrors) { 'yes' } else { 'no' }
+            $c207Cell = if ($null -eq $d.declaresHttp207) { '_unknown_' } elseif ($d.declaresHttp207) { 'yes' } else { 'no' }
+            $ruleCell = if ($d.ruleSaysMultiValue) { 'multi-value' } else { 'size-1' }
+            $mdLines.Add("| ``$($d.endpoint)`` | $($d.method) | ``$($d.contextComponent)`` | $aeCell | $c207Cell | $ruleCell |")
+        }
+        $mdLines.Add('')
+    }
+}
+
+# A NAMED SUBSET of the findings above, never an additional category -- reporting it as its
+# own finding would double-count one defect as two.
+$mdLines.Add('')
+$mdLines.Add('### Named case: size-1 component declaring `allow_errors`')
+$mdLines.Add('')
+$mdLines.Add('A **subset** of the findings above (shape `size-1-component-but-declares-allow-errors`), not an additional finding. Called out by name because it is a known, characterized case.')
+$mdLines.Add('')
+if ($contextSizeOneWithAllowErrors.Count -eq 0) { $mdLines.Add('_None._') }
+else {
+    foreach ($s in $contextSizeOneWithAllowErrors) { $mdLines.Add("- ``$($s.endpoint)``") }
+    $mdLines.Add('')
+    $mdLines.Add('Not live-verified: these carry mutating verbs and were not probed during the 2026-08-01 testing (Appendix A, "Not verified").')
+}
+
+if ($contextUnresolvedComponents.Count -gt 0) {
+    $mdLines.Add('')
+    $mdLines.Add("### Unresolved `context_names` components ($($contextUnresolvedComponents.Count))")
+    $mdLines.Add('')
+    $mdLines.Add('These endpoints declare `context_names` with no resolvable `$ref` component, so their cardinality cannot be checked at all. They are **not** scored as size-1 -- doing so would hide a genuine multi-value endpoint behind the module''s size-1 throw.')
+    $mdLines.Add('')
+    foreach ($u in $contextUnresolvedComponents) { $mdLines.Add("- ``$($u.endpoint)``") }
+}
+
 $mdLines.Add('')
 
 Set-Content -Path $ReportPath -Value ($mdLines -join "`n") -Encoding UTF8

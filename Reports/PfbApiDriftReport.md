@@ -30,6 +30,7 @@ This report accepts **false positives in order to eliminate false negatives**. A
 - Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): 252
 - ValidateSet drift: 0
 - New ValidateSet candidates: 1
+- Context cardinality signal disagreements (fb2.28): 9
 
 ## Systemic gaps
 
@@ -817,4 +818,59 @@ The capability map knows these body properties exist, but the newest analysed sp
 | Cmdlet | Parameter | Spec values |
 |---|---|---|
 | `Get-PfbPolicyAllMember` | `-MemberType` | file-systems, file-system-snapshots, file-system-replica-links, object-store-users |
+
+## Spec-vs-module assumptions: `context_names` cardinality
+
+Every category above asks *"does the module cover what the API offers?"*. This one asks a different question: *"is an assumption baked into the module still true?"*
+
+The module's cardinality rule -- **an endpoint is multi-context-capable if and only if its `context_names` resolves to component `Context_names_get` AND the endpoint declares `allow_errors`** -- is declared in exactly one place, `Private/Test-PfbContextMultiValueCapable.ps1`, which this check *executes* rather than re-derives. The HTTP verb is not the rule; it survives only as a fallback for an endpoint absent from the capability map. See section 8 of `docs/design/fusion-context-injection.md`.
+
+This is a **cross-signal** check, not a rule-versus-spec one. The earlier two-signal shape was structurally unable to see the defect that actually exists: four fleet-scoped GETs reference the multi-value component *and* are size-1 on the wire, so the rule and the component agreed while both were wrong. Any endpoint whose available signals do not all agree is reported below, including the case where the component agrees with the rule but the remaining signals dissent.
+
+Measured against **fb2.28** (the newest analysed version; the capability map's component data is last-seen-wins, so it describes that version's wire shape). 376 endpoints declare `context_names`, of which **135** satisfy the rule.
+
+The HTTP 207 signal is read from `tools/specs/fb2.28.json` -- the capability map records the request surface only and holds no response data, so 207 is a corroborating signal for this report and never a runtime gate.
+
+**A disagreement is not automatically a spec defect.** The case worth catching is a genuine future multi-context endpoint, where the *module* would be the wrong side. A human decides which signal is wrong, each time.
+
+**9 endpoint(s) with disagreeing signals**, grouped by shape.
+
+#### `component-says-multi-value-but-no-allow-errors` (4)
+
+The component claims fan-out while the endpoint offers no partial-failure story. Strong evidence of a spec defect: this is the shape of the four fleet-scoped GETs confirmed size-1 on the wire, and of `DELETE /management-access-policies` before its 2.28 correction.
+
+| Endpoint | Method | Component | Declares `allow_errors` | Declares 207 | Module rule |
+|---|---|---|---|---|---|
+| `GET /presets/workload` | GET | `Context_names_get` | no | no | size-1 |
+| `GET /topology-groups` | GET | `Context_names_get` | no | no | size-1 |
+| `GET /topology-groups/arrays` | GET | `Context_names_get` | no | no | size-1 |
+| `GET /topology-groups/members` | GET | `Context_names_get` | no | no | size-1 |
+
+#### `rule-says-capable-but-declares-no-207` (4)
+
+Component and `allow_errors` both say fan-out, but no HTTP 207 is declared, so partial failure has no documented response shape. Status genuinely unknown -- which is precisely why 207 is a corroborating signal here and never a runtime gate: treating these as size-1 would block calls that may well work.
+
+| Endpoint | Method | Component | Declares `allow_errors` | Declares 207 | Module rule |
+|---|---|---|---|---|---|
+| `GET /arrays/ssh-certificate-authority-policies` | GET | `Context_names_get` | yes | no | multi-value |
+| `GET /audit-file-systems-policy-operations` | GET | `Context_names_get` | yes | no | multi-value |
+| `GET /log-targets/file-systems` | GET | `Context_names_get` | yes | no | multi-value |
+| `GET /realms` | GET | `Context_names_get` | yes | no | multi-value |
+
+#### `size-1-component-but-declares-allow-errors` (1)
+
+The mirror case -- a size-1 component on an endpoint that nonetheless declares `allow_errors`. Named again below.
+
+| Endpoint | Method | Component | Declares `allow_errors` | Declares 207 | Module rule |
+|---|---|---|---|---|---|
+| `PATCH /directory-services/test` | PATCH | `Context_names` | yes | no | size-1 |
+
+
+### Named case: size-1 component declaring `allow_errors`
+
+A **subset** of the findings above (shape `size-1-component-but-declares-allow-errors`), not an additional finding. Called out by name because it is a known, characterized case.
+
+- `PATCH /directory-services/test`
+
+Not live-verified: these carry mutating verbs and were not probed during the 2026-08-01 testing (Appendix A, "Not verified").
 

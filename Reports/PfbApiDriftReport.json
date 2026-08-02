@@ -20508,5 +20508,183 @@
       ],
       "recommendation": "ArgumentCompleter"
     }
-  ]
+  ],
+  "contextCardinality": {
+    "componentSourceVersion": "2.28",
+    "http207SignalAvailable": true,
+    "endpointsWithContextNames": 376,
+    "multiContextCapable": 135,
+    "signalDisagreements": [
+      {
+        "endpoint": "GET /arrays/ssh-certificate-authority-policies",
+        "method": "GET",
+        "contextComponent": "Context_names_get",
+        "shape": "rule-says-capable-but-declares-no-207",
+        "ruleSaysMultiValue": true,
+        "componentSaysMultiValue": true,
+        "declaresAllowErrors": true,
+        "declaresHttp207": false,
+        "multiValueSignals": [
+          "allow_errors",
+          "component"
+        ],
+        "sizeOneSignals": [
+          "http207"
+        ],
+        "summary": "signals split -- multi-value: allow_errors, component; size-1: http207; module rule says multi-value"
+      },
+      {
+        "endpoint": "GET /audit-file-systems-policy-operations",
+        "method": "GET",
+        "contextComponent": "Context_names_get",
+        "shape": "rule-says-capable-but-declares-no-207",
+        "ruleSaysMultiValue": true,
+        "componentSaysMultiValue": true,
+        "declaresAllowErrors": true,
+        "declaresHttp207": false,
+        "multiValueSignals": [
+          "allow_errors",
+          "component"
+        ],
+        "sizeOneSignals": [
+          "http207"
+        ],
+        "summary": "signals split -- multi-value: allow_errors, component; size-1: http207; module rule says multi-value"
+      },
+      {
+        "endpoint": "GET /log-targets/file-systems",
+        "method": "GET",
+        "contextComponent": "Context_names_get",
+        "shape": "rule-says-capable-but-declares-no-207",
+        "ruleSaysMultiValue": true,
+        "componentSaysMultiValue": true,
+        "declaresAllowErrors": true,
+        "declaresHttp207": false,
+        "multiValueSignals": [
+          "allow_errors",
+          "component"
+        ],
+        "sizeOneSignals": [
+          "http207"
+        ],
+        "summary": "signals split -- multi-value: allow_errors, component; size-1: http207; module rule says multi-value"
+      },
+      {
+        "endpoint": "GET /presets/workload",
+        "method": "GET",
+        "contextComponent": "Context_names_get",
+        "shape": "component-says-multi-value-but-no-allow-errors",
+        "ruleSaysMultiValue": false,
+        "componentSaysMultiValue": true,
+        "declaresAllowErrors": false,
+        "declaresHttp207": false,
+        "multiValueSignals": [
+          "component"
+        ],
+        "sizeOneSignals": [
+          "allow_errors",
+          "http207"
+        ],
+        "summary": "signals split -- multi-value: component; size-1: allow_errors, http207; module rule says size-1"
+      },
+      {
+        "endpoint": "GET /realms",
+        "method": "GET",
+        "contextComponent": "Context_names_get",
+        "shape": "rule-says-capable-but-declares-no-207",
+        "ruleSaysMultiValue": true,
+        "componentSaysMultiValue": true,
+        "declaresAllowErrors": true,
+        "declaresHttp207": false,
+        "multiValueSignals": [
+          "allow_errors",
+          "component"
+        ],
+        "sizeOneSignals": [
+          "http207"
+        ],
+        "summary": "signals split -- multi-value: allow_errors, component; size-1: http207; module rule says multi-value"
+      },
+      {
+        "endpoint": "GET /topology-groups",
+        "method": "GET",
+        "contextComponent": "Context_names_get",
+        "shape": "component-says-multi-value-but-no-allow-errors",
+        "ruleSaysMultiValue": false,
+        "componentSaysMultiValue": true,
+        "declaresAllowErrors": false,
+        "declaresHttp207": false,
+        "multiValueSignals": [
+          "component"
+        ],
+        "sizeOneSignals": [
+          "allow_errors",
+          "http207"
+        ],
+        "summary": "signals split -- multi-value: component; size-1: allow_errors, http207; module rule says size-1"
+      },
+      {
+        "endpoint": "GET /topology-groups/arrays",
+        "method": "GET",
+        "contextComponent": "Context_names_get",
+        "shape": "component-says-multi-value-but-no-allow-errors",
+        "ruleSaysMultiValue": false,
+        "componentSaysMultiValue": true,
+        "declaresAllowErrors": false,
+        "declaresHttp207": false,
+        "multiValueSignals": [
+          "component"
+        ],
+        "sizeOneSignals": [
+          "allow_errors",
+          "http207"
+        ],
+        "summary": "signals split -- multi-value: component; size-1: allow_errors, http207; module rule says size-1"
+      },
+      {
+        "endpoint": "GET /topology-groups/members",
+        "method": "GET",
+        "contextComponent": "Context_names_get",
+        "shape": "component-says-multi-value-but-no-allow-errors",
+        "ruleSaysMultiValue": false,
+        "componentSaysMultiValue": true,
+        "declaresAllowErrors": false,
+        "declaresHttp207": false,
+        "multiValueSignals": [
+          "component"
+        ],
+        "sizeOneSignals": [
+          "allow_errors",
+          "http207"
+        ],
+        "summary": "signals split -- multi-value: component; size-1: allow_errors, http207; module rule says size-1"
+      },
+      {
+        "endpoint": "PATCH /directory-services/test",
+        "method": "PATCH",
+        "contextComponent": "Context_names",
+        "shape": "size-1-component-but-declares-allow-errors",
+        "ruleSaysMultiValue": false,
+        "componentSaysMultiValue": false,
+        "declaresAllowErrors": true,
+        "declaresHttp207": false,
+        "multiValueSignals": [
+          "allow_errors"
+        ],
+        "sizeOneSignals": [
+          "component",
+          "http207"
+        ],
+        "summary": "signals split -- multi-value: allow_errors; size-1: component, http207; module rule says size-1"
+      }
+    ],
+    "sizeOneWithAllowErrors": [
+      {
+        "endpoint": "PATCH /directory-services/test",
+        "method": "PATCH",
+        "contextComponent": "Context_names"
+      }
+    ],
+    "unresolvedComponents": []
+  }
 }
