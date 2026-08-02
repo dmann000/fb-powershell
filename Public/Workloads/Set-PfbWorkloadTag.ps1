@@ -40,10 +40,12 @@ function Set-PfbWorkloadTag {
     if ($ResourceName) { $queryParams['resource_names'] = $ResourceName -join ',' }
     if ($ResourceId)   { $queryParams['resource_ids']   = $ResourceId -join ',' }
 
-    # The batch endpoint takes a raw array of tag objects as the body — Invoke-PfbApiRequest
-    # expects a hashtable, so wrap the array in a dummy key and unwrap below via $Raw.
-    # The FB tag-batch endpoint actually receives the array directly.
-    $jsonBody = $Tags | ConvertTo-Json -Depth 5
+    # -InputObject, NOT the pipeline. The pipeline unrolls $Tags, so a one-element
+    # [hashtable[]] -- which [ValidateCount(1, 30)] explicitly permits -- reaches
+    # ConvertTo-Json as a bare hashtable and serialises to a JSON object instead of a
+    # one-element array. The endpoint requires an array (minItems 1), so the single-tag
+    # case was rejected on the wire. -InputObject serialises the collection as a whole.
+    $jsonBody = ConvertTo-Json -InputObject $Tags -Depth 5
 
     if ($PSCmdlet.ShouldProcess(($ResourceName + $ResourceId -join ', '), "Apply $($Tags.Count) tag(s)")) {
         # Direct REST call bypassing the hashtable-only -Body parameter on Invoke-PfbApiRequest.
