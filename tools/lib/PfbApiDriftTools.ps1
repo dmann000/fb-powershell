@@ -1482,7 +1482,7 @@ function Get-PfbResponseShapeFindings {
     foreach ($epKey in $endpointNames) {
         $endpoint = $ResponseShapeMap.endpoints.$epKey
 
-        foreach ($name in @($endpoint.responseEnvelope.PSObject.Properties.Name)) {
+        foreach ($name in @($endpoint.responseEnvelope.PSObject.Properties | ForEach-Object { $_.Name })) {
             if (-not $envelopeEndpointCounts.ContainsKey($name)) { $envelopeEndpointCounts[$name] = 0 }
             $envelopeEndpointCounts[$name]++
         }
@@ -1508,7 +1508,7 @@ function Get-PfbResponseShapeFindings {
                 $endpoint.responseItemProperties
             }
 
-            foreach ($candidateName in @($bag.PSObject.Properties.Name | Sort-Object)) {
+            foreach ($candidateName in @($bag.PSObject.Properties | ForEach-Object { $_.Name } | Sort-Object)) {
                 if ($bag.$candidateName -ne $successorVersion) { continue }
                 $renameCandidates.Add([PSCustomObject]@{
                         Endpoint = $epKey
