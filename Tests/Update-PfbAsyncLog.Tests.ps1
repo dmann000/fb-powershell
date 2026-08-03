@@ -70,7 +70,6 @@ Describe 'Update-PfbAsyncLog - typed body parameters (#31)' {
                 $Body.Count -eq 0
             }
         }
-
     }
 
     Context '-Attributes remains supported and is mutually exclusive' {
@@ -103,7 +102,11 @@ Describe 'Update-PfbAsyncLog - typed body parameters (#31)' {
 
         It 'does not expose any of the 6 read-only fields as parameters (constraint 11)' {
             $keys = (Get-Command Update-PfbAsyncLog).Parameters.Keys
-            foreach ($ro in 'AvailableFiles','LastRequestTime','Processing','Progress') {
+            # All six are readOnly on LogsAsync in every cached spec version (verified 2.9 and
+            # 2.26): available_files, id, last_request_time, name, processing, progress. Id and
+            # Name were previously omitted from this loop only because they were parameters;
+            # issue #64 removed them, so the loop can now cover the full read-only set.
+            foreach ($ro in 'AvailableFiles','Id','LastRequestTime','Name','Processing','Progress') {
                 $keys | Should -Not -Contain $ro
             }
         }
