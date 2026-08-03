@@ -5,8 +5,13 @@ function Get-PfbArrayConnectionPerformanceReplication {
     .DESCRIPTION
         The Get-PfbArrayConnectionPerformanceReplication cmdlet returns replication performance
         metrics per array connection, including bytes sent/received and throughput.
-    .PARAMETER Name
-        One or more connection names to retrieve performance for. Accepts pipeline input.
+
+        An array connection has no name of its own -- the API resource carries only an id. Its
+        human-readable identifier is the REMOTE array's name, so -RemoteName (aliased to -Name
+        for compatibility) is how you select one by name.
+    .PARAMETER RemoteName
+        One or more REMOTE array names whose connection performance to retrieve. Aliased to -Name.
+        Accepts pipeline input.
     .PARAMETER Filter
         A server-side filter expression to narrow results.
     .PARAMETER Sort
@@ -29,9 +34,9 @@ function Get-PfbArrayConnectionPerformanceReplication {
 
         Retrieves current replication performance for all array connections.
     .EXAMPLE
-        Get-PfbArrayConnectionPerformanceReplication -Name "remote-fb-dc2" -Resolution 86400000
+        Get-PfbArrayConnectionPerformanceReplication -RemoteName "FB-B" -Resolution 86400000
 
-        Retrieves daily replication performance for the specified connection.
+        Retrieves daily replication performance for the specified remote array.
     .EXAMPLE
         Get-PfbArrayConnectionPerformanceReplication -StartTime 1609459200000 -EndTime 1609545600000
 
@@ -39,7 +44,10 @@ function Get-PfbArrayConnectionPerformanceReplication {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)] [string[]]$Name,
+        [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Alias('Name')]
+        [string[]]$RemoteName,
+
         [Parameter()] [string]$Filter, [Parameter()] [string]$Sort, [Parameter()] [int]$Limit,
         [Parameter()] [long]$StartTime,
         [Parameter()] [long]$EndTime,
@@ -51,16 +59,18 @@ function Get-PfbArrayConnectionPerformanceReplication {
     )
     begin {
         Assert-PfbConnection -Array ([ref]$Array)
-        $allNames = [System.Collections.Generic.List[string]]::new()
+        $allRemoteNames = [System.Collections.Generic.List[string]]::new()
     }
 
     process {
-        if ($Name) { foreach ($n in $Name) { $allNames.Add($n) } }
+        if ($RemoteName) { foreach ($n in $RemoteName) { $allRemoteNames.Add($n) } }
     }
 
     end {
         $queryParams = @{}
-        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames
+        # No -Names argument, and remote_names assigned inline -- see Get-PfbArrayConnectionPath.ps1.
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
+        if ($allRemoteNames.Count) { $queryParams['remote_names'] = $allRemoteNames -join ',' }
         if ($StartTime) { $queryParams['start_time'] = $StartTime }
         if ($EndTime) { $queryParams['end_time'] = $EndTime }
         if ($Resolution) { $queryParams['resolution'] = $Resolution }

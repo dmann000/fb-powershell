@@ -4,9 +4,14 @@ function Get-PfbArrayConnectionPath {
         Retrieves array connection path information from a FlashBlade array.
     .DESCRIPTION
         The Get-PfbArrayConnectionPath cmdlet returns network path information for array
-        connections on the connected Pure Storage FlashBlade.
-    .PARAMETER Name
-        One or more connection names to retrieve paths for. Accepts pipeline input.
+        connections on the connected Everpure FlashBlade.
+
+        An array connection has no name of its own -- the API resource carries only an id. Its
+        human-readable identifier is the REMOTE array's name, so -RemoteName (aliased to -Name
+        for compatibility) is how you select one by name.
+    .PARAMETER RemoteName
+        One or more REMOTE array names whose connection paths to retrieve. Aliased to -Name.
+        Accepts pipeline input.
     .PARAMETER Filter
         A server-side filter expression to narrow results.
     .PARAMETER Sort
@@ -20,9 +25,9 @@ function Get-PfbArrayConnectionPath {
 
         Retrieves all array connection paths from the connected FlashBlade.
     .EXAMPLE
-        Get-PfbArrayConnectionPath -Name "remote-fb-dc2"
+        Get-PfbArrayConnectionPath -RemoteName "FB-B"
 
-        Retrieves connection paths for the specified array connection.
+        Retrieves connection paths for the specified remote array.
     .EXAMPLE
         Get-PfbArrayConnectionPath -Limit 10
 
@@ -30,22 +35,30 @@ function Get-PfbArrayConnectionPath {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)] [string[]]$Name,
+        [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Alias('Name')]
+        [string[]]$RemoteName,
+
         [Parameter()] [string]$Filter, [Parameter()] [string]$Sort, [Parameter()] [int]$Limit,
         [Parameter()] [PSCustomObject]$Array
     )
     begin {
         Assert-PfbConnection -Array ([ref]$Array)
-        $allNames = [System.Collections.Generic.List[string]]::new()
+        $allRemoteNames = [System.Collections.Generic.List[string]]::new()
     }
 
     process {
-        if ($Name) { foreach ($n in $Name) { $allNames.Add($n) } }
+        if ($RemoteName) { foreach ($n in $RemoteName) { $allRemoteNames.Add($n) } }
     }
 
     end {
         $queryParams = @{}
-        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames
+        # No -Names argument: GET /array-connections/path documents no names parameter in any
+        # spec version, and an unrecognised key is silently ignored rather than rejected, so the
+        # old call returned every path unfiltered (issue #64). remote_names is assigned inline
+        # for the reason given in Get-PfbArrayConnection.ps1.
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
+        if ($allRemoteNames.Count) { $queryParams['remote_names'] = $allRemoteNames -join ',' }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'array-connections/path' -QueryParams $queryParams -AutoPaginate
     }
 }

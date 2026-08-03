@@ -36,4 +36,31 @@ Describe 'Get-PfbArrayConnectionPerformanceReplication' {
             -not $QueryParams.ContainsKey('type')
         }
     }
+
+    It 'sends remote_names, never names' {
+        Get-PfbArrayConnectionPerformanceReplication -RemoteName 'FB-B' -Array $fakeArray
+
+        Should -Invoke Invoke-PfbApiRequest -ModuleName PureStorageFlashBladePowerShell -Times 1 -Exactly -ParameterFilter {
+            $Endpoint -eq 'array-connections/performance/replication' -and
+            $QueryParams['remote_names'] -eq 'FB-B' -and -not $QueryParams.ContainsKey('names')
+        }
+    }
+
+    It 'still binds -Name through the alias, and emits remote_names for it' {
+        Get-PfbArrayConnectionPerformanceReplication -Name 'FB-B' -Array $fakeArray
+
+        Should -Invoke Invoke-PfbApiRequest -ModuleName PureStorageFlashBladePowerShell -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['remote_names'] -eq 'FB-B' -and -not $QueryParams.ContainsKey('names')
+        }
+    }
+
+    It 'keeps remote_names alongside the time-range keys' {
+        Get-PfbArrayConnectionPerformanceReplication -RemoteName 'FB-B' -Resolution 86400000 `
+            -StartTime 1609459200000 -Array $fakeArray
+
+        Should -Invoke Invoke-PfbApiRequest -ModuleName PureStorageFlashBladePowerShell -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['remote_names'] -eq 'FB-B' -and
+            $QueryParams['resolution'] -eq 86400000 -and $QueryParams['start_time'] -eq 1609459200000
+        }
+    }
 }
