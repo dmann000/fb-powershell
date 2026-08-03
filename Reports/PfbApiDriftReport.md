@@ -20,13 +20,13 @@ This report accepts **false positives in order to eliminate false negatives**. A
 
 ## Summary
 
-- Uncovered endpoints: 98
-- Endpoints with parameter gaps: 436
-- Missing body properties (addable): 408
-- Missing query parameters (addable): 954
-- Read-only body fields (not addable -- see the Read-only fields section below): 379
+- Uncovered endpoints: 96
+- Endpoints with parameter gaps: 438
+- Missing body properties (addable): 422
+- Missing query parameters (addable): 956
+- Read-only body fields (not addable -- see the Read-only fields section below): 382
 - Phantom fields silently excluded (accumulated in the capability map, absent from the newest analysed spec): 40
-- Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 58
+- Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 59
 - Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): 252
 - ValidateSet drift: 0
 - New ValidateSet candidates: 1
@@ -43,7 +43,7 @@ Showing the top 25 of 252 findings by endpoint count -- the full list is in the 
 
 | Field name | Endpoints | Query | Body | Cmdlets already using this name | Annotation |
 |---|---|---|---|---|---|
-| `context_names` | 269 | 269 | 0 | 0 | not yet implemented |
+| `context_names` | 270 | 270 | 0 | 0 | not yet implemented |
 | `allow_errors` | 118 | 118 | 0 | 0 | not yet implemented |
 | `ids` | 43 | 43 | 0 | 224 |  |
 | `names` | 31 | 31 | 0 | 314 |  |
@@ -60,11 +60,11 @@ Showing the top 25 of 252 findings by endpoint count -- the full list is in the 
 | `local_file_system_ids` | 8 | 8 | 0 | 2 |  |
 | `actions` | 7 | 0 | 7 | 2 |  |
 | `limit` | 7 | 7 | 0 | 199 |  |
+| `name` | 7 | 0 | 7 | 20 |  |
 | `versions` | 7 | 7 | 0 | 5 |  |
 | `enabled` | 6 | 0 | 6 | 10 |  |
 | `filter` | 6 | 6 | 0 | 202 |  |
 | `gids` | 6 | 6 | 0 | 2 |  |
-| `name` | 6 | 0 | 6 | 20 |  |
 | `role_ids` | 6 | 6 | 0 | 2 |  |
 | `role_names` | 6 | 6 | 0 | 4 |  |
 | `workload_ids` | 6 | 6 | 0 | 0 |  |
@@ -511,6 +511,8 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `POST /workloads` | New-PfbWorkload | context_names |  | `high` |  |
 | `POST /workloads/placement-recommendations` | New-PfbWorkloadPlacementRecommendation | context_names | additional_constraints, parameters, preset, projection_months, recommendation_engine, results_limit | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `POST /worm-data-policies` | New-PfbWormPolicy | context_names, names | default_retention, enabled, location, max_retention, min_retention, mode, retention_lock | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
+| `PUT /presets/workload` | Set-PfbPresetWorkload | context_names | description, directory_configurations, export_configurations, name, parameters, periodic_replication_configurations, placement_configurations, platform_features, qos_configurations, quota_configurations, snapshot_configurations, volume_configurations, workload_tags, workload_type | `high` |  |
+| `PUT /workloads/tags/batch` | Set-PfbWorkloadTag | context_names |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 
 ### Partial-confidence detail
 
@@ -608,6 +610,7 @@ Per the decision-6 procedure above: open each parameter at its `file:line` and f
 | `POST /user-group-quota-policies/rules` | `-Enforced` | AttributesOnly | `Public/Policy/New-PfbUserGroupQuotaPolicyRule.ps1:57` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /workloads/placement-recommendations` | `-Inputs` | TypedUnresolved | `Public/Workloads/New-PfbWorkloadPlacementRecommendation.ps1:29` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
 | `POST /worm-data-policies` | `-Name` | AttributesOnly | `Public/Policy/New-PfbWormPolicy.ps1:30` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `PUT /workloads/tags/batch` | `-Tags` | TypedUnresolved | `Public/Workloads/Set-PfbWorkloadTag.ps1:30` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
 
 ## Read-only fields (not addressable)
 
@@ -712,6 +715,7 @@ The capability map knows these body properties exist, but the newest analysed sp
 | `POST /user-group-quota-policies` | New-PfbUserGroupQuotaPolicy | id, is_local, policy_type, realms |
 | `POST /workloads/placement-recommendations` | New-PfbWorkloadPlacementRecommendation | context, created, expires, id, more_results_available, name, progress, results, status |
 | `POST /worm-data-policies` | New-PfbWormPolicy | context, id, is_local, name, policy_type, realms |
+| `PUT /presets/workload` | Set-PfbPresetWorkload | context, id, revision |
 
 ## Response-shape drift
 
@@ -805,9 +809,7 @@ _Informational coverage observation, not a correctness claim -- many envelope ke
 | `GET /management-authentication-policies/members` | 2.22 |
 | `POST /management-authentication-policies/members` | 2.22 |
 | `DELETE /management-authentication-policies/members` | 2.22 |
-| `PUT /presets/workload` | 2.23 |
 | `GET /resiliency-groups/members` | 2.23 |
-| `PUT /workloads/tags/batch` | 2.23 |
 | `DELETE /directory-services/local/directory-services` | 2.24 |
 | `PATCH /directory-services/local/directory-services` | 2.24 |
 | `PATCH /directory-services/local/groups` | 2.24 |
