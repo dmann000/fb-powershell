@@ -1534,3 +1534,94 @@ if ($null -ne $response.items) { $allItems.Add($response.items) }
         @($f.RenameCandidates).Count | Should -Be 0
     }
 }
+
+Describe 'Drift-report emit order is canonical, not filesystem or first-appearance order (issue #85)' {
+    BeforeAll {
+        # See the matching Describe in Tests/PfbCmdletParamTools.Tests.ps1 for why the
+        # cmdlet-to-filename mapping is swapped between two otherwise identical trees rather
+        # than running a generator twice on one machine.
+        $script:endpointOrderDirA = Join-Path $TestDrive 'EndpointOrderA/Public'
+        $script:endpointOrderDirB = Join-Path $TestDrive 'EndpointOrderB/Public'
+        $script:endpointOrderPrivate = Join-Path $TestDrive 'EndpointOrderPrivate'
+        New-Item -ItemType Directory -Path $script:endpointOrderDirA, $script:endpointOrderDirB, $script:endpointOrderPrivate -Force | Out-Null
+
+        $zuluSource = @'
+function Get-PfbFixtureOrderZulu {
+    [CmdletBinding()]
+    param([Parameter()] [PSCustomObject]$Array)
+    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'order-zulu'
+}
+'@
+        $alphaSource = @'
+function Get-PfbFixtureOrderAlpha {
+    [CmdletBinding()]
+    param([Parameter()] [PSCustomObject]$Array)
+    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'order-alpha'
+}
+'@
+        Set-Content -Path (Join-Path $script:endpointOrderDirA '01-first.ps1') -Value $zuluSource
+        Set-Content -Path (Join-Path $script:endpointOrderDirA '02-second.ps1') -Value $alphaSource
+        Set-Content -Path (Join-Path $script:endpointOrderDirB '01-first.ps1') -Value $alphaSource
+        Set-Content -Path (Join-Path $script:endpointOrderDirB '02-second.ps1') -Value $zuluSource
+
+        # A capability map carrying one still-missing query parameter on each of two
+        # endpoints, so both produce a gap row and their relative order is observable.
+        $script:orderCapabilityMap = [PSCustomObject]@{
+            generatedFrom = @('2.0')
+            endpoints     = [PSCustomObject]@{
+                'GET /order-zulu'  = [PSCustomObject]@{
+                    minVersion     = '2.0'
+                    parameters     = [PSCustomObject]@{ gap_field = '2.0' }
+                    bodyProperties = [PSCustomObject]@{}
+                }
+                'GET /order-alpha' = [PSCustomObject]@{
+                    minVersion     = '2.0'
+                    parameters     = [PSCustomObject]@{ gap_field = '2.0' }
+                    bodyProperties = [PSCustomObject]@{}
+                }
+            }
+        }
+
+        $script:orderInventory = @(
+            [PSCustomObject]@{ Cmdlet = 'Get-PfbFixtureOrderZulu'; Parameter = 'Name'; Surface = 'Typed'; WireName = 'name'; HasValidateSet = $false; ValidateSetValues = $null; Endpoint = 'order-zulu'; Method = 'GET'; File = 'z.ps1'; Line = 1 }
+            [PSCustomObject]@{ Cmdlet = 'Get-PfbFixtureOrderAlpha'; Parameter = 'Name'; Surface = 'Typed'; WireName = 'name'; HasValidateSet = $false; ValidateSetValues = $null; Endpoint = 'order-alpha'; Method = 'GET'; File = 'a.ps1'; Line = 1 }
+            [PSCustomObject]@{ Cmdlet = 'Test-PfbFixtureOrderZulu'; Parameter = 'Name'; Surface = 'Typed'; WireName = 'name'; HasValidateSet = $false; ValidateSetValues = $null; Endpoint = 'order-zulu'; Method = 'GET'; File = 'tz.ps1'; Line = 1 }
+        )
+    }
+
+    It 'Get-PfbModuleCalledEndpoints emits the same sequence for two trees differing only in which file defines which cmdlet' {
+        $keysA = @(Get-PfbModuleCalledEndpoints -PublicDirectory $script:endpointOrderDirA -PrivateDirectory $script:endpointOrderPrivate |
+                ForEach-Object { '{0}|{1}' -f $_.Cmdlet, $_.Key })
+        $keysB = @(Get-PfbModuleCalledEndpoints -PublicDirectory $script:endpointOrderDirB -PrivateDirectory $script:endpointOrderPrivate |
+                ForEach-Object { '{0}|{1}' -f $_.Cmdlet, $_.Key })
+
+        $keysA | Should -Be @('Get-PfbFixtureOrderAlpha|GET /order-alpha', 'Get-PfbFixtureOrderZulu|GET /order-zulu')
+        $keysA | Should -Be $keysB
+    }
+
+    It 'Get-PfbParameterCoverageGaps orders gap rows by endpoint key, not by the order the endpoints were first called' {
+        # Zulu deliberately first in the input: Group-Object's group order is
+        # first-appearance order, so an unsorted implementation emits zulu before alpha.
+        $endpoints = @(
+            [PSCustomObject]@{ Key = 'GET /order-zulu'; Method = 'GET'; Endpoint = '/order-zulu'; Resolved = $true; Cmdlet = 'Get-PfbFixtureOrderZulu'; File = 'z.ps1' }
+            [PSCustomObject]@{ Key = 'GET /order-alpha'; Method = 'GET'; Endpoint = '/order-alpha'; Resolved = $true; Cmdlet = 'Get-PfbFixtureOrderAlpha'; File = 'a.ps1' }
+        )
+        $result = Get-PfbParameterCoverageGaps -CapabilityMap $script:orderCapabilityMap -CmdletInventory $script:orderInventory -CalledEndpoints $endpoints
+
+        @($result.Endpoint) | Should -Be @('GET /order-alpha', 'GET /order-zulu')
+    }
+
+    It 'Get-PfbParameterCoverageGaps sorts the cmdlets attributed to a single endpoint' {
+        # Two cmdlets call the same endpoint, supplied in reverse-alphabetical order.
+        # Select-Object -Unique preserves input order and does not sort -- the observed
+        # intra-row flip in issue #85.
+        $endpoints = @(
+            [PSCustomObject]@{ Key = 'GET /order-zulu'; Method = 'GET'; Endpoint = '/order-zulu'; Resolved = $true; Cmdlet = 'Test-PfbFixtureOrderZulu'; File = 'tz.ps1' }
+            [PSCustomObject]@{ Key = 'GET /order-zulu'; Method = 'GET'; Endpoint = '/order-zulu'; Resolved = $true; Cmdlet = 'Get-PfbFixtureOrderZulu'; File = 'z.ps1' }
+        )
+        $result = Get-PfbParameterCoverageGaps -CapabilityMap $script:orderCapabilityMap -CmdletInventory $script:orderInventory -CalledEndpoints $endpoints
+
+        $gap = $result | Where-Object { $_.Endpoint -eq 'GET /order-zulu' }
+        @($gap.Cmdlets) | Should -Be @('Get-PfbFixtureOrderZulu', 'Test-PfbFixtureOrderZulu')
+    }
+}
