@@ -3,18 +3,18 @@ function Update-PfbAsyncLog {
     .SYNOPSIS
         Updates an asynchronous log collection job on the FlashBlade.
     .DESCRIPTION
-        The Update-PfbAsyncLog cmdlet modifies an asynchronous log collection job on the
-        connected Everpure FlashBlade. Identify the job by name or ID and supply the
-        changed properties via Attributes or individual parameters.
+        The Update-PfbAsyncLog cmdlet modifies the asynchronous log collection job on the
+        connected Everpure FlashBlade. Supply the changed properties via Attributes or the
+        individual parameters.
+
+        PATCH /logs-async takes no query parameters and no selector: the array has one async
+        log collection to configure, not a collection of named jobs. The endpoint requires
+        start_time on every request, even though the spec marks no field as required.
 
         The individual typed parameters and the raw -Attributes hashtable are mutually
         exclusive: they live in separate parameter sets, so PowerShell rejects a mixed
         invocation at bind time rather than letting -Attributes silently override an
         explicitly supplied value.
-    .PARAMETER Name
-        The name of the async log job to update. Accepts pipeline input by property name.
-    .PARAMETER Id
-        The ID of the async log job to update.
     .PARAMETER EndTime
         When the time window ends (in milliseconds since epoch).
     .PARAMETER HardwareComponents
@@ -27,44 +27,31 @@ function Update-PfbAsyncLog {
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
-        Update-PfbAsyncLog -Name "log-job-1" -StartTime 1700000000000 -EndTime 1700003600000
+        Update-PfbAsyncLog -StartTime 1700000000000 -EndTime 1700003600000
 
-        Sets the processing time window for the async log job named "log-job-1" using typed
-        parameters.
+        Sets the processing time window using typed parameters.
     .EXAMPLE
-        Update-PfbAsyncLog -Id "12345" -Attributes @{ status = 'cancelled' }
+        Update-PfbAsyncLog -StartTime 1700000000000 -HardwareComponents 'CH1.FB1','CH1.FB2'
 
-        Cancels the async log job identified by ID.
+        Restricts log processing to two hardware components over the given window.
     .EXAMPLE
-        Update-PfbAsyncLog -Name "log-job-1" -Attributes @{ keep_until = 1700000000000 }
+        Update-PfbAsyncLog -Attributes @{ start_time = 1700000000000; end_time = 1700003600000 }
 
-        Updates the retention time for the specified async log job.
+        Equivalent to the first example, using the raw attributes hashtable.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium',
-                   DefaultParameterSetName = 'ByNameIndividual')]
+                   DefaultParameterSetName = 'Individual')]
     param(
-        [Parameter(ParameterSetName = 'ByNameIndividual', Mandatory, ValueFromPipelineByPropertyName)]
-        [Parameter(ParameterSetName = 'ByNameAttributes',  Mandatory, ValueFromPipelineByPropertyName)]
-        [string]$Name,
-
-        [Parameter(ParameterSetName = 'ByIdIndividual', Mandatory)]
-        [Parameter(ParameterSetName = 'ByIdAttributes',  Mandatory)]
-        [string]$Id,
-
-        [Parameter(ParameterSetName = 'ByNameIndividual')]
-        [Parameter(ParameterSetName = 'ByIdIndividual')]
+        [Parameter(ParameterSetName = 'Individual')]
         [long]$EndTime,
 
-        [Parameter(ParameterSetName = 'ByNameIndividual')]
-        [Parameter(ParameterSetName = 'ByIdIndividual')]
+        [Parameter(ParameterSetName = 'Individual')]
         [string[]]$HardwareComponents,
 
-        [Parameter(ParameterSetName = 'ByNameIndividual')]
-        [Parameter(ParameterSetName = 'ByIdIndividual')]
+        [Parameter(ParameterSetName = 'Individual')]
         [long]$StartTime,
 
-        [Parameter(ParameterSetName = 'ByNameAttributes', Mandatory)]
-        [Parameter(ParameterSetName = 'ByIdAttributes',   Mandatory)]
+        [Parameter(ParameterSetName = 'Attributes', Mandatory)]
         [hashtable]$Attributes,
 
         [Parameter()] [PSCustomObject]$Array
@@ -75,11 +62,7 @@ function Update-PfbAsyncLog {
     }
 
     process {
-        $queryParams = @{}
-        if ($Name) { $queryParams['names'] = $Name }
-        if ($Id)   { $queryParams['ids']   = $Id }
-
-        if ($PSCmdlet.ParameterSetName -like '*Attributes') {
+        if ($PSCmdlet.ParameterSetName -eq 'Attributes') {
             $body = $Attributes
         }
         else {
@@ -97,10 +80,11 @@ function Update-PfbAsyncLog {
             }
         }
 
-        $target = if ($Name) { $Name } else { $Id }
-
-        if ($PSCmdlet.ShouldProcess($target, 'Update async log job')) {
-            Invoke-PfbApiRequest -Array $Array -Method PATCH -Endpoint 'logs-async' -Body $body -QueryParams $queryParams
+        # PATCH /logs-async takes no query parameters in any spec version and ignores any that
+        # are sent (issue #64), so there is no per-job target to name here -- the endpoint
+        # operates on the array's async log collection itself.
+        if ($PSCmdlet.ShouldProcess('logs-async', 'Update async log job')) {
+            Invoke-PfbApiRequest -Array $Array -Method PATCH -Endpoint 'logs-async' -Body $body
         }
     }
 }

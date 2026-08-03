@@ -17,19 +17,18 @@ Describe 'Update-PfbAsyncLog - typed body parameters (#31)' {
 
     Context 'typed parameters build the body' {
         It 'sends end_time and start_time as body fields' {
-            Update-PfbAsyncLog -Name 'log-job-1' -StartTime 1700000000000 -EndTime 1700003600000 `
+            Update-PfbAsyncLog -StartTime 1700000000000 -EndTime 1700003600000 `
                 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $Method -eq 'PATCH' -and $Endpoint -eq 'logs-async' -and
-                $QueryParams['names'] -eq 'log-job-1' -and
                 $Body['start_time'] -eq 1700000000000 -and
                 $Body['end_time'] -eq 1700003600000
             }
         }
 
         It 'sends an explicit -StartTime 0 rather than dropping it (constraint 2, integer field)' {
-            Update-PfbAsyncLog -Name 'log-job-1' -StartTime 0 -Confirm:$false -Array $fakeArray
+            Update-PfbAsyncLog -StartTime 0 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $Body.ContainsKey('start_time') -and $Body['start_time'] -eq 0
@@ -37,7 +36,7 @@ Describe 'Update-PfbAsyncLog - typed body parameters (#31)' {
         }
 
         It 'sends an explicit -EndTime 0 rather than dropping it (constraint 2, integer field)' {
-            Update-PfbAsyncLog -Name 'log-job-1' -EndTime 0 -Confirm:$false -Array $fakeArray
+            Update-PfbAsyncLog -EndTime 0 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $Body.ContainsKey('end_time') -and $Body['end_time'] -eq 0
@@ -45,7 +44,7 @@ Describe 'Update-PfbAsyncLog - typed body parameters (#31)' {
         }
 
         It 'builds hardware_components as name-reference objects' {
-            Update-PfbAsyncLog -Name 'log-job-1' -HardwareComponents 'CH1.FB1','CH1.FB2' `
+            Update-PfbAsyncLog -HardwareComponents 'CH1.FB1','CH1.FB2' `
                 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
@@ -56,7 +55,7 @@ Describe 'Update-PfbAsyncLog - typed body parameters (#31)' {
         }
 
         It 'sends an EMPTY array for -HardwareComponents @() so the list can be cleared' {
-            Update-PfbAsyncLog -Name 'log-job-1' -HardwareComponents @() -Confirm:$false -Array $fakeArray
+            Update-PfbAsyncLog -HardwareComponents @() -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $Body.ContainsKey('hardware_components') -and
@@ -65,34 +64,27 @@ Describe 'Update-PfbAsyncLog - typed body parameters (#31)' {
         }
 
         It 'omits every body key when no typed body parameter is supplied' {
-            Update-PfbAsyncLog -Name 'log-job-1' -Confirm:$false -Array $fakeArray
+            Update-PfbAsyncLog -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $Body.Count -eq 0
             }
         }
 
-        It 'targets the job by id when -Id is used' {
-            Update-PfbAsyncLog -Id 'log-1' -StartTime 1 -Confirm:$false -Array $fakeArray
-
-            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
-                $QueryParams['ids'] -eq 'log-1' -and -not $QueryParams.ContainsKey('names')
-            }
-        }
     }
 
     Context '-Attributes remains supported and is mutually exclusive' {
         It 'still sends a raw -Attributes body' {
-            Update-PfbAsyncLog -Name 'log-job-1' -Attributes @{ status = 'cancelled' } `
+            Update-PfbAsyncLog -Attributes @{ start_time = 1700000000000 } `
                 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
-                $Body['status'] -eq 'cancelled'
+                $Body['start_time'] -eq 1700000000000
             }
         }
 
         It 'rejects -Attributes combined with a typed parameter at bind time' {
-            { Update-PfbAsyncLog -Name 'log-job-1' -StartTime 1 -Attributes @{ status = 'cancelled' } `
+            { Update-PfbAsyncLog -StartTime 1 -Attributes @{ start_time = 2 } `
                 -Confirm:$false -Array $fakeArray -ErrorAction Stop } |
                 Should -Throw -ExpectedMessage '*Parameter set cannot be resolved*'
         }
@@ -114,6 +106,28 @@ Describe 'Update-PfbAsyncLog - typed body parameters (#31)' {
             foreach ($ro in 'AvailableFiles','LastRequestTime','Processing','Progress') {
                 $keys | Should -Not -Contain $ro
             }
+        }
+    }
+
+    Context 'issue #64 -- the endpoint takes no query parameters' {
+        It 'sends no query parameters at all' {
+            Update-PfbAsyncLog -StartTime 1700000000000 -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Method -eq 'PATCH' -and $Endpoint -eq 'logs-async' -and
+                ($null -eq $QueryParams -or $QueryParams.Count -eq 0)
+            }
+        }
+
+        It 'exposes neither -Name nor -Id, which had no endpoint support to bind to' {
+            $keys = (Get-Command Update-PfbAsyncLog).Parameters.Keys
+            $keys | Should -Not -Contain 'Name'
+            $keys | Should -Not -Contain 'Id'
+        }
+
+        It 'collapses to exactly two parameter sets' {
+            (Get-Command Update-PfbAsyncLog).ParameterSets.Name | Sort-Object |
+                Should -Be @('Attributes', 'Individual')
         }
     }
 }
