@@ -983,7 +983,10 @@ function Get-PfbCmdletParameterInventory {
     )
 
     $results = [System.Collections.Generic.List[object]]::new()
-    $files = Get-ChildItem -Path $PublicDirectory -Filter '*.ps1' -Recurse -File
+    # Belt-and-braces only -- the load-bearing sort is on the records at the end of this
+    # function (issue #85). This one keeps the walk itself, and so any intermediate debugging
+    # output, stable too.
+    $files = @(Get-ChildItem -Path $PublicDirectory -Filter '*.ps1' -Recurse -File | Sort-Object -Property FullName -Culture '')
 
     foreach ($file in $files) {
         $tokens = $null
@@ -1041,5 +1044,19 @@ function Get-PfbCmdletParameterInventory {
         }
     }
 
-    return $results
+    # Sort at EMIT, not merely at input (issue #85). $files above is an unsorted recursive
+    # Get-ChildItem, whose order is filesystem-dependent -- and this list is verbatim the
+    # emit order of `entries`/`attributesOnly`/`typedUnresolved` in
+    # Reports/PfbFieldCmdletMap.json and of every markdown row in
+    # Reports/PfbFieldCmdletMapping.md (tools/Build-PfbFieldCmdletMap.ps1:76-95, :137-148).
+    # Regenerating on a Linux runner instead of a Windows workstation therefore produced a
+    # 10,218-line diff with zero semantic change: all 2015 entries moved, not one changed
+    # content, and the two files were even identical in byte LENGTH.
+    #
+    # Sorting the file list alone would be the fragile fix -- FullName carries
+    # platform-specific separators -- so the canonical order is imposed on the records
+    # themselves. -Culture '' is the invariant culture: without it the runner's locale
+    # could reintroduce the very divergence this removes. File/Line are tiebreakers only,
+    # for the (not currently occurring) case of one function name declared twice.
+    return @($results | Sort-Object -Property Cmdlet, Parameter, File, Line -Culture '')
 }

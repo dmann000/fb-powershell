@@ -1152,3 +1152,79 @@ function Test-FixtureNoAttributes {
         $result.HasAttributes | Should -BeFalse
     }
 }
+
+Describe 'Get-PfbCmdletParameterInventory emit order is canonical, not filesystem order (issue #85)' {
+    BeforeAll {
+        # Two fixture trees holding the SAME two cmdlets, but with the cmdlet-to-filename
+        # mapping swapped between them. Both trees carry identical FILE names, so
+        # Get-ChildItem walks them in the same sequence whatever the filesystem does -- the
+        # only thing that differs is which cmdlet each position in that walk yields. An
+        # unsorted inventory therefore emits Zulu-then-Alpha for one tree and
+        # Alpha-then-Zulu for the other; a canonically-ordered one emits the same sequence
+        # for both.
+        #
+        # This is the platform-INDEPENDENT form of the divergence issue #85 first observed
+        # as a 10,218-line phantom diff between a Windows-generated and a Linux-generated
+        # Reports/PfbFieldCmdletMap.json. Deliberately not written as "run the builder twice
+        # on this machine" -- that is exactly the assertion
+        # Tests/Build-PfbApiDriftReport.Tests.ps1 already makes, and enumeration order is
+        # stable within one filesystem, so it can never fail. And deliberately not dependent
+        # on tools/specs/, so it does not silently skip in a fresh clone or worktree (#63).
+        $script:orderDirA = Join-Path $TestDrive 'EmitOrderA/Public'
+        $script:orderDirB = Join-Path $TestDrive 'EmitOrderB/Public'
+        New-Item -ItemType Directory -Path $script:orderDirA, $script:orderDirB -Force | Out-Null
+
+        # Parameters are declared Zebra-before-Apple so the assertion below also pins
+        # within-cmdlet ordering, which declaration order alone would leave reversed.
+        $zuluSource = @'
+function Get-PfbFixtureOrderZulu {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [PSCustomObject]$Array,
+        [Parameter()] [string]$Zebra,
+        [Parameter()] [string]$Apple
+    )
+    $queryParams = @{}
+    if ($Zebra) { $queryParams['zebra'] = $Zebra }
+    if ($Apple) { $queryParams['apple'] = $Apple }
+    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'order-zulu' -QueryParams $queryParams
+}
+'@
+        $alphaSource = @'
+function Get-PfbFixtureOrderAlpha {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [PSCustomObject]$Array,
+        [Parameter()] [string]$Zebra,
+        [Parameter()] [string]$Apple
+    )
+    $queryParams = @{}
+    if ($Zebra) { $queryParams['zebra'] = $Zebra }
+    if ($Apple) { $queryParams['apple'] = $Apple }
+    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'order-alpha' -QueryParams $queryParams
+}
+'@
+        Set-Content -Path (Join-Path $script:orderDirA '01-first.ps1') -Value $zuluSource
+        Set-Content -Path (Join-Path $script:orderDirA '02-second.ps1') -Value $alphaSource
+        Set-Content -Path (Join-Path $script:orderDirB '01-first.ps1') -Value $alphaSource
+        Set-Content -Path (Join-Path $script:orderDirB '02-second.ps1') -Value $zuluSource
+
+        $script:orderKeysA = @(Get-PfbCmdletParameterInventory -PublicDirectory $script:orderDirA |
+                ForEach-Object { '{0}|{1}' -f $_.Cmdlet, $_.Parameter })
+        $script:orderKeysB = @(Get-PfbCmdletParameterInventory -PublicDirectory $script:orderDirB |
+                ForEach-Object { '{0}|{1}' -f $_.Cmdlet, $_.Parameter })
+    }
+
+    It 'emits the same sequence for two trees differing only in which file defines which cmdlet' {
+        $script:orderKeysA | Should -Be $script:orderKeysB
+    }
+
+    It 'emits rows ordered by cmdlet name, then parameter name -- never by file walk or declaration order' {
+        $script:orderKeysA | Should -Be @(
+            'Get-PfbFixtureOrderAlpha|Apple'
+            'Get-PfbFixtureOrderAlpha|Zebra'
+            'Get-PfbFixtureOrderZulu|Apple'
+            'Get-PfbFixtureOrderZulu|Zebra'
+        )
+    }
+}

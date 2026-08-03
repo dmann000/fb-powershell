@@ -243,15 +243,7 @@
       "minVersion": "2.22"
     },
     {
-      "endpoint": "PUT /presets/workload",
-      "minVersion": "2.23"
-    },
-    {
       "endpoint": "GET /resiliency-groups/members",
-      "minVersion": "2.23"
-    },
-    {
-      "endpoint": "PUT /workloads/tags/batch",
       "minVersion": "2.23"
     },
     {
@@ -13871,13 +13863,319 @@
         "caveat": "body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability"
       },
       "annotations": []
+    },
+    {
+      "endpoint": "PUT /presets/workload",
+      "cmdlets": [
+        "Set-PfbPresetWorkload"
+      ],
+      "missingQueryParameters": [
+        "context_names"
+      ],
+      "missingBodyProperties": [
+        {
+          "name": "description",
+          "type": "string",
+          "format": null,
+          "specRequired": false,
+          "synopsis": "A brief description of the workload the preset will configure.",
+          "suggestedPowerShellType": "[string]",
+          "enumValues": [],
+          "enumStatus": "no-spec-enum-found",
+          "target": {
+            "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
+            "paramBlockLine": 35,
+            "payloadVariable": "Attributes",
+            "assignmentStyle": "attributesOnly",
+            "hasAttributes": true
+          }
+        },
+        {
+          "name": "directory_configurations",
+          "type": "array",
+          "format": null,
+          "specRequired": false,
+          "synopsis": "The file systems and managed directories that will be provisioned by the preset.",
+          "suggestedPowerShellType": "[object[]]",
+          "enumValues": [],
+          "enumStatus": "no-spec-enum-found",
+          "target": {
+            "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
+            "paramBlockLine": 35,
+            "payloadVariable": "Attributes",
+            "assignmentStyle": "attributesOnly",
+            "hasAttributes": true
+          }
+        },
+        {
+          "name": "export_configurations",
+          "type": null,
+          "format": null,
+          "specRequired": false,
+          "synopsis": "NFS, SMB, and SMB share policy configuration to be specified in file system and directory exports.",
+          "suggestedPowerShellType": "[object]",
+          "enumValues": [],
+          "enumStatus": "no-spec-enum-found",
+          "target": {
+            "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
+            "paramBlockLine": 35,
+            "payloadVariable": "Attributes",
+            "assignmentStyle": "attributesOnly",
+            "hasAttributes": true
+          }
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "format": null,
+          "specRequired": false,
+          "synopsis": "A user-specified name.",
+          "suggestedPowerShellType": "[string]",
+          "enumValues": [],
+          "enumStatus": "not-found-in-resource",
+          "target": {
+            "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
+            "paramBlockLine": 35,
+            "payloadVariable": "Attributes",
+            "assignmentStyle": "attributesOnly",
+            "hasAttributes": true
+          }
+        },
+        {
+          "name": "parameters",
+          "type": "array",
+          "format": null,
+          "specRequired": false,
+          "synopsis": "The parameters to prompt the user when they deploy workloads from the preset.",
+          "suggestedPowerShellType": "[object[]]",
+          "enumValues": [],
+          "enumStatus": "no-spec-enum-found",
+          "target": {
+            "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
+            "paramBlockLine": 35,
+            "payloadVariable": "Attributes",
+            "assignmentStyle": "attributesOnly",
+            "hasAttributes": true
+          }
+        },
+        {
+          "name": "periodic_replication_configurations",
+          "type": "array",
+          "format": null,
+          "specRequired": false,
+          "synopsis": "The periodic replication configurations that can be applied to storage resources (such as volumes) within the preset.",
+          "suggestedPowerShellType": "[object[]]",
+          "enumValues": [],
+          "enumStatus": "no-spec-enum-found",
+          "target": {
+            "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
+            "paramBlockLine": 35,
+            "payloadVariable": "Attributes",
+            "assignmentStyle": "attributesOnly",
+            "hasAttributes": true
+          }
+        },
+        {
+          "name": "placement_configurations",
+          "type": "array",
+          "format": null,
+          "specRequired": true,
+          "synopsis": "The placement configurations that can be applied to storage resources (such as volumes) within the preset.",
+          "suggestedPowerShellType": "[object[]]",
+          "enumValues": [],
+          "enumStatus": "no-spec-enum-found",
+          "target": {
+            "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
+            "paramBlockLine": 35,
+            "payloadVariable": "Attributes",
+            "assignmentStyle": "attributesOnly",
+            "hasAttributes": true
+          }
+        },
+        {
+          "name": "platform_features",
+          "type": "array",
+          "format": null,
+          "specRequired": false,
+          "synopsis": null,
+          "suggestedPowerShellType": "[object[]]",
+          "enumValues": [
+            "fa_block",
+            "fa_file",
+            "fb_file"
+          ],
+          "enumStatus": "matched",
+          "target": {
+            "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
+            "paramBlockLine": 35,
+            "payloadVariable": "Attributes",
+            "assignmentStyle": "attributesOnly",
+            "hasAttributes": true
+          }
+        },
+        {
+          "name": "qos_configurations",
+          "type": "array",
+          "format": null,
+          "specRequired": false,
+          "synopsis": "The QoS configurations that can be applied to storage resources (such as volumes) within the preset.",
+          "suggestedPowerShellType": "[object[]]",
+          "enumValues": [],
+          "enumStatus": "no-spec-enum-found",
+          "target": {
+            "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
+            "paramBlockLine": 35,
+            "payloadVariable": "Attributes",
+            "assignmentStyle": "attributesOnly",
+            "hasAttributes": true
+          }
+        },
+        {
+          "name": "quota_configurations",
+          "type": "array",
+          "format": null,
+          "specRequired": false,
+          "synopsis": "The quota configurations that can be applied to storage resources (such as file systems and directories) within the preset.",
+          "suggestedPowerShellType": "[object[]]",
+          "enumValues": [],
+          "enumStatus": "no-spec-enum-found",
+          "target": {
+            "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
+            "paramBlockLine": 35,
+            "payloadVariable": "Attributes",
+            "assignmentStyle": "attributesOnly",
+            "hasAttributes": true
+          }
+        },
+        {
+          "name": "snapshot_configurations",
+          "type": "array",
+          "format": null,
+          "specRequired": false,
+          "synopsis": "The snapshot configurations that can be applied to storage resources (such as volumes) within the preset.",
+          "suggestedPowerShellType": "[object[]]",
+          "enumValues": [],
+          "enumStatus": "no-spec-enum-found",
+          "target": {
+            "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
+            "paramBlockLine": 35,
+            "payloadVariable": "Attributes",
+            "assignmentStyle": "attributesOnly",
+            "hasAttributes": true
+          }
+        },
+        {
+          "name": "volume_configurations",
+          "type": "array",
+          "format": null,
+          "specRequired": false,
+          "synopsis": "The volumes that will be provisioned by the preset.",
+          "suggestedPowerShellType": "[object[]]",
+          "enumValues": [],
+          "enumStatus": "no-spec-enum-found",
+          "target": {
+            "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
+            "paramBlockLine": 35,
+            "payloadVariable": "Attributes",
+            "assignmentStyle": "attributesOnly",
+            "hasAttributes": true
+          }
+        },
+        {
+          "name": "workload_tags",
+          "type": "array",
+          "format": null,
+          "specRequired": false,
+          "synopsis": "The tags that will be associated with workloads provisioned by the preset.",
+          "suggestedPowerShellType": "[object[]]",
+          "enumValues": [],
+          "enumStatus": "no-spec-enum-found",
+          "target": {
+            "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
+            "paramBlockLine": 35,
+            "payloadVariable": "Attributes",
+            "assignmentStyle": "attributesOnly",
+            "hasAttributes": true
+          }
+        },
+        {
+          "name": "workload_type",
+          "type": "string",
+          "format": null,
+          "specRequired": true,
+          "synopsis": "The type of workload the preset will configure.",
+          "suggestedPowerShellType": "[string]",
+          "enumValues": [
+            "Clarity",
+            "Epic",
+            "Exchange",
+            "File",
+            "MsSQL",
+            "MySQL",
+            "Oracle",
+            "PostgreSQL",
+            "SAP-Hana",
+            "SAP",
+            "VDI",
+            "VSI",
+            "Wfs",
+            "Zerto",
+            "Custom"
+          ],
+          "enumStatus": "matched",
+          "target": {
+            "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
+            "paramBlockLine": 35,
+            "payloadVariable": "Attributes",
+            "assignmentStyle": "attributesOnly",
+            "hasAttributes": true
+          }
+        }
+      ],
+      "readOnlyFields": [
+        "context",
+        "id",
+        "revision"
+      ],
+      "confidence": {
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
+      },
+      "annotations": []
+    },
+    {
+      "endpoint": "PUT /workloads/tags/batch",
+      "cmdlets": [
+        "Set-PfbWorkloadTag"
+      ],
+      "missingQueryParameters": [
+        "context_names"
+      ],
+      "missingBodyProperties": [],
+      "readOnlyFields": [],
+      "confidence": {
+        "level": "partial",
+        "unresolvedParameters": [
+          {
+            "parameter": "Tags",
+            "surface": "TypedUnresolved",
+            "file": "Public/Workloads/Set-PfbWorkloadTag.ps1",
+            "line": 30
+          }
+        ],
+        "escapeHatchOnly": [],
+        "caveat": "one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability"
+      },
+      "annotations": []
     }
   ],
   "systemicGaps": [
     {
       "name": "context_names",
-      "endpointCount": 269,
-      "queryEndpointCount": 269,
+      "endpointCount": 270,
+      "queryEndpointCount": 270,
       "bodyEndpointCount": 0,
       "endpoints": [
         "DELETE /admins/api-tokens",
@@ -14148,7 +14446,8 @@
         "POST /ssh-certificate-authority-policies/admins",
         "POST /ssh-certificate-authority-policies/arrays",
         "POST /user-group-quota-policies/file-systems",
-        "POST /workloads"
+        "POST /workloads",
+        "PUT /presets/workload"
       ],
       "annotations": [
         {
@@ -14685,6 +14984,22 @@
       "annotations": []
     },
     {
+      "name": "name",
+      "endpointCount": 7,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 7,
+      "endpoints": [
+        "PATCH /arrays",
+        "PATCH /password-policies",
+        "POST /log-targets/file-systems",
+        "POST /log-targets/object-store",
+        "POST /management-access-policies",
+        "POST /qos-policies",
+        "PUT /presets/workload"
+      ],
+      "annotations": []
+    },
+    {
       "name": "versions",
       "endpointCount": 7,
       "queryEndpointCount": 7,
@@ -14742,21 +15057,6 @@
         "GET /quotas/groups",
         "GET /usage/groups",
         "POST /quotas/groups"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "name",
-      "endpointCount": 6,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 6,
-      "endpoints": [
-        "PATCH /arrays",
-        "PATCH /password-policies",
-        "POST /log-targets/file-systems",
-        "POST /log-targets/object-store",
-        "POST /management-access-policies",
-        "POST /qos-policies"
       ],
       "annotations": []
     },
@@ -14927,6 +15227,19 @@
         "PATCH /object-store-roles/object-store-trust-policies/rules",
         "POST /object-store-access-policies/rules",
         "POST /object-store-roles/object-store-trust-policies/rules"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "description",
+      "endpointCount": 4,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 4,
+      "endpoints": [
+        "POST /legal-holds",
+        "POST /object-store-access-policies",
+        "POST /presets/workload",
+        "PUT /presets/workload"
       ],
       "annotations": []
     },
@@ -15104,18 +15417,6 @@
         "PATCH /network-access-policies/rules",
         "PATCH /nfs-export-policies/rules",
         "PATCH /smb-client-policies/rules"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "description",
-      "endpointCount": 3,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 3,
-      "endpoints": [
-        "POST /legal-holds",
-        "POST /object-store-access-policies",
-        "POST /presets/workload"
       ],
       "annotations": []
     },
@@ -15309,6 +15610,17 @@
       "annotations": []
     },
     {
+      "name": "directory_configurations",
+      "endpointCount": 2,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 2,
+      "endpoints": [
+        "POST /presets/workload",
+        "PUT /presets/workload"
+      ],
+      "annotations": []
+    },
+    {
       "name": "eradicate_all_data",
       "endpointCount": 2,
       "queryEndpointCount": 2,
@@ -15327,6 +15639,17 @@
       "endpoints": [
         "PATCH /arrays",
         "POST /buckets"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "export_configurations",
+      "endpointCount": 2,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 2,
+      "endpoints": [
+        "POST /presets/workload",
+        "PUT /presets/workload"
       ],
       "annotations": []
     },
@@ -15507,6 +15830,28 @@
       "annotations": []
     },
     {
+      "name": "parameters",
+      "endpointCount": 2,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 2,
+      "endpoints": [
+        "POST /presets/workload",
+        "PUT /presets/workload"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "periodic_replication_configurations",
+      "endpointCount": 2,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 2,
+      "endpoints": [
+        "POST /presets/workload",
+        "PUT /presets/workload"
+      ],
+      "annotations": []
+    },
+    {
       "name": "permission",
       "endpointCount": 2,
       "queryEndpointCount": 0,
@@ -15518,6 +15863,28 @@
       "annotations": []
     },
     {
+      "name": "placement_configurations",
+      "endpointCount": 2,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 2,
+      "endpoints": [
+        "POST /presets/workload",
+        "PUT /presets/workload"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "platform_features",
+      "endpointCount": 2,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 2,
+      "endpoints": [
+        "POST /presets/workload",
+        "PUT /presets/workload"
+      ],
+      "annotations": []
+    },
+    {
       "name": "public_key",
       "endpointCount": 2,
       "queryEndpointCount": 0,
@@ -15525,6 +15892,28 @@
       "endpoints": [
         "POST /api-clients",
         "POST /public-keys"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "qos_configurations",
+      "endpointCount": 2,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 2,
+      "endpoints": [
+        "POST /presets/workload",
+        "PUT /presets/workload"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "quota_configurations",
+      "endpointCount": 2,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 2,
+      "endpoints": [
+        "POST /presets/workload",
+        "PUT /presets/workload"
       ],
       "annotations": []
     },
@@ -15573,6 +15962,17 @@
       "annotations": []
     },
     {
+      "name": "snapshot_configurations",
+      "endpointCount": 2,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 2,
+      "endpoints": [
+        "POST /presets/workload",
+        "PUT /presets/workload"
+      ],
+      "annotations": []
+    },
+    {
       "name": "software_names",
       "endpointCount": 2,
       "queryEndpointCount": 2,
@@ -15591,6 +15991,39 @@
       "endpoints": [
         "GET /software-check",
         "POST /software-check"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "volume_configurations",
+      "endpointCount": 2,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 2,
+      "endpoints": [
+        "POST /presets/workload",
+        "PUT /presets/workload"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "workload_tags",
+      "endpointCount": 2,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 2,
+      "endpoints": [
+        "POST /presets/workload",
+        "PUT /presets/workload"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "workload_type",
+      "endpointCount": 2,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 2,
+      "endpoints": [
+        "POST /presets/workload",
+        "PUT /presets/workload"
       ],
       "annotations": []
     },
@@ -15995,16 +16428,6 @@
       "annotations": []
     },
     {
-      "name": "directory_configurations",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /presets/workload"
-      ],
-      "annotations": []
-    },
-    {
       "name": "discover_mtu",
       "endpointCount": 1,
       "queryEndpointCount": 1,
@@ -16091,16 +16514,6 @@
       "bodyEndpointCount": 0,
       "endpoints": [
         "GET /object-store-access-policies"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "export_configurations",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /presets/workload"
       ],
       "annotations": []
     },
@@ -16615,16 +17028,6 @@
       "annotations": []
     },
     {
-      "name": "parameters",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /presets/workload"
-      ],
-      "annotations": []
-    },
-    {
       "name": "passphrase",
       "endpointCount": 1,
       "queryEndpointCount": 0,
@@ -16645,42 +17048,12 @@
       "annotations": []
     },
     {
-      "name": "periodic_replication_configurations",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /presets/workload"
-      ],
-      "annotations": []
-    },
-    {
       "name": "phonehome_enabled",
       "endpointCount": 1,
       "queryEndpointCount": 0,
       "bodyEndpointCount": 1,
       "endpoints": [
         "PATCH /support"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "placement_configurations",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /presets/workload"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "platform_features",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /presets/workload"
       ],
       "annotations": []
     },
@@ -16791,26 +17164,6 @@
       "bodyEndpointCount": 0,
       "endpoints": [
         "GET /tls-policies"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "qos_configurations",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /presets/workload"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "quota_configurations",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /presets/workload"
       ],
       "annotations": []
     },
@@ -17055,16 +17408,6 @@
       "annotations": []
     },
     {
-      "name": "snapshot_configurations",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /presets/workload"
-      ],
-      "annotations": []
-    },
-    {
       "name": "sp",
       "endpointCount": 1,
       "queryEndpointCount": 0,
@@ -17165,42 +17508,12 @@
       "annotations": []
     },
     {
-      "name": "volume_configurations",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /presets/workload"
-      ],
-      "annotations": []
-    },
-    {
       "name": "without_default_access_list",
       "endpointCount": 1,
       "queryEndpointCount": 1,
       "bodyEndpointCount": 0,
       "endpoints": [
         "POST /realms"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "workload_tags",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /presets/workload"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "workload_type",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /presets/workload"
       ],
       "annotations": []
     }

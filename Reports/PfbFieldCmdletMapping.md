@@ -13,148 +13,148 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 
 | Cmdlet | Parameter | Wire name | Status | Spec values | Recommendation |
 |---|---|---|---|---|---|
-| `Update-PfbManagementAccessPolicy` | `-NewName` | name | not-found-in-resource |  |  |
-| `Update-PfbOidcIdp` | `-NewName` | name | not-found-in-resource |  |  |
-| `Update-PfbOidcIdp` | `-Services` | services | not-found-in-resource |  |  |
-| `Update-PfbSaml2Idp` | `-NewName` | name | not-found-in-resource |  |  |
-| `Update-PfbSaml2Idp` | `-Services` | services | not-found-in-resource |  |  |
+| `Get-PfbPolicyAllMember` | `-MemberType` | member_types | matched | file-systems, file-system-snapshots, file-system-replica-links, object-store-users | ArgumentCompleter |
+| `New-PfbQosPolicyMember` | `-MemberType` | member_types | collision |  |  |
+| `New-PfbS3ExportRule` | `-Actions` | actions | not-found-in-resource |  |  |
+| `New-PfbS3ExportRule` | `-Effect` | effect | not-found-in-resource |  |  |
 | `Update-PfbBucketAuditFilter` | `-Actions` | actions | not-found-in-resource |  |  |
 | `Update-PfbCertificate` | `-State` | state | not-found-in-resource |  |  |
 | `Update-PfbDataEvictionPolicy` | `-NewName` | name | not-found-in-resource |  |  |
-| `Update-PfbLogTargetFileSystem` | `-NewName` | name | not-found-in-resource |  |  |
-| `Update-PfbLogTargetObjectStore` | `-NewName` | name | not-found-in-resource |  |  |
-| `Update-PfbSnmpManager` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbDns` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbDns` | `-Services` | services | not-found-in-resource |  |  |
+| `Update-PfbFleet` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbLogTargetFileSystem` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbLogTargetObjectStore` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbManagementAccessPolicy` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbNetworkInterface` | `-Services` | services | not-found-in-resource |  |  |
 | `Update-PfbNode` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbNodeGroup` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbObjectStoreRemoteCredential` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbObjectStoreVirtualHost` | `-NewName` | name | not-found-in-resource |  |  |
-| `Get-PfbPolicyAllMember` | `-MemberType` | member_types | matched | file-systems, file-system-snapshots, file-system-replica-links, object-store-users | ArgumentCompleter |
-| `New-PfbQosPolicyMember` | `-MemberType` | member_types | collision |  |  |
-| `New-PfbS3ExportRule` | `-Actions` | actions | not-found-in-resource |  |  |
-| `New-PfbS3ExportRule` | `-Effect` | effect | not-found-in-resource |  |  |
+| `Update-PfbOidcIdp` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbOidcIdp` | `-Services` | services | not-found-in-resource |  |  |
+| `Update-PfbPresetWorkload` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbQosPolicy` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbSaml2Idp` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbSaml2Idp` | `-Services` | services | not-found-in-resource |  |  |
+| `Update-PfbSnmpManager` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbSshCaPolicy` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbStorageClassTieringPolicy` | `-NewName` | name | not-found-in-resource |  |  |
-| `Update-PfbTlsPolicy` | `-NewName` | name | not-found-in-resource |  |  |
-| `Update-PfbWormPolicy` | `-DefaultRetention` | default_retention | not-found-in-resource |  |  |
-| `Update-PfbPresetWorkload` | `-NewName` | name | not-found-in-resource |  |  |
-| `Update-PfbFleet` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbTarget` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbTlsPolicy` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbWorkload` | `-NewName` | name | not-found-in-resource |  |  |
+| `Update-PfbWormPolicy` | `-DefaultRetention` | default_retention | not-found-in-resource |  |  |
 
 ## Attributes-only parameters (no typed field to attach either mechanism to): 68
 
-- `Update-PfbAlert -Flagged`
-- `Update-PfbAlertWatcher -Enabled`
-- `Update-PfbBucket -Destroyed`
-- `New-PfbCertificateSigningRequest -Name`
 - `New-PfbActiveDirectory -Name`
-- `Update-PfbDirectoryService -Name`
-- `New-PfbFileSystem -HardLimit`
-- `New-PfbFileSystem -Nfs`
-- `New-PfbFileSystem -NfsV3`
-- `New-PfbFileSystem -NfsV41`
-- `New-PfbFileSystem -NfsRules`
-- `New-PfbFileSystem -NfsExportPolicy`
-- `New-PfbFileSystem -Smb`
-- `New-PfbFileSystem -SmbSharePolicy`
-- `New-PfbFileSystem -SmbClientPolicy`
-- `New-PfbFileSystem -Http`
-- `New-PfbFileSystem -MultiProtocolAccessControlStyle`
-- `New-PfbFileSystem -SafeguardAcls`
-- `New-PfbFileSystem -SnapshotDirectoryEnabled`
-- `New-PfbFileSystem -FastRemoveDirectoryEnabled`
-- `New-PfbFileSystem -Writable`
-- `Update-PfbFileSystem -HardLimitEnabled`
-- `Update-PfbFileSystem -NfsEnabled`
-- `Update-PfbFileSystem -NfsRules`
-- `Update-PfbFileSystem -NfsExportPolicy`
-- `Update-PfbFileSystem -SmbEnabled`
-- `Update-PfbFileSystem -SmbSharePolicy`
-- `Update-PfbFileSystem -SmbClientPolicy`
-- `Update-PfbFileSystem -HttpEnabled`
-- `Update-PfbFileSystem -Destroyed`
-- `New-PfbLag -Name`
-- `New-PfbSnmpManager -Name`
-- `New-PfbSyslogServer -Name`
-- `New-PfbDns -Name`
-- `New-PfbNodeGroup -Name`
 - `New-PfbAuditFileSystemPolicy -Enabled`
 - `New-PfbAuditObjectStorePolicy -Enabled`
+- `New-PfbCertificateSigningRequest -Name`
+- `New-PfbDns -Name`
+- `New-PfbFileSystem -FastRemoveDirectoryEnabled`
+- `New-PfbFileSystem -HardLimit`
+- `New-PfbFileSystem -Http`
+- `New-PfbFileSystem -MultiProtocolAccessControlStyle`
+- `New-PfbFileSystem -Nfs`
+- `New-PfbFileSystem -NfsExportPolicy`
+- `New-PfbFileSystem -NfsRules`
+- `New-PfbFileSystem -NfsV3`
+- `New-PfbFileSystem -NfsV41`
+- `New-PfbFileSystem -SafeguardAcls`
+- `New-PfbFileSystem -Smb`
+- `New-PfbFileSystem -SmbClientPolicy`
+- `New-PfbFileSystem -SmbSharePolicy`
+- `New-PfbFileSystem -SnapshotDirectoryEnabled`
+- `New-PfbFileSystem -Writable`
+- `New-PfbFleet -Name`
+- `New-PfbLag -Name`
 - `New-PfbNfsExportPolicy -Enabled`
+- `New-PfbNodeGroup -Name`
 - `New-PfbPolicy -Enabled`
+- `New-PfbQuotaUser -FileSystemName`
+- `New-PfbQuotaUser -UserId`
+- `New-PfbQuotaUser -UserName`
 - `New-PfbS3ExportPolicy -Enabled`
+- `New-PfbServer -CreateDirectoryService`
 - `New-PfbSmbClientPolicy -Enabled`
 - `New-PfbSmbSharePolicy -Enabled`
+- `New-PfbSnmpManager -Name`
 - `New-PfbSshCaPolicy -Name`
 - `New-PfbStorageClassTieringPolicy -Name`
+- `New-PfbSyslogServer -Name`
+- `New-PfbTarget -Name`
 - `New-PfbTlsPolicy -Name`
 - `New-PfbUserGroupQuotaPolicy -Enabled`
 - `New-PfbUserGroupQuotaPolicyRule -Enforced`
 - `New-PfbWormPolicy -Name`
+- `Update-PfbAlert -Flagged`
+- `Update-PfbAlertWatcher -Enabled`
 - `Update-PfbAuditFileSystemPolicy -Enabled`
 - `Update-PfbAuditObjectStorePolicy -Enabled`
+- `Update-PfbBucket -Destroyed`
+- `Update-PfbDirectoryService -Name`
+- `Update-PfbFileSystem -Destroyed`
+- `Update-PfbFileSystem -HardLimitEnabled`
+- `Update-PfbFileSystem -HttpEnabled`
+- `Update-PfbFileSystem -NfsEnabled`
+- `Update-PfbFileSystem -NfsExportPolicy`
+- `Update-PfbFileSystem -NfsRules`
+- `Update-PfbFileSystem -SmbClientPolicy`
+- `Update-PfbFileSystem -SmbEnabled`
+- `Update-PfbFileSystem -SmbSharePolicy`
 - `Update-PfbNetworkAccessPolicy -Enabled`
 - `Update-PfbNfsExportPolicy -Enabled`
 - `Update-PfbPolicy -Enabled`
-- `Update-PfbS3ExportPolicy -Enabled`
-- `Update-PfbSmbClientPolicy -Enabled`
-- `Update-PfbSmbSharePolicy -Enabled`
-- `Update-PfbUserGroupQuotaPolicy -Enabled`
-- `New-PfbQuotaUser -FileSystemName`
-- `New-PfbQuotaUser -UserName`
-- `New-PfbQuotaUser -UserId`
 - `Update-PfbQuotaGroup -FileSystemName`
 - `Update-PfbQuotaGroup -GroupName`
 - `Update-PfbQuotaUser -FileSystemName`
 - `Update-PfbQuotaUser -UserName`
 - `Update-PfbRealm -Destroyed`
-- `New-PfbFleet -Name`
-- `New-PfbTarget -Name`
-- `New-PfbServer -CreateDirectoryService`
+- `Update-PfbS3ExportPolicy -Enabled`
+- `Update-PfbSmbClientPolicy -Enabled`
+- `Update-PfbSmbSharePolicy -Enabled`
+- `Update-PfbUserGroupQuotaPolicy -Enabled`
 
 ## Typed but unresolved wire name (needs manual inspection): 39
 
+- `Connect-PfbArray -ApiToken`
+- `Connect-PfbArray -ApiVersion`
+- `Connect-PfbArray -ClientId`
+- `Connect-PfbArray -Credential`
+- `Connect-PfbArray -Endpoint`
+- `Connect-PfbArray -HttpTimeout`
+- `Connect-PfbArray -IgnoreCertificateError`
+- `Connect-PfbArray -Issuer`
+- `Connect-PfbArray -KeyId`
+- `Connect-PfbArray -Password`
+- `Connect-PfbArray -PrivateKeyFile`
+- `Connect-PfbArray -PrivateKeyPassword`
+- `Connect-PfbArray -Username`
 - `Get-PfbAlert -Flagged`
 - `Get-PfbApiVersion -Endpoint`
 - `Get-PfbApiVersion -IgnoreCertificateError`
-- `Remove-PfbBucket -Eradicate`
-- `Connect-PfbArray -Endpoint`
-- `Connect-PfbArray -ApiToken`
-- `Connect-PfbArray -Username`
-- `Connect-PfbArray -Password`
-- `Connect-PfbArray -Credential`
-- `Connect-PfbArray -ClientId`
-- `Connect-PfbArray -Issuer`
-- `Connect-PfbArray -KeyId`
-- `Connect-PfbArray -PrivateKeyFile`
-- `Connect-PfbArray -PrivateKeyPassword`
-- `Connect-PfbArray -ApiVersion`
-- `Connect-PfbArray -IgnoreCertificateError`
-- `Connect-PfbArray -HttpTimeout`
 - `Get-PfbConnection -Endpoint`
-- `Set-PfbCredential -Credential`
-- `Test-PfbConnection -Endpoint`
+- `Get-PfbHardwareTemperature -Limit`
+- `Get-PfbUserGroupQuotaPolicy -Id`
+- `Get-PfbUserGroupQuotaPolicy -Name`
 - `New-PfbDataEvictionPolicy -Disabled`
-- `Update-PfbDataEvictionPolicy -Enabled`
+- `New-PfbFileSystemSnapshot -SourceName`
 - `New-PfbLocalGroupMember -Member`
+- `New-PfbWorkloadPlacementRecommendation -Inputs`
+- `Remove-PfbBucket -Eradicate`
 - `Remove-PfbFileSystem -Eradicate`
 - `Remove-PfbFileSystemSession -Force`
-- `New-PfbFileSystemSnapshot -SourceName`
 - `Remove-PfbFileSystemSnapshot -Eradicate`
-- `Get-PfbHardwareTemperature -Limit`
-- `Get-PfbUserGroupQuotaPolicy -Name`
-- `Get-PfbUserGroupQuotaPolicy -Id`
 - `Remove-PfbQuotaGroup -FileSystemName`
 - `Remove-PfbQuotaGroup -GroupName`
 - `Remove-PfbQuotaUser -FileSystemName`
 - `Remove-PfbQuotaUser -UserName`
 - `Remove-PfbRealm -Eradicate`
 - `Remove-PfbServer -Eradicate`
-- `New-PfbWorkloadPlacementRecommendation -Inputs`
+- `Set-PfbCredential -Credential`
 - `Set-PfbWorkloadTag -Tags`
+- `Test-PfbConnection -Endpoint`
+- `Update-PfbDataEvictionPolicy -Enabled`
 - `Update-PfbWorkload -Destroyed`
 

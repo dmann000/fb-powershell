@@ -110,8 +110,11 @@ function Get-PfbModuleCalledEndpoints {
     )
 
     $results = [System.Collections.Generic.List[object]]::new()
-    $files = @(Get-ChildItem -Path $PublicDirectory -Filter '*.ps1' -Recurse -File) +
-             @(Get-ChildItem -Path $PrivateDirectory -Filter '*.ps1' -Recurse -File)
+    # Belt-and-braces only -- the load-bearing sort is on the records at the end of this
+    # function (issue #85). Public/ and Private/ are sorted separately, preserving the
+    # Public-then-Private grouping this scan has always emitted in.
+    $files = @(Get-ChildItem -Path $PublicDirectory -Filter '*.ps1' -Recurse -File | Sort-Object -Property FullName -Culture '') +
+             @(Get-ChildItem -Path $PrivateDirectory -Filter '*.ps1' -Recurse -File | Sort-Object -Property FullName -Culture '')
 
     foreach ($file in $files) {
         $tokens = $null; $parseErrors = $null
@@ -166,7 +169,13 @@ function Get-PfbModuleCalledEndpoints {
         }
     }
 
-    return $results
+    # Canonical emit order, not the filesystem's (issue #85) -- see
+    # Get-PfbCmdletParameterInventory's own comment in tools/lib/PfbCmdletParamTools.ps1 for
+    # the mechanism and the measured blast radius. $files above walks Public/ AND Private/
+    # unsorted, and every downstream Group-Object here takes its group order from
+    # first-appearance, i.e. from that walk. -Culture '' pins the comparison to the invariant
+    # culture so the runner's locale cannot reintroduce the divergence.
+    return @($results | Sort-Object -Property Cmdlet, Key, File -Culture '')
 }
 
 function Get-PfbEndpointCoverageGaps {
@@ -290,7 +299,12 @@ function Get-PfbParameterCoverageGaps {
     )
 
     $inventoryByCmdlet = $CmdletInventory | Group-Object -Property Cmdlet -AsHashTable -AsString
-    $endpointGroups = @($CalledEndpoints | Where-Object { $_.Resolved } | Group-Object -Property Key)
+    # Sort the GROUPS, not just their contents (issue #85): Group-Object's group order is
+    # first-appearance order in its input, so without this the `parameterGaps` row order in
+    # Reports/PfbApiDriftReport.json is whatever order the Public/ file walk happened to
+    # discover each endpoint in.
+    $endpointGroups = @($CalledEndpoints | Where-Object { $_.Resolved } | Group-Object -Property Key |
+            Sort-Object -Property Name -Culture '')
 
     # Endpoint key ("<METHOD> /<path>", matching Data/PfbCapabilityMap.json's own key
     # format) -> the Get-PfbSpecCapabilities record for that endpoint in the single
@@ -311,7 +325,11 @@ function Get-PfbParameterCoverageGaps {
         $entry = $CapabilityMap.endpoints.$key
         if (-not $entry) { continue }
 
-        $cmdlets = @($group.Group.Cmdlet | Select-Object -Unique)
+        # Sort-Object -Unique, not Select-Object -Unique: the latter preserves INPUT order and
+        # does not sort, which is the intra-row cmdlet flip observed in issue #85
+        # (`Get-PfbArray, Test-PfbConnection` becoming `Test-PfbConnection, Get-PfbArray`).
+        # Matches the already-correct pattern in Get-PfbConventionStrength below.
+        $cmdlets = @($group.Group.Cmdlet | Sort-Object -Unique -Culture '')
 
         $exposedWireNames = [System.Collections.Generic.HashSet[string]]::new()
         $unresolved = [System.Collections.Generic.List[object]]::new()
@@ -1281,7 +1299,8 @@ function Get-PfbCentralInjectionSites {
     $coverageCaveat = 'coverage claim only -- this AST scan cannot verify injection ordering relative to Assert-PfbApiCapability'
 
     $results = [System.Collections.Generic.List[object]]::new()
-    $files = Get-ChildItem -Path $PrivateDirectory -Filter '*.ps1' -Recurse -File
+    # Belt-and-braces only -- see the record-level sort at the end of this function (#85).
+    $files = @(Get-ChildItem -Path $PrivateDirectory -Filter '*.ps1' -Recurse -File | Sort-Object -Property FullName -Culture '')
 
     foreach ($file in $files) {
         $tokens = $null; $parseErrors = $null
@@ -1329,7 +1348,11 @@ function Get-PfbCentralInjectionSites {
         }
     }
 
-    return $results.ToArray()
+    # Third instance of the same defect class as issue #85: $files above is an unsorted
+    # recursive Get-ChildItem over Private/. Sorted here for the same reason, even though
+    # this function's only current consumer (Get-PfbDerivedNonActionableParameters) reduces
+    # per-Key and re-sorts by Name -- the determinism should not depend on that staying true.
+    return @($results | Sort-Object -Property Key, File, Line -Culture '')
 }
 
 function Get-PfbDerivedNonActionableParameters {
