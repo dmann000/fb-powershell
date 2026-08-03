@@ -1,4 +1,4 @@
-﻿function Remove-PfbArrayConnection {
+function Remove-PfbArrayConnection {
     <#
     .SYNOPSIS
         Removes an array connection from a FlashBlade array.
