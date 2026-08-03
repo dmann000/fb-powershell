@@ -4,13 +4,18 @@ function Get-PfbArrayConnection {
         Retrieves FlashBlade array connections (replication links between arrays).
     .DESCRIPTION
         The Get-PfbArrayConnection cmdlet returns array connection configurations from the
-        connected Pure Storage FlashBlade. Array connections define replication links between
+        connected Everpure FlashBlade. Array connections define replication links between
         FlashBlade arrays and are required for file system and bucket replication. Supports
         pipeline input, server-side filtering, and automatic pagination.
-    .PARAMETER Name
-        One or more array connection names to retrieve. Accepts pipeline input.
+
+        An array connection has no name of its own -- the API resource carries only an id. Its
+        human-readable identifier is the REMOTE array's name, so -RemoteName (aliased to -Name
+        for compatibility) is how you select one by name.
+    .PARAMETER RemoteName
+        One or more REMOTE array names whose connections to retrieve. Aliased to -Name. Accepts
+        pipeline input.
     .PARAMETER Id
-        One or more array connection IDs to retrieve.
+        One or more array connection IDs to retrieve. Accepts pipeline input by property name.
     .PARAMETER Filter
         A server-side filter expression to narrow results (e.g., "status='connected'").
     .PARAMETER Sort
@@ -24,9 +29,14 @@ function Get-PfbArrayConnection {
 
         Retrieves all array connections from the connected FlashBlade.
     .EXAMPLE
-        Get-PfbArrayConnection -Name "remote-fb-dc2"
+        Get-PfbArrayConnection -RemoteName "FB-B"
 
-        Retrieves the array connection named "remote-fb-dc2".
+        Retrieves the connection to the remote array named "FB-B".
+    .EXAMPLE
+        Get-PfbArrayConnection | Where-Object type -eq 'async-replication'
+
+        Retrieves only the asynchronous replication connections, excluding the
+        system-managed fleet-management ones.
     .EXAMPLE
         Get-PfbArrayConnection -Filter "status='connected'" -Sort "name" -Limit 10
 
@@ -34,25 +44,33 @@ function Get-PfbArrayConnection {
     #>
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param(
-        [Parameter(ParameterSetName = 'ByName', ValueFromPipeline, ValueFromPipelineByPropertyName)] [string[]]$Name,
-        [Parameter(ParameterSetName = 'ById')] [string[]]$Id,
+        [Parameter(ParameterSetName = 'ByRemoteName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Alias('Name')]
+        [string[]]$RemoteName,
+
+        [Parameter(ParameterSetName = 'ById', ValueFromPipelineByPropertyName)] [string[]]$Id,
         [Parameter()] [string]$Filter, [Parameter()] [string]$Sort, [Parameter()] [int]$Limit,
         [Parameter()] [PSCustomObject]$Array
     )
     begin {
         Assert-PfbConnection -Array ([ref]$Array)
-        $allNames = [System.Collections.Generic.List[string]]::new()
+        $allRemoteNames = [System.Collections.Generic.List[string]]::new()
         $allIds = [System.Collections.Generic.List[string]]::new()
     }
 
     process {
-        if ($Name) { foreach ($n in $Name) { $allNames.Add($n) } }
+        if ($RemoteName) { foreach ($n in $RemoteName) { $allRemoteNames.Add($n) } }
         if ($Id) { foreach ($i in $Id) { $allIds.Add($i) } }
     }
 
     end {
         $queryParams = @{}
-        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
+        # remote_names is assigned inline rather than added to Add-PfbCommonQueryParams: it is a
+        # replication-family filter on 11 endpoints, not one of the ~148-endpoint common keys the
+        # helper centralizes, and the five other cmdlets in this module that emit it all do it
+        # inline too (issue #64). The comma-join is what the helper used to provide.
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Ids $allIds
+        if ($allRemoteNames.Count) { $queryParams['remote_names'] = $allRemoteNames -join ',' }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'array-connections' -QueryParams $queryParams -AutoPaginate
     }
 }
