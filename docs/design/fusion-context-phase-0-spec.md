@@ -6,10 +6,10 @@ Tracking: #25 (Fusion `context_names` injection), #74 (component-resolution move
 Coordinates with: #84 (capability-map generator/schema tracker) — see item 2
 Branch: `feat/fusion-context-phase-0`
 
-> **One decision is required before implementation starts.** Item 2 needs
-> `Data/PfbCapabilityMap.json`'s `schemaVersion` bumped to 2, and so does issue #83. Tracking
-> issue #84 plans them as a single bump in a single PR. See "Coordination with #84" for the
-> three options and a recommendation.
+> **Settled:** item 2 needs `Data/PfbCapabilityMap.json`'s `schemaVersion` bumped to 2, and so
+> does issue #83. Tracking issue #84 originally planned them as a single bump in a single PR.
+> **That pairing is dissolved** — Phase 0 ships `contextScope` and takes `schemaVersion 2`;
+> #84's generator work moves to its own PR. See "Coordination with #84."
 
 ---
 
@@ -295,22 +295,38 @@ Note the capability map itself was never affected — `Build-PfbCapabilityMap.ps
 `Public/`/`Private/`, and its spec enumeration is explicitly sorted — but Phase 0 regenerates
 the derived reports too, so it would have dragged the phantom diff along.
 
-**Decision required before implementation** (three options, and this spec does not pick one):
+#### Decision: the pairing is dissolved
 
-1. **Sequence behind #84's PR 2.** Phase 0 drops the map work entirely and waits. Cleanest for
-   #84, but it makes Phase 0 — and therefore all of Phase 1 — blocked on unrelated generator
-   work with no timeline.
-2. **Phase 0 absorbs #83.** One PR, one bump, both fields. Matches #84's intent exactly and
-   removes the artifact conflict, at the cost of putting array-body cardinality work inside a
-   Fusion PR where a reviewer will not expect it.
-3. **Phase 0 takes `schemaVersion 2` and #83 takes 3.** Technically harmless, since nothing
-   reads the field. Contradicts #84's "one bump" intent and means two regenerations of the same
-   artifact in sequence, whichever order they land.
+**Phase 0 ships `contextScope` and takes `schemaVersion 2`. #84's generator work — #71, #82,
+#83 — moves to its own PR, and #83 takes the next `schemaVersion` it finds.**
 
-Recommendation: **option 2** if #83 is small enough to review alongside, otherwise **option 3** —
-the "one bump" goal in #84 is bookkeeping tidiness, and it should not be what gates the Fusion
-work. What must not happen is Phase 0 silently claiming `schemaVersion 2` without #83 knowing,
-which is the default outcome if this is not decided.
+The test applied was whether Phase 0 could absorb *all* of #84, which would have preserved
+#84's one-bump intent. It cannot, for a structural reason rather than a size one: **#71, #82 and
+#83 all land in `Add-PfbSchemaPropertyNodes`** (`tools/lib/PfbSpecTools.ps1:191`), a recursive
+schema walker whose `MaxDepth` is threaded through five call sites and which feeds **both**
+`Data/PfbCapabilityMap.json` and `Data/PfbResponseShapeMap.json`. Changing it perturbs two
+runtime artifacts and every derived report at once. It also has a downstream consumer with
+nothing to do with Fusion — **#44 (batch cmdlets) is blocked on PR 1**, because its four
+endpoints are exactly the ones #82 makes visible.
+
+Folding that into a Fusion prerequisites PR would put a delicate shared refactor in front of a
+reviewer who is there to evaluate context plumbing, and would couple Phase 1's timeline to it.
+`contextScope`, by contrast, reads operation-level `x-pure-*` extensions and does not touch the
+body-schema walk at all — the two changes are genuinely independent in code.
+
+What this costs: two sequential regenerations of `Data/PfbCapabilityMap.json`, and #84's
+"one bump" bookkeeping goal. Both are acceptable, because **nothing reads `schemaVersion`** — it
+is a label. What it buys is that neither PR gates the other.
+
+Consequences to honour:
+
+- **#84 must be updated** so its PR 2 no longer claims `contextScope`. Leaving that stale
+  misleads whoever picks the tracker up.
+- **Whichever PR lands second regenerates the artifact** and resolves the conflict on it. That
+  is a mechanical regeneration, not a merge — do not hand-resolve a 632-endpoint generated file.
+- **#83 increments from whatever it finds**, rather than being pre-assigned 3. If Phase 0 slips
+  and #83 lands first, #83 takes 2 and Phase 0 takes 3. The number carries no meaning; only
+  "newer than what I read" does.
 
 Also worth re-checking at implementation time: the regeneration path itself has been failing.
 `update-api-capability-map.yml` has failed on every run since 2026-07-24 at the final
@@ -528,7 +544,8 @@ Item 1 has no live surface — it is a refactor with no runtime caller until Pha
 | Regenerating the map perturbs a tracked `Reports/` artifact | No CI gate catches this byte-for-byte. Diff the regenerated artifacts by hand and explain any change; do not re-baseline silently |
 | The drift tests pass without running | They skip on gitignored `tools/specs/`. Confirm the directory is populated — it is in both Fusion worktrees (29 files) |
 | The resolver move changes resolution behaviour subtly | Covered by the explicit key-present-`null` vs key-absent tests. Note the `Reports/` reproduction check is **not** an independent witness here, contrary to how it is often cited |
-| **`schemaVersion 2` claimed twice** — by this spec and by #83 | The real risk, and the reason the "Coordination with #84" decision must be made first. Not a compatibility problem: nothing reads the field |
+| **`schemaVersion 2` claimed twice** — by this spec and by #83 | Settled: Phase 0 takes 2, #83 increments from what it finds. Not a compatibility problem either way, since nothing reads the field. Requires updating #84 so its PR 2 stops claiming `contextScope` |
+| Both PRs regenerate the same 632-endpoint artifact | Expected. Whichever lands second regenerates rather than hand-resolving the conflict |
 | Regenerating by hand duplicates work already on `origin/automated/update-api-capability-map` | Check that branch first; its auto-PR step has been failing since 2026-07-24 |
 | Curated `contextScope` entries outlive the upstream fix | The drift test flags any curated entry that has gained an override |
 | Phase 1 needs a scope value Phase 0 marked `unknown` | `unknown` suppresses validation and leaves today's behaviour, so Phase 1 degrades rather than breaking. Adding an entry later is a generator-table edit plus a regenerate |
