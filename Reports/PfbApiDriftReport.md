@@ -23,7 +23,7 @@ This report accepts **false positives in order to eliminate false negatives**. A
 - Uncovered endpoints: 96
 - Endpoints with parameter gaps: 438
 - Missing body properties (addable): 422
-- Missing query parameters (addable): 956
+- Missing query parameters (addable): 952
 - Read-only body fields (not addable -- see the Read-only fields section below): 382
 - Phantom fields silently excluded (accumulated in the capability map, absent from the newest analysed spec): 40
 - Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 59
@@ -45,8 +45,8 @@ Showing the top 25 of 252 findings by endpoint count -- the full list is in the 
 |---|---|---|---|---|---|
 | `context_names` | 270 | 270 | 0 | 0 | not yet implemented |
 | `allow_errors` | 118 | 118 | 0 | 0 | not yet implemented |
-| `ids` | 43 | 43 | 0 | 224 |  |
-| `names` | 31 | 31 | 0 | 314 |  |
+| `ids` | 43 | 43 | 0 | 223 |  |
+| `names` | 31 | 31 | 0 | 308 |  |
 | `sort` | 28 | 28 | 0 | 180 |  |
 | `bucket_ids` | 17 | 17 | 0 | 2 |  |
 | `policy_ids` | 17 | 17 | 0 | 98 |  |
@@ -54,9 +54,9 @@ Showing the top 25 of 252 findings by endpoint count -- the full list is in the 
 | `bucket_names` | 16 | 16 | 0 | 3 |  |
 | `member_ids` | 15 | 15 | 0 | 85 |  |
 | `remote_ids` | 15 | 15 | 0 | 3 |  |
-| `remote_names` | 13 | 13 | 0 | 5 |  |
 | `policy_names` | 11 | 11 | 0 | 118 |  |
 | `file_system_ids` | 9 | 9 | 0 | 9 |  |
+| `remote_names` | 9 | 9 | 0 | 9 |  |
 | `local_file_system_ids` | 8 | 8 | 0 | 2 |  |
 | `actions` | 7 | 0 | 7 | 2 |  |
 | `limit` | 7 | 7 | 0 | 199 |  |
@@ -80,7 +80,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `DELETE /admins/cache` | Remove-PfbAdminCache | context_names |  | `high` |  |
 | `DELETE /admins/management-access-policies` | Remove-PfbAdminManagementAccessPolicy | context_names |  | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
 | `DELETE /admins/ssh-certificate-authority-policies` | Remove-PfbAdminSshCaPolicy | context_names |  | `high` |  |
-| `DELETE /array-connections` | Remove-PfbArrayConnection | context_names, remote_ids, remote_names |  | `high` |  |
+| `DELETE /array-connections` | Remove-PfbArrayConnection | context_names, remote_ids |  | `high` |  |
 | `DELETE /arrays/ssh-certificate-authority-policies` | Remove-PfbArraySshCaPolicy | context_names |  | `high` |  |
 | `DELETE /audit-file-systems-policies` | Remove-PfbAuditFileSystemPolicy | context_names |  | `high` |  |
 | `DELETE /audit-file-systems-policies/members` | Remove-PfbAuditFileSystemPolicyMember | context_names |  | `high` |  |
@@ -166,10 +166,10 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /admins/management-access-policies` | Get-PfbAdminManagementAccessPolicy | allow_errors, context_names, sort |  | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
 | `GET /admins/ssh-certificate-authority-policies` | Get-PfbAdminSshCaPolicy | allow_errors, context_names, sort |  | `high` |  |
 | `GET /alert-watchers/test` | Test-PfbAlertWatcher | filter, sort |  | `high` |  |
-| `GET /array-connections` | Get-PfbArrayConnection | allow_errors, context_names, remote_ids, remote_names |  | `high` |  |
+| `GET /array-connections` | Get-PfbArrayConnection | allow_errors, context_names, remote_ids |  | `high` |  |
 | `GET /array-connections/connection-key` | Get-PfbArrayConnectionKey | ids |  | `high` |  |
-| `GET /array-connections/path` | Get-PfbArrayConnectionPath | allow_errors, context_names, ids, remote_ids, remote_names |  | `high` |  |
-| `GET /array-connections/performance/replication` | Get-PfbArrayConnectionPerformanceReplication | ids, remote_ids, remote_names, total_only |  | `high` |  |
+| `GET /array-connections/path` | Get-PfbArrayConnectionPath | allow_errors, context_names, ids, remote_ids |  | `high` |  |
+| `GET /array-connections/performance/replication` | Get-PfbArrayConnectionPerformanceReplication | ids, remote_ids, total_only |  | `high` |  |
 | `GET /arrays` | Get-PfbArray, Test-PfbConnection | allow_errors, context_names |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `GET /arrays/clients/performance` | Get-PfbArrayClientPerformance | names, protocol, total_only |  | `high` |  |
 | `GET /arrays/clients/s3-specific-performance` | Get-PfbArrayClientS3Performance | names, total_only |  | `high` |  |

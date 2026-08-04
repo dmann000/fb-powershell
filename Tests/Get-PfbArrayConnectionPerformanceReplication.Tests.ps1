@@ -36,4 +36,68 @@ Describe 'Get-PfbArrayConnectionPerformanceReplication' {
             -not $QueryParams.ContainsKey('type')
         }
     }
+
+    It 'sends remote_names, never names' {
+        Get-PfbArrayConnectionPerformanceReplication -RemoteName 'FB-B' -Array $fakeArray
+
+        Should -Invoke Invoke-PfbApiRequest -ModuleName PureStorageFlashBladePowerShell -Times 1 -Exactly -ParameterFilter {
+            $Endpoint -eq 'array-connections/performance/replication' -and
+            $QueryParams['remote_names'] -eq 'FB-B' -and -not $QueryParams.ContainsKey('names')
+        }
+    }
+
+    It 'still binds -Name through the alias, and emits remote_names for it' {
+        Get-PfbArrayConnectionPerformanceReplication -Name 'FB-B' -Array $fakeArray
+
+        Should -Invoke Invoke-PfbApiRequest -ModuleName PureStorageFlashBladePowerShell -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['remote_names'] -eq 'FB-B' -and -not $QueryParams.ContainsKey('names')
+        }
+    }
+
+    It 'accumulates remote names piped by value into a single comma-joined key' {
+        'FB-B','FB-C' | Get-PfbArrayConnectionPerformanceReplication -Array $fakeArray
+
+        Should -Invoke Invoke-PfbApiRequest -ModuleName PureStorageFlashBladePowerShell -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['remote_names'] -eq 'FB-B,FB-C'
+        }
+    }
+
+    It 'binds -RemoteName by property name from a user-built object' {
+        [pscustomobject]@{ RemoteName = 'FB-B' } | Get-PfbArrayConnectionPerformanceReplication -Array $fakeArray
+
+        Should -Invoke Invoke-PfbApiRequest -ModuleName PureStorageFlashBladePowerShell -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['remote_names'] -eq 'FB-B'
+        }
+    }
+
+    It 'binds by property name through the Name alias' {
+        [pscustomobject]@{ Name = 'FB-B' } | Get-PfbArrayConnectionPerformanceReplication -Array $fakeArray
+
+        Should -Invoke Invoke-PfbApiRequest -ModuleName PureStorageFlashBladePowerShell -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['remote_names'] -eq 'FB-B'
+        }
+    }
+
+    It 'does NOT coerce a piped object into -RemoteName (binding-order guard)' {
+        {
+            [PSCustomObject]@{
+                id     = '10314f42-aaaa'
+                status = 'connected'
+                remote = [PSCustomObject]@{ id = 'r-1'; name = 'FB-B' }
+            } | Get-PfbArrayConnectionPerformanceReplication -Array $fakeArray
+        } | Should -Throw -ExpectedMessage '*stringified object*'
+
+        # The throw is terminating, so the end block never runs and no request is issued at all.
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+    }
+
+    It 'keeps remote_names alongside the time-range keys' {
+        Get-PfbArrayConnectionPerformanceReplication -RemoteName 'FB-B' -Resolution 86400000 `
+            -StartTime 1609459200000 -Array $fakeArray
+
+        Should -Invoke Invoke-PfbApiRequest -ModuleName PureStorageFlashBladePowerShell -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['remote_names'] -eq 'FB-B' -and
+            $QueryParams['resolution'] -eq 86400000 -and $QueryParams['start_time'] -eq 1609459200000
+        }
+    }
 }

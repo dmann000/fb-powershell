@@ -4,18 +4,24 @@ function Update-PfbArrayConnection {
         Updates an existing array connection on a FlashBlade array.
     .DESCRIPTION
         The Update-PfbArrayConnection cmdlet modifies attributes of an existing replication
-        connection on the connected Pure Storage FlashBlade. The target connection can be
-        identified by name or ID. Common updates include changing replication addresses and
-        connection throttling settings. Supports pipeline input and ShouldProcess.
+        connection on the connected Everpure FlashBlade. Common updates include changing
+        replication addresses and connection throttling settings. Supports pipeline input and
+        ShouldProcess.
+
+        An array connection has no name of its own -- the API resource carries only an id. Its
+        human-readable identifier is the REMOTE array's name, so -RemoteName (aliased to -Name
+        for compatibility) is how you select one by name.
 
         The individual typed parameters and the raw -Attributes hashtable are mutually
         exclusive: they live in separate parameter sets, so PowerShell rejects a mixed
         invocation at bind time rather than letting -Attributes silently override an
         explicitly supplied value.
-    .PARAMETER Name
-        The name of the array connection to update. Accepts pipeline input by property name.
+    .PARAMETER RemoteName
+        The name of the REMOTE array whose connection to update. Aliased to -Name. Accepts
+        pipeline input by property name.
     .PARAMETER Id
-        The ID of the array connection to update.
+        The ID of the array connection to update. Accepts pipeline input by property name, so
+        connection objects from Get-PfbArrayConnection can be piped in directly.
     .PARAMETER ManagementAddress
         Management address of the target array.
     .PARAMETER ReplicationAddresses
@@ -33,76 +39,89 @@ function Update-PfbArrayConnection {
         The bandwidth throttling for the array connection, as a hashtable -- for example
         @{ default_limit = 1073741824 }.
     .PARAMETER RemoteId
-        Performs the operation on the array connection with the specified remote array ID.
-    .PARAMETER RemoteName
-        Performs the operation on the array connection with the specified remote array name.
+        Narrows the operation to the array connection with the specified remote array ID. This
+        is an additional filter, not a selector: it cannot be used on its own, so combine it
+        with -RemoteName or -Id. To select purely by remote array ID, filter client-side -- see
+        the last example.
     .PARAMETER Attributes
         A hashtable of array connection attributes to modify. Mutually exclusive with the
         individual typed parameters above.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
-        Update-PfbArrayConnection -Name "remote-fb-dc2" -Attributes @{ management_address = "10.0.2.101" }
+        Update-PfbArrayConnection -RemoteName "FB-B" -Attributes @{ management_address = "10.0.2.101" }
 
-        Updates the management address for the array connection named "remote-fb-dc2".
+        Updates the management address for the connection to the remote array named "FB-B".
     .EXAMPLE
-        Update-PfbArrayConnection -Name "remote-fb-dr" -Attributes @{ replication_addresses = @("10.0.3.101") }
+        Update-PfbArrayConnection -Id "10314f42-020d-7080-8013-000ddt400077" -ReplicationAddresses @("10.0.3.101")
 
-        Updates the replication address for the "remote-fb-dr" array connection.
+        Updates the replication address for the array connection identified by the specified ID.
     .EXAMPLE
-        Update-PfbArrayConnection -Id "10314f42-020d-7080-8013-000ddt400077" -Attributes @{ status = "connected" }
+        Update-PfbArrayConnection -RemoteName "FB-B" -ManagementAddress "10.0.2.101" -Encrypted $true
 
-        Updates the status of the array connection identified by the specified ID.
+        Updates the management address and encryption setting using typed parameters.
     .EXAMPLE
-        Update-PfbArrayConnection -Name "remote-fb-dc2" -ManagementAddress "10.0.2.101" -Encrypted $true -RemoteId "remote-1"
+        Get-PfbArrayConnection | Where-Object type -eq 'async-replication' |
+            Update-PfbArrayConnection -Throttle @{ default_limit = 1073741824 }
 
-        Updates the management address and encryption setting for "remote-fb-dc2" using typed
-        parameters, filtered to the connection whose remote array ID is "remote-1".
+        Throttles every asynchronous replication connection. The type filter is required, not
+        optional: fleet-management connections are managed by the system and reject writes.
+    .EXAMPLE
+        Get-PfbArrayConnection |
+            Where-Object { $_.remote.id -eq '10314f42-020d-7080-8013-000133810cd0' } |
+            Update-PfbArrayConnection -Throttle @{ default_limit = 1073741824 }
+
+        Selects a connection by the remote array's id. -RemoteId narrows a request that is
+        already scoped by -RemoteName or -Id; it cannot select on its own, so filter
+        client-side and let the connection's own id bind through the pipeline.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium',
-                   DefaultParameterSetName = 'ByNameIndividual')]
+                   DefaultParameterSetName = 'ByRemoteNameIndividual')]
     param(
-        [Parameter(ParameterSetName = 'ByNameIndividual', Mandatory, ValueFromPipelineByPropertyName)]
-        [Parameter(ParameterSetName = 'ByNameAttributes',  Mandatory, ValueFromPipelineByPropertyName)]
-        [string]$Name,
+        [Parameter(ParameterSetName = 'ByRemoteNameIndividual', Mandatory, ValueFromPipelineByPropertyName)]
+        [Parameter(ParameterSetName = 'ByRemoteNameAttributes',  Mandatory, ValueFromPipelineByPropertyName)]
+        [Alias('Name')]
+        [string]$RemoteName,
 
-        [Parameter(ParameterSetName = 'ByIdIndividual', Mandatory)]
-        [Parameter(ParameterSetName = 'ByIdAttributes',  Mandatory)]
+        [Parameter(ParameterSetName = 'ByIdIndividual', Mandatory, ValueFromPipelineByPropertyName)]
+        [Parameter(ParameterSetName = 'ByIdAttributes',  Mandatory, ValueFromPipelineByPropertyName)]
         [string]$Id,
 
-        [Parameter(ParameterSetName = 'ByNameIndividual')]
+        [Parameter(ParameterSetName = 'ByRemoteNameIndividual')]
         [Parameter(ParameterSetName = 'ByIdIndividual')]
         [string]$ManagementAddress,
 
-        [Parameter(ParameterSetName = 'ByNameIndividual')]
+        [Parameter(ParameterSetName = 'ByRemoteNameIndividual')]
         [Parameter(ParameterSetName = 'ByIdIndividual')]
         [string[]]$ReplicationAddresses,
 
-        [Parameter(ParameterSetName = 'ByNameIndividual')]
+        [Parameter(ParameterSetName = 'ByRemoteNameIndividual')]
         [Parameter(ParameterSetName = 'ByIdIndividual')]
         [string]$CaCertificateGroup,
 
-        [Parameter(ParameterSetName = 'ByNameIndividual')]
+        [Parameter(ParameterSetName = 'ByRemoteNameIndividual')]
         [Parameter(ParameterSetName = 'ByIdIndividual')]
         [Nullable[bool]]$Encrypted,
 
-        [Parameter(ParameterSetName = 'ByNameIndividual')]
+        [Parameter(ParameterSetName = 'ByRemoteNameIndividual')]
         [Parameter(ParameterSetName = 'ByIdIndividual')]
         [string]$Remote,
 
-        [Parameter(ParameterSetName = 'ByNameIndividual')]
+        [Parameter(ParameterSetName = 'ByRemoteNameIndividual')]
         [Parameter(ParameterSetName = 'ByIdIndividual')]
         [hashtable]$Throttle,
 
-        [Parameter(ParameterSetName = 'ByNameAttributes', Mandatory)]
+        [Parameter(ParameterSetName = 'ByRemoteNameAttributes', Mandatory)]
         [Parameter(ParameterSetName = 'ByIdAttributes',   Mandatory)]
         [hashtable]$Attributes,
 
-        # Constraint 17: remote_ids/remote_names are orthogonal query filters, not body fields,
-        # so they are declared bare rather than added to the Individual parameter sets -- they
-        # must stay usable alongside -Attributes.
+        # Constraint 17: remote_ids is an orthogonal query FILTER, not a body field and not a
+        # selector, so it is declared bare rather than added to the Individual parameter sets --
+        # it must stay usable alongside -Attributes. remote_names used to live here too, but
+        # issue #64 promoted it into the by-name parameter sets: an array connection has no name
+        # of its own, so the remote array's name IS the selector. remote_ids remains a filter
+        # that narrows an already-selected request; see the .PARAMETER RemoteId help.
         [Parameter()] [string]$RemoteId,
-        [Parameter()] [string]$RemoteName,
 
         [Parameter()] [PSCustomObject]$Array
     )
@@ -112,10 +131,9 @@ function Update-PfbArrayConnection {
 
     process {
         $queryParams = @{}
-        if ($Name) { $queryParams['names'] = $Name }
+        if ($RemoteName) { $queryParams['remote_names'] = $RemoteName }
         if ($Id) { $queryParams['ids'] = $Id }
-        if ($PSBoundParameters.ContainsKey('RemoteId'))   { $queryParams['remote_ids']   = $RemoteId }
-        if ($PSBoundParameters.ContainsKey('RemoteName')) { $queryParams['remote_names'] = $RemoteName }
+        if ($PSBoundParameters.ContainsKey('RemoteId')) { $queryParams['remote_ids'] = $RemoteId }
 
         if ($PSCmdlet.ParameterSetName -like '*Attributes') {
             $body = $Attributes
@@ -138,7 +156,7 @@ function Update-PfbArrayConnection {
             if ($PSBoundParameters.ContainsKey('Throttle'))           { $body['throttle'] = $Throttle }
         }
 
-        $target = if ($Name) { $Name } else { $Id }
+        $target = if ($RemoteName) { $RemoteName } else { $Id }
         if ($PSCmdlet.ShouldProcess($target, 'Update array connection')) {
             Invoke-PfbApiRequest -Array $Array -Method PATCH -Endpoint 'array-connections' -Body $body -QueryParams $queryParams
         }

@@ -559,8 +559,7 @@
       ],
       "missingQueryParameters": [
         "context_names",
-        "remote_ids",
-        "remote_names"
+        "remote_ids"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2301,8 +2300,7 @@
       "missingQueryParameters": [
         "allow_errors",
         "context_names",
-        "remote_ids",
-        "remote_names"
+        "remote_ids"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2341,8 +2339,7 @@
         "allow_errors",
         "context_names",
         "ids",
-        "remote_ids",
-        "remote_names"
+        "remote_ids"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2362,7 +2359,6 @@
       "missingQueryParameters": [
         "ids",
         "remote_ids",
-        "remote_names",
         "total_only"
       ],
       "missingBodyProperties": [],
@@ -14875,28 +14871,6 @@
       "annotations": []
     },
     {
-      "name": "remote_names",
-      "endpointCount": 13,
-      "queryEndpointCount": 13,
-      "bodyEndpointCount": 0,
-      "endpoints": [
-        "DELETE /array-connections",
-        "DELETE /file-system-replica-links/policies",
-        "DELETE /file-system-snapshots/transfer",
-        "DELETE /policies/file-system-replica-links",
-        "GET /array-connections",
-        "GET /array-connections/path",
-        "GET /array-connections/performance/replication",
-        "GET /bucket-replica-links",
-        "GET /file-system-replica-links",
-        "GET /file-system-replica-links/policies",
-        "GET /file-system-replica-links/transfer",
-        "GET /policies-all/members",
-        "GET /policies/file-system-replica-links"
-      ],
-      "annotations": []
-    },
-    {
       "name": "policy_names",
       "endpointCount": 11,
       "queryEndpointCount": 11,
@@ -14931,6 +14905,24 @@
         "GET /usage/groups",
         "GET /usage/users",
         "POST /quotas/groups"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "remote_names",
+      "endpointCount": 9,
+      "queryEndpointCount": 9,
+      "bodyEndpointCount": 0,
+      "endpoints": [
+        "DELETE /file-system-replica-links/policies",
+        "DELETE /file-system-snapshots/transfer",
+        "DELETE /policies/file-system-replica-links",
+        "GET /bucket-replica-links",
+        "GET /file-system-replica-links",
+        "GET /file-system-replica-links/policies",
+        "GET /file-system-replica-links/transfer",
+        "GET /policies-all/members",
+        "GET /policies/file-system-replica-links"
       ],
       "annotations": []
     },
@@ -17521,7 +17513,7 @@
   "conventionStrength": [
     {
       "name": "names",
-      "cmdletCount": 314,
+      "cmdletCount": 308,
       "cmdlets": [
         "Get-PfbActiveDirectory",
         "Get-PfbAdmin",
@@ -17530,10 +17522,7 @@
         "Get-PfbAlertWatcher",
         "Get-PfbApiClient",
         "Get-PfbApiToken",
-        "Get-PfbArrayConnection",
         "Get-PfbArrayConnectionKey",
-        "Get-PfbArrayConnectionPath",
-        "Get-PfbArrayConnectionPerformanceReplication",
         "Get-PfbAsyncLog",
         "Get-PfbAsyncLogDownload",
         "Get-PfbAudit",
@@ -17695,7 +17684,6 @@
         "Remove-PfbAlertWatcher",
         "Remove-PfbApiClient",
         "Remove-PfbApiToken",
-        "Remove-PfbArrayConnection",
         "Remove-PfbAuditFileSystemPolicy",
         "Remove-PfbAuditObjectStorePolicy",
         "Remove-PfbBucket",
@@ -17776,8 +17764,6 @@
         "Update-PfbAlert",
         "Update-PfbAlertWatcher",
         "Update-PfbApiClient",
-        "Update-PfbArrayConnection",
-        "Update-PfbAsyncLog",
         "Update-PfbAuditFileSystemPolicy",
         "Update-PfbAuditObjectStorePolicy",
         "Update-PfbBucket",
@@ -17841,7 +17827,7 @@
     },
     {
       "name": "ids",
-      "cmdletCount": 224,
+      "cmdletCount": 223,
       "cmdlets": [
         "Get-PfbAdmin",
         "Get-PfbAdminCache",
@@ -18015,7 +18001,6 @@
         "Update-PfbAlertWatcher",
         "Update-PfbApiClient",
         "Update-PfbArrayConnection",
-        "Update-PfbAsyncLog",
         "Update-PfbAuditFileSystemPolicy",
         "Update-PfbAuditObjectStorePolicy",
         "Update-PfbBucket",
@@ -19287,6 +19272,21 @@
       ]
     },
     {
+      "name": "remote_names",
+      "cmdletCount": 9,
+      "cmdlets": [
+        "Get-PfbArrayConnection",
+        "Get-PfbArrayConnectionPath",
+        "Get-PfbArrayConnectionPerformanceReplication",
+        "New-PfbFileSystemReplicaLink",
+        "New-PfbFileSystemReplicaLinkPolicy",
+        "New-PfbPolicyFileSystemReplicaLink",
+        "Remove-PfbArrayConnection",
+        "Remove-PfbFileSystemReplicaLink",
+        "Update-PfbArrayConnection"
+      ]
+    },
+    {
       "name": "location",
       "cmdletCount": 8,
       "cmdlets": [
@@ -19357,17 +19357,6 @@
         "New-PfbFileSystemReplicaLinkPolicy",
         "New-PfbPolicyFileSystemReplicaLink",
         "Remove-PfbFileSystemReplicaLink"
-      ]
-    },
-    {
-      "name": "remote_names",
-      "cmdletCount": 5,
-      "cmdlets": [
-        "New-PfbFileSystemReplicaLink",
-        "New-PfbFileSystemReplicaLinkPolicy",
-        "New-PfbPolicyFileSystemReplicaLink",
-        "Remove-PfbFileSystemReplicaLink",
-        "Update-PfbArrayConnection"
       ]
     },
     {

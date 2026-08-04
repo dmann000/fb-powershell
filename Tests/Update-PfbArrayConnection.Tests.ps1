@@ -17,18 +17,18 @@ Describe 'Update-PfbArrayConnection - typed body parameters (#31)' {
 
     Context 'typed parameters build the body' {
         It 'sends management_address as a body field' {
-            Update-PfbArrayConnection -Name 'remote-fb-dc2' -ManagementAddress '10.0.2.101' `
+            Update-PfbArrayConnection -RemoteName 'remote-fb-dc2' -ManagementAddress '10.0.2.101' `
                 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $Method -eq 'PATCH' -and $Endpoint -eq 'array-connections' -and
-                $QueryParams['names'] -eq 'remote-fb-dc2' -and
+                $QueryParams['remote_names'] -eq 'remote-fb-dc2' -and
                 $Body['management_address'] -eq '10.0.2.101'
             }
         }
 
         It 'sends replication_addresses as an array (constraint 7 shape 2)' {
-            Update-PfbArrayConnection -Name 'remote-fb-dr' -ReplicationAddresses '10.0.3.101','10.0.3.102' `
+            Update-PfbArrayConnection -RemoteName 'remote-fb-dr' -ReplicationAddresses '10.0.3.101','10.0.3.102' `
                 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
@@ -38,7 +38,7 @@ Describe 'Update-PfbArrayConnection - typed body parameters (#31)' {
         }
 
         It 'sends an EMPTY array for -ReplicationAddresses @() so the list can be cleared' {
-            Update-PfbArrayConnection -Name 'remote-fb-dr' -ReplicationAddresses @() `
+            Update-PfbArrayConnection -RemoteName 'remote-fb-dr' -ReplicationAddresses @() `
                 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
@@ -48,7 +48,7 @@ Describe 'Update-PfbArrayConnection - typed body parameters (#31)' {
         }
 
         It 'sends an explicit -Encrypted:$false (ContainsKey semantics, not truthiness)' {
-            Update-PfbArrayConnection -Name 'remote-fb-dc2' -Encrypted $false -Confirm:$false -Array $fakeArray
+            Update-PfbArrayConnection -RemoteName 'remote-fb-dc2' -Encrypted $false -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $Body.ContainsKey('encrypted') -and $Body['encrypted'] -eq $false
@@ -56,7 +56,7 @@ Describe 'Update-PfbArrayConnection - typed body parameters (#31)' {
         }
 
         It 'omits encrypted entirely when not supplied' {
-            Update-PfbArrayConnection -Name 'remote-fb-dc2' -ManagementAddress '10.0.2.101' `
+            Update-PfbArrayConnection -RemoteName 'remote-fb-dc2' -ManagementAddress '10.0.2.101' `
                 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
@@ -65,7 +65,7 @@ Describe 'Update-PfbArrayConnection - typed body parameters (#31)' {
         }
 
         It 'builds ca_certificate_group as a name-reference object (constraint 8a)' {
-            Update-PfbArrayConnection -Name 'remote-fb-dc2' -CaCertificateGroup 'my-certs' `
+            Update-PfbArrayConnection -RemoteName 'remote-fb-dc2' -CaCertificateGroup 'my-certs' `
                 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
@@ -74,7 +74,7 @@ Describe 'Update-PfbArrayConnection - typed body parameters (#31)' {
         }
 
         It 'builds remote as a name-reference object (constraint 8a)' {
-            Update-PfbArrayConnection -Name 'remote-fb-dc2' -Remote 'remote-fb' `
+            Update-PfbArrayConnection -RemoteName 'remote-fb-dc2' -Remote 'remote-fb' `
                 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
@@ -83,7 +83,7 @@ Describe 'Update-PfbArrayConnection - typed body parameters (#31)' {
         }
 
         It 'passes throttle straight through as a composite hashtable (constraint 8c)' {
-            Update-PfbArrayConnection -Name 'remote-fb-dc2' -Throttle @{ window_limit = 2097152 } `
+            Update-PfbArrayConnection -RemoteName 'remote-fb-dc2' -Throttle @{ window_limit = 2097152 } `
                 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
@@ -92,7 +92,7 @@ Describe 'Update-PfbArrayConnection - typed body parameters (#31)' {
         }
 
         It 'omits every body key when no typed body parameter is supplied' {
-            Update-PfbArrayConnection -Name 'remote-fb-dc2' -Confirm:$false -Array $fakeArray
+            Update-PfbArrayConnection -RemoteName 'remote-fb-dc2' -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $Body.Count -eq 0
@@ -110,7 +110,7 @@ Describe 'Update-PfbArrayConnection - typed body parameters (#31)' {
 
     Context 'new query parameters (constraint 17 -- declared bare, not in the Individual sets)' {
         It 'sends remote_ids as a bare query parameter alongside -Attributes' {
-            Update-PfbArrayConnection -Name 'remote-fb-dc2' -Attributes @{ management_address = '10.0.2.101' } `
+            Update-PfbArrayConnection -RemoteName 'remote-fb-dc2' -Attributes @{ management_address = '10.0.2.101' } `
                 -RemoteId 'remote-1' -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
@@ -118,27 +118,28 @@ Describe 'Update-PfbArrayConnection - typed body parameters (#31)' {
             }
         }
 
-        It 'sends remote_names as a bare query parameter alongside a typed parameter' {
-            Update-PfbArrayConnection -Name 'remote-fb-dc2' -ManagementAddress '10.0.2.101' `
-                -RemoteName 'remote-array' -Confirm:$false -Array $fakeArray
+        It 'still sends remote_ids alongside -RemoteName, which is now the selector' {
+            Update-PfbArrayConnection -RemoteName 'remote-fb-dc2' -ManagementAddress '10.0.2.101' `
+                -RemoteId 'remote-1' -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
-                $QueryParams['remote_names'] -eq 'remote-array'
+                $QueryParams['remote_names'] -eq 'remote-fb-dc2' -and
+                $QueryParams['remote_ids'] -eq 'remote-1'
             }
         }
 
-        It 'omits remote_ids/remote_names entirely when not supplied' {
-            Update-PfbArrayConnection -Name 'remote-fb-dc2' -Confirm:$false -Array $fakeArray
+        It 'omits remote_ids entirely when not supplied' {
+            Update-PfbArrayConnection -RemoteName 'remote-fb-dc2' -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
-                -not $QueryParams.ContainsKey('remote_ids') -and -not $QueryParams.ContainsKey('remote_names')
+                -not $QueryParams.ContainsKey('remote_ids')
             }
         }
     }
 
     Context '-Attributes remains supported and is mutually exclusive' {
         It 'still sends a raw -Attributes body' {
-            Update-PfbArrayConnection -Name 'remote-fb-dc2' -Attributes @{ management_address = '10.0.2.101' } `
+            Update-PfbArrayConnection -RemoteName 'remote-fb-dc2' -Attributes @{ management_address = '10.0.2.101' } `
                 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
@@ -147,7 +148,7 @@ Describe 'Update-PfbArrayConnection - typed body parameters (#31)' {
         }
 
         It 'rejects -Attributes combined with a typed parameter at bind time' {
-            { Update-PfbArrayConnection -Name 'remote-fb-dc2' -ManagementAddress '10.0.2.101' `
+            { Update-PfbArrayConnection -RemoteName 'remote-fb-dc2' -ManagementAddress '10.0.2.101' `
                 -Attributes @{ management_address = 'y' } -Confirm:$false -Array $fakeArray -ErrorAction Stop } |
                 Should -Throw -ExpectedMessage '*Parameter set cannot be resolved*'
         }
@@ -167,6 +168,91 @@ Describe 'Update-PfbArrayConnection - typed body parameters (#31)' {
             $attrs = (Get-Command Update-PfbArrayConnection).Parameters[$Parameter].Attributes
             @($attrs | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }).Count |
                 Should -Be 0
+        }
+    }
+
+    Context 'issue #64 -- the dead `names` key is gone' {
+        It 'sends remote_names, never names' {
+            Update-PfbArrayConnection -RemoteName 'FB-B' -ManagementAddress '10.0.2.101' `
+                -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $QueryParams['remote_names'] -eq 'FB-B' -and -not $QueryParams.ContainsKey('names')
+            }
+        }
+
+        It 'still binds -Name through the alias, and emits remote_names for it' {
+            Update-PfbArrayConnection -Name 'FB-B' -ManagementAddress '10.0.2.101' `
+                -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $QueryParams['remote_names'] -eq 'FB-B' -and -not $QueryParams.ContainsKey('names')
+            }
+        }
+
+        It 'declares Name as an alias of -RemoteName' {
+            (Get-Command Update-PfbArrayConnection).Parameters['RemoteName'].Aliases |
+                Should -Contain 'Name'
+        }
+
+        It 'no longer declares a -Name parameter of its own' {
+            (Get-Command Update-PfbArrayConnection).Parameters.Keys | Should -Not -Contain 'Name'
+        }
+    }
+
+    Context 'issue #64 -- pipeline binding by property name on -RemoteName' {
+        It 'binds -RemoteName by property name from a user-built object' {
+            [pscustomobject]@{ RemoteName = 'FB-B' } |
+                Update-PfbArrayConnection -Throttle @{ default_limit = 1073741824 } `
+                    -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $QueryParams['remote_names'] -eq 'FB-B' -and -not $QueryParams.ContainsKey('ids')
+            }
+        }
+
+        It 'binds by property name through the Name alias' {
+            [pscustomobject]@{ Name = 'FB-B' } |
+                Update-PfbArrayConnection -Throttle @{ default_limit = 1073741824 } `
+                    -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $QueryParams['remote_names'] -eq 'FB-B' -and -not $QueryParams.ContainsKey('ids')
+            }
+        }
+    }
+
+    Context 'issue #64 -- pipeline binding on -Id' {
+        It 'binds a piped connection object by id' {
+            [PSCustomObject]@{ id = 'conn-9' } |
+                Update-PfbArrayConnection -Throttle @{ default_limit = 1073741824 } `
+                    -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $QueryParams['ids'] -eq 'conn-9'
+            }
+        }
+
+        It 'does NOT coerce a piped object into -RemoteName (binding-order guard)' {
+            [PSCustomObject]@{ id = 'conn-9' } |
+                Update-PfbArrayConnection -Throttle @{ default_limit = 1073741824 } `
+                    -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                -not $QueryParams.ContainsKey('remote_names') -and
+                $QueryParams['ids'] -notlike '*@{*'
+            }
+        }
+
+        It 'processes each of several piped connections individually' {
+            @([PSCustomObject]@{ id = 'conn-1' }, [PSCustomObject]@{ id = 'conn-2' }) |
+                Update-PfbArrayConnection -Throttle @{ default_limit = 1 } `
+                    -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 2 -Exactly
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $QueryParams['ids'] -eq 'conn-2'
+            }
         }
     }
 }
