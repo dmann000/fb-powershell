@@ -19,8 +19,9 @@ function Get-PfbArrayConnection {
     .PARAMETER Filter
         A server-side filter expression to narrow results (e.g., "status='connected'").
     .PARAMETER Sort
-        Sort field and direction (e.g., "id" or "id-"). An array connection has no name field,
-        so "name" is not a valid sort field here -- use "id", "status" or "type".
+        Sort field and direction (e.g., "id" or "id-"). An array connection has no name field, so
+        "name" cannot sort it. The API publishes no enum of sortable fields -- use a field the
+        resource actually has, such as "id", "status" or "type".
     .PARAMETER Limit
         Maximum number of array connection entries to return.
     .PARAMETER Array
