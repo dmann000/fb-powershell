@@ -2,6 +2,55 @@
 
 All notable changes to `PureStorageFlashBladePowerShell` are documented in this file.
 
+## [2.3.0] - 2026-08-04
+
+Typed write-cmdlet parameters, new quota-policy cmdlets, and a batch of
+correctness fixes surfaced by an active field migration.
+
+### Added
+
+- Typed, validated body/query parameters for 56 `New-*`/`Update-*` write
+  cmdlets, previously reachable only via a raw `-Attributes` hashtable.
+  `-Attributes` is retained on every cmdlet, mutually exclusive with the new
+  typed parameters via parameter sets (#66, #31).
+- User and group quota-policy cmdlets (#68, #34).
+
+### Fixed
+
+- `-Limit` was ignored under AutoPaginate; centralized `-Filter`/`-Sort`/
+  `-Limit`/`-TotalOnly` handling across the `Get-Pfb*` surface, and an explicit
+  `-Limit 0` is now sent (#48/#30, #49/#32, #51/#33).
+- Array-connection cmdlets filtered on a dead `names` query key that the array
+  silently ignores, so `-Name` returned the full unfiltered set and a PATCH or
+  DELETE could fan out to every connection. They now use `remote_names`, the
+  real wire identifier (#91, #64).
+- `New-PfbFileSystemReplicaLink` could never suppress the remote default
+  exports; `-RemoteDefaultExports $false` now does (#93, #55).
+- `Set-PfbPresetWorkload` and `Set-PfbWorkloadTag` folded onto the shared
+  request path; a single workload tag now serializes as a JSON array, and both
+  now honor capability gating and bearer-token auth (#78/#76, #81/#77).
+- API error messages now include the HTTP status, e.g. `(HTTP 400)` (#92).
+
+### Changed
+
+- **Breaking.** `Update-PfbArrayConnection`: `-Name` is now an alias of
+  `-RemoteName`. Supplying both together is a bind error (previously the only
+  form that actually filtered); drop the redundant argument.
+- **Breaking.** `New-PfbFileSystemReplicaLink`: `-RemoteDefaultExports` changed
+  from `[switch]` to `[Nullable[bool]]`; the bare form now requires a value
+  (`-RemoteDefaultExports $true`).
+- **Breaking.** `Update-PfbAsyncLog`: removed `-Name`/`-Id` (`PATCH /logs-async`
+  has no selector query parameter; they never filtered).
+
+### Maintainer / tooling (no runtime impact)
+
+- Drift-report toolchain: per-parameter confidence, a response-shape drift axis,
+  a Fusion `context_names` cardinality check, canonical record ordering,
+  repo-relative paths, and the REST 2.28 capability map (#53, #60, #61, #62,
+  #67, #70, #73, #75, #86).
+- CI: survive PowerShell Gallery outages (pinned Pester 6.0.1 / Posh-SSH), and
+  gate gallery publish on the full cross-platform matrix (#54, #29, #19).
+
 ## [2.2.0] - 2026-07-22
 
 API version-awareness plus seven documented-but-unexposed query-parameter enums.
