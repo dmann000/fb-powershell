@@ -156,4 +156,32 @@ Describe 'Invoke-PfbApiRequest reconnect on session-token rejection' {
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Connect-PfbArrayInternal -Times 0
     }
+
+    It 'carries the HTTP status out of the reconnect-then-throw path, not just the direct one' {
+        # WHY SEPARATELY FROM Tests/ConvertTo-PfbApiError.Tests.ps1
+        #
+        # Invoke-PfbApiRequest has TWO throw sites that both call ConvertTo-PfbApiError, reached by
+        # different statuses. A 400 takes the plain else branch. A 401/403 on a reconnectable
+        # session goes through reconnect-and-retry first and, when the retry also fails, throws
+        # from inside that block instead -- where the ErrorRecord being formatted is the OUTER
+        # catch's original error, not the retry's.
+        #
+        # A live 400 against the lab array confirmed the direct branch end to end. The 403 branch
+        # could NOT be provoked live: the lab credential is a full array admin, so no read is
+        # refused. This pins the branch that live testing could not reach, and is mocked
+        # deliberately rather than presented as live evidence.
+        $array = New-TestConnection
+        Mock -ModuleName PureStorageFlashBladePowerShell Connect-PfbArrayInternal {
+            [PSCustomObject]@{ AuthToken = 'refreshed-token'; ConnectedAt = [datetime]::UtcNow }
+        }
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            throw (New-MockHttpError -StatusCode 403 -Message 'Access Denied')
+        } -ParameterFilter { $Uri -like '*file-systems*' }
+
+        {
+            InModuleScope PureStorageFlashBladePowerShell -Parameters @{ array = $array } {
+                Invoke-PfbApiRequest -Array $array -Method GET -Endpoint 'file-systems' | Out-Null
+            }
+        } | Should -Throw -ExpectedMessage '*(HTTP 403)*'
+    }
 }
