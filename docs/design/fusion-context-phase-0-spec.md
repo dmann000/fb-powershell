@@ -3,7 +3,13 @@
 Status: proposed
 Design doc: `docs/design/fusion-context-injection.md` (rev 4)
 Tracking: #25 (Fusion `context_names` injection), #74 (component-resolution move)
+Coordinates with: #84 (capability-map generator/schema tracker) — see item 2
 Branch: `feat/fusion-context-phase-0`
+
+> **One decision is required before implementation starts.** Item 2 needs
+> `Data/PfbCapabilityMap.json`'s `schemaVersion` bumped to 2, and so does issue #83. Tracking
+> issue #84 plans them as a single bump in a single PR. See "Coordination with #84" for the
+> three options and a recommendation.
 
 ---
 
@@ -132,9 +138,12 @@ interactive session that already has the module imported.
 - `Resolve-PfbParameterComponent` is reachable inside the module (`internal: True`).
 - `Get-PfbContextParameterFact` remains internal to `tools/` and is **not** exported.
 - `Tests/PfbContextRuleTools.Tests.ps1` (54 tests) stays green.
-- `Tests/Build-PfbApiDriftReport.Tests.ps1` (60 tests) stays green — including its check that
-  the committed `Reports/` artifacts still reproduce byte-for-byte. A behaviour change in
-  resolution would surface here as a report diff.
+- `Tests/Build-PfbApiDriftReport.Tests.ps1` (60 tests) stays green. Note what this does and does
+  not prove: its byte-identical assertions (`:351-391`) check **determinism across two runs on
+  the same synthetic fixtures**, not that the committed artifacts reproduce. The real-artifact
+  checks are a separate `Describe` that **skips gracefully when `tools/specs/` is absent** — and
+  `tools/specs/` is gitignored, so in a fresh worktree they silently do not run. Confirm they
+  actually executed rather than reading a green result as coverage.
 - New unit tests for the resolver covering all three steps, with **key-present-but-`null` and
   key-absent as separate explicit cases**. This is the regression the move exists to prevent;
   a test that only exercises "returns `$null`" does not distinguish them. Assert that a
@@ -221,9 +230,26 @@ default is not merely safe here, it is correct. Re-check when #38 lands.
 2. **`contextScope` becomes an additive per-endpoint field**, alongside `minVersion`,
    `parameters`, `bodyProperties`, `parameterComponentOverrides`. It records the value and its
    provenance (`declared` / `live-tested` / `unknown`).
-3. **Bump `schemaVersion` 1 -> 2** (`tools/Build-PfbCapabilityMap.ps1:317`). Additive changes
-   would not strictly require it, but `Get-PfbCapabilityMap` is the single gate every consumer
-   sees the map through, so the shape should not grow silently.
+3. **Bump `schemaVersion` 1 -> 2** (`tools/Build-PfbCapabilityMap.ps1:317`) — but see
+   "Coordination with #84" below, because this bump is **not this spec's to make alone.**
+
+   Two facts about `schemaVersion` that are easy to get wrong in both directions. It is
+   **per-artifact, not global**: five generators each write their own independent value, and all
+   five artifacts currently read `1`.
+
+   | Artifact | Generator |
+   |---|---|
+   | `Data/PfbCapabilityMap.json` | `tools/Build-PfbCapabilityMap.ps1:317` |
+   | `Data/PfbResponseShapeMap.json` | `tools/Build-PfbResponseShapeMap.ps1:173` |
+   | `Reports/PfbApiDriftReport.json` | `tools/Build-PfbApiDriftReport.ps1:637` |
+   | `Reports/PfbFieldCmdletMap.json` | `tools/Build-PfbFieldCmdletMap.ps1:98` |
+   | `Reports/PfbValueEnumMap.json` | `tools/Build-PfbValueEnumMap.ps1:153` |
+
+   So bumping the capability map's value does **not** implicate the other four. And **nothing
+   in `Private/` or `Public/` reads `schemaVersion` at all** (verified) — it is a label for
+   maintainers, not a migration gate. The bump is therefore nearly free, which is precisely why
+   it must not be spent carelessly: the cost of a bump is not compatibility, it is that two
+   pending changes needing "version 2" cannot both claim it independently.
 4. **The curated table lives in the generator**, not in `Private/`. Runtime code reads scope
    from the shipped map and nowhere else. A curated list consulted at runtime would be a
    second source of truth for the same fact — the exact failure mode #74 exists to fix.
@@ -237,6 +263,62 @@ default is not merely safe here, it is correct. Re-check when #38 lands.
 
 This rides the existing `.github/workflows/update-api-capability-map.yml`. One generator
 change, one schema bump, one test — no new pipeline.
+
+### Coordination with #84 — `contextScope` does not own `schemaVersion 2`
+
+**This is the part the design doc does not cover, because it is not a Fusion concern.**
+`Data/PfbCapabilityMap.json` was reopened as tracking issue **#84**, which coordinates four
+pending generator changes that converge on one tracked file and, for two of them, on one
+`schemaVersion` bump:
+
+| Issue | Change | Schema impact |
+|---|---|---|
+| #71 | `MaxDepth=8` truncation records 5 body fields one release too late | none |
+| #82 | Schema walk never descends through `items`, so all four array-bodied endpoints record `bodyProperties: {}` — 23 fields invisible | none |
+| #83 | Array-body cardinality (`minItems`/`maxItems`/`uniqueItems`) has nowhere to live | **needs `schemaVersion 2`** |
+| #25 | `contextScope` (this spec) | **needs `schemaVersion 2`** |
+
+#84's plan is **PR 1** = #71 + #82 (no schema change), then **PR 2** = #83 + `contextScope`,
+sharing a single bump. #83's title says "needs schemaVersion 2" outright.
+
+The hard constraint is not the version label — it is that **every one of these regenerates the
+same 632-endpoint generated artifact.** Two open PRs both touching `Data/PfbCapabilityMap.json`
+conflict on the artifact regardless of whether their generator changes touch the same code.
+(They largely do not: #83 lives in `Add-PfbSchemaPropertyNodes` in `tools/lib/PfbSpecTools.ps1`,
+walking request-body schemas, while `contextScope` reads operation-level `x-pure-*` extensions.)
+
+**#85 — the phantom-diff blocker — is now CLOSED**, so the sequencing hazard it created is
+gone. Previously, report generators emitted in filesystem-enumeration order, and regenerating on
+a Linux runner instead of a Windows workstation produced a 10,218-line diff in
+`Reports/PfbFieldCmdletMap.json` with zero semantic change. That would have buried this work.
+Note the capability map itself was never affected — `Build-PfbCapabilityMap.ps1` never walks
+`Public/`/`Private/`, and its spec enumeration is explicitly sorted — but Phase 0 regenerates
+the derived reports too, so it would have dragged the phantom diff along.
+
+**Decision required before implementation** (three options, and this spec does not pick one):
+
+1. **Sequence behind #84's PR 2.** Phase 0 drops the map work entirely and waits. Cleanest for
+   #84, but it makes Phase 0 — and therefore all of Phase 1 — blocked on unrelated generator
+   work with no timeline.
+2. **Phase 0 absorbs #83.** One PR, one bump, both fields. Matches #84's intent exactly and
+   removes the artifact conflict, at the cost of putting array-body cardinality work inside a
+   Fusion PR where a reviewer will not expect it.
+3. **Phase 0 takes `schemaVersion 2` and #83 takes 3.** Technically harmless, since nothing
+   reads the field. Contradicts #84's "one bump" intent and means two regenerations of the same
+   artifact in sequence, whichever order they land.
+
+Recommendation: **option 2** if #83 is small enough to review alongside, otherwise **option 3** —
+the "one bump" goal in #84 is bookkeeping tidiness, and it should not be what gates the Fusion
+work. What must not happen is Phase 0 silently claiming `schemaVersion 2` without #83 knowing,
+which is the default outcome if this is not decided.
+
+Also worth re-checking at implementation time: the regeneration path itself has been failing.
+`update-api-capability-map.yml` has failed on every run since 2026-07-24 at the final
+`Open pull request` step (`GitHub Actions is not permitted to create or approve pull requests`
+— a repo setting, not a code fault). Generation and tests pass and the branch is still
+force-pushed, so `origin/automated/update-api-capability-map` holds regenerations `main` has
+never received. **Check that branch before regenerating by hand**, or Phase 0 may re-derive work
+that already exists. Fixing the workflow needs repo-admin access.
 
 ### Drift test
 
@@ -257,9 +339,13 @@ A test asserting:
   (Note its 5.1 branch deliberately calls `ConvertFrom-Json` without `-Depth`, which does not
   exist before PS6 — do not "fix" that into a single call.)
 - `Tests/Build-PfbCapabilityMap.Tests.ps1` and `Tests/Get-PfbCapabilityMap.Tests.ps1` green.
-- `Tests/Build-PfbApiDriftReport.Tests.ps1` green, including byte-for-byte `Reports/`
-  reproduction. **If regenerating the map changes a tracked report, that is a finding to
-  explain, not a file to quietly re-baseline.**
+- `Tests/Build-PfbApiDriftReport.Tests.ps1` green. **There is no byte-identical regeneration
+  gate on the committed map** — `update-api-capability-map.yml` regenerates and opens a PR, it
+  does not fail on a diff. The actual enforcement is the "nothing vanishes" invariant in this
+  test file, and it is guarded on gitignored `tools/specs/`, so it skips in a fresh worktree.
+  Verify the specs directory is populated before treating a pass as meaningful.
+- If regenerating changes a tracked report, that is still a finding to explain rather than a file
+  to quietly re-baseline — but the guard rail is review, not CI.
 
 ---
 
@@ -439,9 +525,11 @@ Item 1 has no live surface — it is a refactor with no runtime caller until Pha
 
 | Risk | Handling |
 |---|---|
-| Regenerating the map perturbs a tracked `Reports/` artifact | The drift test catches it byte-for-byte. Explain any diff; do not re-baseline silently |
-| The resolver move changes resolution behaviour subtly | Covered by the explicit key-present-`null` vs key-absent tests, plus the `Reports/` reproduction check as an independent witness |
-| `schemaVersion` 2 breaks an unknown consumer | The field is additive and `Get-PfbCapabilityMap` is the only gate. In-repo consumers are enumerable; check them |
+| Regenerating the map perturbs a tracked `Reports/` artifact | No CI gate catches this byte-for-byte. Diff the regenerated artifacts by hand and explain any change; do not re-baseline silently |
+| The drift tests pass without running | They skip on gitignored `tools/specs/`. Confirm the directory is populated — it is in both Fusion worktrees (29 files) |
+| The resolver move changes resolution behaviour subtly | Covered by the explicit key-present-`null` vs key-absent tests. Note the `Reports/` reproduction check is **not** an independent witness here, contrary to how it is often cited |
+| **`schemaVersion 2` claimed twice** — by this spec and by #83 | The real risk, and the reason the "Coordination with #84" decision must be made first. Not a compatibility problem: nothing reads the field |
+| Regenerating by hand duplicates work already on `origin/automated/update-api-capability-map` | Check that branch first; its auto-PR step has been failing since 2026-07-24 |
 | Curated `contextScope` entries outlive the upstream fix | The drift test flags any curated entry that has gained an override |
 | Phase 1 needs a scope value Phase 0 marked `unknown` | `unknown` suppresses validation and leaves today's behaviour, so Phase 1 degrades rather than breaking. Adding an entry later is a generator-table edit plus a regenerate |
 
