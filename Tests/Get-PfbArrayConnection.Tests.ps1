@@ -85,6 +85,16 @@ Describe 'Get-PfbArrayConnection - selector query keys (#64)' {
         }
     }
 
+    It 'rejects a piped object that carries no id/name property instead of stringifying it' {
+        # -Id absorbs a real connection object at binding pass 2. An object without id, name or
+        # remoteName falls through to pass 3 and is ToString()-ed into -RemoteName, so the guard
+        # is reachable here too.
+        {
+            [PSCustomObject]@{ status = 'connected'; type = 'async-replication' } |
+                Get-PfbArrayConnection -Array $fakeArray
+        } | Should -Throw -ExpectedMessage '*stringified object*'
+    }
+
     It 'still routes filter/sort/limit through the common helper' {
         Get-PfbArrayConnection -Filter "status='connected'" -Sort 'id' -Limit 10 -Array $fakeArray
 

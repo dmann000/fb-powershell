@@ -60,7 +60,12 @@ function Get-PfbArrayConnection {
     }
 
     process {
-        if ($RemoteName) { foreach ($n in $RemoteName) { $allRemoteNames.Add($n) } }
+        if ($RemoteName) {
+            foreach ($n in $RemoteName) {
+                Assert-PfbRemoteNameNotCoerced -Value $n
+                $allRemoteNames.Add($n)
+            }
+        }
         if ($Id) { foreach ($i in $Id) { $allIds.Add($i) } }
     }
 

@@ -54,6 +54,7 @@ function Remove-PfbArrayConnection {
     }
 
     process {
+        if ($RemoteName) { Assert-PfbRemoteNameNotCoerced -Value $RemoteName }
         $target = if ($RemoteName) { $RemoteName } else { $Id }
         $queryParams = @{}
         if ($RemoteName) { $queryParams['remote_names'] = $RemoteName }
