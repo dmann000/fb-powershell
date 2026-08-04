@@ -313,6 +313,19 @@ function ConvertTo-PfbApiError {
     <#
     .SYNOPSIS
         Formats a FlashBlade API error into a readable message, preserving the original exception.
+    .DESCRIPTION
+        Includes the HTTP status as "(HTTP nnn)" whenever the failure actually reached the array
+        and came back with one.
+
+        This matters for anything that consumes these failures programmatically -- automated
+        tests, log analysis, retry logic -- because the status is what separates "the request was
+        malformed" (400) from "the credential lacks permission" (403) from "the endpoint does not
+        exist at this REST version" (404) from "transient, retry" (503). Those need different
+        responses, and the human-readable message alone frequently cannot distinguish them: a
+        FlashBlade 400 and 403 can both come back as nothing more specific than "Bad Request".
+
+        The status is only omitted when there genuinely is none to report -- a DNS failure,
+        connection timeout or rejected certificate never produced an HTTP response at all.
     #>
     [CmdletBinding()]
     param(
@@ -321,7 +334,28 @@ function ConvertTo-PfbApiError {
         [System.Management.Automation.ErrorRecord]$ErrorRecord
     )
 
-    $errorMessage = "FlashBlade API error on ${Method} ${Endpoint}: $($ErrorRecord.Exception.Message)"
+    # Read from the TRANSPORT layer, never from the error body's own "code" field. The two are
+    # not the same number: "code" is an application error code that sometimes coincides with the
+    # HTTP status (401, 403) and sometimes does not -- a write rejected for operating on the
+    # wrong array in a fleet returns code 13 inside an HTTP 400. Trusting "code" would therefore
+    # report a plausible but wrong status part of the time, which is worse than reporting none:
+    # a missing status reads as "unknown", a wrong one gets believed.
+    #
+    # Same access pattern as the reconnect gate above, which reads the status off the same
+    # exceptions in this same catch block.
+    $statusPart = ''
+    if ($ErrorRecord.Exception.Response) {
+        # HttpResponseException (PS 6+) and WebException (5.1) hold different response types but
+        # both expose .StatusCode as a System.Net.HttpStatusCode, which casts to int.
+        # Range-checked so a response object carrying no usable status contributes nothing
+        # rather than "(HTTP 0)".
+        $statusCode = [int]$ErrorRecord.Exception.Response.StatusCode
+        if ($statusCode -ge 100 -and $statusCode -le 599) {
+            $statusPart = " (HTTP $statusCode)"
+        }
+    }
+
+    $errorMessage = "FlashBlade API error on ${Method} ${Endpoint}${statusPart}: $($ErrorRecord.Exception.Message)"
     if ($ErrorRecord.ErrorDetails.Message) {
         try {
             $apiError = $ErrorRecord.ErrorDetails.Message | ConvertFrom-Json
@@ -331,7 +365,11 @@ function ConvertTo-PfbApiError {
             # if both are somehow present.
             $errorList = if ($apiError.errors) { $apiError.errors } else { $apiError.error }
             if ($errorList) {
-                $errorMessage = "FlashBlade API error: $($errorList[0].message)"
+                # $statusPart is repeated because this branch REPLACES the message above rather
+                # than extending it. Without it the status would be dropped from precisely the
+                # failures that returned a parseable body -- i.e. every deliberate API rejection,
+                # which is the case where knowing the status is most useful.
+                $errorMessage = "FlashBlade API error${statusPart}: $($errorList[0].message)"
             }
         }
         catch { }
