@@ -1,6 +1,6 @@
 @{
     RootModule        = 'PureStorageFlashBladePowerShell.psm1'
-    ModuleVersion     = '2.2.0'
+    ModuleVersion     = '2.3.0'
     GUID              = 'b25473b3-9eb7-414d-8da1-264e10f73d86'
     Author            = 'Pure Storage, Inc.'
     CompanyName       = 'Pure Storage, Inc.'
@@ -568,6 +568,19 @@
             LicenseUri   = 'https://github.com/PureStorage-OpenConnect/flashblade-powershell/blob/main/LICENSE'
             # ReleaseNotes carries only the latest-version highlight; full history is in CHANGELOG.md.
             ReleaseNotes = @'
+v2.3.0 - Typed write-cmdlet parameters + field-migration correctness fixes.
+  56 New-*/Update-* write cmdlets gain typed, validated parameters for documented body/
+  query fields previously reachable only via a raw -Attributes hashtable (-Attributes
+  retained, mutually exclusive via parameter sets). Adds user/group quota-policy cmdlets.
+  Fixes: array-connection cmdlets now filter on remote_names (the real wire key) instead
+  of a dead 'names' key that returned the full set and could fan a PATCH/DELETE out to
+  every connection; New-PfbFileSystemReplicaLink -RemoteDefaultExports $false can now
+  suppress remote default exports; -Limit honored under AutoPaginate; API errors now
+  include the HTTP status. Breaking: Update-PfbArrayConnection -Name is now an alias of
+  -RemoteName (both together is a bind error); New-PfbFileSystemReplicaLink
+  -RemoteDefaultExports is now [Nullable[bool]] and the bare form needs a value;
+  Update-PfbAsyncLog drops -Name/-Id (the endpoint has no selector).
+
 v2.2.0 - API version-awareness + feature-gap parameters.
   Adds a generated capability map of every FlashBlade REST endpoint/parameter/field to
   the API version that introduced it, and a fail-fast runtime check that rejects a call
