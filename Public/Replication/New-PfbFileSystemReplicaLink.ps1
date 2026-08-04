@@ -23,7 +23,13 @@ function New-PfbFileSystemReplicaLink {
         Name of the target file system on the remote array. If omitted, the FlashBlade
         will name it after the local file system.
     .PARAMETER RemoteDefaultExports
-        If true, create default NFS/SMB exports on the remote file system after replication.
+        Controls whether default NFS/SMB exports are created on the remote file system after
+        replication. Tri-state:
+          - omitted: the array's own default is used (the FlashBlade creates default exports),
+          - $true:   explicitly create default exports on the remote,
+          - $false:  suppress the default exports so the remote file system has none.
+        Pass -RemoteDefaultExports $false to keep replica file systems export-free (previously
+        impossible: this was a [switch] that could only ever request 'true').
     .PARAMETER Array
         FlashBlade connection (the source/local array).
     .EXAMPLE
@@ -49,7 +55,7 @@ function New-PfbFileSystemReplicaLink {
         [string]$RemoteFileSystemName,
 
         [Parameter()]
-        [switch]$RemoteDefaultExports,
+        [Nullable[bool]]$RemoteDefaultExports,
 
         [Parameter()]
         [PSCustomObject]$Array
@@ -62,7 +68,11 @@ function New-PfbFileSystemReplicaLink {
         'remote_names'            = $RemoteArrayName
     }
     if ($RemoteFileSystemName)   { $queryParams['remote_file_system_names'] = $RemoteFileSystemName }
-    if ($RemoteDefaultExports)   { $queryParams['remote_default_exports']    = 'true' }
+    # Send only when the caller bound it, so an omitted value defers to the array default.
+    # $false must reach the wire to suppress the exports, so guard on presence not truthiness.
+    if ($PSBoundParameters.ContainsKey('RemoteDefaultExports')) {
+        $queryParams['remote_default_exports'] = if ($RemoteDefaultExports) { 'true' } else { 'false' }
+    }
 
     # POST /file-system-replica-links requires a body even if empty
     $body = @{}
