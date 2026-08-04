@@ -15,7 +15,8 @@ function Get-PfbArrayConnectionPath {
     .PARAMETER Filter
         A server-side filter expression to narrow results.
     .PARAMETER Sort
-        Sort field and direction (e.g., "name" or "name-").
+        Sort field and direction (e.g., "id" or "id-"). An array connection path has no name
+        field, so "name" is not a valid sort field here -- use "id", "status" or "type".
     .PARAMETER Limit
         Maximum number of entries to return.
     .PARAMETER Array

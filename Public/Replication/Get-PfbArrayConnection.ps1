@@ -19,7 +19,8 @@ function Get-PfbArrayConnection {
     .PARAMETER Filter
         A server-side filter expression to narrow results (e.g., "status='connected'").
     .PARAMETER Sort
-        Sort field and direction (e.g., "name" or "name-").
+        Sort field and direction (e.g., "id" or "id-"). An array connection has no name field,
+        so "name" is not a valid sort field here -- use "id", "status" or "type".
     .PARAMETER Limit
         Maximum number of array connection entries to return.
     .PARAMETER Array
@@ -38,9 +39,9 @@ function Get-PfbArrayConnection {
         Retrieves only the asynchronous replication connections, excluding the
         system-managed fleet-management ones.
     .EXAMPLE
-        Get-PfbArrayConnection -Filter "status='connected'" -Sort "name" -Limit 10
+        Get-PfbArrayConnection -Filter "status='connected'" -Sort "id" -Limit 10
 
-        Retrieves up to 10 connected array connections sorted by name.
+        Retrieves up to 10 connected array connections sorted by id.
     #>
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param(

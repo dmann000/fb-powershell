@@ -86,11 +86,11 @@ Describe 'Get-PfbArrayConnection - selector query keys (#64)' {
     }
 
     It 'still routes filter/sort/limit through the common helper' {
-        Get-PfbArrayConnection -Filter "status='connected'" -Sort 'name' -Limit 10 -Array $fakeArray
+        Get-PfbArrayConnection -Filter "status='connected'" -Sort 'id' -Limit 10 -Array $fakeArray
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
             $QueryParams['filter'] -eq "status='connected'" -and
-            $QueryParams['sort'] -eq 'name' -and $QueryParams['limit'] -eq 10
+            $QueryParams['sort'] -eq 'id' -and $QueryParams['limit'] -eq 10
         }
     }
 
