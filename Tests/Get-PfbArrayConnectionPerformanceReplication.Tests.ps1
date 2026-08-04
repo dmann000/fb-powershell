@@ -62,6 +62,22 @@ Describe 'Get-PfbArrayConnectionPerformanceReplication' {
         }
     }
 
+    It 'binds -RemoteName by property name from a user-built object' {
+        [pscustomobject]@{ RemoteName = 'FB-B' } | Get-PfbArrayConnectionPerformanceReplication -Array $fakeArray
+
+        Should -Invoke Invoke-PfbApiRequest -ModuleName PureStorageFlashBladePowerShell -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['remote_names'] -eq 'FB-B'
+        }
+    }
+
+    It 'binds by property name through the Name alias' {
+        [pscustomobject]@{ Name = 'FB-B' } | Get-PfbArrayConnectionPerformanceReplication -Array $fakeArray
+
+        Should -Invoke Invoke-PfbApiRequest -ModuleName PureStorageFlashBladePowerShell -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['remote_names'] -eq 'FB-B'
+        }
+    }
+
     It 'does NOT coerce a piped object into -RemoteName (binding-order guard)' {
         $global:pfbCapturedRemoteNames = $null
         Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest {

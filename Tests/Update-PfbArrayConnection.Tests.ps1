@@ -200,6 +200,28 @@ Describe 'Update-PfbArrayConnection - typed body parameters (#31)' {
         }
     }
 
+    Context 'issue #64 -- pipeline binding by property name on -RemoteName' {
+        It 'binds -RemoteName by property name from a user-built object' {
+            [pscustomobject]@{ RemoteName = 'FB-B' } |
+                Update-PfbArrayConnection -Throttle @{ default_limit = 1073741824 } `
+                    -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $QueryParams['remote_names'] -eq 'FB-B' -and -not $QueryParams.ContainsKey('ids')
+            }
+        }
+
+        It 'binds by property name through the Name alias' {
+            [pscustomobject]@{ Name = 'FB-B' } |
+                Update-PfbArrayConnection -Throttle @{ default_limit = 1073741824 } `
+                    -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $QueryParams['remote_names'] -eq 'FB-B' -and -not $QueryParams.ContainsKey('ids')
+            }
+        }
+    }
+
     Context 'issue #64 -- pipeline binding on -Id' {
         It 'binds a piped connection object by id' {
             [PSCustomObject]@{ id = 'conn-9' } |

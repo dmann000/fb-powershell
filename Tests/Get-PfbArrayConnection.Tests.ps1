@@ -69,6 +69,22 @@ Describe 'Get-PfbArrayConnection - selector query keys (#64)' {
         }
     }
 
+    It 'binds -RemoteName by property name from a user-built object' {
+        [pscustomobject]@{ RemoteName = 'FB-B' } | Get-PfbArrayConnection -Array $fakeArray
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['remote_names'] -eq 'FB-B' -and -not $QueryParams.ContainsKey('ids')
+        }
+    }
+
+    It 'binds by property name through the Name alias' {
+        [pscustomobject]@{ Name = 'FB-B' } | Get-PfbArrayConnection -Array $fakeArray
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['remote_names'] -eq 'FB-B' -and -not $QueryParams.ContainsKey('ids')
+        }
+    }
+
     It 'still routes filter/sort/limit through the common helper' {
         Get-PfbArrayConnection -Filter "status='connected'" -Sort 'name' -Limit 10 -Array $fakeArray
 
