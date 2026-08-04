@@ -54,6 +54,33 @@ Describe 'Get-PfbArrayConnectionPerformanceReplication' {
         }
     }
 
+    It 'accumulates remote names piped by value into a single comma-joined key' {
+        'FB-B','FB-C' | Get-PfbArrayConnectionPerformanceReplication -Array $fakeArray
+
+        Should -Invoke Invoke-PfbApiRequest -ModuleName PureStorageFlashBladePowerShell -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['remote_names'] -eq 'FB-B,FB-C'
+        }
+    }
+
+    It 'does NOT coerce a piped object into -RemoteName (binding-order guard)' {
+        $global:pfbCapturedRemoteNames = $null
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest {
+            $global:pfbCapturedRemoteNames = $QueryParams['remote_names']
+        }
+
+        {
+            [PSCustomObject]@{
+                id     = '10314f42-aaaa'
+                status = 'connected'
+                remote = [PSCustomObject]@{ id = 'r-1'; name = 'FB-B' }
+            } | Get-PfbArrayConnectionPerformanceReplication -Array $fakeArray
+        } | Should -Throw -ExpectedMessage '*stringified object*'
+
+        $captured = $global:pfbCapturedRemoteNames
+        Remove-Variable -Name pfbCapturedRemoteNames -Scope Global -ErrorAction SilentlyContinue
+        $captured | Should -Not -BeLike '*@{*' -Because 'a whole piped object must not be stringified onto the remote_names filter'
+    }
+
     It 'keeps remote_names alongside the time-range keys' {
         Get-PfbArrayConnectionPerformanceReplication -RemoteName 'FB-B' -Resolution 86400000 `
             -StartTime 1609459200000 -Array $fakeArray

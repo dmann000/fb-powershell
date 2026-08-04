@@ -63,7 +63,14 @@ function Get-PfbArrayConnectionPerformanceReplication {
     }
 
     process {
-        if ($RemoteName) { foreach ($n in $RemoteName) { $allRemoteNames.Add($n) } }
+        if ($RemoteName) {
+            foreach ($n in $RemoteName) {
+                # No -Id parameter here either, so a piped object coerces into -RemoteName --
+                # see Get-PfbArrayConnectionPath.ps1 for the binding-pass explanation.
+                Assert-PfbRemoteNameNotCoerced -Value $n
+                $allRemoteNames.Add($n)
+            }
+        }
     }
 
     end {

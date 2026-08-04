@@ -48,7 +48,16 @@ function Get-PfbArrayConnectionPath {
     }
 
     process {
-        if ($RemoteName) { foreach ($n in $RemoteName) { $allRemoteNames.Add($n) } }
+        if ($RemoteName) {
+            foreach ($n in $RemoteName) {
+                # This cmdlet has no -Id parameter, so a piped array-connection object falls
+                # through PowerShell's ByValue-with-coercion pass and gets ToString()-ed into
+                # -RemoteName (issue #64 follow-up). Fail here with an actionable message rather
+                # than sending remote_names=@{...} and letting the array reject it.
+                Assert-PfbRemoteNameNotCoerced -Value $n
+                $allRemoteNames.Add($n)
+            }
+        }
     }
 
     end {
