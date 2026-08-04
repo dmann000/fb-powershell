@@ -62,12 +62,40 @@ Describe 'Remove-PfbArrayConnection - selector query keys (#64)' {
         }
     }
 
+    It 'binds -RemoteName by property name from a user-built object' {
+        [pscustomobject]@{ RemoteName = 'FB-B' } |
+            Remove-PfbArrayConnection -Confirm:$false -Array $fakeArray
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['remote_names'] -eq 'FB-B' -and -not $QueryParams.ContainsKey('ids')
+        }
+    }
+
+    It 'binds by property name through the Name alias' {
+        [pscustomobject]@{ Name = 'FB-B' } |
+            Remove-PfbArrayConnection -Confirm:$false -Array $fakeArray
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['remote_names'] -eq 'FB-B' -and -not $QueryParams.ContainsKey('ids')
+        }
+    }
+
     It 'still accepts a bare remote name piped by value' {
         'FB-B' | Remove-PfbArrayConnection -Confirm:$false -Array $fakeArray
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
             $QueryParams['remote_names'] -eq 'FB-B'
         }
+    }
+
+    It 'rejects a piped object that carries no id/name property instead of stringifying it' {
+        # -Id absorbs a real connection object at binding pass 2. An object without id, name or
+        # remoteName falls through to pass 3 and is ToString()-ed into -RemoteName, so the guard
+        # is reachable here too -- and this cmdlet is a DELETE.
+        {
+            [PSCustomObject]@{ status = 'connected'; type = 'async-replication' } |
+                Remove-PfbArrayConnection -Confirm:$false -Array $fakeArray
+        } | Should -Throw -ExpectedMessage '*stringified object*'
     }
 
     It 'makes no API call when ShouldProcess is declined via -WhatIf' {

@@ -61,11 +61,6 @@ Describe 'Get-PfbArrayConnectionPath - selector query keys (#64)' {
     }
 
     It 'does NOT coerce a piped object into -RemoteName (binding-order guard)' {
-        $global:pfbCapturedRemoteNames = $null
-        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest {
-            $global:pfbCapturedRemoteNames = $QueryParams['remote_names']
-        }
-
         {
             [PSCustomObject]@{
                 id     = '10314f42-aaaa'
@@ -74,9 +69,8 @@ Describe 'Get-PfbArrayConnectionPath - selector query keys (#64)' {
             } | Get-PfbArrayConnectionPath -Array $fakeArray
         } | Should -Throw -ExpectedMessage '*stringified object*'
 
-        $captured = $global:pfbCapturedRemoteNames
-        Remove-Variable -Name pfbCapturedRemoteNames -Scope Global -ErrorAction SilentlyContinue
-        $captured | Should -Not -BeLike '*@{*' -Because 'a whole piped object must not be stringified onto the remote_names filter'
+        # The throw is terminating, so the end block never runs and no request is issued at all.
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
     }
 
     It 'still routes filter/sort/limit through the common helper' {
