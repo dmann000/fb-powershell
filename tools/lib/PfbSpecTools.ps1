@@ -885,9 +885,11 @@ function Get-PfbSpecContextScope {
             # Empty array, not $null, when absent: the generator's scope decision tests
             # .Count, and a $null would make "absent" and "declared empty" both crash or
             # both look like zero depending on the call site.
-            $domains = @()
+            # [string[]] rather than a bare @(): the .OUTPUTS contract promises string[], and
+            # a bare @() yields Object[]. Coercing here makes the declared type true.
+            $domains = [string[]]@()
             if (($opKeys -contains $overrideKey) -and $null -ne $op.$overrideKey) {
-                $domains = @($op.$overrideKey)
+                $domains = [string[]]@($op.$overrideKey)
             }
 
             $upperMethod = $methodName.ToUpperInvariant()

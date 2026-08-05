@@ -634,3 +634,95 @@ Describe 'Real committed capability map (skips gracefully if not yet generated)'
         $missing | Should -BeNullOrEmpty -Because "these endpoints exist in the newest spec but are missing from the manifest: $($missing -join ', ')"
     }
 }
+
+Describe 'Build-PfbCapabilityMap: contextScope' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+
+    BeforeAll {
+        $script:csRepoRoot = Split-Path -Parent $PSScriptRoot
+        $script:csSpecDir = Join-Path $TestDrive 'cs-specs'
+        New-Item -ItemType Directory -Path $script:csSpecDir -Force | Out-Null
+
+        # One spec version is enough: contextScope is deliberately NOT version-gated.
+        @'
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/2.28/presets/workload": {
+      "get": {
+        "x-pure-remote-execution-context-domains-override": ["ARRAY", "FLEET"],
+        "responses": { "200": { "description": "ok" } }
+      },
+      "put": {
+        "x-pure-remote-execution-context-domains-override": ["FLEET"],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/api/2.28/topology-groups": {
+      "get": { "x-pure-incomplete-gre": true, "responses": { "200": { "description": "ok" } } }
+    },
+    "/api/2.28/workloads/tags": {
+      "get": { "x-pure-incomplete-gre": true, "responses": { "200": { "description": "ok" } } }
+    },
+    "/api/2.28/some-uncurated-thing": {
+      "get": { "x-pure-incomplete-gre": true, "responses": { "200": { "description": "ok" } } }
+    },
+    "/api/2.28/file-systems": {
+      "get": { "responses": { "200": { "description": "ok" } } }
+    }
+  }
+}
+'@ | Set-Content -Path (Join-Path $script:csSpecDir 'fb2.28.json') -Encoding UTF8
+
+        $script:csOut = Join-Path $TestDrive 'cs-map.json'
+        & (Join-Path $script:csRepoRoot 'tools/Build-PfbCapabilityMap.ps1') `
+            -SpecsDirectory $script:csSpecDir -OutputPath $script:csOut | Out-Null
+        $script:csMap = Get-Content -Path $script:csOut -Raw | ConvertFrom-Json -Depth 20
+    }
+
+    It 'bumps schemaVersion to 2' {
+        $script:csMap.schemaVersion | Should -Be 2
+    }
+
+    It 'gives EVERY endpoint a contextScope with both scope and provenance' {
+        foreach ($key in $script:csMap.endpoints.PSObject.Properties.Name) {
+            $cs = $script:csMap.endpoints.$key.contextScope
+            $cs | Should -Not -BeNullOrEmpty -Because "$key must carry contextScope"
+            $cs.scope      | Should -BeIn @('fleet', 'array', 'unknown') -Because "$key scope"
+            $cs.provenance | Should -BeIn @('declared', 'live-tested', 'unknown', 'default') -Because "$key provenance"
+        }
+    }
+
+    It 'trusts a declared override: ARRAY+FLEET is array-scoped, FLEET-only is fleet-scoped' {
+        $get = $script:csMap.endpoints.'GET /presets/workload'.contextScope
+        $get.scope      | Should -Be 'array'
+        $get.provenance | Should -Be 'declared'
+
+        $put = $script:csMap.endpoints.'PUT /presets/workload'.contextScope
+        $put.scope      | Should -Be 'fleet'
+        $put.provenance | Should -Be 'declared'
+    }
+
+    It 'applies the curated value for a flagged, curated endpoint' {
+        $tg = $script:csMap.endpoints.'GET /topology-groups'.contextScope
+        $tg.scope      | Should -Be 'fleet'
+        $tg.provenance | Should -Be 'live-tested'
+
+        $wt = $script:csMap.endpoints.'GET /workloads/tags'.contextScope
+        $wt.scope      | Should -Be 'array'
+        $wt.provenance | Should -Be 'live-tested'
+    }
+
+    It 'records unknown for a flagged endpoint with no curated entry -- NOT the array default' {
+        # This is the fail-safe half: a flagged endpoint's ABSENT override carries no
+        # information, so defaulting it to array would assert something unevidenced.
+        $cs = $script:csMap.endpoints.'GET /some-uncurated-thing'.contextScope
+        $cs.scope      | Should -Be 'unknown'
+        $cs.provenance | Should -Be 'unknown'
+    }
+
+    It 'defaults an unflagged, unannotated endpoint to array' {
+        $cs = $script:csMap.endpoints.'GET /file-systems'.contextScope
+        $cs.scope      | Should -Be 'array'
+        $cs.provenance | Should -Be 'default'
+    }
+}
