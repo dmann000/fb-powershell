@@ -5,8 +5,11 @@ BeforeAll {
     . (Join-Path $script:repoRoot 'tools/lib/PfbSpecTools.ps1')
 }
 
-Describe 'Get-PfbSpecContextScope (synthetic spec)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+Describe 'Get-PfbSpecContextScope (synthetic spec)' {
 
+    # No edition guard: Get-PfbSpecContextScope is a pure PSObject walk with no pwsh-7
+    # dependency, and these fixtures are shallow enough that Windows PowerShell 5.1's
+    # ConvertFrom-Json parses them without -Depth (which it does not support).
     BeforeAll {
         $script:syntheticSpec = @'
 {
@@ -34,12 +37,24 @@ Describe 'Get-PfbSpecContextScope (synthetic spec)' -Skip:($PSVersionTable.PSVer
         "responses": { "200": { "description": "ok" } }
       }
     },
+    "/api/2.28/hardware": {
+      "get": {
+        "x-pure-incomplete-gre": false,
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/api/2.28/alerts": {
+      "get": {
+        "x-pure-block-remote-execution": false,
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
     "/api/2.28/file-systems": {
       "get": { "responses": { "200": { "description": "ok" } } }
     }
   }
 }
-'@ | ConvertFrom-Json -Depth 32
+'@ | ConvertFrom-Json
 
         $script:records = @(Get-PfbSpecContextScope -Spec $script:syntheticSpec)
         $script:byEndpoint = @{}
@@ -47,7 +62,7 @@ Describe 'Get-PfbSpecContextScope (synthetic spec)' -Skip:($PSVersionTable.PSVer
     }
 
     It 'emits one record per operation, sorted by endpoint key' {
-        $script:records.Count | Should -Be 5
+        $script:records.Count | Should -Be 7
         $sorted = @($script:records | ForEach-Object { $_.Endpoint } | Sort-Object)
         @($script:records | ForEach-Object { $_.Endpoint }) | Should -Be $sorted
     }
@@ -85,6 +100,15 @@ Describe 'Get-PfbSpecContextScope (synthetic spec)' -Skip:($PSVersionTable.PSVer
         $script:byEndpoint['GET /file-systems'].BlocksRemoteExec | Should -BeFalse
     }
 
+    It 'reads the VALUE of both flags, not merely the presence of the key' {
+        # Upstream emits these only as literal true today, so key-presence alone happens to
+        # give the right answer and a presence-only implementation survives every other
+        # assertion here. An explicit false must still resolve to false, or an endpoint
+        # upstream has deliberately UN-flagged would be forced to unknown/unknown.
+        $script:byEndpoint['GET /hardware'].IsIncompleteGre | Should -BeFalse -Because 'x-pure-incomplete-gre is present but false'
+        $script:byEndpoint['GET /alerts'].BlocksRemoteExec  | Should -BeFalse -Because 'x-pure-block-remote-execution is present but false'
+    }
+
     It 'returns an empty collection for a spec with no paths' {
         $empty = '{ "openapi": "3.0.0" }' | ConvertFrom-Json
         @(Get-PfbSpecContextScope -Spec $empty).Count | Should -Be 0
@@ -95,11 +119,13 @@ Describe 'Get-PfbSpecContextScope (synthetic spec)' -Skip:($PSVersionTable.PSVer
 { "openapi": "3.0.0", "paths": { "/api/2.28/x": {
     "parameters": [ { "name": "ignored" } ],
     "get": { "responses": { "200": { "description": "ok" } } } } } }
-'@ | ConvertFrom-Json -Depth 32
+'@ | ConvertFrom-Json
         @(Get-PfbSpecContextScope -Spec $withParams).Count | Should -Be 1
     }
 }
 
+# Edition guard is load-bearing here and must stay: the real fb2.28 spec needs
+# ConvertFrom-Json -Depth 64 to parse, and -Depth does not exist before PowerShell 6.2.
 Describe 'Get-PfbSpecContextScope (real fb2.28 spec, skips gracefully if absent)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
 
     BeforeAll {
