@@ -208,6 +208,7 @@
         'Get-PfbUsageUser',
         'Get-PfbWormPolicy',
         'Get-PfbWormPolicyMember',
+        'Invoke-PfbInContext',
         'Invoke-PfbNetworkPing',
         'Invoke-PfbNetworkTrace',
         'New-PfbActiveDirectory',

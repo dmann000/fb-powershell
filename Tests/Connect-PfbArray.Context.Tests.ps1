@@ -124,6 +124,22 @@ Describe 'Connect-PfbArray -Context behaviour' {
         Mock -ModuleName PureStorageFlashBladePowerShell Get-PfbCapabilityMap {
             [PSCustomObject]@{ schemaVersion = 2; generatedFrom = @('2.0', '2.26') }
         }
+
+        # A successful mocked connect repoints $script:PfbDefaultArray and
+        # $script:PfbArrays['fb.test'] at a fake connection. Without a restore, that state
+        # outlives this file and is available to poison any later one, so it is captured here
+        # and restored in AfterEach for every test in this block.
+        $script:originalState = InModuleScope PureStorageFlashBladePowerShell {
+            @{ Arrays = $script:PfbArrays; Default = $script:PfbDefaultArray }
+        }
+    }
+
+    AfterEach {
+        # param()-passed restore: .GetNewClosure() against a module scope fails under StrictMode
+        # and silently leaks state.
+        InModuleScope PureStorageFlashBladePowerShell -Parameters @{ state = $script:originalState } {
+            & { param($a, $d) $script:PfbArrays = $a; $script:PfbDefaultArray = $d } $state.Arrays $state.Default
+        }
     }
 
     It 'exposes the three context state properties on the connection object' {
@@ -160,6 +176,9 @@ Describe 'Connect-PfbArray -Context behaviour' {
         $conn = Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake'
         # -BeNullOrEmpty cannot tell $null (unset) from @() (explicit no-context); that
         # distinction is the whole point of the tri-state, so test the reference directly.
+        # Guard against passing vacuously: without this, a Connect-PfbArray that returned
+        # nothing at all would satisfy every assertion below.
+        $null -ne $conn | Should -BeTrue
         $null -eq $conn.DefaultContext | Should -BeTrue
         $null -eq $conn.ContextOverride | Should -BeTrue
         $null -eq $conn.AuthorizationModel | Should -BeTrue
