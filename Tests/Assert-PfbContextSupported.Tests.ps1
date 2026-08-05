@@ -119,3 +119,33 @@ Describe 'Assert-PfbContextCapability' {
         }
     }
 }
+
+# Same It-level InModuleScope rule as above: New-PfbContext, Get-PfbCapabilityMap and
+# Assert-PfbContextCardinality are all private, so without module scope every It here raises
+# CommandNotFoundException -- which would silently satisfy the throw test below.
+Describe 'Assert-PfbContextCardinality' {
+    It 'throws for a multi-value context on a non-capable endpoint, naming the narrowing fix' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $multi = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'), (New-PfbContextEntry -Name 'FB-C'))
+            $map = Get-PfbCapabilityMap
+            { Assert-PfbContextCardinality -Method 'GET' -Endpoint 'presets/workload' -Context $multi -CapabilityMap $map } |
+                Should -Throw -ExpectedMessage '*accepts only one context*'
+        }
+    }
+    It 'allows a multi-value context on a capable endpoint' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $multi = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'), (New-PfbContextEntry -Name 'FB-C'))
+            $map = Get-PfbCapabilityMap
+            { Assert-PfbContextCardinality -Method 'GET' -Endpoint 'file-systems' -Context $multi -CapabilityMap $map } |
+                Should -Not -Throw
+        }
+    }
+    It 'never throws for a single-value context, capable or not' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $single = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'))
+            $map = Get-PfbCapabilityMap
+            { Assert-PfbContextCardinality -Method 'GET' -Endpoint 'presets/workload' -Context $single -CapabilityMap $map } |
+                Should -Not -Throw
+        }
+    }
+}

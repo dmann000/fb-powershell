@@ -56,6 +56,10 @@ function Invoke-PfbApiRequest {
         $capabilityMap = Get-PfbCapabilityMap
         Assert-PfbContextCapability -Array $Array -Method $Method -Endpoint $Endpoint -Context $resolvedContext -CapabilityMap $capabilityMap
 
+        # Second gate: a multi-value context on an endpoint that accepts exactly one returns
+        # 400 code 15 with no hint about the fix, so translate it client-side.
+        Assert-PfbContextCardinality -Method $Method -Endpoint $Endpoint -Context $resolvedContext -CapabilityMap $capabilityMap
+
         # Clone first: $QueryParams is a reference to the CALLER's hashtable, and a targeting
         # parameter must not leak back into a hashtable the caller may reuse for another call.
         # Assigning the clone to the local also means the -AutoPaginate loop below rebuilds

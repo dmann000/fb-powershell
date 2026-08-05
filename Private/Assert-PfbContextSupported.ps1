@@ -68,3 +68,47 @@ function Assert-PfbContextCapability {
     $names = @($Context.Entries | ForEach-Object { ConvertTo-PfbContextWireValue -Entry $_ }) -join ', '
     throw "$key does not support the context_names parameter, so the context '$names' cannot be applied to it. Run this call against the local array with Invoke-PfbInContext -Context @() { ... }, or remove the session context with Clear-PfbContext."
 }
+
+function Assert-PfbContextCardinality {
+    <#
+    .SYNOPSIS
+        Throws when a multi-value context targets an endpoint that accepts only one.
+    .DESCRIPTION
+        Converts 400 code 15 "Multiple location contexts are not allowed." into an actionable
+        message. The rule itself lives in Test-PfbContextMultiValueCapable (#73) and the
+        component resolution in Resolve-PfbParameterComponent (#74) -- this function only
+        feeds them, deliberately, so the multi-value component literal is compared in exactly
+        one place in Private/ -- inside the predicate, never here.
+
+        Called only from inside Invoke-PfbApiRequest's
+        "$null -ne $resolvedContext -and Count -gt 0" block, so a non-null / non-empty
+        re-check here would be unreachable. The Count -le 1 early return below is about
+        CARDINALITY, not emptiness.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Method,
+        [Parameter(Mandatory)][string]$Endpoint,
+        [Parameter(Mandatory)]$Context,
+        [Parameter()][AllowNull()]$CapabilityMap
+    )
+
+    if (@($Context.Entries).Count -le 1) { return }
+    if (-not $CapabilityMap) { return }
+
+    $key = Get-PfbEndpointKey -Method $Method -Endpoint $Endpoint
+    $entry = $CapabilityMap.endpoints.$key
+    if (-not $entry) { return }   # Assert-PfbContextCapability already ruled on absence; do not double-throw
+
+    $component = Resolve-PfbParameterComponent -EndpointEntry $entry `
+        -ParameterName $script:PfbContextParameterName `
+        -ParameterComponentDefaults $CapabilityMap.parameterComponentDefaults
+    $declaresAllowErrors = @($entry.parameters.PSObject.Properties.Name) -contains $script:PfbAllowErrorsParameterName
+
+    if (Test-PfbContextMultiValueCapable -Method $Method -ContextComponent $component -DeclaresAllowErrors $declaresAllowErrors) {
+        return
+    }
+
+    $names = @($Context.Entries | ForEach-Object { ConvertTo-PfbContextWireValue -Entry $_ }) -join ', '
+    throw "$key accepts only one context, but $(@($Context.Entries).Count) were given ($names). Narrow the context to a single name. To target every array in a fleet or topology group with one context, use -AllArrays instead of listing members."
+}
