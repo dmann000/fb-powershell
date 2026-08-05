@@ -129,8 +129,14 @@ Describe 'Connect-PfbArray -Context behaviour' {
         # $script:PfbArrays['fb.test'] at a fake connection. Without a restore, that state
         # outlives this file and is available to poison any later one, so it is captured here
         # and restored in AfterEach for every test in this block.
+        #
+        # `@{} + $script:PfbArrays` is a shallow COPY, not the reference: Connect-PfbArray
+        # mutates that hashtable in place ($script:PfbArrays[$Endpoint] = ...), so reassigning
+        # the identical object in AfterEach would be a no-op and the 'fb.test' key would still
+        # leak. $script:PfbDefaultArray is a plain reassignment, so capturing the reference is
+        # correct there.
         $script:originalState = InModuleScope PureStorageFlashBladePowerShell {
-            @{ Arrays = $script:PfbArrays; Default = $script:PfbDefaultArray }
+            @{ Arrays = @{} + $script:PfbArrays; Default = $script:PfbDefaultArray }
         }
     }
 
@@ -227,6 +233,17 @@ Describe 'Connect-PfbArray -Context behaviour' {
             finally {
                 & { param($a, $d) $script:PfbArrays = $a; $script:PfbDefaultArray = $d } $originalArrays $originalDefault
             }
+        }
+    }
+
+    It 'has left no fb.test entry in the module connection cache' {
+        # Ordered last on purpose: every preceding test in this block has already run its
+        # AfterEach, so this asserts the restore actually worked rather than merely ran. It is
+        # the guard for the reference-vs-copy trap -- Connect-PfbArray mutates $script:PfbArrays
+        # in place, so capturing a reference makes the AfterEach reassignment a no-op and this
+        # assertion then fails with the key still present.
+        InModuleScope PureStorageFlashBladePowerShell {
+            $script:PfbArrays.ContainsKey('fb.test') | Should -BeFalse
         }
     }
 }

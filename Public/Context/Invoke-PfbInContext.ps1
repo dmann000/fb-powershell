@@ -41,7 +41,7 @@ function Invoke-PfbInContext {
         [switch]$AllArrays
     )
 
-    if (-not $Array)      { throw "Invoke-PfbInContext requires -Array: pass a connection object from Connect-PfbArray." }
+    if (-not $Array)       { throw "Invoke-PfbInContext requires -Array: pass a connection object from Connect-PfbArray." }
     if (-not $ScriptBlock) { throw "Invoke-PfbInContext requires -ScriptBlock: pass the block to run in the context." }
     # -ne $null, never truthiness: @() is falsy but meaningful.
     if ($null -eq $Context) { throw "Invoke-PfbInContext requires -Context. Pass @() to run the block against the local array." }
@@ -55,11 +55,7 @@ function Invoke-PfbInContext {
     # Deliberately mutated IN PLACE on the shared connection, unlike Set-PfbContext's
     # copy-on-write: the override is ambient, so a copy no caller holds would be invisible.
     $previous = $Array.ContextOverride
-    # The [object[]] cast is load-bearing for the -Context @() escape hatch: passing an empty
-    # array through as a bare variable makes the binder see $null and reject the mandatory
-    # -Entries, in spite of its [AllowEmptyCollection()]. The cast preserves the empty
-    # collection. Measured on both PowerShell editions.
-    $Array.ContextOverride = New-PfbContext -Entries ([object[]]$entries)
+    $Array.ContextOverride = New-PfbContext -Entries $entries
     try     { & $ScriptBlock }
     finally { $Array.ContextOverride = $previous }
 }
