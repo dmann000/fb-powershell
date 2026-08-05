@@ -133,16 +133,27 @@ Describe 'Connect-PfbArray -Context behaviour' {
         }
     }
 
-    It 'rejects -Context $null at the binder, naming -Context, rather than reaching a mandatory downstream parameter' {
+    It 'rejects -Context $null at the binder, naming -Context, not a downstream parameter' {
         # Without [ValidateNotNull()] on -Context, $null flows into
-        # ConvertTo-PfbContextEntryList -Name $null, whose -Name is [Parameter(Mandatory)] --
-        # the interactive-prompt/hang risk under -NonInteractive. Asserting on the parameter
-        # NAME is what makes this discriminating: unvalidated, the failure surfaces as
-        # "Cannot bind argument to parameter 'Name'"; validated, it is "Cannot validate
-        # argument on parameter 'Context'". -Context is optional, so Should -Throw here
-        # cannot itself trigger a prompt.
+        # ConvertTo-PfbContextEntryList -Name $null and is rejected there, blaming -Name -- a
+        # parameter the caller never typed. Asserting on the parameter NAME is what makes this
+        # discriminating: unvalidated the message is "Cannot bind argument to parameter 'Name'";
+        # validated it is "Cannot validate argument on parameter 'Context'". Measured, not
+        # assumed. -Context is optional, so Should -Throw cannot trigger a prompt here.
         { Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake' -Context $null } |
             Should -Throw -ExpectedMessage "*parameter 'Context'*"
+    }
+
+    It 'treats -Context @() as an explicit no-context: DefaultContext set, zero entries' {
+        # The headline tri-state at the connect layer -- @() is NOT the same state as unset, and
+        # it carries its own meaning ("run this one call locally") at the Invoke-PfbInContext
+        # layer. Works because ConvertTo-PfbContextEntryList's -Name carries
+        # [AllowEmptyCollection()]. Doubles as the regression guard proving -Context's
+        # [ValidateNotNull()] deliberately still admits @(): ValidateNotNullOrEmpty there would
+        # collapse the tri-state.
+        $conn = Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake' -Context @()
+        $null -ne $conn.DefaultContext | Should -BeTrue
+        @($conn.DefaultContext.Entries).Count | Should -Be 0
     }
 
     It 'leaves DefaultContext at $null -- not an empty list -- when no -Context is supplied' {

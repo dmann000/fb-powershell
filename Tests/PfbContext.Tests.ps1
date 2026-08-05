@@ -83,6 +83,16 @@ Describe 'PfbContext object' {
                 (New-PfbContext -Entries @((New-PfbContextEntry -Name 'x'))).AllowErrors | Should -BeNullOrEmpty
             }
         }
+        It 'resolves the -AllArrays switch to the AllArrays form' {
+            InModuleScope PureStorageFlashBladePowerShell {
+                Resolve-PfbContextForm -AllArrays | Should -Be 'AllArrays'
+            }
+        }
+        It 'resolves an absent -AllArrays switch to the Object form' {
+            InModuleScope PureStorageFlashBladePowerShell {
+                Resolve-PfbContextForm | Should -Be 'Object'
+            }
+        }
         It 'normalises a string[] into entries of one kind' {
             InModuleScope PureStorageFlashBladePowerShell {
                 $entries = ConvertTo-PfbContextEntryList -Name @('FB-B','FB-C') -Kind 'Array' -Form 'Object'

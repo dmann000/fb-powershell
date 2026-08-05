@@ -156,9 +156,12 @@ function Connect-PfbArray {
         [int]$HttpTimeout = 30000,
 
         # ValidateNotNull, not ValidateNotNullOrEmpty: @() must stay bindable so an explicit
-        # empty context remains distinguishable from an unset one. $null, however, would flow
-        # into ConvertTo-PfbContextEntryList -Name $null, whose -Name is Mandatory -- which
-        # prompts and hangs under -NonInteractive instead of failing.
+        # empty context remains distinguishable from an unset one. The guard exists for error
+        # ATTRIBUTION, not to prevent a hang: measured, an explicitly-supplied $null binds and
+        # is then rejected downstream by ConvertTo-PfbContextEntryList blaming -Name, a
+        # parameter the caller never typed. (PowerShell prompts for a mandatory parameter only
+        # when the argument is ABSENT, never when $null was passed.) Validating here fails at
+        # the binder naming -Context, the parameter they did type.
         [Parameter()]
         [ValidateNotNull()]
         [string[]]$Context,
@@ -182,7 +185,7 @@ function Connect-PfbArray {
     $contextRequested = $PSBoundParameters.ContainsKey('Context')
     $contextEntries = @()
     if ($contextRequested) {
-        $form = if ($AllArrays) { 'AllArrays' } else { 'Object' }
+        $form = Resolve-PfbContextForm -AllArrays:$AllArrays
         # The @(...) wrapper is load-bearing: without it a call emitting nothing assigns $null
         # instead of an empty array, collapsing explicit-empty into unset.
         $contextEntries = @(ConvertTo-PfbContextEntryList -Name $Context -Kind $Kind -Form $form)

@@ -17,6 +17,18 @@ function New-PfbContextEntry {
     [PSCustomObject]@{ Name = $Name; Kind = $Kind; Form = $Form }
 }
 
+# The single place the -AllArrays switch becomes a Form token. Every public cmdlet surfacing
+# context spells Form as a switch rather than a $Form parameter, so without this the mapping
+# gets copy-pasted per cmdlet and a third Form value would update some copies and not others --
+# the exact drift the ValidateSet meta-test guards for the vocabulary itself. Deliberately NO
+# ValidateSet here: it takes a switch, so it adds no site to that scan.
+function Resolve-PfbContextForm {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([switch]$AllArrays)
+    if ($AllArrays) { 'AllArrays' } else { 'Object' }
+}
+
 function New-PfbContext {
     [CmdletBinding()]
     [OutputType([PSCustomObject])]

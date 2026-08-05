@@ -56,6 +56,9 @@ function Set-PfbContext {
     }
 
     process {
+        # Truthiness is deliberate, not sloppy: it skips $null AND @() AND a piped empty
+        # string, all of which correctly land on the "requires -Context" throw in end{}.
+        # $null -ne $Context would instead let '' through and mint an entry with an empty name.
         if ($Context) { foreach ($name in $Context) { $names.Add($name) } }
     }
 
@@ -71,7 +74,7 @@ function Set-PfbContext {
             throw "Set-PfbContext requires a connection: pass -Array, or connect first with Connect-PfbArray."
         }
 
-        $form = if ($AllArrays) { 'AllArrays' } else { 'Object' }
+        $form = Resolve-PfbContextForm -AllArrays:$AllArrays
         $entries = ConvertTo-PfbContextEntryList -Name $names.ToArray() -Kind $Kind -Form $form
         foreach ($entry in $entries) { Assert-PfbContextEntryComposition -Entry $entry }
 

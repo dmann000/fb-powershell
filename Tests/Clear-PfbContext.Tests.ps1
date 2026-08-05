@@ -12,7 +12,28 @@ Describe 'Clear-PfbContext' {
             ContextOverride = $null
         }
         $new = Clear-PfbContext -Array $fb
-        $new.DefaultContext        | Should -BeNullOrEmpty
+        # -BeNullOrEmpty cannot tell $null (unset) from @() (explicit no-context), and @() has
+        # a DIFFERENT documented meaning at the Invoke-PfbInContext layer -- so a change making
+        # this cmdlet emit @() must red. Test the reference directly.
+        $null -eq $new.DefaultContext | Should -BeTrue
         $fb.DefaultContext.Entries | Should -Not -BeNullOrEmpty
+    }
+
+    It 'repoints the module caches at the copy' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $originalArrays = $script:PfbArrays; $originalDefault = $script:PfbDefaultArray
+            try {
+                $fb = [PSCustomObject]@{
+                    PSTypeName = 'PureStorage.FlashBlade.Connection'; Endpoint = 'fb.example'
+                    DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B')))
+                    ContextOverride = $null
+                }
+                $script:PfbArrays = @{ 'fb.example' = $fb }; $script:PfbDefaultArray = $fb
+                $new = Clear-PfbContext -Array $fb
+                [object]::ReferenceEquals($script:PfbDefaultArray, $new) | Should -BeTrue
+                [object]::ReferenceEquals($script:PfbArrays['fb.example'], $new) | Should -BeTrue
+            }
+            finally { & { param($a, $d) $script:PfbArrays = $a; $script:PfbDefaultArray = $d } $originalArrays $originalDefault }
+        }
     }
 }
