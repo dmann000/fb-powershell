@@ -563,7 +563,16 @@ function Get-PfbSpecCapabilities {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        $Spec
+        $Spec,
+
+        # 32, not the helpers' own default of 8. The fb2.12-2.16 body schemas compose through
+        # allOf chains deeper than 8, and reading them at 8 silently drops the properties
+        # below the cut -- which surfaces as an inflated introducedVersion in the capability
+        # map (issue #71) and, through Private/Assert-PfbApiCapability.ps1, as a runtime
+        # refusal of parameters the array actually supports. 32 is not a guess: it is the
+        # value Get-PfbSpecResponseShapes already defaults to, chosen there by measuring the
+        # same fb2.12-2.16 truncation (184 false removals at 8 versus 7 true ones at 32).
+        [int]$MaxDepth = 32
     )
 
     $results = [System.Collections.Generic.List[object]]::new()
@@ -629,8 +638,33 @@ function Get-PfbSpecCapabilities {
                 $mediaKey = if ($mediaTypes -contains 'application/json') { 'application/json' } else { $mediaTypes | Select-Object -First 1 }
                 if ($mediaKey) {
                     $mediaSchema = $op.requestBody.content.$mediaKey.schema
-                    $bodyPropNames = Get-PfbSchemaPropertyNames -Schema $mediaSchema -Spec $Spec
-                    $bodyPropertyDetails = @(Get-PfbSchemaPropertyDetails -Schema $mediaSchema -Spec $Spec)
+
+                    # A request body that is itself `type: array` carries its element schema on
+                    # the `items` SIBLING KEYWORD, not as a property, so the property walk has
+                    # nothing to descend and the endpoint records an empty bodyProperties
+                    # (issue #82). Hop items here, at the call site, rather than teaching
+                    # Add-PfbSchemaPropertyNodes to descend `items` itself: that walker is shared
+                    # with Get-PfbSpecResponseShapes, whose contract is that an envelope's
+                    # properties and its items element's properties are two deliberately-separate
+                    # levels. Teaching the walker to descend unconditionally would collapse them,
+                    # silently changing Data/PfbResponseShapeMap.json and making its
+                    # cross-version removal detection compare incomparable sets. This mirrors the
+                    # hop Get-PfbSpecResponseShapes already performs at its own call site.
+                    #
+                    # Resolve before testing `type`: an unresolved $ref node has no `.type`, so
+                    # reading it directly would silently fall through for a $ref'd array body.
+                    # The non-array path deliberately passes the UNRESOLVED $mediaSchema through
+                    # unchanged, so object bodies behave exactly as before.
+                    $resolvedMedia = Resolve-PfbRef -Node $mediaSchema -Spec $Spec
+                    $bodySchema = if ($null -ne $resolvedMedia -and $resolvedMedia.type -eq 'array' -and $resolvedMedia.items) {
+                        $resolvedMedia.items
+                    }
+                    else {
+                        $mediaSchema
+                    }
+
+                    $bodyPropNames = Get-PfbSchemaPropertyNames -Schema $bodySchema -Spec $Spec -MaxDepth $MaxDepth
+                    $bodyPropertyDetails = @(Get-PfbSchemaPropertyDetails -Schema $bodySchema -Spec $Spec -MaxDepth $MaxDepth)
                 }
             }
 
