@@ -105,9 +105,23 @@ Describe 'context injection in Invoke-PfbApiRequest' {
                 ContextOverride = (New-PfbContext -Entries @()); AuthorizationModel = $null
             }
             $uris = [System.Collections.Generic.List[string]]::new()
-            Mock -CommandName Assert-PfbApiCapability -MockWith {}
+            # The URI alone CANNOT pin this: both downstream sinks (ConvertTo-PfbQueryString and
+            # Assert-PfbApiCapability's query-param loop) discard empty-string values, so an
+            # injected context_names = '' is invisible in the URI. Mutating the guard to bare
+            # `if ($resolvedContext)` therefore left the whole suite green. So capture what the
+            # gate ACTUALLY receives: on correct code the key must not be present at all.
+            #
+            # $QueryParams is legitimately still $null here (the caller passed none), and
+            # ContainsKey on $null throws -- so test presence with an explicit null check rather
+            # than letting the throw stand in for the assertion, which would hide a regression.
+            $keyPresent = [System.Collections.Generic.List[bool]]::new()
+            Mock -CommandName Assert-PfbApiCapability -MockWith {
+                $keyPresent.Add($null -ne $QueryParams -and $QueryParams.ContainsKey($script:PfbContextParameterName))
+            }
             Mock -CommandName Invoke-RestMethod -MockWith { $uris.Add($Uri); [PSCustomObject]@{ items = @() } }
             Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'alert-watchers' | Out-Null
+            @($keyPresent).Count | Should -Be 1      # the gate ran exactly once...
+            $keyPresent[0] | Should -BeFalse         # ...and saw no context_names key at all
             $uris[0] | Should -Not -BeLike '*context_names*'
         }
     }
