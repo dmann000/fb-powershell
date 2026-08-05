@@ -85,17 +85,30 @@ function Assert-PfbApiCapability {
         }
     }
 
-    # Dictionary bodies only, and deliberately so. An array body's per-element fields are NOT
-    # checked, because the capability map records nothing to check them against:
-    # tools/Build-PfbCapabilityMap.ps1 fills bodyProperties from Get-PfbSchemaPropertyNames,
-    # whose schema walk resolves $ref and allOf but never descends through an array schema's
-    # "items". Every array-bodied endpoint in the spec -- PUT /workloads/tags/batch,
-    # POST /nodes/batch, POST /resource-accesses/batch -- therefore carries
-    # "bodyProperties": {} in Data/PfbCapabilityMap.json, so a union-of-element-fields check
-    # would compare every field against an empty map and could never fire. Skipping is an
-    # honest no-op; the alternative is a gate that only looks like one. Teaching the map to
-    # record per-element fields is its own change, and this loop picks it up for free if a
-    # future map representation ever lands.
+    # Dictionary bodies only. An array body's per-element fields are NOT checked -- but note
+    # the reason has changed, and the note this comment used to carry was wrong about what
+    # would happen next.
+    #
+    # It previously read that array-bodied endpoints carry "bodyProperties": {} in
+    # Data/PfbCapabilityMap.json, because Get-PfbSchemaPropertyNames' walk resolves $ref and
+    # allOf but never descends an array schema's "items" -- so a check would compare every
+    # field against an empty map and could never fire. That was true, and it concluded that
+    # "this loop picks it up for free if a future map representation ever lands."
+    #
+    # That map representation has now landed (issue #82): Get-PfbSpecCapabilities hops "items"
+    # at its call site, and PUT /workloads/tags/batch, POST /nodes/batch,
+    # POST /resource-accesses/batch and POST /fleets/members/batch now carry real per-element
+    # fields. But it is NOT picked up for free, because of the type guard on the line below:
+    # an array body arrives as [hashtable[]] (see Set-PfbWorkloadTag, which passes its -Tags
+    # straight through), and [hashtable[]] is not an IDictionary, so this loop is skipped
+    # before the map is ever consulted.
+    #
+    # Enabling it therefore means relaxing this guard to iterate the elements and union their
+    # keys -- a deliberate behaviour change that can start refusing calls that succeed today,
+    # not a no-op. It is left as its own change rather than smuggled in with the map fix.
+    # Today the blast radius is nil: Set-PfbWorkloadTag is the only cmdlet reaching an
+    # array-bodied endpoint, and all five of its fields are 2.23 -- but that stops being true
+    # as soon as #44 adds cmdlets for the other three.
     #
     # Endpoint minVersion and query-parameter checks above still run for array-bodied calls,
     # which is gating those endpoints previously had none of.

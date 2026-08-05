@@ -2146,16 +2146,16 @@
         "quiesce": "2.28",
         "skip_quiesce": "2.28"
       },
-      "contextScope": {
-        "scope": "array",
-        "provenance": "default"
-      },
       "readOnlyBodyProperties": [
         "created",
         "id",
         "promotion_status",
         "time_remaining"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "ignore_usage": "Ignore_usage"
       }
@@ -7060,14 +7060,14 @@
         "names": "2.14"
       },
       "bodyProperties": {
-        "policy_type": "2.14",
         "name": "2.14",
         "id": "2.14",
-        "signing_authority": "2.14",
-        "static_authorized_principals": "2.14",
         "enabled": "2.14",
         "is_local": "2.14",
         "location": "2.14",
+        "policy_type": "2.14",
+        "signing_authority": "2.14",
+        "static_authorized_principals": "2.14",
         "realms": "2.19",
         "context": "2.24"
       },
@@ -7731,6 +7731,11 @@
         "names": "2.16"
       },
       "bodyProperties": {
+        "name": "2.16",
+        "id": "2.16",
+        "enabled": "2.16",
+        "is_local": "2.16",
+        "location": "2.16",
         "policy_type": "2.16",
         "lockout_duration": "2.16",
         "max_login_attempts": "2.16",
@@ -7741,11 +7746,6 @@
         "min_characters_per_group": "2.16",
         "enforce_username_check": "2.16",
         "enforce_dictionary_check": "2.16",
-        "name": "2.17",
-        "id": "2.17",
-        "location": "2.17",
-        "is_local": "2.17",
-        "enabled": "2.17",
         "max_password_age": "2.18",
         "realms": "2.19"
       },
@@ -9392,7 +9392,30 @@
         "X-Request-ID": "2.18",
         "add_to_groups": "2.23"
       },
-      "bodyProperties": {},
+      "bodyProperties": {
+        "id": "2.18",
+        "name": "2.18",
+        "capacity": "2.18",
+        "data_addresses": "2.18",
+        "details": "2.18",
+        "management_address": "2.18",
+        "raw_capacity": "2.18",
+        "serial_number": "2.18",
+        "status": "2.18",
+        "unique": "2.18",
+        "chassis_serial_number": "2.23",
+        "node_key": "2.27"
+      },
+      "readOnlyBodyProperties": [
+        "capacity",
+        "chassis_serial_number",
+        "data_addresses",
+        "details",
+        "id",
+        "raw_capacity",
+        "status",
+        "unique"
+      ],
       "contextScope": {
         "scope": "array",
         "provenance": "default"
@@ -10164,7 +10187,10 @@
       "parameters": {
         "X-Request-ID": "2.19"
       },
-      "bodyProperties": {},
+      "bodyProperties": {
+        "resource": "2.19",
+        "scope": "2.19"
+      },
       "contextScope": {
         "scope": "array",
         "provenance": "default"
@@ -11862,7 +11888,13 @@
         "resource_ids": "2.23",
         "resource_names": "2.23"
       },
-      "bodyProperties": {},
+      "bodyProperties": {
+        "copyable": "2.23",
+        "key": "2.23",
+        "namespace": "2.23",
+        "resource": "2.23",
+        "value": "2.23"
+      },
       "contextScope": {
         "scope": "array",
         "provenance": "default"
@@ -13539,7 +13571,12 @@
         "fleet_names": "2.27",
         "validate_target_certificates": "2.27"
       },
-      "bodyProperties": {},
+      "bodyProperties": {
+        "authentication_credentials": "2.27",
+        "ca_certificate": "2.27",
+        "ca_certificate_group": "2.27",
+        "management_address": "2.27"
+      },
       "contextScope": {
         "scope": "array",
         "provenance": "default"

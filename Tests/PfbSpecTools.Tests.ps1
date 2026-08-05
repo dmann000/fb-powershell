@@ -725,3 +725,188 @@ Describe 'Get-PfbSpecResponseShapes -MaxDepth (regression: the 184-false-removal
         $shapes[0].ItemProperties | Should -Not -Contain 'deep_field'
     }
 }
+
+Describe 'Get-PfbSpecCapabilities -MaxDepth (regression: issue #71 body-schema allOf truncation)' {
+    BeforeAll {
+        # Same 10-level allOf chain as the response-shape regression above, but reached
+        # through a REQUEST BODY rather than a response. This mirrors the fb2.12-2.16
+        # PATCH /password-policies body, whose allOf chain runs deeper than 8 and whose five
+        # properties therefore recorded introducedVersion 2.17 instead of 2.16. That is
+        # runtime-visible, not cosmetic: Private/Assert-PfbApiCapability.ps1 reads
+        # bodyProperties, so it would refuse those five parameters against a 2.16 array.
+        # The 2.17 spec restructuring flattened these chains, which is why the defect
+        # self-heals from 2.17 on and stays invisible against current data.
+        $schemas = [PSCustomObject]@{}
+        $schemas | Add-Member -NotePropertyName 'Level9' -NotePropertyValue ([PSCustomObject]@{
+                properties = [PSCustomObject]@{ deep_field = [PSCustomObject]@{ type = 'string' } }
+            })
+        foreach ($i in 8..0) {
+            $schemas | Add-Member -NotePropertyName "Level$i" -NotePropertyValue ([PSCustomObject]@{
+                    allOf = @([PSCustomObject]@{ '$ref' = "#/components/schemas/Level$($i + 1)" })
+                })
+        }
+        $script:deepBodySpec = [PSCustomObject]@{
+            components = [PSCustomObject]@{ schemas = $schemas }
+            paths      = [PSCustomObject]@{
+                '/api/9.9/deep-body' = [PSCustomObject]@{
+                    patch = [PSCustomObject]@{
+                        requestBody = [PSCustomObject]@{
+                            content = [PSCustomObject]@{
+                                'application/json' = [PSCustomObject]@{
+                                    schema = [PSCustomObject]@{
+                                        # 'shallow_field' sits inline alongside the deep allOf chain and is
+                                        # reachable at any MaxDepth. It is the positive anchor for the
+                                        # depth-8 test below -- see that It's own comment for why a negative
+                                        # assertion without one proves nothing.
+                                        properties = [PSCustomObject]@{ shallow_field = [PSCustomObject]@{ type = 'string' } }
+                                        allOf      = @([PSCustomObject]@{ '$ref' = '#/components/schemas/Level0' })
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    It 'finds a body property nested deeper than the old default MaxDepth of 8' {
+        $caps = @(Get-PfbSpecCapabilities -Spec $script:deepBodySpec)
+        $caps.Count | Should -Be 1
+        $caps[0].BodyProperties | Should -Contain 'shallow_field'
+        $caps[0].BodyProperties | Should -Contain 'deep_field'
+    }
+
+    It 'also surfaces the deep property in BodyPropertyDetails, not only in BodyProperties' {
+        # BodyProperties and BodyPropertyDetails come from two SEPARATE helper calls
+        # (Get-PfbSchemaPropertyNames and Get-PfbSchemaPropertyDetails), each with its own
+        # MaxDepth default. Asserting only the former would leave a fix that raises depth on
+        # one call site and not the other looking green, while ReadOnlyBodyProperties and
+        # DeprecatedBodyProperties -- both projections of Details -- stayed truncated.
+        $caps = @(Get-PfbSpecCapabilities -Spec $script:deepBodySpec)
+        ($caps[0].BodyPropertyDetails | ForEach-Object Name) | Should -Contain 'shallow_field'
+        ($caps[0].BodyPropertyDetails | ForEach-Object Name) | Should -Contain 'deep_field'
+    }
+
+    It 'would MISS that property at depth 8 -- proving the constraint is real' {
+        $caps = @(Get-PfbSpecCapabilities -Spec $script:deepBodySpec -MaxDepth 8)
+
+        # POSITIVE ANCHORS FIRST, for the same reason as the response-shape regression above:
+        # a negative assertion about a collection is satisfied by every degenerate outcome as
+        # well as the intended one. If the walk returned nothing, $caps[0] would be $null and
+        # the -Not -Contain below would pass while testing nothing. These anchors fail on that
+        # mutant, so reaching the negative proves the walk ran, produced this endpoint's
+        # record, populated BodyProperties, and that the ONLY casualty at depth 8 is the
+        # property needing more than 8 levels to reach.
+        $caps.Count | Should -Be 1
+        $caps[0].BodyProperties | Should -Contain 'shallow_field'
+
+        $caps[0].BodyProperties | Should -Not -Contain 'deep_field'
+    }
+}
+
+Describe 'Get-PfbSpecCapabilities array-bodied requests (regression: issue #82)' {
+    BeforeAll {
+        # Mirrors POST /nodes/batch on fb2.18+: the request body schema is ITSELF `type: array`,
+        # with `items` as a sibling keyword rather than a property. The walker's branches cover
+        # $ref/allOf/properties/required but not `items`, so such a body resolved to a node with
+        # no properties and no allOf, the accumulator added nothing, and the endpoint recorded
+        # "bodyProperties": {} -- hiding every field from the runtime gate and the drift report.
+        # Unlike #71 this does not self-heal on newer specs.
+        #
+        # The element schema is allOf-composed exactly like the real NodePost
+        # (allOf [Node, {node_key}]), because the existing allOf handling has to run AFTER the
+        # items hop. A fix that descends into items but stops composing allOf would find
+        # node_key and miss name/id/status; one that composes allOf but never hops items finds
+        # nothing at all. Asserting both members catches either half being wrong.
+        $script:arrayBodySpec = [PSCustomObject]@{
+            components = [PSCustomObject]@{
+                schemas = [PSCustomObject]@{
+                    BatchNode     = [PSCustomObject]@{
+                        type       = 'object'
+                        properties = [PSCustomObject]@{
+                            name   = [PSCustomObject]@{ type = 'string' }
+                            id     = [PSCustomObject]@{ type = 'string'; readOnly = $true }
+                            status = [PSCustomObject]@{ type = 'string'; readOnly = $true }
+                        }
+                    }
+                    BatchNodePost = [PSCustomObject]@{
+                        allOf = @(
+                            [PSCustomObject]@{ '$ref' = '#/components/schemas/BatchNode' }
+                            [PSCustomObject]@{
+                                type       = 'object'
+                                properties = [PSCustomObject]@{ node_key = [PSCustomObject]@{ type = 'string' } }
+                            }
+                        )
+                    }
+                    BatchEnvelope = [PSCustomObject]@{
+                        type  = 'array'
+                        items = [PSCustomObject]@{ '$ref' = '#/components/schemas/BatchNodePost' }
+                    }
+                }
+            }
+            paths      = [PSCustomObject]@{
+                # Inline array body -- the shape all four real endpoints actually use.
+                '/api/9.9/nodes/batch'     = [PSCustomObject]@{
+                    post = [PSCustomObject]@{
+                        requestBody = [PSCustomObject]@{
+                            content = [PSCustomObject]@{
+                                'application/json' = [PSCustomObject]@{
+                                    schema = [PSCustomObject]@{
+                                        type  = 'array'
+                                        items = [PSCustomObject]@{ '$ref' = '#/components/schemas/BatchNodePost' }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                # $ref'd array body -- not used by any endpoint today, but the 2.17 restructuring
+                # is precedent for this arrangement changing between spec versions. Distinguishes
+                # a fix that resolves the media schema before testing `type` from one that reads
+                # `.type` off an unresolved $ref node and finds $null.
+                '/api/9.9/nodes/batch-ref' = [PSCustomObject]@{
+                    post = [PSCustomObject]@{
+                        requestBody = [PSCustomObject]@{
+                            content = [PSCustomObject]@{
+                                'application/json' = [PSCustomObject]@{
+                                    schema = [PSCustomObject]@{ '$ref' = '#/components/schemas/BatchEnvelope' }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    It 'finds the element schema properties when the request body is itself an array' {
+        $caps = @(Get-PfbSpecCapabilities -Spec $script:arrayBodySpec)
+        $batch = $caps | Where-Object Path -eq '/nodes/batch'
+        $batch.BodyProperties | Should -Contain 'node_key'
+        $batch.BodyProperties | Should -Contain 'name'
+        $batch.BodyProperties | Should -Contain 'id'
+        $batch.BodyProperties | Should -Contain 'status'
+    }
+
+    It 'resolves ReadOnlyBodyProperties for an array-bodied endpoint' {
+        # ReadOnlyBodyProperties is a projection of BodyPropertyDetails, which comes from a
+        # SEPARATE helper call than BodyProperties. Asserting it proves the items hop reached
+        # both call sites, not just the names one. All four real endpoints currently record
+        # null here, and NodePost carries obviously read-only members, so this is asserted
+        # rather than assumed.
+        $caps = @(Get-PfbSpecCapabilities -Spec $script:arrayBodySpec)
+        $batch = $caps | Where-Object Path -eq '/nodes/batch'
+        $batch.ReadOnlyBodyProperties | Should -Contain 'id'
+        $batch.ReadOnlyBodyProperties | Should -Contain 'status'
+        $batch.ReadOnlyBodyProperties | Should -Not -Contain 'name'
+        $batch.ReadOnlyBodyProperties | Should -Not -Contain 'node_key'
+    }
+
+    It 'resolves a $ref''d array body schema before testing it for items' {
+        $caps = @(Get-PfbSpecCapabilities -Spec $script:arrayBodySpec)
+        $batch = $caps | Where-Object Path -eq '/nodes/batch-ref'
+        $batch.BodyProperties | Should -Contain 'node_key'
+        $batch.BodyProperties | Should -Contain 'name'
+    }
+}
