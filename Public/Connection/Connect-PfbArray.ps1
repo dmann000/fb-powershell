@@ -70,6 +70,15 @@ function Connect-PfbArray {
         Bypass SSL certificate validation. Common for lab environments with self-signed certs.
     .PARAMETER HttpTimeout
         HTTP request timeout in milliseconds. Default is 30000 (30 seconds).
+    .PARAMETER Context
+        One or more Fusion context names to use as the durable session default for this
+        connection. Names are not resolved at connect time; an invalid name is rejected by
+        the array, verbatim, on first use.
+    .PARAMETER Kind
+        What the -Context names refer to: 'Array' (default), 'Fleet', or 'TopologyGroup'.
+    .PARAMETER AllArrays
+        Target every array that is a member of the -Context names rather than the named
+        objects themselves. Not valid with -Kind Array, which has no members.
     .NOTES
         Certificate/OAuth2 sessions retain -ClientId, -Issuer, -KeyId, -PrivateKeyFile,
         and -PrivateKeyPassword (as a SecureString) on the connection object for the
@@ -144,7 +153,17 @@ function Connect-PfbArray {
         [switch]$IgnoreCertificateError,
 
         [Parameter()]
-        [int]$HttpTimeout = 30000
+        [int]$HttpTimeout = 30000,
+
+        [Parameter()]
+        [string[]]$Context,
+
+        [Parameter()]
+        [ValidateSet('Array', 'Fleet', 'TopologyGroup')]
+        [string]$Kind = 'Array',
+
+        [Parameter()]
+        [switch]$AllArrays
     )
 
     # Force TLS 1.2 on PowerShell 5.1 unconditionally -- independent of certificate
@@ -426,6 +445,14 @@ function Connect-PfbArray {
         PrivateKeyPassword   = $PrivateKeyPassword
         TokenExpiresAt       = $tokenExpiresAt
         TokenTtlSeconds      = $tokenTtlSeconds
+        # Fusion context state. $null means "unset"; an empty entry list means "explicitly no
+        # context" -- two distinct states, so never test these with if ($x). DefaultContext is
+        # durable for the session; ContextOverride is block-scoped (Invoke-PfbInContext).
+        DefaultContext       = $null
+        ContextOverride      = $null
+        # Reserved: populated in a later phase. Declared here so every connection object has a
+        # uniform shape.
+        AuthorizationModel   = $null
     }
 
     # Hide secrets from default display. Sensitive fields (ApiToken, AuthToken,
@@ -444,6 +471,16 @@ function Connect-PfbArray {
     # Cache the connection
     $script:PfbDefaultArray = $connection
     $script:PfbArrays[$Endpoint] = $connection
+
+    # A context supplied at connect is the durable session default. Composition is validated
+    # locally; no network call resolves the name -- the wire rejects a bad one loudly and
+    # verbatim on first use (spec section 9).
+    if ($PSBoundParameters.ContainsKey('Context')) {
+        $form = if ($AllArrays) { 'AllArrays' } else { 'Object' }
+        $entries = ConvertTo-PfbContextEntryList -Name $Context -Kind $Kind -Form $form
+        foreach ($entry in $entries) { Assert-PfbContextEntryComposition -Entry $entry }
+        $connection.DefaultContext = New-PfbContext -Entries $entries
+    }
 
     return $connection
 }
