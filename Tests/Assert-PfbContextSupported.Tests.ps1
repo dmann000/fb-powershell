@@ -97,7 +97,7 @@ Describe 'Assert-PfbContextCapability' {
             $fb = [PSCustomObject]@{ Endpoint = 'fb.example'; ApiVersion = '2.26' }
             $local = New-PfbContext -Entries @((New-PfbContextEntry -Name 'fb.example'))
             { Assert-PfbContextCapability -Array $fb -Method 'GET' -Endpoint 'alert-watchers' -Context $local -CapabilityMap $map } |
-                Should -Throw
+                Should -Throw -ExpectedMessage '*does not support*'
         }
     }
     It 'applies the throw to GET as uniformly as to a mutation' {
@@ -114,7 +114,7 @@ Describe 'Assert-PfbContextCapability' {
             $fb = [PSCustomObject]@{ Endpoint = 'fb.example'; ApiVersion = '2.26' }
             foreach ($m in 'GET', 'POST', 'PATCH', 'PUT', 'DELETE') {
                 { Assert-PfbContextCapability -Array $fb -Method $m -Endpoint 'alert-watchers' -Context $ctx -CapabilityMap $map } |
-                    Should -Throw
+                    Should -Throw -ExpectedMessage '*does not support*'
             }
         }
     }
