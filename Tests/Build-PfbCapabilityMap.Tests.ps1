@@ -707,6 +707,12 @@ Describe 'Build-PfbCapabilityMap: contextScope' -Skip:($PSVersionTable.PSVersion
     "/api/2.28/some-uncurated-thing": {
       "get": { "x-pure-incomplete-gre": true, "responses": { "200": { "description": "ok" } } }
     },
+    "/api/2.28/array-only-thing": {
+      "get": {
+        "x-pure-remote-execution-context-domains-override": ["ARRAY"],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
     "/api/2.28/file-systems": {
       "get": { "responses": { "200": { "description": "ok" } } }
     }
@@ -756,17 +762,43 @@ Describe 'Build-PfbCapabilityMap: contextScope' -Skip:($PSVersionTable.PSVersion
         # absence here. Reordering the ladder's branches fails this and nothing else.
         $get = $script:csMap.endpoints.'GET /presets/workload'.contextScope
         $get.provenance | Should -Be 'declared' -Because 'the override is present, so the flag is irrelevant'
-        $get.scope      | Should -Be 'array'
+        $get.scope      | Should -Be 'fleet'
     }
 
-    It 'trusts a declared override: ARRAY+FLEET is array-scoped, FLEET-only is fleet-scoped' {
+    It 'a declared FLEET domain wins over an accompanying ARRAY' {
+        # ARRAY|FLEET occurs on exactly one real operation, GET /presets/workload, and its
+        # ARRAY half is satisfied only by the middleware short-circuit that resolves a LOCAL
+        # context before any scope validation -- which every endpoint does, so it carries no
+        # scope information. Measured from a remote member: a remote array name and
+        # <fleet>.arrays both return code 13, and only the bare fleet name is accepted.
+        # Recording 'array' would make Phase 1's kind-vs-scope gate throw on the only context
+        # that works AND permit a local-array context that quietly reads the local replica
+        # instead of the fleet object.
         $get = $script:csMap.endpoints.'GET /presets/workload'.contextScope
-        $get.scope      | Should -Be 'array'
+        $get.scope      | Should -Be 'fleet'
         $get.provenance | Should -Be 'declared'
 
         $put = $script:csMap.endpoints.'PUT /presets/workload'.contextScope
         $put.scope      | Should -Be 'fleet'
         $put.provenance | Should -Be 'declared'
+    }
+
+    It 'records array for an override declaring ARRAY alone' {
+        # Unreachable against today's specs -- the only override-bearing operations are the
+        # five preset ones, four FLEET-only and one ARRAY|FLEET -- so without this fixture the
+        # ARRAY branch has no coverage at all once ARRAY|FLEET resolves to fleet.
+        $cs = $script:csMap.endpoints.'GET /array-only-thing'.contextScope
+        $cs.scope      | Should -Be 'array'
+        $cs.provenance | Should -Be 'declared'
+    }
+
+    It 'the COMMITTED map records GET /presets/workload as fleet-scoped' {
+        # The tests above run the generator over a synthetic fixture; this one asserts the
+        # SHIPPED artifact, because that is what the Phase 1 runtime gates actually read.
+        $committed = Get-Content (Join-Path $script:csRepoRoot 'Data/PfbCapabilityMap.json') -Raw | ConvertFrom-Json -Depth 20
+        $committed.endpoints.'GET /presets/workload'.contextScope.scope | Should -Be 'fleet'
+        @($committed.endpoints.PSObject.Properties |
+            Where-Object { $_.Value.contextScope.scope -eq 'fleet' }).Count | Should -Be 8
     }
 
     It 'applies the curated value for a flagged, curated endpoint' {

@@ -11534,7 +11534,7 @@
       },
       "bodyProperties": {},
       "contextScope": {
-        "scope": "array",
+        "scope": "fleet",
         "provenance": "declared"
       },
       "parameterComponentOverrides": {
