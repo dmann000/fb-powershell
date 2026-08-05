@@ -36,8 +36,12 @@ Describe 'Connect-PfbArray - capability-map staleness warning' {
             # per connection" is the actual contract, and a per-call implementation would
             # pass a mere-presence assertion.
             @($warnings).Count | Should -Be 1
-            $warnings[0].ToString() | Should -BeLike '*2.29*'
-            $warnings[0].ToString() | Should -BeLike '*2.28*'
+            # Pin each version to its ROLE, not merely its presence. Asserting only that
+            # '2.29' and '2.28' both appear somewhere lets the two be SWAPPED -- yielding
+            # "running REST 2.28 ... covers through REST 2.29", which is backwards and
+            # actively misleading -- while every test still passes.
+            $warnings[0].ToString() | Should -BeLike '*running REST 2.29*'
+            $warnings[0].ToString() | Should -BeLike '*covers through REST 2.28*'
             $warnings[0].ToString() | Should -BeLike '*Update-Module*'
             $conn | Should -Not -BeNullOrEmpty -Because 'a warning must not suppress the connection object'
         }
@@ -45,6 +49,20 @@ Describe 'Connect-PfbArray - capability-map staleness warning' {
         It 'caches the verdict on the connection object' {
             $conn = Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake' -WarningAction SilentlyContinue
             $conn.ExceedsCapabilityMapCoverage | Should -BeTrue
+            $conn.ExceedsCapabilityMapCoverage | Should -BeOfType [bool] -Because 'never $null -- callers may test it directly'
+        }
+
+        It 'keeps the verdict OUT of the default display set' {
+            # Deliberate: diagnostic state, not something every user should see when they type
+            # $conn at the prompt, and adding it would change the default Format-List view for
+            # every existing connection. Asserted because nothing else pins it -- adding the
+            # property to $defaultProps otherwise passes the whole suite.
+            $conn = Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake' -WarningAction SilentlyContinue
+
+            $displaySet = $conn.PSStandardMembers.DefaultDisplayPropertySet.ReferencedPropertyNames
+            $displaySet | Should -Not -Contain 'ExceedsCapabilityMapCoverage'
+            # ...but it must still be reachable programmatically.
+            $conn.PSObject.Properties.Name | Should -Contain 'ExceedsCapabilityMapCoverage'
         }
 
         It 'is suppressible with -WarningAction SilentlyContinue and emits nothing to the pipeline but the connection' {
@@ -54,22 +72,36 @@ Describe 'Connect-PfbArray - capability-map staleness warning' {
         }
 
         It 'makes no Gallery lookup to discover whether an update exists' {
-            # Asserted statically rather than with a Mock: Mock requires the command to
-            # exist, and PowerShellGet is not guaranteed to be loaded in a bare Windows
-            # PowerShell 5.1 host, so mocking Find-Module fails there for reasons that have
-            # nothing to do with this feature. Reading the source is also the stronger
-            # claim -- it proves absence rather than merely non-invocation on one path.
+            # Asserted over the AST's INVOKED COMMAND NAMES, not the source text. Two earlier
+            # forms were both wrong:
+            #   * Mock Find-Module -- Mock requires the command to EXIST, and PowerShellGet
+            #     is not guaranteed loaded in a bare Windows PowerShell 5.1 host, so it fails
+            #     there for reasons unrelated to this feature.
+            #   * A raw text grep -- it fails on a harmless COMMENT mentioning Find-Module or
+            #     a doc link to the Gallery. This very test's comment would trip it.
+            # The AST sees only real command invocations, so comments and strings cannot
+            # produce a false positive, and it is identical on both editions.
             # This module runs against air-gapped lab and customer arrays, so the warning
-            # names the remedy instead of probing for it.
-            $connectSource = Get-Content -Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'Public/Connection/Connect-PfbArray.ps1') -Raw
-            $connectSource | Should -Not -Match 'Find-Module'
-            $connectSource | Should -Not -Match 'Find-PSResource'
-            $connectSource | Should -Not -Match 'powershellgallery'
+            # names the remedy rather than probing for it.
+            $moduleRoot = Split-Path -Parent $PSScriptRoot
+            $filesInCallGraph = @(
+                'Public/Connection/Connect-PfbArray.ps1'
+                'Private/Test-PfbCapabilityMapCoverage.ps1'
+                'Private/Get-PfbCapabilityMap.ps1'
+                'Private/ConvertTo-PfbVersionObject.ps1'
+                'Private/Test-PfbVersionAtLeast.ps1'
+            )
 
-            $coverageSource = Get-Content -Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'Private/Test-PfbCapabilityMapCoverage.ps1') -Raw
-            $coverageSource | Should -Not -Match 'Find-Module'
-            $coverageSource | Should -Not -Match 'Invoke-WebRequest'
-            $coverageSource | Should -Not -Match 'Invoke-RestMethod'
+            foreach ($relativePath in $filesInCallGraph) {
+                $fullPath = Join-Path $moduleRoot $relativePath
+                $ast = [System.Management.Automation.Language.Parser]::ParseFile($fullPath, [ref]$null, [ref]$null)
+                $invoked = @($ast.FindAll({ $args[0] -is [System.Management.Automation.Language.CommandAst] }, $true) |
+                        ForEach-Object { $_.GetCommandName() })
+
+                $invoked | Should -Not -Contain 'Find-Module' -Because "$relativePath must not probe the Gallery"
+                $invoked | Should -Not -Contain 'Find-PSResource' -Because "$relativePath must not probe the Gallery"
+                $invoked | Should -Not -Contain 'Update-Module' -Because "$relativePath must name the remedy, not perform it"
+            }
         }
     }
 

@@ -19,13 +19,29 @@ function Test-PfbCapabilityMapCoverage {
         already found twice in this repo.
 
         The policy: return $false whenever the answer cannot be established -- a missing
-        map, an empty generatedFrom, or an unparseable version string. "Nothing to check
-        against" must never become a warning, exactly as it never becomes a hard failure in
-        Get-PfbCapabilityMap.
+        map, a generatedFrom that is absent/null/empty, or an unparseable version string.
+        "Nothing to check against" must never become a warning, exactly as it never becomes a
+        hard failure in Get-PfbCapabilityMap.
+
+        Note which guard catches what: the .Count check below only short-circuits a literal
+        empty array. An ABSENT or $null generatedFrom becomes @($null), whose Count is 1, so
+        it falls through to the try and is caught there. Both routes return $false; the
+        guards are defence in depth rather than the only cover, and neither is individually
+        load-bearing.
+
+        -HighestScanned exists so the CALLER never has to re-parse. The warning text needs
+        the maximum, and computing it a second time at the call site would put an unguarded
+        copy of this function's own throwing expression outside this try/catch -- safe only
+        by an invariant living in a different file. Handing it back keeps one parse, inside
+        one guard. This mirrors Assert-PfbConnection's existing [ref] idiom.
     .PARAMETER NegotiatedVersion
         The REST version Connect-PfbArray negotiated with the array, e.g. '2.28'.
     .PARAMETER CapabilityMap
         The parsed capability map, or $null when it could not be loaded.
+    .PARAMETER HighestScanned
+        Optional [ref]. Receives the highest version in generatedFrom when that could be
+        determined. Only meaningful when this function returns $true; left untouched
+        otherwise.
     .OUTPUTS
         [bool]
     #>
@@ -36,7 +52,10 @@ function Test-PfbCapabilityMapCoverage {
         [string]$NegotiatedVersion,
 
         [AllowNull()]
-        $CapabilityMap
+        $CapabilityMap,
+
+        [AllowNull()]
+        [ref]$HighestScanned
     )
 
     if ($null -eq $CapabilityMap) { return $false }
@@ -48,11 +67,16 @@ function Test-PfbCapabilityMapCoverage {
     # malformed version string throws rather than returning a verdict. Per the policy above
     # that must be silence, not a warning and not a failed Connect-PfbArray.
     try {
-        $highestScanned = (ConvertTo-PfbVersionObject -Versions $scanned)[0].Version
+        $highest = (ConvertTo-PfbVersionObject -Versions $scanned)[0].Version
 
         # "At least" is >=, and an exact match must NOT warn. So the question is whether the
         # map fails to reach the array: NOT (highest >= negotiated).
-        return -not (Test-PfbVersionAtLeast -Have $highestScanned -Need $NegotiatedVersion)
+        $exceeds = -not (Test-PfbVersionAtLeast -Have $highest -Need $NegotiatedVersion)
+
+        # Publish the max only once the comparison has succeeded, so the caller can never
+        # read a value produced by a half-completed parse.
+        if ($exceeds -and $null -ne $HighestScanned) { $HighestScanned.Value = $highest }
+        return $exceeds
     }
     catch {
         Write-Verbose "Test-PfbCapabilityMapCoverage: could not compare '$NegotiatedVersion' against the map's generatedFrom ($($scanned -join ', ')): $($_.Exception.Message)"

@@ -383,13 +383,14 @@ function Connect-PfbArray {
     try { $capabilityMap = Get-PfbCapabilityMap }
     catch { Write-Verbose "Connect-PfbArray: capability map could not be loaded for the coverage check: $($_.Exception.Message)" }
 
-    $exceedsCapabilityMapCoverage = Test-PfbCapabilityMapCoverage -NegotiatedVersion $negotiatedVersion -CapabilityMap $capabilityMap
+    # The helper hands back the highest scanned version it already computed, so this path
+    # never re-parses generatedFrom. Recomputing here would place an unguarded copy of the
+    # helper's own throwing expression OUTSIDE its try/catch -- safe only by an invariant
+    # living in another file, which is exactly the kind of non-local coupling this phase is
+    # removing. One parse, inside one guard.
+    $highestScanned = $null
+    $exceedsCapabilityMapCoverage = Test-PfbCapabilityMapCoverage -NegotiatedVersion $negotiatedVersion -CapabilityMap $capabilityMap -HighestScanned ([ref]$highestScanned)
     if ($exceedsCapabilityMapCoverage) {
-        # Find the maximum the SAME way the helper did -- ConvertTo-PfbVersionObject sorts
-        # descending, so [0] is the max. Reading generatedFrom[-1] instead would be a second
-        # way of answering the same question, correct only while the generator keeps writing
-        # that list in ascending order.
-        $highestScanned = (ConvertTo-PfbVersionObject -Versions @($capabilityMap.generatedFrom))[0].Version
         Write-Warning ("Connected array is running REST $negotiatedVersion; this module's " +
             "capability map only covers through REST $highestScanned -- capability checks " +
             'for anything newer, including context scoping, cannot be fully verified and ' +
