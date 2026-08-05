@@ -50,8 +50,7 @@ function Assert-PfbApiCapability {
     $map = Get-PfbCapabilityMap
     if (-not $map) { return }
 
-    $normalizedEndpoint = '/' + $Endpoint.TrimStart('/')
-    $key = "$Method $normalizedEndpoint"
+    $key = Get-PfbEndpointKey -Method $Method -Endpoint $Endpoint
     $entry = $map.endpoints.$key
     if (-not $entry) { return }
 

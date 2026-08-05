@@ -40,6 +40,26 @@ function Invoke-PfbApiRequest {
         [string]$ApiVersionOverride
     )
 
+    # Resolve and inject the Fusion context BEFORE Assert-PfbApiCapability, never after.
+    # Assert is the version gate this design leans on; if context_names lands in $QueryParams
+    # after Assert has run, Assert never sees the parameter and the check never fires. Do NOT
+    # move this to query-string construction below -- that is after Assert.
+    #
+    # Tri-state: $null means unset (inject nothing). A context that EXISTS but has no entries
+    # means "run this one call locally" -- also inject nothing, and specifically do not fall
+    # through to any lower-precedence context. Hence -ne $null plus an explicit count, never
+    # truthiness on the context object.
+    $resolvedContext = Resolve-PfbRequestContext -Array $Array -QueryParams $QueryParams
+    if ($null -ne $resolvedContext -and @($resolvedContext.Entries).Count -gt 0) {
+        # Clone first: $QueryParams is a reference to the CALLER's hashtable, and a targeting
+        # parameter must not leak back into a hashtable the caller may reuse for another call.
+        # Assigning the clone to the local also means the -AutoPaginate loop below rebuilds
+        # the query from the clone, so the context survives page 2+.
+        $QueryParams = if ($null -ne $QueryParams) { $QueryParams.Clone() } else { @{} }
+        $QueryParams[$script:PfbContextParameterName] =
+            @($resolvedContext.Entries | ForEach-Object { ConvertTo-PfbContextWireValue -Entry $_ }) -join ','
+    }
+
     # Fail fast if the connected array's REST version doesn't support this endpoint/param/
     # field, before any network call is made. Never sent if incompatible: see
     # Assert-PfbApiCapability's header for why an unrecognized endpoint is a silent no-op.
