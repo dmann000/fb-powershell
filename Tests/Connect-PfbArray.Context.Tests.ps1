@@ -17,7 +17,7 @@ Describe 'connection context state' {
             }
             $copy = Copy-PfbConnection -Array $fake
             $copy.DefaultContext = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'))
-            $fake.DefaultContext | Should -BeNullOrEmpty
+            $null -eq $fake.DefaultContext | Should -BeTrue
             $copy.PSObject.TypeNames | Should -Contain 'PureStorage.FlashBlade.Connection'
             [object]::ReferenceEquals($copy, $fake) | Should -BeFalse
         }
