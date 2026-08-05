@@ -2,11 +2,6 @@
 
 BeforeAll {
     Import-Module "$PSScriptRoot/../PureStorageFlashBladePowerShell.psd1" -Force
-
-    # Source path used by the declaration tests below. The three context properties live in a
-    # [PSCustomObject]@{} literal that only a real connect could produce, so the presence of
-    # the state is asserted against the source rather than against a live array.
-    $script:ConnectSourcePath = Join-Path $PSScriptRoot '../Public/Connection/Connect-PfbArray.ps1'
 }
 
 Describe 'connection context state' {
@@ -88,10 +83,9 @@ Describe 'connection context state' {
             try {
                 $script:PfbArrays = @{ 'fb.example' = $fake }
                 $script:PfbDefaultArray = $fake
-                $copy = Copy-PfbConnection -Array $fake
+                Copy-PfbConnection -Array $fake | Out-Null
                 [object]::ReferenceEquals($script:PfbArrays['fb.example'], $fake) | Should -BeTrue
                 [object]::ReferenceEquals($script:PfbDefaultArray, $fake) | Should -BeTrue
-                $copy | Should -Not -BeNullOrEmpty
             }
             finally {
                 & { param($a, $d) $script:PfbArrays = $a; $script:PfbDefaultArray = $d } $originalArrays $originalDefault
@@ -114,10 +108,83 @@ Describe 'Connect-PfbArray context properties' {
         $validate.ValidValues | Should -Be @('Array', 'Fleet', 'TopologyGroup')
     }
 
-    It 'initializes the three context state properties on the connection object' {
-        $source = Get-Content -Path $script:ConnectSourcePath -Raw
+}
+
+Describe 'Connect-PfbArray -Context behaviour' {
+    # Fully mocked connect -- no array involved. Same harness as
+    # Tests/Connect-PfbArray.CapabilityMapStaleness.Tests.ps1, which proves a real connection
+    # object can be produced from mocks alone.
+    BeforeEach {
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-WebRequest {
+            [PSCustomObject]@{ Headers = @{ 'x-auth-token' = 'tok' } }
+        }
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            [PSCustomObject]@{ versions = @('2.26') }
+        } -ParameterFilter { $Uri -like '*api_version*' }
+        Mock -ModuleName PureStorageFlashBladePowerShell Get-PfbCapabilityMap {
+            [PSCustomObject]@{ schemaVersion = 2; generatedFrom = @('2.0', '2.26') }
+        }
+    }
+
+    It 'exposes the three context state properties on the connection object' {
+        $conn = Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake'
         foreach ($prop in 'DefaultContext', 'ContextOverride', 'AuthorizationModel') {
-            $source | Should -Match "(?m)^\s+$prop\s+=\s+\`$null\s*$"
+            $conn.PSObject.Properties.Name | Should -Contain $prop
+        }
+    }
+
+    It 'leaves DefaultContext at $null -- not an empty list -- when no -Context is supplied' {
+        $conn = Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake'
+        # -BeNullOrEmpty cannot tell $null (unset) from @() (explicit no-context); that
+        # distinction is the whole point of the tri-state, so test the reference directly.
+        $null -eq $conn.DefaultContext | Should -BeTrue
+        $null -eq $conn.ContextOverride | Should -BeTrue
+        $null -eq $conn.AuthorizationModel | Should -BeTrue
+    }
+
+    It 'stores a single Array/Object entry for -Context with no -Kind or -AllArrays' {
+        $conn = Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake' -Context 'FB-B'
+        $null -eq $conn.DefaultContext | Should -BeFalse
+        @($conn.DefaultContext.Entries).Count | Should -Be 1
+        $conn.DefaultContext.Entries[0].Name | Should -Be 'FB-B'
+        $conn.DefaultContext.Entries[0].Kind | Should -Be 'Array'
+        $conn.DefaultContext.Entries[0].Form | Should -Be 'Object'
+    }
+
+    It 'maps -AllArrays to the AllArrays form' {
+        $conn = Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake' -Context 'flt' -Kind Fleet -AllArrays
+        @($conn.DefaultContext.Entries).Count | Should -Be 1
+        $conn.DefaultContext.Entries[0].Kind | Should -Be 'Fleet'
+        $conn.DefaultContext.Entries[0].Form | Should -Be 'AllArrays'
+    }
+
+    It 'rejects an invalid Kind/Form composition' {
+        # -Context/-Kind/-AllArrays are all optional, so Should -Throw cannot trigger a
+        # mandatory-parameter prompt here.
+        { Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake' -Context 'g' -Kind TopologyGroup } |
+            Should -Throw -ExpectedMessage '*<name>.arrays*'
+    }
+
+    It 'does not repoint either cache when the composition is invalid' {
+        # Validation must happen BEFORE authentication and before the caches are repointed.
+        # Otherwise the caller gets an error while every later context-less cmdlet silently
+        # succeeds against an array with none of the targeting they asked for.
+        InModuleScope PureStorageFlashBladePowerShell {
+            $originalArrays = $script:PfbArrays
+            $originalDefault = $script:PfbDefaultArray
+            try {
+                $sentinel = [PSCustomObject]@{ PSTypeName = 'PureStorage.FlashBlade.Connection'; Endpoint = 'sentinel' }
+                $script:PfbArrays = @{ 'sentinel' = $sentinel }
+                $script:PfbDefaultArray = $sentinel
+
+                { Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake' -Context 'g' -Kind TopologyGroup } | Should -Throw
+
+                [object]::ReferenceEquals($script:PfbDefaultArray, $sentinel) | Should -BeTrue
+                $script:PfbArrays.ContainsKey('fb.test') | Should -BeFalse
+            }
+            finally {
+                & { param($a, $d) $script:PfbArrays = $a; $script:PfbDefaultArray = $d } $originalArrays $originalDefault
+            }
         }
     }
 }

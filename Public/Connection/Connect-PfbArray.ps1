@@ -170,6 +170,20 @@ function Connect-PfbArray {
     # validation bypass, which is a separate concern.
     Set-PfbTlsProtocol
 
+    # Context composition is a pure parameter check -- no network, no $connection. Validated
+    # here so a bad -Kind/-AllArrays pair fails before a login is attempted and before any
+    # cache is repointed. The name itself is NOT resolved locally: the wire rejects a bad one
+    # loudly and verbatim on first use (spec section 9).
+    $contextRequested = $PSBoundParameters.ContainsKey('Context')
+    $contextEntries = @()
+    if ($contextRequested) {
+        $form = if ($AllArrays) { 'AllArrays' } else { 'Object' }
+        # The @(...) wrapper is load-bearing: without it a call emitting nothing assigns $null
+        # instead of an empty array, collapsing explicit-empty into unset.
+        $contextEntries = @(ConvertTo-PfbContextEntryList -Name $Context -Kind $Kind -Form $form)
+        foreach ($entry in $contextEntries) { Assert-PfbContextEntryComposition -Entry $entry }
+    }
+
     # Handle SSL bypass
     if ($IgnoreCertificateError) {
         Set-PfbCertificatePolicy
@@ -472,14 +486,12 @@ function Connect-PfbArray {
     $script:PfbDefaultArray = $connection
     $script:PfbArrays[$Endpoint] = $connection
 
-    # A context supplied at connect is the durable session default. Composition is validated
-    # locally; no network call resolves the name -- the wire rejects a bad one loudly and
-    # verbatim on first use (spec section 9).
-    if ($PSBoundParameters.ContainsKey('Context')) {
-        $form = if ($AllArrays) { 'AllArrays' } else { 'Object' }
-        $entries = ConvertTo-PfbContextEntryList -Name $Context -Kind $Kind -Form $form
-        foreach ($entry in $entries) { Assert-PfbContextEntryComposition -Entry $entry }
-        $connection.DefaultContext = New-PfbContext -Entries $entries
+    # A context supplied at connect is the durable session default. Already validated above,
+    # before authentication. The gate is $contextRequested -- never a truthiness or $null test
+    # on $contextEntries, which is what keeps $null (unset) distinct from @() (explicit
+    # no-context).
+    if ($contextRequested) {
+        $connection.DefaultContext = New-PfbContext -Entries $contextEntries
     }
 
     return $connection
