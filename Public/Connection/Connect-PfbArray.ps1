@@ -155,7 +155,12 @@ function Connect-PfbArray {
         [Parameter()]
         [int]$HttpTimeout = 30000,
 
+        # ValidateNotNull, not ValidateNotNullOrEmpty: @() must stay bindable so an explicit
+        # empty context remains distinguishable from an unset one. $null, however, would flow
+        # into ConvertTo-PfbContextEntryList -Name $null, whose -Name is Mandatory -- which
+        # prompts and hangs under -NonInteractive instead of failing.
         [Parameter()]
+        [ValidateNotNull()]
         [string[]]$Context,
 
         [Parameter()]

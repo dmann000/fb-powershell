@@ -106,12 +106,18 @@ Describe 'PfbContext Kind/Form ValidateSet vocabulary' {
     # generator is allowed its own unrelated sets.
     #
     # Discriminator: the module has many unrelated ValidateSets, so each discovered set is
-    # classified by its own contents, not by the file or parameter name (a parameter could
-    # be renamed, and a single file can legitimately hold both a Kind and a Form site).
-    # A set containing 'Fleet' is a Kind set; a set containing 'AllArrays' is a Form set.
-    # Those two tokens appear in no other vocabulary in the module, and classifying
-    # per-attribute means a file holding both is handled naturally. Any set matching
-    # neither token is ignored.
+    # classified by the NAME OF THE PARAMETER IT DECORATES -- $Kind is a Kind site, $Form is
+    # a Form site -- read from the AST by walking the attribute up to its parent parameter.
+    # Classifying per-attribute (rather than per-file) means a file holding both a Kind and a
+    # Form site is handled naturally.
+    #
+    # It deliberately does NOT classify by contents. A contents-based rule ('Fleet' => Kind,
+    # 'AllArrays' => Form) has a hole that defeats the whole point of the test: a site that
+    # DROPS a token, e.g. ValidateSet('Array','TopologyGroup'), matches neither marker, is
+    # left unclassified, and is therefore never compared -- silently missing exactly the drift
+    # this test exists to catch. Verified at the time of writing: no unrelated parameter named
+    # Kind or Form anywhere under Private/ or Public/ carries a ValidateSet, so parameter name
+    # is an exact discriminator here. Any parameter with another name is ignored.
     BeforeAll {
         $moduleRoot = (Resolve-Path "$PSScriptRoot/..").Path
         $sourceFiles = @(
@@ -143,13 +149,25 @@ Describe 'PfbContext Kind/Form ValidateSet vocabulary' {
                         ForEach-Object { $_.Value }
                 )
                 if ($values.Count -eq 0) { continue }
-                $site = [PSCustomObject]@{
-                    File   = $file.FullName.Substring($moduleRoot.Length).TrimStart('\', '/')
-                    Line   = $attr.Extent.StartLineNumber
-                    Values = $values
+
+                # Walk up to the parameter this attribute decorates and take its variable
+                # name. The immediate parent is normally the ParameterAst, but walk the chain
+                # so a nested arrangement cannot silently drop the site.
+                $node = $attr.Parent
+                while ($node -and -not ($node -is [System.Management.Automation.Language.ParameterAst])) {
+                    $node = $node.Parent
                 }
-                if ($values -contains 'Fleet')     { $script:KindSites += $site }
-                elseif ($values -contains 'AllArrays') { $script:FormSites += $site }
+                if (-not $node) { continue }
+                $paramName = $node.Name.VariablePath.UserPath
+
+                $site = [PSCustomObject]@{
+                    File      = $file.FullName.Substring($moduleRoot.Length).TrimStart('\', '/')
+                    Line      = $attr.Extent.StartLineNumber
+                    Parameter = $paramName
+                    Values    = $values
+                }
+                if ($paramName -eq 'Kind')     { $script:KindSites += $site }
+                elseif ($paramName -eq 'Form') { $script:FormSites += $site }
             }
         }
     }
@@ -162,13 +180,13 @@ Describe 'PfbContext Kind/Form ValidateSet vocabulary' {
 
     It 'has every Kind ValidateSet in agreement' {
         $distinct = @($script:KindSites | ForEach-Object { ($_.Values | Sort-Object) -join ',' } | Sort-Object -Unique)
-        $detail = ($script:KindSites | ForEach-Object { "$($_.File):$($_.Line) => $(($_.Values | Sort-Object) -join ',')" }) -join "`n"
+        $detail = ($script:KindSites | ForEach-Object { "$($_.File):$($_.Line) `$$($_.Parameter) => $(($_.Values | Sort-Object) -join ',')" }) -join "`n"
         @($distinct).Count | Should -Be 1 -Because "all Kind ValidateSets must list the same values:`n$detail"
     }
 
     It 'has every Form ValidateSet in agreement' {
         $distinct = @($script:FormSites | ForEach-Object { ($_.Values | Sort-Object) -join ',' } | Sort-Object -Unique)
-        $detail = ($script:FormSites | ForEach-Object { "$($_.File):$($_.Line) => $(($_.Values | Sort-Object) -join ',')" }) -join "`n"
+        $detail = ($script:FormSites | ForEach-Object { "$($_.File):$($_.Line) `$$($_.Parameter) => $(($_.Values | Sort-Object) -join ',')" }) -join "`n"
         @($distinct).Count | Should -Be 1 -Because "all Form ValidateSets must list the same values:`n$detail"
     }
 }

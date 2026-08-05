@@ -133,6 +133,18 @@ Describe 'Connect-PfbArray -Context behaviour' {
         }
     }
 
+    It 'rejects -Context $null at the binder, naming -Context, rather than reaching a mandatory downstream parameter' {
+        # Without [ValidateNotNull()] on -Context, $null flows into
+        # ConvertTo-PfbContextEntryList -Name $null, whose -Name is [Parameter(Mandatory)] --
+        # the interactive-prompt/hang risk under -NonInteractive. Asserting on the parameter
+        # NAME is what makes this discriminating: unvalidated, the failure surfaces as
+        # "Cannot bind argument to parameter 'Name'"; validated, it is "Cannot validate
+        # argument on parameter 'Context'". -Context is optional, so Should -Throw here
+        # cannot itself trigger a prompt.
+        { Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake' -Context $null } |
+            Should -Throw -ExpectedMessage "*parameter 'Context'*"
+    }
+
     It 'leaves DefaultContext at $null -- not an empty list -- when no -Context is supplied' {
         $conn = Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake'
         # -BeNullOrEmpty cannot tell $null (unset) from @() (explicit no-context); that
