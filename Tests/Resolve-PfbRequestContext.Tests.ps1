@@ -65,4 +65,29 @@ Describe 'Resolve-PfbRequestContext' {
                 Should -Be 0   # count, not -BeNullOrEmpty: proves empty rather than merely falsy
         }
     }
+    It 'checks ContextOverride against $null rather than truthiness' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $fb = [PSCustomObject]@{ Endpoint = 'fb.example'; DefaultContext = $null; ContextOverride = $null }
+            $fb.DefaultContext = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'))
+            # A deliberately FALSY-but-present override. A PfbContext is a PSCustomObject and so
+            # is always truthy, which is why the empty-Entries fixtures above cannot express this;
+            # a bare @() is $false in a boolean context but is NOT $null.
+            #   under `$null -ne`  : the override wins. Returning a bare @() emits nothing, so the
+            #                        call lands as $null -- and FB-B never appears.
+            #   under truthiness   : the override is skipped and the FB-B DefaultContext comes back.
+            # "Did FB-B leak through" is therefore the mutation detector.
+            $fb.ContextOverride = @()
+            $resolved = Resolve-PfbRequestContext -Array $fb -QueryParams $null
+            $null -eq $resolved | Should -BeTrue
+        }
+    }
+    It 'treats an explicit EMPTY QueryParams context_names as no-context, not unset' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $fb = [PSCustomObject]@{ Endpoint = 'fb.example'; DefaultContext = $null; ContextOverride = $null }
+            $fb.DefaultContext = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'))
+            $resolved = Resolve-PfbRequestContext -Array $fb -QueryParams @{ context_names = @() }
+            $null -ne $resolved        | Should -BeTrue   # explicit, so it does NOT fall through
+            @($resolved.Entries).Count | Should -Be 0
+        }
+    }
 }
