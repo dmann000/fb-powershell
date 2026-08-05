@@ -62,14 +62,40 @@ function Resolve-PfbParameterComponent {
 
     # Key PRESENCE, never the value's truthiness -- see .DESCRIPTION. A present key whose
     # value is null returns null here and must NOT reach the defaults lookup below.
+    #
+    # Both container shapes must be handled, and they need DIFFERENT operators:
+    #   * PSCustomObject -- what ConvertFrom-Json yields reading Data/PfbCapabilityMap.json.
+    #   * IDictionary ([ordered]@{}) -- what tools/Build-PfbCapabilityMap.ps1 builds IN
+    #     MEMORY before serializing, so any tools/ caller resolving against the map it just
+    #     built passes this shape.
+    # For a Hashtable/OrderedDictionary, .PSObject.Properties.Name does NOT return the keys
+    # -- it returns the adapted CLR surface (Keys, Values, Count, IsReadOnly, ...). A
+    # presence test written only against .PSObject.Properties.Name is therefore ALWAYS FALSE
+    # for dictionary input and silently falls through to the defaults, reproducing the exact
+    # wrong-component defect this function exists to prevent. It is also a false POSITIVE
+    # for an intrinsic name ('Count' would "resolve" to the item count).
+    #
+    # Empty containers are covered by key absence, not truthiness: an empty PSCustomObject
+    # AND an empty hashtable are both truthy, so truthiness carries no information here.
     $overrides = $EndpointEntry.parameterComponentOverrides
-    if ($overrides -and ($overrides.PSObject.Properties.Name -contains $ParameterName)) {
-        return $overrides.$ParameterName
+    if ($null -ne $overrides) {
+        if ($overrides -is [System.Collections.IDictionary]) {
+            if ($overrides.Contains($ParameterName)) { return $overrides[$ParameterName] }
+        }
+        elseif ($overrides.PSObject.Properties.Name -contains $ParameterName) {
+            return $overrides.$ParameterName
+        }
     }
 
-    if ($ParameterComponentDefaults -and
-        ($ParameterComponentDefaults.PSObject.Properties.Name -contains $ParameterName)) {
-        return $ParameterComponentDefaults.$ParameterName
+    if ($null -ne $ParameterComponentDefaults) {
+        if ($ParameterComponentDefaults -is [System.Collections.IDictionary]) {
+            if ($ParameterComponentDefaults.Contains($ParameterName)) {
+                return $ParameterComponentDefaults[$ParameterName]
+            }
+        }
+        elseif ($ParameterComponentDefaults.PSObject.Properties.Name -contains $ParameterName) {
+            return $ParameterComponentDefaults.$ParameterName
+        }
     }
 
     return $null
