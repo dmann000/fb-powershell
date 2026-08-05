@@ -229,9 +229,26 @@ foreach ($entry in $specFiles) {
             # Declared domains are authoritative. FLEET-only means fleet-scoped; anything
             # that also accepts ARRAY is usable array-scoped, which is what Phase 1 needs
             # to know.
+            #
+            # An unrecognised domain token falls to unknown/unknown rather than to 'fleet'.
+            # Only ARRAY and FLEET occur across all 29 cached specs today (measured), so this
+            # branch is unreachable -- but treating a token we cannot interpret as 'fleet'
+            # would assert a scope on no evidence AND stamp it provenance='declared', which
+            # reads as "upstream told us" to Phase 1. Recording ignorance is the honest
+            # failure mode, and it is the same one the flagged-but-uncurated case uses.
             $declaredDomains = @($scopeRecord.DomainsOverride | ForEach-Object { "$_".ToUpperInvariant() })
-            $scopeValue = if ($declaredDomains -contains 'ARRAY') { 'array' } else { 'fleet' }
-            $scopeProvenance = 'declared'
+            if ($declaredDomains -contains 'ARRAY') {
+                $scopeValue = 'array'
+                $scopeProvenance = 'declared'
+            }
+            elseif ($declaredDomains -contains 'FLEET') {
+                $scopeValue = 'fleet'
+                $scopeProvenance = 'declared'
+            }
+            else {
+                $scopeValue = 'unknown'
+                $scopeProvenance = 'unknown'
+            }
         }
         elseif ($curatedContextScope.ContainsKey($epKey)) {
             $scopeValue = $curatedContextScope[$epKey]

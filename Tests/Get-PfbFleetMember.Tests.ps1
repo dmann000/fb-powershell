@@ -80,9 +80,14 @@ Describe 'Get-PfbFleetMember - top-level MemberName/FleetName decoration' {
         $result[2].FleetName | Should -BeNullOrEmpty
     }
 
-    It 'decorates every item across an AutoPaginate multi-page result, not just the first' {
-        # -AutoPaginate hands back the accumulated items; a decorate-the-first-page
-        # implementation would leave later pages bare.
+    It 'decorates every item in a multi-item result, not just the first' {
+        # Deliberately NOT named "multi-page": Invoke-PfbApiRequest is mocked here, so no
+        # continuation_token is ever followed and this exercises one multi-item return, not
+        # pagination. What makes paging safe is that -AutoPaginate accumulates every page
+        # into ONE array before returning (Private/Invoke-PfbApiRequest.ps1, trailing
+        # return), which then unrolls item-by-item into the ForEach-Object -- a property of
+        # that function, tested there, not here. Claiming pagination coverage from this
+        # fixture would be dishonest.
         Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest {
             @(1..7 | ForEach-Object {
                     [PSCustomObject]@{
@@ -120,6 +125,25 @@ Describe 'Get-PfbFleetMember - top-level MemberName/FleetName decoration' {
     It 'returns nothing and does not throw when the API returns no members' {
         Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { @() }
         @(Get-PfbFleetMember -Array $script:fakeConnection).Count | Should -Be 0
+    }
+
+    It 'REGRESSION: does not decorate the total_item_count sentinel into a nameless member' {
+        # Invoke-PfbApiRequest returns a bare { total_item_count = N } object -- NOT a member
+        # -- when the API reports a count but no items, which is what a filter matching
+        # nothing produces. Decorating it would emit something that looks like a fleet member
+        # with a $null name, and piping THAT into a context-scoping cmdlet would bind $null:
+        # the precise silent-wrong-binding failure this whole decoration exists to prevent.
+        # It must pass through WITHOUT MemberName, so the absence fails loudly instead.
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest {
+            [PSCustomObject]@{ total_item_count = 0 }
+        }
+
+        $result = @(Get-PfbFleetMember -Array $script:fakeConnection -FleetName 'no-such-fleet')
+
+        $result.Count | Should -Be 1 -Because 'the sentinel is still passed through, unchanged'
+        $result[0].total_item_count | Should -Be 0
+        $result[0].PSObject.Properties.Name | Should -Not -Contain 'MemberName' -Because 'a countless sentinel must not masquerade as a member'
+        $result[0].PSObject.Properties.Name | Should -Not -Contain 'FleetName'
     }
 
     It 'still forwards fleet_names and member_names as query parameters' {

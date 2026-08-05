@@ -37,6 +37,34 @@ Describe 'contextScope drift against the real specs and the committed map' -Skip
         $script:map.schemaVersion | Should -Be 2
     }
 
+    It 'the GENERATOR''s curated table matches this mirror, so an un-regenerated edit cannot hide' {
+        # Every other assertion in this file compares the mirror against the committed MAP.
+        # That leaves a hole: edit $curatedContextScope in the generator and forget to
+        # regenerate, and the map still holds the old values, the mirror still holds the old
+        # values, and the generator has silently diverged from both.
+        #
+        # Scraping the generator's literal closes it WITHOUT reintroducing the problem the
+        # mirror exists to avoid -- the scope values and flag state are still validated
+        # against the real spec and the committed map independently, above and below. This
+        # assertion only proves the three copies agree.
+        $generatorPath = Join-Path $script:repoRoot 'tools/Build-PfbCapabilityMap.ps1'
+        if (-not (Test-Path $generatorPath)) { Set-ItResult -Skipped -Because 'generator absent'; return }
+
+        $generatorSource = Get-Content -Path $generatorPath -Raw
+        $blockMatch = [regex]::Match($generatorSource, '\$curatedContextScope\s*=\s*@\{(?<body>[^}]*)\}')
+        $blockMatch.Success | Should -BeTrue -Because 'the $curatedContextScope literal must be findable; if it was restructured, update this scrape deliberately'
+
+        $scraped = @{}
+        foreach ($entryMatch in [regex]::Matches($blockMatch.Groups['body'].Value, "'(?<key>[^']+)'\s*=\s*'(?<value>[^']+)'")) {
+            $scraped[$entryMatch.Groups['key'].Value] = $entryMatch.Groups['value'].Value
+        }
+
+        @($scraped.Keys | Sort-Object) | Should -Be @($script:expectedCurated.Keys | Sort-Object) -Because 'the generator table and this mirror have diverged'
+        foreach ($key in $scraped.Keys) {
+            $scraped[$key] | Should -Be $script:expectedCurated[$key] -Because "curated scope for $key disagrees between the generator and this mirror"
+        }
+    }
+
     It 'the five declared overrides still match what the map emits as provenance=declared' {
         if (-not $script:hasBoth) { Set-ItResult -Skipped -Because 'map or fb2.28 spec absent'; return }
         $declaredInSpec = @($script:scopeRecords | Where-Object { @($_.DomainsOverride).Count -gt 0 } | ForEach-Object { $_.Endpoint } | Sort-Object)
