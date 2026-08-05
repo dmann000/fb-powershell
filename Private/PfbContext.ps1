@@ -1,8 +1,9 @@
 # The Fusion context object. See docs/design/fusion-context-phase-1-spec.md section 1 for
 # why Kind is per-entry and Form is an enum rather than two booleans.
 
-$script:PfbContextKinds = @('Array', 'Fleet', 'TopologyGroup')
-$script:PfbContextForms = @('Object', 'AllArrays')
+# The Kind/Form vocabularies live only in the ValidateSet literals below (and on the
+# public cmdlets that surface them), because ValidateSet cannot take a variable. A
+# meta-test in Tests/PfbContext.Tests.ps1 asserts every site agrees.
 $script:PfbAllArraysSuffix = '.arrays'   # case-sensitive on the wire; measured
 
 function New-PfbContextEntry {
