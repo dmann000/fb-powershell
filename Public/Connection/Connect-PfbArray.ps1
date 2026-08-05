@@ -369,6 +369,35 @@ function Connect-PfbArray {
         throw "Authentication failed: No x-auth-token received from FlashBlade '${Endpoint}'."
     }
 
+    # Capability-map coverage check: run ONCE here, unconditionally, so the result is
+    # cached on the connection for its whole life rather than recomputed per call. Firing
+    # at connect universally also means Phase 1's context cmdlets need no trigger of their
+    # own. Deliberately no Gallery lookup -- this module runs against air-gapped arrays, so
+    # point at the remedy rather than probing for it.
+    # Get-PfbCapabilityMap returns $null for a MISSING file, but it does not guard
+    # ConvertFrom-Json -- a corrupt or truncated shipped map THROWS. Today that surfaces at
+    # request time inside Assert-PfbApiCapability; calling it here unguarded would newly
+    # break Connect-PfbArray itself, so you could not even establish a connection to
+    # diagnose it. A diagnostic warning must never be able to fail the connect path.
+    $capabilityMap = $null
+    try { $capabilityMap = Get-PfbCapabilityMap }
+    catch { Write-Verbose "Connect-PfbArray: capability map could not be loaded for the coverage check: $($_.Exception.Message)" }
+
+    # The helper hands back the highest scanned version it already computed, so this path
+    # never re-parses generatedFrom. Recomputing here would place an unguarded copy of the
+    # helper's own throwing expression OUTSIDE its try/catch -- safe only by an invariant
+    # living in another file, which is exactly the kind of non-local coupling this phase is
+    # removing. One parse, inside one guard.
+    $highestScanned = $null
+    $exceedsCapabilityMapCoverage = Test-PfbCapabilityMapCoverage -NegotiatedVersion $negotiatedVersion -CapabilityMap $capabilityMap -HighestScanned ([ref]$highestScanned)
+    if ($exceedsCapabilityMapCoverage) {
+        Write-Warning ("Connected array is running REST $negotiatedVersion; this module's " +
+            "capability map only covers through REST $highestScanned -- capability checks " +
+            'for anything newer, including context scoping, cannot be fully verified and ' +
+            'may not error even if unsupported. Check the PowerShell Gallery for a newer ' +
+            'release (Update-Module).')
+    }
+
     # Build connection object — properties align with PureRestClientBase (Pfa2)
     $connection = [PSCustomObject]@{
         PSTypeName           = 'PureStorage.FlashBlade.Connection'
@@ -386,6 +415,9 @@ function Connect-PfbArray {
         SkipCertificateCheck = [bool]$IgnoreCertificateError
         HttpTimeoutMs        = $HttpTimeout
         ConnectedAt          = [datetime]::UtcNow
+        # Diagnostic: array outruns the bundled capability map's scanned range. Deliberately
+        # NOT in $defaultProps below -- diagnostic state, not default-display material.
+        ExceedsCapabilityMapCoverage = $exceedsCapabilityMapCoverage
         # Certificate/OAuth2 refresh state — only populated when AuthMethod is 'Certificate'
         ClientId             = $ClientId
         Issuer               = $Issuer

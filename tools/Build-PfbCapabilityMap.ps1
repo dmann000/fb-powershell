@@ -118,6 +118,26 @@ if ($MaxVersion) {
     Write-Host "MaxVersion $MaxVersion applied: including $($specFiles.Count) of $beforeCount cached specs." -ForegroundColor Yellow
 }
 
+# ---- Fusion context scope ----
+#
+# Curated scope values for endpoints upstream has flagged x-pure-incomplete-gre, where the
+# ABSENCE of a domains override carries no information. Every entry here was established by
+# live testing, not inference.
+#
+# This table lives in the GENERATOR, never in Private/. Runtime code reads scope from the
+# shipped map and nowhere else -- a curated list consulted at runtime would be a second
+# source of truth for the same fact, which is the failure mode issue #74 exists to fix.
+#
+# Each entry retires as upstream fills in the corresponding override. The drift test in
+# Tests/Build-PfbCapabilityMap.ContextScopeDrift.Tests.ps1 fails when that happens, so the
+# table shrinks on its own instead of quietly shadowing better data.
+$curatedContextScope = @{
+    'GET /topology-groups'         = 'fleet'
+    'GET /topology-groups/arrays'  = 'fleet'
+    'GET /topology-groups/members' = 'fleet'
+    'GET /workloads/tags'          = 'array'
+}
+
 $endpoints = [ordered]@{}
 $processedVersions = [System.Collections.Generic.List[string]]::new()
 
@@ -127,6 +147,15 @@ foreach ($entry in $specFiles) {
 
     $spec = Get-Content -Path $entry.File.FullName -Raw | ConvertFrom-Json -Depth 64
     $capabilities = Get-PfbSpecCapabilities -Spec $spec
+
+    # Index this version's remote-execution annotations by endpoint key. Read per version
+    # and applied last-seen-wins, same as readOnlyBodyProperties -- a resource does not
+    # migrate between the fleet database and an array, so the newest annotation is simply
+    # the best one, and no first-sight guard is wanted here.
+    $contextScopeByEndpoint = @{}
+    foreach ($scopeRecord in (Get-PfbSpecContextScope -Spec $spec)) {
+        $contextScopeByEndpoint[$scopeRecord.Endpoint] = $scopeRecord
+    }
 
     foreach ($cap in $capabilities) {
         $epKey = "$($cap.Method) $($cap.Path)"
@@ -187,6 +216,54 @@ foreach ($entry in $specFiles) {
         }
         elseif ($entryRecord.Contains('deprecatedBodyProperties')) {
             $entryRecord.Remove('deprecatedBodyProperties')
+        }
+
+        # contextScope: fleet-scoped vs array-scoped, plus where the answer came from.
+        # Assigned UNCONDITIONALLY (last-seen-wins), not first-sight -- see the indexing
+        # comment above. Phase 0 SHIPS this field and nothing reads it at runtime; Phase 1's
+        # kind-vs-scope validation and scope-aware error messages consume it.
+        $scopeRecord = $contextScopeByEndpoint[$epKey]
+        $scopeValue = 'array'
+        $scopeProvenance = 'default'
+        if ($scopeRecord -and @($scopeRecord.DomainsOverride).Count -gt 0) {
+            # Declared domains are authoritative. FLEET-only means fleet-scoped; anything
+            # that also accepts ARRAY is usable array-scoped, which is what Phase 1 needs
+            # to know.
+            #
+            # An unrecognised domain token falls to unknown/unknown rather than to 'fleet'.
+            # Only ARRAY and FLEET occur across all 29 cached specs today (measured), so this
+            # branch is unreachable -- but treating a token we cannot interpret as 'fleet'
+            # would assert a scope on no evidence AND stamp it provenance='declared', which
+            # reads as "upstream told us" to Phase 1. Recording ignorance is the honest
+            # failure mode, and it is the same one the flagged-but-uncurated case uses.
+            $declaredDomains = @($scopeRecord.DomainsOverride | ForEach-Object { "$_".ToUpperInvariant() })
+            if ($declaredDomains -contains 'ARRAY') {
+                $scopeValue = 'array'
+                $scopeProvenance = 'declared'
+            }
+            elseif ($declaredDomains -contains 'FLEET') {
+                $scopeValue = 'fleet'
+                $scopeProvenance = 'declared'
+            }
+            else {
+                $scopeValue = 'unknown'
+                $scopeProvenance = 'unknown'
+            }
+        }
+        elseif ($curatedContextScope.ContainsKey($epKey)) {
+            $scopeValue = $curatedContextScope[$epKey]
+            $scopeProvenance = 'live-tested'
+        }
+        elseif ($scopeRecord -and $scopeRecord.IsIncompleteGre) {
+            # Flagged incomplete and not curated: the absent override proves nothing, so
+            # recording 'array' would assert something unevidenced. 'unknown' suppresses
+            # kind-vs-scope validation in Phase 1 and leaves today's behaviour.
+            $scopeValue = 'unknown'
+            $scopeProvenance = 'unknown'
+        }
+        $entryRecord.contextScope = [ordered]@{
+            scope      = $scopeValue
+            provenance = $scopeProvenance
         }
 
         # parameterComponents bookkeeping -- which $ref component backs each parameter
@@ -314,7 +391,7 @@ foreach ($epKey in $endpoints.get_Keys()) {
 }
 
 $manifest = [ordered]@{
-    schemaVersion              = 1
+    schemaVersion              = 2
     generatedFrom              = $processedVersions
     endpointCount              = $endpoints.Count
     parameterComponentDefaults = $parameterComponentDefaults
