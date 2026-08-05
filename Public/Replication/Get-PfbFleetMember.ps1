@@ -46,5 +46,32 @@ function Get-PfbFleetMember {
     if ($FleetName) { $queryParams['fleet_names'] = $FleetName -join ',' }
     if ($MemberName) { $queryParams['member_names'] = $MemberName -join ',' }
 
-    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'fleets/members' -QueryParams $queryParams -AutoPaginate
+    # Decorate with top-level MemberName/FleetName. ValueFromPipelineByPropertyName matches
+    # only TOP-LEVEL names, and this endpoint nests the array name at .member.name -- so
+    # without this, piping into a context-scoping cmdlet binds nothing and silently no-ops.
+    # Additive by design: the raw nested member/fleet objects stay, so existing callers
+    # reaching .member.name keep working.
+    #
+    # Runs per emitted item, so -AutoPaginate's later pages are decorated too.
+    #
+    # Deliberately no IsLocal: is_local is relative to the CALL'S CONTEXT rather than the
+    # connection, so a Where-Object { -not $_.IsLocal } idiom would silently select a
+    # different array once a context is active.
+    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'fleets/members' -QueryParams $queryParams -AutoPaginate |
+        ForEach-Object {
+            # Invoke-PfbApiRequest returns a bare { total_item_count = N } sentinel -- not a
+            # member -- when the API reports a count but no items (see its trailing return).
+            # A filter matching nothing takes that path. Decorating it would produce an
+            # object that LOOKS like a fleet member whose name is $null, which is the exact
+            # silent-wrong-binding failure this decoration exists to prevent: piping it into
+            # a context-scoping cmdlet would bind a $null name. Pass it through undecorated
+            # so the absence of MemberName fails loudly instead.
+            if (($_.PSObject.Properties.Name -contains 'total_item_count') -and
+                ($_.PSObject.Properties.Name -notcontains 'member')) {
+                return $_
+            }
+
+            Add-Member -InputObject $_ -MemberType NoteProperty -Name 'MemberName' -Value $_.member.name -Force -PassThru |
+                Add-Member -MemberType NoteProperty -Name 'FleetName' -Value $_.fleet.name -Force -PassThru
+        }
 }

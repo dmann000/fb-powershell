@@ -19,7 +19,7 @@ Describe 'Get-PfbCapabilityMap' {
     It 'loads and returns the manifest from Data/PfbCapabilityMap.json under the module root' {
         New-Item -ItemType Directory -Path 'TestDrive:\Data' -Force | Out-Null
         [PSCustomObject]@{
-            schemaVersion = 1
+            schemaVersion = 2
             endpoints     = [PSCustomObject]@{ 'GET /widgets' = [PSCustomObject]@{ minVersion = '9.0' } }
         } | ConvertTo-Json -Depth 10 | Set-Content -Path 'TestDrive:\Data\PfbCapabilityMap.json'
 
@@ -32,7 +32,7 @@ Describe 'Get-PfbCapabilityMap' {
 
     It 'caches the loaded manifest -- a second call does not re-read the file' {
         New-Item -ItemType Directory -Path 'TestDrive:\Data' -Force | Out-Null
-        [PSCustomObject]@{ schemaVersion = 1; endpoints = [PSCustomObject]@{} } |
+        [PSCustomObject]@{ schemaVersion = 2; endpoints = [PSCustomObject]@{} } |
             ConvertTo-Json -Depth 10 | Set-Content -Path 'TestDrive:\Data\PfbCapabilityMap.json'
 
         InModuleScope PureStorageFlashBladePowerShell -Parameters @{ root = 'TestDrive:\' } {

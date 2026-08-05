@@ -48,22 +48,27 @@
     signal is wrong, each time.
 #>
 
-$script:PfbContextParameterName = 'context_names'
 $script:PfbContextMultiValueComponent = 'Context_names_get'
-$script:PfbAllowErrorsParameterName = 'allow_errors'
 
-# Execute the module's own rule rather than copying it. Failing loudly here is correct:
-# silently falling back to a local copy of the rule is the one outcome that would make
-# this whole check meaningless.
+# Execute the module's own rule and its own resolution contract rather than copying them.
+# Failing loudly here is correct: silently falling back to a local copy is the one outcome
+# that would make this whole check meaningless.
 $script:PfbContextRuleRepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$script:PfbContextRulePredicatePath = Join-Path $script:PfbContextRuleRepoRoot 'Private/Test-PfbContextMultiValueCapable.ps1'
-if (-not (Test-Path $script:PfbContextRulePredicatePath)) {
-    throw ("PfbContextRuleTools: cannot locate the module's declared context-cardinality " +
-        "rule at '$script:PfbContextRulePredicatePath'. This check must execute the " +
-        'module rule, never re-implement it -- refusing to load rather than silently ' +
-        'verifying a private copy of the rule against itself.')
+$script:PfbContextRuleRequiredPath = @(
+    'Private/PfbContextConstants.ps1'
+    'Private/Test-PfbContextMultiValueCapable.ps1'
+    'Private/Resolve-PfbParameterComponent.ps1'
+)
+foreach ($relativePath in $script:PfbContextRuleRequiredPath) {
+    $absolutePath = Join-Path $script:PfbContextRuleRepoRoot $relativePath
+    if (-not (Test-Path $absolutePath)) {
+        throw ("PfbContextRuleTools: cannot locate the module's declared context rule/" +
+            "resolution contract at '$absolutePath'. This check must execute the module's " +
+            'own code, never re-implement it -- refusing to load rather than silently ' +
+            'verifying a private copy against itself.')
+    }
+    . $absolutePath
 }
-. $script:PfbContextRulePredicatePath
 
 function Get-PfbContextHttp207Endpoint {
     <#
@@ -197,15 +202,9 @@ function Get-PfbContextParameterFact {
             $paramNames = $entry.parameters.PSObject.Properties.Name
             if ($paramNames -notcontains $script:PfbContextParameterName) { continue }
 
-            $component = $null
-            $overrides = $entry.parameterComponentOverrides
-            if ($overrides -and ($overrides.PSObject.Properties.Name -contains $script:PfbContextParameterName)) {
-                # Key present -- authoritative, even when its value is null.
-                $component = $overrides.$($script:PfbContextParameterName)
-            }
-            elseif ($defaults -and ($defaults.PSObject.Properties.Name -contains $script:PfbContextParameterName)) {
-                $component = $defaults.$($script:PfbContextParameterName)
-            }
+            $component = Resolve-PfbParameterComponent -EndpointEntry $entry `
+                -ParameterName $script:PfbContextParameterName `
+                -ParameterComponentDefaults $defaults
 
             # Endpoint keys are "<METHOD> /<path>"; split once on the first space only, so
             # a path can never be truncated.

@@ -563,7 +563,16 @@ function Get-PfbSpecCapabilities {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        $Spec
+        $Spec,
+
+        # 32, not the helpers' own default of 8. The fb2.12-2.16 body schemas compose through
+        # allOf chains deeper than 8, and reading them at 8 silently drops the properties
+        # below the cut -- which surfaces as an inflated introducedVersion in the capability
+        # map (issue #71) and, through Private/Assert-PfbApiCapability.ps1, as a runtime
+        # refusal of parameters the array actually supports. 32 is not a guess: it is the
+        # value Get-PfbSpecResponseShapes already defaults to, chosen there by measuring the
+        # same fb2.12-2.16 truncation (184 false removals at 8 versus 7 true ones at 32).
+        [int]$MaxDepth = 32
     )
 
     $results = [System.Collections.Generic.List[object]]::new()
@@ -629,8 +638,33 @@ function Get-PfbSpecCapabilities {
                 $mediaKey = if ($mediaTypes -contains 'application/json') { 'application/json' } else { $mediaTypes | Select-Object -First 1 }
                 if ($mediaKey) {
                     $mediaSchema = $op.requestBody.content.$mediaKey.schema
-                    $bodyPropNames = Get-PfbSchemaPropertyNames -Schema $mediaSchema -Spec $Spec
-                    $bodyPropertyDetails = @(Get-PfbSchemaPropertyDetails -Schema $mediaSchema -Spec $Spec)
+
+                    # A request body that is itself `type: array` carries its element schema on
+                    # the `items` SIBLING KEYWORD, not as a property, so the property walk has
+                    # nothing to descend and the endpoint records an empty bodyProperties
+                    # (issue #82). Hop items here, at the call site, rather than teaching
+                    # Add-PfbSchemaPropertyNodes to descend `items` itself: that walker is shared
+                    # with Get-PfbSpecResponseShapes, whose contract is that an envelope's
+                    # properties and its items element's properties are two deliberately-separate
+                    # levels. Teaching the walker to descend unconditionally would collapse them,
+                    # silently changing Data/PfbResponseShapeMap.json and making its
+                    # cross-version removal detection compare incomparable sets. This mirrors the
+                    # hop Get-PfbSpecResponseShapes already performs at its own call site.
+                    #
+                    # Resolve before testing `type`: an unresolved $ref node has no `.type`, so
+                    # reading it directly would silently fall through for a $ref'd array body.
+                    # The non-array path deliberately passes the UNRESOLVED $mediaSchema through
+                    # unchanged, so object bodies behave exactly as before.
+                    $resolvedMedia = Resolve-PfbRef -Node $mediaSchema -Spec $Spec
+                    $bodySchema = if ($null -ne $resolvedMedia -and $resolvedMedia.type -eq 'array' -and $resolvedMedia.items) {
+                        $resolvedMedia.items
+                    }
+                    else {
+                        $mediaSchema
+                    }
+
+                    $bodyPropNames = Get-PfbSchemaPropertyNames -Schema $bodySchema -Spec $Spec -MaxDepth $MaxDepth
+                    $bodyPropertyDetails = @(Get-PfbSchemaPropertyDetails -Schema $bodySchema -Spec $Spec -MaxDepth $MaxDepth)
                 }
             }
 
@@ -802,4 +836,107 @@ function Get-PfbSwaggerIndexVersions {
             Minor   = [int]$parts[1]
         }
     } | Sort-Object Major, Minor | Select-Object -ExpandProperty Version
+}
+
+function Get-PfbSpecContextScope {
+    <#
+    .SYNOPSIS
+        Flattens one FlashBlade OpenAPI document into per-operation Fusion remote-execution
+        annotations: the context-domains override, and the two flags qualifying it.
+    .DESCRIPTION
+        Reads three operation-level vendor extensions. They are NOT three independent
+        signals -- they are a partially-completed annotation pass plus a flag marking where
+        it is unfinished:
+
+          x-pure-remote-execution-context-domains-override
+              The context domains this operation accepts. Authoritative where present.
+              5 operations at fb2.28, all /presets/workload, and it agrees with live
+              testing without qualification: GET accepts ARRAY+FLEET, every write verb
+              FLEET only -- exactly what the wire does.
+
+          x-pure-incomplete-gre
+              Upstream telling us the remote-execution annotation is known incomplete on
+              this operation. 28 at fb2.28. Its presence means the ABSENCE of an override
+              carries no information and must not be read as "array-scoped".
+
+          x-pure-block-remote-execution
+              Remote execution unsupported. 266 at fb2.28. Recorded but deliberately NOT
+              acted upon: it contradicts context_names on 11 endpoints, all of which are
+              inside the 28 flagged incomplete. Self-consistent, but it means `block`
+              cannot be used as a signal without excluding the flagged set first.
+
+        WHY A SEPARATE FUNCTION FROM Get-PfbSpecCapabilities. Two reasons. Issue #84's PR 1
+        edits Get-PfbSpecCapabilities' request-body walk, so adding fields to its record
+        would collide for no benefit. And that record's shape is consumed by
+        Get-PfbParameterCoverageGaps and the drift report's "nothing vanishes" invariant --
+        extending it risks a ripple into gap accounting unrelated to Fusion. This follows
+        Get-PfbSpecResponseShapes' precedent: an independent second view of the same
+        document, walking $Spec.paths itself.
+
+        Deliberately does NOT touch Add-PfbSchemaPropertyNodes. That recursive walker feeds
+        both Data/PfbCapabilityMap.json and Data/PfbResponseShapeMap.json and is where
+        issues #71/#82/#83 all land. Operation-level extensions have no business there.
+
+        NOT version-gated by design. A resource does not migrate between the fleet database
+        and an array, so last-seen-wins across spec versions is correct here in a way it is
+        not for component identity -- the 2.28 annotations describe 2.23-era endpoints
+        accurately.
+    .PARAMETER Spec
+        One parsed OpenAPI document (ConvertFrom-Json output).
+    .OUTPUTS
+        [PSCustomObject[]] sorted by Endpoint, one per operation:
+            Endpoint            "<METHOD> /<normalized-path>"
+            Method              HTTP method, upper-case
+            Path                normalized path
+            DomainsOverride     [string[]] declared domains; EMPTY ARRAY when absent,
+                                never $null
+            IsIncompleteGre     [bool]
+            BlocksRemoteExec    [bool]
+    #>
+    [CmdletBinding()]
+    [OutputType([PSCustomObject[]])]
+    param(
+        [Parameter(Mandatory)]
+        $Spec
+    )
+
+    $results = [System.Collections.Generic.List[object]]::new()
+    if (-not $Spec.paths) { return @() }
+
+    $overrideKey = 'x-pure-remote-execution-context-domains-override'
+    $incompleteKey = 'x-pure-incomplete-gre'
+    $blockKey = 'x-pure-block-remote-execution'
+
+    foreach ($rawPath in $Spec.paths.PSObject.Properties.Name) {
+        $pathItem = $Spec.paths.$rawPath
+        $normalizedPath = ConvertTo-PfbNormalizedPath -Path $rawPath
+
+        foreach ($methodName in $pathItem.PSObject.Properties.Name) {
+            if ($script:PfbHttpMethods -notcontains $methodName) { continue }
+            $op = $pathItem.$methodName
+            $opKeys = $op.PSObject.Properties.Name
+
+            # Empty array, not $null, when absent: the generator's scope decision tests
+            # .Count, and a $null would make "absent" and "declared empty" both crash or
+            # both look like zero depending on the call site.
+            # [string[]] rather than a bare @(): the .OUTPUTS contract promises string[], and
+            # a bare @() yields Object[]. Coercing here makes the declared type true.
+            $domains = [string[]]@()
+            if (($opKeys -contains $overrideKey) -and $null -ne $op.$overrideKey) {
+                $domains = [string[]]@($op.$overrideKey)
+            }
+
+            $upperMethod = $methodName.ToUpperInvariant()
+            $results.Add([PSCustomObject]@{
+                    Endpoint         = "$upperMethod $normalizedPath"
+                    Method           = $upperMethod
+                    Path             = $normalizedPath
+                    DomainsOverride  = $domains
+                    IsIncompleteGre  = [bool](($opKeys -contains $incompleteKey) -and $op.$incompleteKey)
+                    BlocksRemoteExec = [bool](($opKeys -contains $blockKey) -and $op.$blockKey)
+                })
+        }
+    }
+
+    return @($results | Sort-Object Endpoint)
 }

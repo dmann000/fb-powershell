@@ -50,6 +50,11 @@ Run in this order:
    calibrated against assumes a specific version ceiling, and an uncapped rebuild would
    silently move those numbers.
 
+   The manifest carries a top-level `schemaVersion`, currently **2** (raised from 1 when
+   `contextScope` was added). It is a maintainer label only — nothing in `Private/` or
+   `Public/` reads it, and each generated artifact versions itself independently, so
+   bumping one does not implicate the others.
+
    Besides `minVersion`/`parameters`/`bodyProperties` (each `{ name: introducedInVersion }`,
    monotonic first-sight), each endpoint also carries, where non-empty:
    - `readOnlyBodyProperties` / `deprecatedBodyProperties` (string arrays) — **last-seen-wins**,
@@ -60,10 +65,29 @@ Run in this order:
    - `parameterComponentOverrides` (`{ paramName: componentName }`, sorted by key) — see
      below.
 
+   And **unconditionally on every endpoint** (unlike the list above, this key is never
+   omitted):
+   - `contextScope` — the Fusion remote-execution scope, `{ scope, provenance }`. `scope`
+     is `array`, `fleet`, or `unknown`; `provenance` is `default`, `declared`,
+     `live-tested`, or `unknown`. Also **last-seen-wins**, for the same reason as
+     `readOnlyBodyProperties`: it is a property of the current API surface, not of when
+     something was introduced. Derived by `Get-PfbSpecContextScope` from three
+     operation-level extensions — `x-pure-remote-execution-context-domains-override`
+     (authoritative when present → `declared`), `x-pure-incomplete-gre`, and
+     `x-pure-block-remote-execution` — overlaid with a small curated table in
+     `Build-PfbCapabilityMap.ps1` for endpoints flagged incomplete upstream but verified
+     on the wire (→ `live-tested`). An endpoint flagged incomplete with neither an
+     override nor a curated entry resolves to `unknown`/`unknown`, which is a **designed
+     degradation**: consumers are expected to treat it as "no opinion" and fall back to
+     existing behaviour rather than failing.
+
    **`parameterComponentDefaults`/`parameterComponentOverrides` resolution contract:**
    which named OpenAPI `components/parameters/*` component backs a given
    `(endpoint, parameter)` pair is recorded across two places instead of once per
-   endpoint, because the vast majority of parameters share one of a small set of common
+   endpoint. **The prose below describes the contract; the single implementation of it is
+   `Private/Resolve-PfbParameterComponent.ps1`** — call that rather than reimplementing
+   the three steps, and update it and this section together. The split exists because the
+   vast majority of parameters share one of a small set of common
    components (`Filter`, `Limit`, `Sort`, …) — measured on fb2.0-2.27: 4102 total
    `(endpoint, parameter) -> component` pairs, but only 224 distinct pairs and 179
    distinct parameter names, so a naive full per-endpoint map is ~90% duplication. To

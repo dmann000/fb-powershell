@@ -10548,114 +10548,16 @@
         "context_names",
         "ids",
         "local_file_system_ids",
+        "remote_default_exports",
         "remote_ids"
       ],
       "missingBodyProperties": [
-        {
-          "name": "direction",
-          "type": null,
-          "format": null,
-          "specRequired": false,
-          "synopsis": null,
-          "suggestedPowerShellType": "[object]",
-          "enumValues": [
-            "inbound",
-            "outbound"
-          ],
-          "enumStatus": "matched",
-          "target": {
-            "file": "Public/Replication/New-PfbFileSystemReplicaLink.ps1",
-            "paramBlockLine": 55,
-            "payloadVariable": "body",
-            "assignmentStyle": "unknown",
-            "hasAttributes": false
-          }
-        },
-        {
-          "name": "link_type",
-          "type": "string",
-          "format": null,
-          "specRequired": false,
-          "synopsis": "Type of the replica link.",
-          "suggestedPowerShellType": "[string]",
-          "enumValues": [],
-          "enumStatus": "no-spec-enum-found",
-          "target": {
-            "file": "Public/Replication/New-PfbFileSystemReplicaLink.ps1",
-            "paramBlockLine": 55,
-            "payloadVariable": "body",
-            "assignmentStyle": "unknown",
-            "hasAttributes": false
-          }
-        },
-        {
-          "name": "local_file_system",
-          "type": null,
-          "format": null,
-          "specRequired": false,
-          "synopsis": "Reference to a local file system.",
-          "suggestedPowerShellType": "[object]",
-          "enumValues": [],
-          "enumStatus": "no-spec-enum-found",
-          "target": {
-            "file": "Public/Replication/New-PfbFileSystemReplicaLink.ps1",
-            "paramBlockLine": 55,
-            "payloadVariable": "body",
-            "assignmentStyle": "unknown",
-            "hasAttributes": false
-          }
-        },
-        {
-          "name": "policies",
-          "type": "array",
-          "format": null,
-          "specRequired": false,
-          "synopsis": null,
-          "suggestedPowerShellType": "[object[]]",
-          "enumValues": [],
-          "enumStatus": "no-spec-enum-found",
-          "target": {
-            "file": "Public/Replication/New-PfbFileSystemReplicaLink.ps1",
-            "paramBlockLine": 55,
-            "payloadVariable": "body",
-            "assignmentStyle": "unknown",
-            "hasAttributes": false
-          }
-        },
-        {
-          "name": "remote",
-          "type": null,
-          "format": null,
-          "specRequired": false,
-          "synopsis": "Reference to a remote array or realm.",
-          "suggestedPowerShellType": "[object]",
-          "enumValues": [],
-          "enumStatus": "no-spec-enum-found",
-          "target": {
-            "file": "Public/Replication/New-PfbFileSystemReplicaLink.ps1",
-            "paramBlockLine": 55,
-            "payloadVariable": "body",
-            "assignmentStyle": "unknown",
-            "hasAttributes": false
-          }
-        },
-        {
-          "name": "remote_file_system",
-          "type": null,
-          "format": null,
-          "specRequired": false,
-          "synopsis": "Reference to a remote file system.",
-          "suggestedPowerShellType": "[object]",
-          "enumValues": [],
-          "enumStatus": "no-spec-enum-found",
-          "target": {
-            "file": "Public/Replication/New-PfbFileSystemReplicaLink.ps1",
-            "paramBlockLine": 55,
-            "payloadVariable": "body",
-            "assignmentStyle": "unknown",
-            "hasAttributes": false
-          }
-        }
+        "direction",
+        "link_type",
+        "local_file_system",
+        "policies",
+        "remote",
+        "remote_file_system"
       ],
       "readOnlyFields": [
         "context",
@@ -10666,10 +10568,17 @@
         "status_details"
       ],
       "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
+        "level": "partial",
+        "unresolvedParameters": [
+          {
+            "parameter": "RemoteDefaultExports",
+            "surface": "TypedUnresolved",
+            "file": "Public/Replication/New-PfbFileSystemReplicaLink.ps1",
+            "line": 57
+          }
+        ],
         "escapeHatchOnly": [],
-        "caveat": ""
+        "caveat": "one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability"
       },
       "annotations": []
     },
@@ -14149,7 +14058,13 @@
       "missingQueryParameters": [
         "context_names"
       ],
-      "missingBodyProperties": [],
+      "missingBodyProperties": [
+        "copyable",
+        "key",
+        "namespace",
+        "resource",
+        "value"
+      ],
       "readOnlyFields": [],
       "confidence": {
         "level": "partial",
@@ -14170,8 +14085,8 @@
   "systemicGaps": [
     {
       "name": "context_names",
-      "endpointCount": 270,
-      "queryEndpointCount": 270,
+      "endpointCount": 269,
+      "queryEndpointCount": 269,
       "bodyEndpointCount": 0,
       "endpoints": [
         "DELETE /admins/api-tokens",
@@ -14404,7 +14319,6 @@
         "POST /directory-services/local/directory-services",
         "POST /directory-services/local/groups",
         "POST /file-system-exports",
-        "POST /file-system-replica-links",
         "POST /file-system-replica-links/policies",
         "POST /file-systems/audit-policies",
         "POST /file-systems/locks/nlm-reclamations",
@@ -14592,8 +14506,8 @@
     },
     {
       "name": "ids",
-      "endpointCount": 43,
-      "queryEndpointCount": 43,
+      "endpointCount": 42,
+      "queryEndpointCount": 42,
       "bodyEndpointCount": 0,
       "endpoints": [
         "DELETE /network-access-policies/rules",
@@ -14637,8 +14551,7 @@
         "PATCH /password-policies",
         "PATCH /smb-client-policies/rules",
         "PATCH /smb-share-policies/rules",
-        "PATCH /syslog-servers/settings",
-        "POST /file-system-replica-links"
+        "PATCH /syslog-servers/settings"
       ],
       "annotations": []
     },
@@ -14848,8 +14761,8 @@
     },
     {
       "name": "remote_ids",
-      "endpointCount": 15,
-      "queryEndpointCount": 15,
+      "endpointCount": 14,
+      "queryEndpointCount": 14,
       "bodyEndpointCount": 0,
       "endpoints": [
         "DELETE /array-connections",
@@ -14865,8 +14778,7 @@
         "GET /file-system-replica-links/policies",
         "GET /file-system-replica-links/transfer",
         "GET /policies-all/members",
-        "GET /policies/file-system-replica-links",
-        "POST /file-system-replica-links"
+        "GET /policies/file-system-replica-links"
       ],
       "annotations": []
     },
@@ -14927,23 +14839,6 @@
       "annotations": []
     },
     {
-      "name": "local_file_system_ids",
-      "endpointCount": 8,
-      "queryEndpointCount": 8,
-      "bodyEndpointCount": 0,
-      "endpoints": [
-        "DELETE /file-system-replica-links",
-        "DELETE /file-system-replica-links/policies",
-        "DELETE /policies/file-system-replica-links",
-        "GET /file-system-replica-links",
-        "GET /file-system-replica-links/policies",
-        "GET /policies-all/members",
-        "GET /policies/file-system-replica-links",
-        "POST /file-system-replica-links"
-      ],
-      "annotations": []
-    },
-    {
       "name": "actions",
       "endpointCount": 7,
       "queryEndpointCount": 0,
@@ -14972,6 +14867,22 @@
         "GET /snmp-agents",
         "GET /snmp-managers/test",
         "GET /sso/saml2/idps/test"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "local_file_system_ids",
+      "endpointCount": 7,
+      "queryEndpointCount": 7,
+      "bodyEndpointCount": 0,
+      "endpoints": [
+        "DELETE /file-system-replica-links",
+        "DELETE /file-system-replica-links/policies",
+        "DELETE /policies/file-system-replica-links",
+        "GET /file-system-replica-links",
+        "GET /file-system-replica-links/policies",
+        "GET /policies-all/members",
+        "GET /policies/file-system-replica-links"
       ],
       "annotations": []
     },
@@ -16410,16 +16321,6 @@
       "annotations": []
     },
     {
-      "name": "direction",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /file-system-replica-links"
-      ],
-      "annotations": []
-    },
-    {
       "name": "discover_mtu",
       "endpointCount": 1,
       "queryEndpointCount": 1,
@@ -16760,32 +16661,12 @@
       "annotations": []
     },
     {
-      "name": "link_type",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /file-system-replica-links"
-      ],
-      "annotations": []
-    },
-    {
       "name": "local_bucket_ids",
       "endpointCount": 1,
       "queryEndpointCount": 1,
       "bodyEndpointCount": 0,
       "endpoints": [
         "GET /bucket-replica-links"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "local_file_system",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /file-system-replica-links"
       ],
       "annotations": []
     },
@@ -17050,16 +16931,6 @@
       "annotations": []
     },
     {
-      "name": "policies",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /file-system-replica-links"
-      ],
-      "annotations": []
-    },
-    {
       "name": "port",
       "endpointCount": 1,
       "queryEndpointCount": 1,
@@ -17230,16 +17101,6 @@
       "annotations": []
     },
     {
-      "name": "remote",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /file-system-replica-links"
-      ],
-      "annotations": []
-    },
-    {
       "name": "remote_assist_active",
       "endpointCount": 1,
       "queryEndpointCount": 0,
@@ -17256,16 +17117,6 @@
       "bodyEndpointCount": 1,
       "endpoints": [
         "PATCH /support"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "remote_file_system",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /file-system-replica-links"
       ],
       "annotations": []
     },
@@ -19520,15 +19371,6 @@
       ]
     },
     {
-      "name": "remote",
-      "cmdletCount": 3,
-      "cmdlets": [
-        "New-PfbArrayConnection",
-        "Update-PfbArrayConnection",
-        "Update-PfbObjectStoreRemoteCredential"
-      ]
-    },
-    {
       "name": "remote_file_system_names",
       "cmdletCount": 3,
       "cmdlets": [
@@ -20336,11 +20178,6 @@
       "cmdlets": []
     },
     {
-      "name": "direction",
-      "cmdletCount": 0,
-      "cmdlets": []
-    },
-    {
       "name": "directory_configurations",
       "cmdletCount": 0,
       "cmdlets": []
@@ -20471,22 +20308,12 @@
       "cmdlets": []
     },
     {
-      "name": "link_type",
-      "cmdletCount": 0,
-      "cmdlets": []
-    },
-    {
       "name": "local_bucket_ids",
       "cmdletCount": 0,
       "cmdlets": []
     },
     {
       "name": "local_directory_service_ids",
-      "cmdletCount": 0,
-      "cmdlets": []
-    },
-    {
-      "name": "local_file_system",
       "cmdletCount": 0,
       "cmdlets": []
     },
@@ -20611,11 +20438,6 @@
       "cmdlets": []
     },
     {
-      "name": "policies",
-      "cmdletCount": 0,
-      "cmdlets": []
-    },
-    {
       "name": "port",
       "cmdletCount": 0,
       "cmdlets": []
@@ -20667,11 +20489,6 @@
     },
     {
       "name": "remote_assist_duration",
-      "cmdletCount": 0,
-      "cmdlets": []
-    },
-    {
-      "name": "remote_file_system",
       "cmdletCount": 0,
       "cmdlets": []
     },
