@@ -51,6 +51,11 @@ function Invoke-PfbApiRequest {
     # truthiness on the context object.
     $resolvedContext = Resolve-PfbRequestContext -Array $Array -QueryParams $QueryParams
     if ($null -ne $resolvedContext -and @($resolvedContext.Entries).Count -gt 0) {
+        # Gate before injecting: an endpoint with no recorded context_names support silently
+        # accepts the parameter on the wire, so the array will never tell the caller.
+        $capabilityMap = Get-PfbCapabilityMap
+        Assert-PfbContextCapability -Array $Array -Method $Method -Endpoint $Endpoint -Context $resolvedContext -CapabilityMap $capabilityMap
+
         # Clone first: $QueryParams is a reference to the CALLER's hashtable, and a targeting
         # parameter must not leak back into a hashtable the caller may reuse for another call.
         # Assigning the clone to the local also means the -AutoPaginate loop below rebuilds
