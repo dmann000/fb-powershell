@@ -371,14 +371,23 @@ function Connect-PfbArray {
             # Use a local variable since the $ApiToken parameter retains its [ValidateNotNullOrEmpty]
             # constraint and would reject a $null reassignment.
             #
-            # This block deliberately still keys on $Username, NOT $resolvedUsername: it is
-            # pre-existing best-effort behaviour with its own tests, and switching it is a
-            # separate change with its own risk. Noted rather than done -- if the caller's
-            # spelling differs from the array's, the read/mint below can miss, which is exactly
-            # the behaviour it had before Task 12b.
+            # Keys on $resolvedUsername -- the ARRAY's own spelling from the login body -- not on
+            # $Username, what the caller typed. Maintainer's call, 2026-08-06. The client-side
+            # match below is against $item.admin.name, which comes from the same array, so the
+            # array's spelling is by definition the one that can match it.
+            #
+            # Be precise about the failure mode this closes, because the first description of it
+            # was wrong: PowerShell's -eq is CASE-INSENSITIVE, so 'pureuser' vs 'PUREUSER' always
+            # matched and case was never the problem. What did miss is a name differing beyond
+            # case -- a directory-service admin who logs in as 'jdoe' while the array records
+            # 'jdoe@corp.example'. Then the match failed, no token was cached, and the session
+            # silently lost auto-reconnect with only a -Verbose line to say so.
             $cachedApiToken  = $null
             $tokenHeaders    = @{ 'x-auth-token' = $authToken }
-            $encodedName     = [System.Uri]::EscapeDataString($Username)
+            # EscapeDataString is safe if this is still $null (measured: PowerShell binds $null to
+            # the [string] overload as '', it does not throw). Moot on the wire regardless --
+            # /admins/api-tokens ignores ?names= and acts on the authenticated admin.
+            $encodedName     = [System.Uri]::EscapeDataString($resolvedUsername)
             $tokenBaseUri    = "https://${Endpoint}/api/${negotiatedVersion}/admins/api-tokens"
             $tokenInvokeArgs = @{}
             if ($IgnoreCertificateError -and $PSVersionTable.PSVersion.Major -ge 6) {
@@ -389,7 +398,7 @@ function Connect-PfbArray {
             # silently ignores the names= / ids= filters and returns all admins, with the
             # caller's own token unmasked and other admins' tokens redacted to '****'. We must
             # filter client-side to avoid grabbing a peer admin's masked entry.
-            $isOurAdmin = { param($item) $item.admin -and $item.admin.name -eq $Username }
+            $isOurAdmin = { param($item) $item.admin -and $item.admin.name -eq $resolvedUsername }
             $isRealToken = { param($t) $t -and $t -ne '****' -and -not ($t -match '^\*+$') }
 
             try {
@@ -401,7 +410,7 @@ function Connect-PfbArray {
                 }
             }
             catch {
-                Write-Verbose "Could not read existing API token for '$Username': $($_.Exception.Message)"
+                Write-Verbose "Could not read existing API token for '$resolvedUsername': $($_.Exception.Message)"
             }
             if (-not $cachedApiToken) {
                 try {
@@ -413,7 +422,7 @@ function Connect-PfbArray {
                     }
                 }
                 catch {
-                    Write-Verbose "Could not mint API token for '$Username': $($_.Exception.Message)"
+                    Write-Verbose "Could not mint API token for '$resolvedUsername': $($_.Exception.Message)"
                 }
             }
             if ($cachedApiToken) {

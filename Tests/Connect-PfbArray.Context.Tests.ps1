@@ -458,6 +458,45 @@ Describe 'Connect-PfbArray Username is array-authoritative' {
         $conn.Username | Should -BeExactly 'jdoe'
     }
 
+    It 'caches the API token when the array spells the admin differently from the caller' {
+        # The api-token read/mint block keys on the ARRAY's spelling, not the caller's. Its match is
+        # against $item.admin.name, which comes from the same array as the login body, so only the
+        # resolved name can be relied on to match it.
+        #
+        # The fixture uses a DIRECTORY-QUALIFIED name, not a case difference, and that is
+        # load-bearing: PowerShell's -eq is case-insensitive, so 'jdoe' -eq 'JDOE' already matched
+        # and a case-only fixture would pass against the old code too -- a test that proves
+        # nothing. A caller who logs in as 'jdoe' against an array that records
+        # 'jdoe@corp.example' is the case that actually missed, silently costing the session its
+        # auto-reconnect token.
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-WebRequest {
+            [PSCustomObject]@{
+                Headers = @{ 'x-auth-token' = 'tok' }
+                Content = '{"username":"jdoe@corp.example"}'
+            }
+        }
+        # Overrides the empty-list mock in BeforeEach: this admin DOES have a long-lived token.
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            [PSCustomObject]@{
+                items = @(
+                    [PSCustomObject]@{
+                        admin     = [PSCustomObject]@{ name = 'jdoe@corp.example' }
+                        api_token = [PSCustomObject]@{ token = 'T-longlived' }
+                    }
+                )
+            }
+        } -ParameterFilter { $Uri -match '/admins/api-tokens' }
+
+        $conn = Connect-PfbArray -Endpoint 'fb.test' -Username 'jdoe' `
+            -Password (ConvertTo-SecureString 'pw' -AsPlainText -Force)
+
+        # Both halves matter. The Username assertion shows the resolved name reached the
+        # connection; the ApiToken assertion is the one that reds if the lookup keys on $Username,
+        # because 'jdoe@corp.example' -eq 'jdoe' is false and no token gets cached.
+        $conn.Username | Should -BeExactly 'jdoe@corp.example'
+        $conn.ApiToken | Should -BeExactly 'T-longlived' -Because 'the client-side admin match must use the array spelling, or auto-reconnect is silently lost'
+    }
+
     It 'keeps the parameter-supplied Username on the Certificate set' {
         # No /api/login response exists on this path -- OAuth2 is a JWT exchange and returns only
         # AccessToken/ExpiresAt/TtlSeconds. -Username is Mandatory here, so it can never be empty,
