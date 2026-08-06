@@ -552,5 +552,17 @@ function Add-PfbContextErrorAnnotation {
         }
     }
 
-    "$Message (active context: $names.$requirement Change it with Set-PfbContext, remove it with Clear-PfbContext, or override it for one call with Invoke-PfbInContext.)"
+    # The REMEDY is branch-specific, and must stay that way. Offering the context cmdlets to a
+    # static-model admin points them at the one lever that cannot help: no context VALUE works for
+    # that account, so "change it / clear it / override it" is wrong advice delivered immediately
+    # after correctly explaining that the account is the problem. Naming the active context value
+    # is still right there -- that is diagnostic, not advice. Do NOT re-merge these two clauses.
+    $remedy = if ($isPermissionFailure) {
+        ' Reconnect as a dynamic-model (LDAP/SAML) admin to use a context at all; changing or clearing the context will not help.'
+    }
+    else {
+        ' Change it with Set-PfbContext, remove it with Clear-PfbContext, or override it for one call with Invoke-PfbInContext.'
+    }
+
+    "$Message (active context: $names.$requirement$remedy)"
 }

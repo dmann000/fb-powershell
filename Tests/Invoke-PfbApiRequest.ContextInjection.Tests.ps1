@@ -489,6 +489,39 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             }
         }
     }
+    # Deliberately a SEPARATE Context from the scope-advice assertions above. Those pin WHICH SCOPE
+    # ADVICE appears; these pin WHICH REMEDY appears. Folding both into one It would leave a future
+    # reader unable to tell which of the two behaviours a failure refers to.
+    Context 'remedy advice is branch-specific' {
+        It 'does NOT offer the context cmdlets to a likely static-model admin' {
+            InModuleScope 'PureStorageFlashBladePowerShell' {
+                # A static-authorization-model admin cannot fix a code 20 by changing, clearing or
+                # overriding the context -- no context VALUE works for that account. This negative
+                # assertion is the load-bearing one: without it, a future edit that re-merges the
+                # two closing clauses passes silently.
+                $ctx = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-Q'))
+                $msg = Add-PfbContextErrorAnnotation -Message 'FlashBlade API error (HTTP 400): Operation not permitted' `
+                    -Context $ctx -Method 'GET' -Endpoint 'file-systems' -CapabilityMap (Get-PfbCapabilityMap)
+                $msg | Should -Not -BeLike '*Set-PfbContext*'
+                $msg | Should -Not -BeLike '*Clear-PfbContext*'
+                $msg | Should -Not -BeLike '*Invoke-PfbInContext*'
+                $msg | Should -BeLike '*dynamic-model (LDAP/SAML) admin*'
+                # Naming the value is diagnostic, not advice, so it must still be there.
+                $msg | Should -BeLike '*FB-Q*'
+            }
+        }
+        It 'still offers the context cmdlets for a targeting failure, where the context IS the fix' {
+            InModuleScope 'PureStorageFlashBladePowerShell' {
+                $ctx = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-Q'))
+                $msg = Add-PfbContextErrorAnnotation -Message 'FlashBlade API error: Cannot find array in fleet' `
+                    -Context $ctx -Method 'GET' -Endpoint 'file-systems' -CapabilityMap (Get-PfbCapabilityMap)
+                $msg | Should -BeLike '*Set-PfbContext*'
+                $msg | Should -BeLike '*Clear-PfbContext*'
+                $msg | Should -BeLike '*Invoke-PfbInContext*'
+                $msg | Should -Not -BeLike '*Reconnect as a dynamic-model*'
+            }
+        }
+    }
     # Step 4a. Unit tests of Add-PfbContextErrorAnnotation prove nothing about the CALL SITE, so
     # these two mock at the Invoke-RestMethod boundary and let the real request path run. There are
     # two throw sites in the catch and both must annotate.
