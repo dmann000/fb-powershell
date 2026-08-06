@@ -15,6 +15,13 @@ function Update-PfbPresetWorkload {
         FlashBlade connection.
     .EXAMPLE
         Update-PfbPresetWorkload -Name 'analytics-template' -NewName 'analytics-template-v2'
+    .NOTES
+        <!-- PfbContext: generated from Data/PfbCapabilityMap.json contextScope. Do not edit. -->
+        Context requirement (PATCH /presets/workload): this cmdlet targets a fleet-scoped resource
+        and requires a bare fleet context. Set one with
+        Set-PfbContext -Context <fleet> -Kind Fleet, or scope a single call with
+        Invoke-PfbInContext. Get the fleet name from Get-PfbFleet.
+        <!-- /PfbContext -->
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(

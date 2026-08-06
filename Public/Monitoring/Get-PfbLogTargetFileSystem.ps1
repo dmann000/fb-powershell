@@ -30,6 +30,14 @@ function Get-PfbLogTargetFileSystem {
         Get-PfbLogTargetFileSystem -Filter "enabled='true'" -Sort "name" -Limit 10
 
         Retrieves up to 10 enabled log-target file systems sorted by name.
+    .NOTES
+        <!-- PfbContext: generated from Data/PfbCapabilityMap.json contextScope. Do not edit. -->
+        Context requirement (GET /log-targets/file-systems): the context scope for this endpoint is not
+        recorded in the capability map, so the module will not pre-validate a context
+        for it. A fleet or array context may still be required by the array itself; if
+        a call fails with a context error, set one with Set-PfbContext or scope the
+        call with Invoke-PfbInContext.
+        <!-- /PfbContext -->
     #>
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param(
