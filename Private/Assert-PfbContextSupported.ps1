@@ -363,11 +363,32 @@ function Resolve-PfbAuthorizationModel {
         touches reconnect logic shared by every cmdlet in the module. Parked for live measurement
         in Task 15. Do not change the shared reconnect logic on this note alone.
 
-        No recursion risk despite calling Invoke-PfbApiRequest: this runs at connect time, when
-        the connection's DefaultContext and ContextOverride are both still $null, so
-        Invoke-PfbApiRequest's $hasContext is false and none of the four shape gates -- including
-        Assert-PfbContextAuthorizationModel, which is the only one that would read back into this
-        state -- can fire.
+        THE PROBE IS ALWAYS CONTEXT-FREE, enforced HERE rather than at the call sites so it holds
+        for both of them and for any future third one. This asks who the CONNECTED admin is -- an
+        identity question about the local session -- so routing it through a context would answer
+        it from a different array.
+
+        An earlier revision relied on a positional precondition instead: "this only runs at connect,
+        when DefaultContext and ContextOverride are both still $null". That was true of the single
+        original call site and became FALSE the moment Set-PfbContext became the second one, because
+        its $copy inherits the connection's EXISTING context. GET /admins declares context_names
+        (scope: array), so none of the three shape gates stops it, and the probe went out as
+        ?names=<user>&context_names=<previous context>. Three outcomes, all wrong: an Array/.arrays
+        context routed the identity probe to a REMOTE array's admin table; a bare Fleet context made
+        the kind/scope gate throw INSIDE this function, so the catch below silently downgraded a
+        known 'dynamic' to $null and the gate failed open for the rest of that connection's life;
+        an unreachable member did the same. Stripping the context makes the invariant a property of
+        this function rather than a property of where it is called from.
+
+        Do NOT "fix" this by passing -QueryParams @{ context_names = @() }: with $hasContext false
+        the injection block is skipped, so that key survives into ConvertTo-PfbQueryString and puts
+        a bare context_names= on the wire.
+
+        No recursion risk: because the probe carries no context, Invoke-PfbApiRequest's $hasContext
+        is false for it, so none of the four shape gates -- including
+        Assert-PfbContextAuthorizationModel, the only one that would read back into this state --
+        can fire. That now FOLLOWS FROM the stripping below rather than from when we happen to be
+        called, which is the whole point of moving the guarantee in here.
     .OUTPUTS
         [string]
     #>
@@ -377,7 +398,15 @@ function Resolve-PfbAuthorizationModel {
 
     if (-not $Array.Username) { return $null }
     try {
-        $admins = @(Invoke-PfbApiRequest -Array $Array -Method 'GET' -Endpoint 'admins' -QueryParams @{ names = $Array.Username })
+        # Shallow clone, then null BOTH context slots -- Resolve-PfbRequestContext reads
+        # ContextOverride first, then DefaultContext, so leaving either populated re-opens the
+        # defect. A copy rather than mutate-and-restore: the caller's object must not be touched
+        # even transiently, since Invoke-PfbInContext may be holding it mid-block.
+        $probe = $Array.PSObject.Copy()
+        $probe.DefaultContext = $null
+        $probe.ContextOverride = $null
+
+        $admins = @(Invoke-PfbApiRequest -Array $probe -Method 'GET' -Endpoint 'admins' -QueryParams @{ names = $Array.Username })
         $model = ($admins | Where-Object { $_.name -eq $Array.Username } | Select-Object -First 1).authorization_model
         if ($model) { return [string]$model }
         return $null

@@ -499,35 +499,82 @@ function Connect-PfbArray {
     # caches used to be repointed above it -- so a rejected context left a connection this cmdlet
     # never returned installed as $script:PfbDefaultArray, with the offending context attached: a
     # "failed" connect that is nonetheless the default array. Validating first and installing
-    # afterwards is what makes that unreachable, and it is why the two were reordered rather than
-    # an unwind-on-throw being bolted on. Nothing between here and the install needs the caches --
-    # the resolver is passed $connection explicitly, and the reconnect/refresh paths' cache writes
-    # are guarded on the endpoint already being present, so they no-op rather than installing a
-    # half-configured connection behind our back.
+    # afterwards is what NARROWS that, and it is why the two were reordered rather than an
+    # unwind-on-throw being bolted on.
+    #
+    # It narrows rather than eliminates, and the difference matters. Nothing between here and the
+    # install READS the caches -- the resolver is passed $connection explicitly -- but the
+    # reconnect and proactive-refresh paths inside Invoke-PfbApiRequest WRITE them
+    # (Invoke-PfbApiRequest.ps1:147-152 and :266-271), and their guards are ENDPOINT-KEYED:
+    # ContainsKey($Array.Endpoint) / PfbDefaultArray.Endpoint -eq. Those guards are false only when
+    # the endpoint is not already cached, i.e. on a FIRST connect. On a re-connect to an endpoint
+    # already in $script:PfbArrays -- routine -- a 401/403-then-success on the resolver's probe
+    # fires those writes and repoints both caches at this not-yet-gated $connection, so a
+    # subsequent gate throw still leaves them pointing at a connection this cmdlet never returned.
+    # Narrow (needs an already-cached endpoint plus a transient auth failure on the probe) and
+    # fail-safe in the common case. Closing it properly means capturing and restoring both cache
+    # slots in a catch -- the very unwind the reordering was chosen to avoid -- so it is recorded
+    # here rather than fixed. Do not delete this paragraph believing the reordering is airtight.
     if ($contextRequested) {
-        # Resolved HERE, not unconditionally at connect: a session that never touches Fusion must
-        # not pay for a GET /admins round trip (maintainer ruling 2026-08-05). The other site is
-        # Set-PfbContext's end{}. Exactly two sites, both one-shot session setup -- which is why
-        # no cache is needed and AuthorizationModel stays two-state-plus-null ('static'/'dynamic'
-        # known, $null indeterminate -> fail open). Do NOT add a per-call site such as
-        # Invoke-PfbInContext: it mutates ContextOverride in place on the shared connection and a
-        # thousand-iteration loop would mean a thousand probes. Do NOT memoize, and do NOT
-        # introduce a third "not yet asked" state to make memoizing safe.
-        #
-        # Best-effort and non-fatal: see Resolve-PfbAuthorizationModel, which also documents that
-        # this is inert for the DEFAULT -ApiToken set (no Username to look up) and costs ~3 round
-        # trips rather than 1 on a management-access-policy 403. Safe from recursion: the
-        # resolver's own Invoke-PfbApiRequest call happens while DefaultContext and
-        # ContextOverride are both still $null, so no context gate fires.
-        $connection.AuthorizationModel = Resolve-PfbAuthorizationModel -Array $connection
+        # BOTH halves of the predicate, deliberately mirroring Invoke-PfbApiRequest's $hasContext
+        # ($null -ne $resolvedContext -and @(...Entries).Count -gt 0). $contextRequested alone is
+        # TRUE for -Context @(), which in this codebase is the first-class "explicitly no context"
+        # state, NOT "a context is being set". Gating only on the flag made
+        # `-Credential <static admin> -Context @()` pay a GET /admins probe and then hard-throw with
+        # an empty value interpolated into the message ("the context '' would return..."), failing
+        # a connect that asked for no context at all. Keep this recognisably the same predicate as
+        # the request path's -- a different shape here is how the two drift apart.
+        if (@($contextEntries).Count -gt 0) {
+            # Resolved HERE, not unconditionally at connect: a session that never touches Fusion
+            # must not pay for a GET /admins round trip (maintainer ruling 2026-08-05). The other
+            # site is Set-PfbContext's end{}. Exactly two sites, both one-shot session setup --
+            # which is why no cache is needed and AuthorizationModel stays two-state-plus-null
+            # ('static'/'dynamic' known, $null indeterminate -> fail open). Do NOT add a per-call
+            # site such as Invoke-PfbInContext: it mutates ContextOverride in place on the shared
+            # connection and a thousand-iteration loop would mean a thousand probes. Do NOT
+            # memoize, and do NOT introduce a third "not yet asked" state to make memoizing safe.
+            #
+            # Best-effort and non-fatal: see Resolve-PfbAuthorizationModel, which also documents
+            # that this is inert for the DEFAULT -ApiToken set (no Username to look up), costs ~3
+            # round trips rather than 1 on a management-access-policy 403, and strips the context
+            # from its own probe so the identity question is never routed to another array.
+            $connection.AuthorizationModel = Resolve-PfbAuthorizationModel -Array $connection
 
-        $connectContext = New-PfbContext -Entries $contextEntries
+            # Closes what the Task 11 review parked as a gap: the connect-time context path is now
+            # exactly where resolution happens, so it is also where the gate can rule.
+            #
+            # This is the cmdlet's first throw AFTER a successful login, so the session it just
+            # minted would otherwise be abandoned with no logout -- a script retrying a rejected
+            # -Context in a loop would fill the array's session log. Released best-effort here.
+            # The original error is captured first and re-thrown explicitly so a failure inside the
+            # logout can never replace or mask it.
+            try {
+                Assert-PfbContextAuthorizationModel -Array $connection -Context (New-PfbContext -Entries $contextEntries)
+            }
+            catch {
+                $gateError = $_
+                try {
+                    $logoutParams = @{
+                        Method  = 'POST'
+                        Uri     = "https://${Endpoint}/api/logout"
+                        Headers = @{ 'x-auth-token' = $authToken }
+                    }
+                    if ($IgnoreCertificateError -and $PSVersionTable.PSVersion.Major -ge 6) {
+                        $logoutParams['SkipCertificateCheck'] = $true
+                    }
+                    Invoke-RestMethod @logoutParams -ErrorAction Stop | Out-Null
+                }
+                catch {
+                    Write-Verbose "Could not release the session minted for the rejected connect to '${Endpoint}': $($_.Exception.Message)"
+                }
+                # Deliberately NOT Disconnect-PfbArray: that also evicts $Endpoint from the module
+                # caches, which on a re-connect would destroy the caller's still-valid PREVIOUS
+                # connection to the same array as a side effect of this one being rejected.
+                throw $gateError
+            }
+        }
 
-        # Closes what the Task 11 review parked as a gap: the connect-time context path is now
-        # exactly where resolution happens, so it is also where the gate can rule.
-        Assert-PfbContextAuthorizationModel -Array $connection -Context $connectContext
-
-        $connection.DefaultContext = $connectContext
+        $connection.DefaultContext = New-PfbContext -Entries $contextEntries
     }
 
     # Cache the connection. Last, so only a fully validated connection is ever installed.

@@ -216,6 +216,35 @@ Describe 'Connect-PfbArray -Context behaviour' {
         $null -eq $conn.AuthorizationModel | Should -BeTrue
     }
 
+    # The tri-state case and the model-resolving case were covered by DISJOINT sets of tests, and
+    # the defect lived in their intersection: the only -Context @() test connects with -ApiToken,
+    # so there was no Username, the resolver early-returned, and the gate failed open. A
+    # username-bearing @() connect is that missing intersection.
+    It 'treats -Context @() as no context: no admin probe, no gate, no throw' {
+        $cred = [System.Management.Automation.PSCredential]::new(
+            'pureuser', (ConvertTo-SecureString 'pw' -AsPlainText -Force))
+        # A STATIC admin: were the gate to run it would throw -- and with @() it would interpolate
+        # an empty value into the message ("the context '' would return ...").
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            [PSCustomObject]@{
+                items = @([PSCustomObject]@{ name = 'pureuser'; authorization_model = 'static' })
+                total_item_count = 1
+            }
+        } -ParameterFilter { $Uri -match '/admins\?' }
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            [PSCustomObject]@{ items = @() }
+        } -ParameterFilter { $Uri -match '/admins/api-tokens' }
+
+        $conn = Connect-PfbArray -Endpoint 'fb.test' -Credential $cred -Context @()
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell -CommandName Invoke-RestMethod `
+            -ParameterFilter { $Uri -match '/admins\?' } -Times 0 `
+            -Because 'an explicit no-context connect names nothing, so there is nothing to pre-validate and no reason to pay for a probe'
+        # And the tri-state must survive: @() is DefaultContext-set-with-zero-entries, not unset.
+        $null -ne $conn.DefaultContext | Should -BeTrue
+        @($conn.DefaultContext.Entries).Count | Should -Be 0
+    }
+
     It 'resolves the authorization model exactly once per connect' {
         # Pins the cost as "one lookup per connect, not one per request".
         InModuleScope PureStorageFlashBladePowerShell {
@@ -397,6 +426,68 @@ Describe 'Resolve-PfbAuthorizationModel' {
             Mock -CommandName Invoke-PfbApiRequest -MockWith { throw 'must not be called' }
             $null -eq (Resolve-PfbAuthorizationModel -Array ([PSCustomObject]@{ Endpoint = 'fb.example'; Username = $null })) | Should -BeTrue
             Should -Invoke -CommandName Invoke-PfbApiRequest -Times 0
+        }
+    }
+    # A BOUNDARY assertion on the outgoing URI, so it cannot pass vacuously. The probe asks who the
+    # CONNECTED admin is; routing it through an existing context asks a DIFFERENT array. Set-PfbContext
+    # made this reachable -- its $copy inherits the connection's existing context -- and GET /admins
+    # declares context_names (scope: array), so none of the three shape gates stops it.
+    It 'strips the context from its own probe, so an existing DefaultContext is not injected' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $fb = [PSCustomObject]@{
+                PSTypeName = 'PureStorage.FlashBlade.Connection'
+                Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
+                Username = 'juemerson'
+                # A bare Fleet context: the case that made the kind/scope gate throw INSIDE the
+                # resolver, whose catch then silently downgraded a known 'dynamic' to $null.
+                DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'fleet-prod' -Kind 'Fleet')))
+                ContextOverride = $null; AuthorizationModel = $null
+            }
+            $uris = [System.Collections.Generic.List[object]]::new()
+            Mock -CommandName Invoke-RestMethod -MockWith {
+                $uris.Add($Uri)
+                [PSCustomObject]@{
+                    items = @([PSCustomObject]@{ name = 'juemerson'; authorization_model = 'dynamic' })
+                    total_item_count = 1
+                }
+            }
+
+            $model = Resolve-PfbAuthorizationModel -Array $fb
+
+            @($uris).Count | Should -Be 1
+            $uris[0] | Should -Not -Match 'context_names' -Because 'the identity probe must never be context-scoped, or it is answered by another array'
+            # The downgrade guard: without the strip this returns $null, because the kind gate
+            # throws inside the resolver and the catch swallows it.
+            $model | Should -Be 'dynamic' -Because 'an existing context must not be able to downgrade a known model to indeterminate'
+            # And the caller's connection is untouched -- the strip works on a copy.
+            @($fb.DefaultContext.Entries).Count | Should -Be 1
+        }
+    }
+    It 'strips a ContextOverride from its own probe too, not just DefaultContext' {
+        # Resolve-PfbRequestContext reads ContextOverride FIRST, so nulling only DefaultContext
+        # would leave the defect fully open inside an Invoke-PfbInContext block.
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $fb = [PSCustomObject]@{
+                PSTypeName = 'PureStorage.FlashBlade.Connection'
+                Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
+                Username = 'juemerson'
+                DefaultContext = $null
+                ContextOverride = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B')))
+                AuthorizationModel = $null
+            }
+            $uris = [System.Collections.Generic.List[object]]::new()
+            Mock -CommandName Invoke-RestMethod -MockWith {
+                $uris.Add($Uri)
+                [PSCustomObject]@{
+                    items = @([PSCustomObject]@{ name = 'juemerson'; authorization_model = 'dynamic' })
+                    total_item_count = 1
+                }
+            }
+
+            Resolve-PfbAuthorizationModel -Array $fb | Should -Be 'dynamic'
+
+            @($uris).Count | Should -Be 1
+            $uris[0] | Should -Not -Match 'context_names' -Because 'an Array-kind override would route the identity probe to a remote array, and it is read before DefaultContext'
         }
     }
 }

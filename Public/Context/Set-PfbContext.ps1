@@ -8,10 +8,20 @@ function Set-PfbContext {
         caller capturing the return value sees the change. The output IS the effect -- there
         is no -PassThru.
 
-        No network call is made. The context name is not resolved: the wire rejects a bad one
-        loudly and verbatim on first use (code 42, quoting the offending value), so validating
-        here would buy only failing one call earlier at the cost of a hidden round trip.
-        Composition IS validated locally -- see section 9 of the design.
+        The context name is NOT resolved on the wire: the array rejects a bad one loudly and
+        verbatim on first use (code 42, quoting the offending value), so validating here would buy
+        only failing one call earlier at the cost of a hidden round trip. Composition IS validated
+        locally -- see section 9 of the design.
+
+        One network call IS made, and it is not about the context: a single best-effort
+        GET /admins reads the connected admin's authorization_model, because only a
+        dynamic-authorization-model (LDAP/SAML) admin can use a Fusion context at all, and this
+        cmdlet refuses rather than letting every later request fail with an opaque
+        'Operation not permitted' (code 20). It is skipped entirely when the connection has no
+        username -- which includes every -ApiToken session, the default parameter set -- and any
+        failure is swallowed, leaving the model indeterminate and this cmdlet permissive. Under a
+        management-access policy that denies GET /admins it can cost ~3 round trips rather than 1.
+        Worth knowing before calling this in a loop over many members: cheap, but not free.
     .NOTES
         Mixed-platform fleets: Get-PfbFleetMember will happily return FlashArrays. Piping
         those in is not supported -- cross-platform context is a non-goal (open question 5).

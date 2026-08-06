@@ -6,9 +6,13 @@ BeforeAll {
 
 Describe 'Set-PfbContext' {
     BeforeEach {
+        # Username IS declared. It was absent, and that absence was silently load-bearing: the
+        # resolver early-returns without a username, so `It 'makes no network call'` below passed
+        # by fixture accident rather than because the cmdlet made no call. A fixture that has to
+        # omit a real property to keep a test green is documenting the wrong thing.
         $script:fb = [PSCustomObject]@{
             PSTypeName = 'PureStorage.FlashBlade.Connection'
-            Endpoint = 'fb.example'; ApiVersion = '2.26'
+            Endpoint = 'fb.example'; ApiVersion = '2.26'; Username = 'jdoe'
             DefaultContext = $null; ContextOverride = $null; AuthorizationModel = $null
         }
     }
@@ -50,12 +54,29 @@ Describe 'Set-PfbContext' {
         # under -NonInteractive.
         { Set-PfbContext -Array $script:fb } | Should -Throw -ExpectedMessage '*-Context*'
     }
-    It 'makes no network call' {
-        Mock -CommandName Invoke-PfbApiRequest -ModuleName 'PureStorageFlashBladePowerShell' -MockWith {}
-        Mock -CommandName Invoke-RestMethod   -ModuleName 'PureStorageFlashBladePowerShell' -MockWith {}
+    # Was 'makes no network call', which is no longer true and had stopped being a real test: with
+    # the fixture's Username absent the resolver early-returned, so the -Times 0 assertions held
+    # for a reason that had nothing to do with the cmdlet's behaviour. Now stated as what is
+    # actually guaranteed -- the CONTEXT is never resolved on the wire -- and pinned against a
+    # username-bearing fixture, so exactly one admin read is expected and nothing more.
+    It 'reads the admin model exactly once and never resolves the context name on the wire' {
+        Mock -CommandName Invoke-PfbApiRequest -ModuleName 'PureStorageFlashBladePowerShell' -MockWith {
+            @([PSCustomObject]@{ name = 'jdoe'; authorization_model = 'dynamic' })
+        }
+        Mock -CommandName Invoke-RestMethod -ModuleName 'PureStorageFlashBladePowerShell' -MockWith {
+            throw 'Set-PfbContext must not call Invoke-RestMethod directly'
+        }
+
         Set-PfbContext -Array $script:fb -Context 'no-such-array-at-all' | Out-Null
-        Should -Invoke -CommandName Invoke-PfbApiRequest -ModuleName 'PureStorageFlashBladePowerShell' -Times 0
-        Should -Invoke -CommandName Invoke-RestMethod   -ModuleName 'PureStorageFlashBladePowerShell' -Times 0
+
+        # Exactly one request, and it is the admin read -- NOT a lookup of the context name. A
+        # deliberately non-existent name is used: if this cmdlet ever validated it on the wire,
+        # that call would be a second invocation here.
+        Should -Invoke -CommandName Invoke-PfbApiRequest -ModuleName 'PureStorageFlashBladePowerShell' -Times 1 -Exactly
+        Should -Invoke -CommandName Invoke-PfbApiRequest -ModuleName 'PureStorageFlashBladePowerShell' `
+            -ParameterFilter { $Endpoint -eq 'admins' } -Times 1 -Exactly `
+            -Because 'the only permitted call is the authorization-model probe'
+        Should -Invoke -CommandName Invoke-RestMethod -ModuleName 'PureStorageFlashBladePowerShell' -Times 0
     }
     # A SEPARATE call site from Invoke-PfbApiRequest's request path -- the wiring test over there
     # says nothing about this one, and vice versa.
