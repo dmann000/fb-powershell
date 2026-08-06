@@ -94,6 +94,19 @@ $script:BlockOpenPrefix = '<!-- PfbContext'
 $script:BlockOpen = '<!-- PfbContext (generated; do not edit) -->'
 $script:BlockClose = '<!-- /PfbContext -->'
 
+# The fleet-scoped GET wording depends on the module's own measured allowlist of endpoints
+# where a NAME-SCOPED read genuinely needs a context. Dot-source that list rather than
+# copying it -- a local copy is exactly the help/validation drift this generator exists to
+# prevent, and the constants file is written to be loaded this way (tools/ is not on the
+# module's load path). Failing loudly beats silently rendering a guess.
+$script:ConstantsPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'Private/PfbContextConstants.ps1'
+if (-not (Test-Path -LiteralPath $script:ConstantsPath)) {
+    throw ("Update-PfbContextHelp: cannot locate the module's context constants at " +
+        "'$script:ConstantsPath'. The fleet-scoped GET help is generated from " +
+        '$script:PfbNameScopedContextRequiredEndpoints and must never re-implement it.')
+}
+. $script:ConstantsPath
+
 function Get-PfbContextHelpBody {
     <#
         Returns the wrapped, indented block for one endpoint, or $null when the scope is
@@ -113,14 +126,52 @@ function Get-PfbContextHelpBody {
         [string]$Indent = '        '
     )
 
+    # The method the endpoint key names. The fleet arm needs it because the runtime gate
+    # (Assert-PfbContextRequired) is narrower for GET than for the write verbs, twice over,
+    # and both narrowings are measured -- see its header. Emitting the write wording for a GET
+    # sent the reader to Set-PfbContext for a call that already works with no context, directly
+    # contradicting the .EXAMPLE in the same file.
+    $method = ($EndpointKey -split '\s+', 2)[0].ToUpperInvariant()
+
     $lines = switch ($Scope) {
         'fleet' {
-            @(
-                "Context requirement ($EndpointKey): this cmdlet targets a fleet-scoped resource"
-                'and requires a bare fleet context. Set one with'
-                'Set-PfbContext -Context <fleet> -Kind Fleet, or scope a single call with'
-                'Invoke-PfbInContext. Get the fleet name from Get-PfbFleet.'
-            )
+            if ($method -eq 'GET') {
+                if ($EndpointKey -in $script:PfbNameScopedContextRequiredEndpoints) {
+                    # Measured: the unfiltered list is served from the array's locally
+                    # replicated copy, which is list-only -- so it enumerates without a
+                    # context but cannot resolve a name against it.
+                    @(
+                        "Context requirement ($EndpointKey): this cmdlet targets a"
+                        'fleet-scoped resource, but reads on it are narrower than the'
+                        'requirement. An unfiltered list works with NO context, served from'
+                        "the array's locally replicated copy. Filtering by name or id needs a"
+                        'bare fleet context, because that local copy is list-only: set one'
+                        'with Set-PfbContext -Context <fleet> -Kind Fleet, or scope a single'
+                        'call with Invoke-PfbInContext. Get the fleet name from Get-PfbFleet.'
+                    )
+                }
+                else {
+                    # Not on the measured allowlist: a name-scoped context-free read was
+                    # measured to return 200 here, so the module requires no context at all.
+                    @(
+                        "Context requirement ($EndpointKey): this cmdlet targets a"
+                        'fleet-scoped resource, but reads on it work with NO context --'
+                        'unfiltered and filtered by name or id alike. None is required. If you'
+                        'do supply one it must be a bare fleet context (Set-PfbContext'
+                        '-Context <fleet> -Kind Fleet, or Invoke-PfbInContext for a single'
+                        'call); an array context is rejected. Get the fleet name from'
+                        'Get-PfbFleet.'
+                    )
+                }
+            }
+            else {
+                @(
+                    "Context requirement ($EndpointKey): this cmdlet targets a fleet-scoped resource"
+                    'and requires a bare fleet context. Set one with'
+                    'Set-PfbContext -Context <fleet> -Kind Fleet, or scope a single call with'
+                    'Invoke-PfbInContext. Get the fleet name from Get-PfbFleet.'
+                )
+            }
         }
         'unknown' {
             @(

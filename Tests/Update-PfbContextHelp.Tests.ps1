@@ -130,6 +130,39 @@ Describe 'Update-PfbContextHelp' {
         (Get-Content $script:presetFile -Raw) | Should -BeLike '*fleet context*'
     }
 
+    It 'renders a fleet-scoped GET differently from a fleet-scoped write' {
+        # The runtime gate (Assert-PfbContextRequired) is narrower for GET than for the write
+        # verbs, twice over, and both narrowings are measured. Emitting the write wording for a
+        # GET told the reader an unfiltered list requires a fleet context, six lines below the
+        # .EXAMPLE showing exactly that context-free call. So the two must not read alike.
+        $write = & $script:generator -EmitLineOnly -Scope 'fleet' -EndpointKey 'POST /presets/workload'
+        $get = & $script:generator -EmitLineOnly -Scope 'fleet' -EndpointKey 'GET /presets/workload'
+
+        $null -eq $get | Should -BeFalse
+        # Strip the endpoint key, which differs on its own, so this compares the WORDING.
+        ($get -replace 'GET /presets/workload', 'X') -eq ($write -replace 'POST /presets/workload', 'X') |
+            Should -BeFalse -Because 'a fleet-scoped GET must not inherit the write verbs'' wording'
+
+        # The write arm states the requirement unconditionally; the GET arm must say the
+        # unfiltered read needs no context.
+        $write.Contains('requires a bare fleet context') | Should -BeTrue
+        $get.Contains('An unfiltered list works with NO context') | Should -BeTrue
+    }
+
+    It 'requires a context for a name-scoped fleet GET only where that was measured' {
+        # GET /presets/workload is on $script:PfbNameScopedContextRequiredEndpoints; the three
+        # fleet-scoped topology-group GETs are deliberately NOT, because a name-scoped
+        # context-free read returns 200 on them. The help must reflect that split rather than
+        # asserting the requirement for every fleet-scoped GET -- and it must read the split
+        # from the module's own allowlist, so adding an endpoint there changes the help.
+        $onList = & $script:generator -EmitLineOnly -Scope 'fleet' -EndpointKey 'GET /presets/workload'
+        $offList = & $script:generator -EmitLineOnly -Scope 'fleet' -EndpointKey 'GET /topology-groups'
+
+        $onList.Contains('Filtering by name or id needs a') | Should -BeTrue
+        $offList.Contains('None is required') | Should -BeTrue
+        $offList.Contains('Filtering by name or id needs a') | Should -BeFalse
+    }
+
     It 'covers every non-default-scope endpoint that maps to a cmdlet' {
         $summary = & $script:generator -WhatIf
         $summary.Generated.Count | Should -BeGreaterThan 0
