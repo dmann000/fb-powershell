@@ -164,15 +164,18 @@ Describe 'Connect-PfbArray -Context behaviour' {
     # defect shipped.
     #
     # Must use a username-bearing parameter set: -ApiToken never populates Username, so the
-    # resolver early-returns and this test would pass vacuously against a deleted line.
-    It 'populates AuthorizationModel from the connected admin' {
+    # resolver early-returns and this test would pass vacuously against a deleted line. And must
+    # supply -Context: since the 2026-08-05 ruling the resolution happens ONLY on that path.
+    It 'populates AuthorizationModel from the connected admin when -Context is supplied' {
         $cred = [System.Management.Automation.PSCredential]::new(
             'jdoe', (ConvertTo-SecureString 'pw' -AsPlainText -Force))
         # Boundary mocks, matched with -match so `?` is a literal and not the -like single-char
         # wildcard: '*/admins?*' would also match the api-tokens URI's '/admins/'.
+        # 'dynamic', not 'static': a static model plus a connect-time context now throws (see the
+        # test below), so a static fixture here would be asserting on an unreachable state.
         Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
             [PSCustomObject]@{
-                items = @([PSCustomObject]@{ name = 'jdoe'; authorization_model = 'static' })
+                items = @([PSCustomObject]@{ name = 'jdoe'; authorization_model = 'dynamic' })
                 total_item_count = 1
             }
         } -ParameterFilter { $Uri -match '/admins\?' }
@@ -182,18 +185,63 @@ Describe 'Connect-PfbArray -Context behaviour' {
             [PSCustomObject]@{ items = @() }
         } -ParameterFilter { $Uri -match '/admins/api-tokens' }
 
+        $conn = Connect-PfbArray -Endpoint 'fb.test' -Credential $cred -Context 'FB-B'
+
+        $conn.AuthorizationModel | Should -Be 'dynamic' -Because 'Connect-PfbArray must assign the resolver result onto the connection; a $null here means the capture line was never wired'
+        @($conn.DefaultContext.Entries).Count | Should -Be 1
+    }
+
+    # THE detector for the whole point of the 2026-08-05 ruling: a session that never touches
+    # Fusion must not pay for a GET /admins round trip. Nothing else in the suite can see this --
+    # every other test either supplies a context or connects with -ApiToken (no Username), so the
+    # resolution would be invisible to them whether it is conditional or unconditional.
+    It 'makes NO admin call on a bare connect, even with a username-bearing credential' {
+        $cred = [System.Management.Automation.PSCredential]::new(
+            'jdoe', (ConvertTo-SecureString 'pw' -AsPlainText -Force))
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            throw 'GET /admins must not be called on a bare connect'
+        } -ParameterFilter { $Uri -match '/admins\?' }
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            [PSCustomObject]@{ items = @() }
+        } -ParameterFilter { $Uri -match '/admins/api-tokens' }
+
         $conn = Connect-PfbArray -Endpoint 'fb.test' -Credential $cred
 
-        $conn.AuthorizationModel | Should -Be 'static' -Because 'Connect-PfbArray must assign the resolver result onto the connection; a $null here means the capture line was never wired'
+        # -Times 0 is the real assertion. The throwing mock body above is NOT sufficient on its
+        # own: Resolve-PfbAuthorizationModel catches everything and returns $null, so the throw
+        # would be swallowed and this test would pass with the call still being made.
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell -CommandName Invoke-RestMethod `
+            -ParameterFilter { $Uri -match '/admins\?' } -Times 0 `
+            -Because 'a connect with no -Context must not resolve the authorization model at all'
+        $null -eq $conn.AuthorizationModel | Should -BeTrue
     }
 
     It 'resolves the authorization model exactly once per connect' {
         # Pins the cost as "one lookup per connect, not one per request".
         InModuleScope PureStorageFlashBladePowerShell {
             Mock -CommandName Resolve-PfbAuthorizationModel -MockWith { 'dynamic' }
-            $conn = Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake'
+            $conn = Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake' -Context 'FB-B'
             $conn.AuthorizationModel | Should -Be 'dynamic'
             Should -Invoke -CommandName Resolve-PfbAuthorizationModel -Times 1 -Exactly
+        }
+    }
+
+    It 'rejects a connect-time context for a static-model admin and installs nothing in the caches' {
+        # The connect-time context path is now gated -- it is where resolution happens, so it is
+        # where the gate can rule. The cache half of this assertion is the one that matters: the
+        # caches used to be repointed BEFORE this block, so a rejected context left a connection
+        # the cmdlet never returned installed as $script:PfbDefaultArray.
+        InModuleScope PureStorageFlashBladePowerShell {
+            Mock -CommandName Resolve-PfbAuthorizationModel -MockWith { 'static' }
+            $sentinel = [PSCustomObject]@{ PSTypeName = 'PureStorage.FlashBlade.Connection'; Endpoint = 'sentinel' }
+            $script:PfbArrays = @{ 'sentinel' = $sentinel }
+            $script:PfbDefaultArray = $sentinel
+
+            { Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake' -Context 'FB-B' } |
+                Should -Throw -ExpectedMessage '*dynamic-authorization-model*'
+
+            [object]::ReferenceEquals($script:PfbDefaultArray, $sentinel) | Should -BeTrue -Because 'a rejected connect must not become the default array'
+            $script:PfbArrays.ContainsKey('fb.test') | Should -BeFalse
         }
     }
 

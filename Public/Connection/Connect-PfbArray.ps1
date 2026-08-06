@@ -490,38 +490,49 @@ function Connect-PfbArray {
     )
     Add-Member -InputObject $connection -MemberType MemberSet -Name PSStandardMembers -Value $psStandardMembers
 
-    # Cache the connection
-    $script:PfbDefaultArray = $connection
-    $script:PfbArrays[$Endpoint] = $connection
-
-    # Best-effort and non-fatal: see Resolve-PfbAuthorizationModel, which also documents the two
-    # costs -- this is inert for the DEFAULT -ApiToken set (no Username to look up) and costs ~3
-    # round trips rather than 1 on a management-access-policy 403. Runs after the caches are
-    # populated and before the connect-time -Context handling. Safe from recursion: the resolver's
-    # own Invoke-PfbApiRequest call happens while DefaultContext and ContextOverride are both
-    # still $null, so no context gate fires.
-    #
-    # Deleting this line disables the entire authorization-model feature without breaking any
-    # call site, so it is pinned by a test: see 'populates AuthorizationModel from the connected
-    # admin' in Tests/Connect-PfbArray.Context.Tests.ps1.
-    $connection.AuthorizationModel = Resolve-PfbAuthorizationModel -Array $connection
-
     # A context supplied at connect is the durable session default. Already validated above,
     # before authentication. The gate is $contextRequested -- never a truthiness or $null test
     # on $contextEntries, which is what keeps $null (unset) distinct from @() (explicit
     # no-context).
     #
-    # Deliberately NOT gated by Assert-PfbContextAuthorizationModel: scoped out by design, since
-    # the request-path gate still throws before anything reaches the wire -- only the diagnostic
-    # is later. TRAP for whoever closes that gap: a gate call placed here would throw AFTER
-    # $script:PfbDefaultArray and $script:PfbArrays[$Endpoint] were repointed at this connection
-    # above, so the caller would get an exception while the module caches point at a connection
-    # this cmdlet never returned -- a "failed" connect installed as the default array, with the
-    # offending context attached. Any fix must validate before the cache assignment, or unwind
-    # the caches on throw.
+    # DELIBERATELY BEFORE THE CACHE ASSIGNMENT BELOW. This block can throw (the gate), and the
+    # caches used to be repointed above it -- so a rejected context left a connection this cmdlet
+    # never returned installed as $script:PfbDefaultArray, with the offending context attached: a
+    # "failed" connect that is nonetheless the default array. Validating first and installing
+    # afterwards is what makes that unreachable, and it is why the two were reordered rather than
+    # an unwind-on-throw being bolted on. Nothing between here and the install needs the caches --
+    # the resolver is passed $connection explicitly, and the reconnect/refresh paths' cache writes
+    # are guarded on the endpoint already being present, so they no-op rather than installing a
+    # half-configured connection behind our back.
     if ($contextRequested) {
-        $connection.DefaultContext = New-PfbContext -Entries $contextEntries
+        # Resolved HERE, not unconditionally at connect: a session that never touches Fusion must
+        # not pay for a GET /admins round trip (maintainer ruling 2026-08-05). The other site is
+        # Set-PfbContext's end{}. Exactly two sites, both one-shot session setup -- which is why
+        # no cache is needed and AuthorizationModel stays two-state-plus-null ('static'/'dynamic'
+        # known, $null indeterminate -> fail open). Do NOT add a per-call site such as
+        # Invoke-PfbInContext: it mutates ContextOverride in place on the shared connection and a
+        # thousand-iteration loop would mean a thousand probes. Do NOT memoize, and do NOT
+        # introduce a third "not yet asked" state to make memoizing safe.
+        #
+        # Best-effort and non-fatal: see Resolve-PfbAuthorizationModel, which also documents that
+        # this is inert for the DEFAULT -ApiToken set (no Username to look up) and costs ~3 round
+        # trips rather than 1 on a management-access-policy 403. Safe from recursion: the
+        # resolver's own Invoke-PfbApiRequest call happens while DefaultContext and
+        # ContextOverride are both still $null, so no context gate fires.
+        $connection.AuthorizationModel = Resolve-PfbAuthorizationModel -Array $connection
+
+        $connectContext = New-PfbContext -Entries $contextEntries
+
+        # Closes what the Task 11 review parked as a gap: the connect-time context path is now
+        # exactly where resolution happens, so it is also where the gate can rule.
+        Assert-PfbContextAuthorizationModel -Array $connection -Context $connectContext
+
+        $connection.DefaultContext = $connectContext
     }
+
+    # Cache the connection. Last, so only a fully validated connection is ever installed.
+    $script:PfbDefaultArray = $connection
+    $script:PfbArrays[$Endpoint] = $connection
 
     return $connection
 }

@@ -90,11 +90,25 @@ function Set-PfbContext {
         # $copy.DefaultContext then receive a stringified array instead of a context. Measured.
         $newContext = New-PfbContext -Entries $entries -AllowErrors $allowErrors
 
+        # The copy is taken BEFORE resolving, so the model is written onto the copy and the
+        # caller's connection is never mutated -- this cmdlet's copy-on-write contract holds for
+        # the model exactly as it does for the context. Resolving onto $target instead would have
+        # been simpler and wrong: it mutates an object the caller may still hold.
+        $copy = Copy-PfbConnection -Array $target
+
+        # Resolve the admin's authorization model HERE rather than relying on connect having done
+        # it. Since the 2026-08-05 ruling Connect-PfbArray only resolves when -Context was
+        # supplied, so on what is now the common path -- bare connect, then Set-PfbContext -- the
+        # model is still $null at this point, and skipping this would leave the gate permanently
+        # failing open. This is the second and last of the two resolution sites; do not add a
+        # third, and do not memoize (see Connect-PfbArray's note).
+        $copy.AuthorizationModel = Resolve-PfbAuthorizationModel -Array $copy
+
         # A static-model admin cannot use a context at all, so say so here rather than letting
         # every later call fail with an opaque code 20. Fails open on an indeterminate model.
-        Assert-PfbContextAuthorizationModel -Array $target -Context $newContext
+        # Before the cache repoint below: a rejected context must leave no trace.
+        Assert-PfbContextAuthorizationModel -Array $copy -Context $newContext
 
-        $copy = Copy-PfbConnection -Array $target
         $copy.DefaultContext = $newContext
         Update-PfbConnectionCache -Array $copy
         $copy

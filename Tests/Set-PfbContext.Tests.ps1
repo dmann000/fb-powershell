@@ -61,11 +61,15 @@ Describe 'Set-PfbContext' {
     # says nothing about this one, and vice versa.
     It 'calls the authorization-model gate with the target connection and the composed context' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
+            # AuthorizationModel starts $null, which is now the COMMON state: since the
+            # 2026-08-05 ruling a bare connect resolves nothing. Set-PfbContext must resolve it
+            # itself, so the gate seeing 'dynamic' below is evidence it did.
             $fb = [PSCustomObject]@{
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
-                Endpoint = 'fb.example'; ApiVersion = '2.26'
-                DefaultContext = $null; ContextOverride = $null; AuthorizationModel = 'dynamic'
+                Endpoint = 'fb.example'; ApiVersion = '2.26'; Username = 'jdoe'
+                DefaultContext = $null; ContextOverride = $null; AuthorizationModel = $null
             }
+            Mock -CommandName Resolve-PfbAuthorizationModel -MockWith { 'dynamic' }
             $seen = [System.Collections.Generic.List[object]]::new()
             Mock -CommandName Assert-PfbContextAuthorizationModel -MockWith {
                 $seen.Add([PSCustomObject]@{ Model = $Array.AuthorizationModel; Names = @($Context.Entries.Name) -join ',' })
@@ -74,8 +78,27 @@ Describe 'Set-PfbContext' {
             Set-PfbContext -Array $fb -Context 'FB-B' | Out-Null
 
             @($seen).Count | Should -Be 1 -Because "Set-PfbContext's end{} must call the gate; a count of 0 means the call was deleted or never wired"
-            $seen[0].Model | Should -Be 'dynamic' -Because 'the gate must receive the connection that carries AuthorizationModel'
+            $seen[0].Model | Should -Be 'dynamic' -Because 'Set-PfbContext must resolve the model itself and hand the gate a connection carrying it; $null here means the resolution was deleted or never wired'
             $seen[0].Names | Should -Be 'FB-B'
+        }
+    }
+    # THE detector for Set-PfbContext's own resolution site, independent of the gate wiring above.
+    It 'resolves the authorization model itself, exactly once, without mutating the caller' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $fb = [PSCustomObject]@{
+                PSTypeName = 'PureStorage.FlashBlade.Connection'
+                Endpoint = 'fb.example'; ApiVersion = '2.26'; Username = 'jdoe'
+                DefaultContext = $null; ContextOverride = $null; AuthorizationModel = $null
+            }
+            Mock -CommandName Resolve-PfbAuthorizationModel -MockWith { 'dynamic' }
+
+            $new = Set-PfbContext -Array $fb -Context 'FB-B'
+
+            Should -Invoke -CommandName Resolve-PfbAuthorizationModel -Times 1 -Exactly
+            $new.AuthorizationModel | Should -Be 'dynamic'
+            # Copy-on-write covers the model too: it is written onto the copy, never onto the
+            # object the caller still holds.
+            $null -eq $fb.AuthorizationModel | Should -BeTrue -Because 'the model is written onto the copy, not the caller connection'
         }
     }
     It 'refuses to set a context for a static-model admin' {
@@ -83,8 +106,9 @@ Describe 'Set-PfbContext' {
             $fb = [PSCustomObject]@{
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
                 Endpoint = 'fb.example'; ApiVersion = '2.26'; Username = 'pureuser'
-                DefaultContext = $null; ContextOverride = $null; AuthorizationModel = 'static'
+                DefaultContext = $null; ContextOverride = $null; AuthorizationModel = $null
             }
+            Mock -CommandName Resolve-PfbAuthorizationModel -MockWith { 'static' }
             { Set-PfbContext -Array $fb -Context 'FB-B' } |
                 Should -Throw -ExpectedMessage '*dynamic-authorization-model*'
         }
@@ -93,7 +117,12 @@ Describe 'Set-PfbContext' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
             $originalArrays = $script:PfbArrays; $originalDefault = $script:PfbDefaultArray
             try {
-                $fb = [PSCustomObject]@{ PSTypeName = 'PureStorage.FlashBlade.Connection'; Endpoint = 'fb.example'; DefaultContext = $null; ContextOverride = $null }
+                # AuthorizationModel is declared because the real connection object declares it
+                # (Connect-PfbArray.ps1:477) and Set-PfbContext now WRITES it. Omitting it made
+                # this fixture pass while the property was only ever read; a write to a property a
+                # PSCustomObject does not have is a hard error, so the omission was latent
+                # infidelity rather than a harmless shortcut.
+                $fb = [PSCustomObject]@{ PSTypeName = 'PureStorage.FlashBlade.Connection'; Endpoint = 'fb.example'; DefaultContext = $null; ContextOverride = $null; AuthorizationModel = $null }
                 $script:PfbArrays = @{ 'fb.example' = $fb }; $script:PfbDefaultArray = $fb
                 $new = Set-PfbContext -Array $fb -Context 'FB-B'
                 [object]::ReferenceEquals($script:PfbDefaultArray, $new) | Should -BeTrue
