@@ -474,7 +474,7 @@ function Connect-PfbArray {
         ContextOverride      = $null
         # Reserved: populated in a later phase. Declared here so every connection object has a
         # uniform shape.
-        AuthorizationModel   = $null
+        AdminLocality   = $null
     }
 
     # Hide secrets from default display. Sensitive fields (ApiToken, AuthToken,
@@ -513,7 +513,7 @@ function Connect-PfbArray {
     # since the context strip is the resolver's PROBE COPY, not $connection. So a subsequent gate
     # throw still leaves the caches pointing at an object this cmdlet never returned. Narrow (needs
     # an already-cached endpoint plus a transient auth failure on the probe) and fail-safe in the
-    # common case -- see the strip site in Resolve-PfbAuthorizationModel for why the probe copy
+    # common case -- see the strip site in Resolve-PfbAdminLocality for why the probe copy
     # landing there is benign, and on what that depends. Closing it properly means capturing and
     # restoring both cache slots in a catch -- the very unwind the reordering was chosen to avoid --
     # so it is recorded here rather than fixed. Do not delete this paragraph believing the
@@ -523,7 +523,7 @@ function Connect-PfbArray {
         # ($null -ne $resolvedContext -and @(...Entries).Count -gt 0). $contextRequested alone is
         # TRUE for -Context @(), which in this codebase is the first-class "explicitly no context"
         # state, NOT "a context is being set". Gating only on the flag made
-        # `-Credential <static admin> -Context @()` pay a GET /admins probe and then hard-throw with
+        # `-Credential <local admin> -Context @()` pay a GET /admins probe and then hard-throw with
         # an empty value interpolated into the message ("the context '' would return..."), failing
         # a connect that asked for no context at all. Keep this recognisably the same predicate as
         # the request path's -- a different shape here is how the two drift apart.
@@ -531,17 +531,17 @@ function Connect-PfbArray {
             # Resolved HERE, not unconditionally at connect: a session that never touches Fusion
             # must not pay for a GET /admins round trip (maintainer ruling 2026-08-05). The other
             # site is Set-PfbContext's end{}. Exactly two sites, both one-shot session setup --
-            # which is why no cache is needed and AuthorizationModel stays two-state-plus-null
-            # ('static'/'dynamic' known, $null indeterminate -> fail open). Do NOT add a per-call
+            # which is why no cache is needed and AdminLocality stays two-state-plus-null
+            # ('local'/'remote' known, $null indeterminate -> fail open). Do NOT add a per-call
             # site such as Invoke-PfbInContext: it mutates ContextOverride in place on the shared
             # connection and a thousand-iteration loop would mean a thousand probes. Do NOT
             # memoize, and do NOT introduce a third "not yet asked" state to make memoizing safe.
             #
-            # Best-effort and non-fatal: see Resolve-PfbAuthorizationModel, which also documents
+            # Best-effort and non-fatal: see Resolve-PfbAdminLocality, which also documents
             # that this is inert for the DEFAULT -ApiToken set (no Username to look up), costs ~3
             # round trips rather than 1 on a management-access-policy 403, and strips the context
             # from its own probe so the identity question is never routed to another array.
-            $connection.AuthorizationModel = Resolve-PfbAuthorizationModel -Array $connection
+            $connection.AdminLocality = Resolve-PfbAdminLocality -Array $connection
 
             # Closes what the Task 11 review parked as a gap: the connect-time context path is now
             # exactly where resolution happens, so it is also where the gate can rule.
@@ -552,7 +552,7 @@ function Connect-PfbArray {
             # The original error is captured first and re-thrown explicitly so a failure inside the
             # logout can never replace or mask it.
             try {
-                Assert-PfbContextAuthorizationModel -Array $connection -Context (New-PfbContext -Entries $contextEntries)
+                Assert-PfbContextAdminLocality -Array $connection -Context (New-PfbContext -Entries $contextEntries)
             }
             catch {
                 $gateError = $_

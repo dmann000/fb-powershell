@@ -13,7 +13,7 @@ Describe 'connection context state' {
                 ApiVersion         = '2.26'
                 DefaultContext     = $null
                 ContextOverride    = $null
-                AuthorizationModel = $null
+                AdminLocality = $null
             }
             $copy = Copy-PfbConnection -Array $fake
             $copy.DefaultContext = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'))
@@ -150,14 +150,14 @@ Describe 'Connect-PfbArray -Context behaviour' {
 
     It 'exposes the three context state properties on the connection object' {
         $conn = Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake'
-        foreach ($prop in 'DefaultContext', 'ContextOverride', 'AuthorizationModel') {
+        foreach ($prop in 'DefaultContext', 'ContextOverride', 'AdminLocality') {
             $conn.PSObject.Properties.Name | Should -Contain $prop
         }
     }
 
-    # THE detector for Connect-PfbArray.ps1's `$connection.AuthorizationModel = Resolve-...` line.
-    # Deleting that one line disables the whole authorization-model feature without breaking any
-    # gate call site, and nothing pinned it: the two pre-existing AuthorizationModel assertions in
+    # THE detector for Connect-PfbArray.ps1's `$connection.AdminLocality = Resolve-...` line.
+    # Deleting that one line disables the whole admin-locality feature without breaking any
+    # gate call site, and nothing pinned it: the two pre-existing AdminLocality assertions in
     # this file check that the PROPERTY EXISTS (declared in the object literal, so it passes
     # either way) and that it is $null (which passes either way too, because those harnesses
     # connect with -ApiToken and so Username is never populated). That gap is why the inert-gate
@@ -166,16 +166,16 @@ Describe 'Connect-PfbArray -Context behaviour' {
     # Must use a username-bearing parameter set: -ApiToken never populates Username, so the
     # resolver early-returns and this test would pass vacuously against a deleted line. And must
     # supply -Context: since the 2026-08-05 ruling the resolution happens ONLY on that path.
-    It 'populates AuthorizationModel from the connected admin when -Context is supplied' {
+    It 'populates AdminLocality from the connected admin when -Context is supplied' {
         $cred = [System.Management.Automation.PSCredential]::new(
             'jdoe', (ConvertTo-SecureString 'pw' -AsPlainText -Force))
         # Boundary mocks, matched with -match so `?` is a literal and not the -like single-char
         # wildcard: '*/admins?*' would also match the api-tokens URI's '/admins/'.
-        # 'dynamic', not 'static': a static model plus a connect-time context now throws (see the
-        # test below), so a static fixture here would be asserting on an unreachable state.
+        # is_local=$false (remote), not local: a local admin plus a connect-time context now
+        # throws (see the test below), so a local fixture here would assert an unreachable state.
         Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
             [PSCustomObject]@{
-                items = @([PSCustomObject]@{ name = 'jdoe'; authorization_model = 'dynamic' })
+                items = @([PSCustomObject]@{ name = 'jdoe'; is_local = $false })
                 total_item_count = 1
             }
         } -ParameterFilter { $Uri -match '/admins\?' }
@@ -187,7 +187,7 @@ Describe 'Connect-PfbArray -Context behaviour' {
 
         $conn = Connect-PfbArray -Endpoint 'fb.test' -Credential $cred -Context 'FB-B'
 
-        $conn.AuthorizationModel | Should -Be 'dynamic' -Because 'Connect-PfbArray must assign the resolver result onto the connection; a $null here means the capture line was never wired'
+        $conn.AdminLocality | Should -Be 'remote' -Because 'Connect-PfbArray must assign the resolver result onto the connection; a $null here means the capture line was never wired'
         @($conn.DefaultContext.Entries).Count | Should -Be 1
     }
 
@@ -208,12 +208,12 @@ Describe 'Connect-PfbArray -Context behaviour' {
         $conn = Connect-PfbArray -Endpoint 'fb.test' -Credential $cred
 
         # -Times 0 is the real assertion. The throwing mock body above is NOT sufficient on its
-        # own: Resolve-PfbAuthorizationModel catches everything and returns $null, so the throw
+        # own: Resolve-PfbAdminLocality catches everything and returns $null, so the throw
         # would be swallowed and this test would pass with the call still being made.
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell -CommandName Invoke-RestMethod `
             -ParameterFilter { $Uri -match '/admins\?' } -Times 0 `
-            -Because 'a connect with no -Context must not resolve the authorization model at all'
-        $null -eq $conn.AuthorizationModel | Should -BeTrue
+            -Because 'a connect with no -Context must not resolve the admin locality at all'
+        $null -eq $conn.AdminLocality | Should -BeTrue
     }
 
     # The tri-state case and the model-resolving case were covered by DISJOINT sets of tests, and
@@ -223,11 +223,11 @@ Describe 'Connect-PfbArray -Context behaviour' {
     It 'treats -Context @() as no context: no admin probe, no gate, no throw' {
         $cred = [System.Management.Automation.PSCredential]::new(
             'pureuser', (ConvertTo-SecureString 'pw' -AsPlainText -Force))
-        # A STATIC admin: were the gate to run it would throw -- and with @() it would interpolate
+        # A LOCAL admin: were the gate to run it would throw -- and with @() it would interpolate
         # an empty value into the message ("the context '' would return ...").
         Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
             [PSCustomObject]@{
-                items = @([PSCustomObject]@{ name = 'pureuser'; authorization_model = 'static' })
+                items = @([PSCustomObject]@{ name = 'pureuser'; is_local = $true })
                 total_item_count = 1
             }
         } -ParameterFilter { $Uri -match '/admins\?' }
@@ -245,17 +245,17 @@ Describe 'Connect-PfbArray -Context behaviour' {
         @($conn.DefaultContext.Entries).Count | Should -Be 0
     }
 
-    It 'resolves the authorization model exactly once per connect' {
+    It 'resolves the admin locality exactly once per connect' {
         # Pins the cost as "one lookup per connect, not one per request".
         InModuleScope PureStorageFlashBladePowerShell {
-            Mock -CommandName Resolve-PfbAuthorizationModel -MockWith { 'dynamic' }
+            Mock -CommandName Resolve-PfbAdminLocality -MockWith { 'remote' }
             $conn = Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake' -Context 'FB-B'
-            $conn.AuthorizationModel | Should -Be 'dynamic'
-            Should -Invoke -CommandName Resolve-PfbAuthorizationModel -Times 1 -Exactly
+            $conn.AdminLocality | Should -Be 'remote'
+            Should -Invoke -CommandName Resolve-PfbAdminLocality -Times 1 -Exactly
         }
     }
 
-    It 'rejects a connect-time context for a static-model admin, releases the session, and installs nothing in the caches' {
+    It 'rejects a connect-time context for a local admin, releases the session, and installs nothing in the caches' {
         # The connect-time context path is now gated -- it is where resolution happens, so it is
         # where the gate can rule. The cache half of this assertion is the one that matters: the
         # caches used to be repointed BEFORE this block, so a rejected context left a connection
@@ -265,14 +265,14 @@ Describe 'Connect-PfbArray -Context behaviour' {
         # assertions all still hold with the entire try/catch deleted, so without this line the
         # release would be untested while looking covered.
         InModuleScope PureStorageFlashBladePowerShell {
-            Mock -CommandName Resolve-PfbAuthorizationModel -MockWith { 'static' }
+            Mock -CommandName Resolve-PfbAdminLocality -MockWith { 'local' }
             Mock -CommandName Invoke-RestMethod -MockWith {} -ParameterFilter { $Uri -match '/api/logout' }
             $sentinel = [PSCustomObject]@{ PSTypeName = 'PureStorage.FlashBlade.Connection'; Endpoint = 'sentinel' }
             $script:PfbArrays = @{ 'sentinel' = $sentinel }
             $script:PfbDefaultArray = $sentinel
 
             { Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake' -Context 'FB-B' } |
-                Should -Throw -ExpectedMessage '*dynamic-authorization-model*'
+                Should -Throw -ExpectedMessage '*remotely authenticated*'
 
             Should -Invoke -CommandName Invoke-RestMethod -ParameterFilter { $Uri -match '/api/logout' } -Times 1 -Exactly `
                 -Because 'this is the cmdlet first throw after a successful login, so the session it minted must be released rather than abandoned'
@@ -319,7 +319,7 @@ Describe 'Connect-PfbArray -Context behaviour' {
         $null -ne $conn | Should -BeTrue
         $null -eq $conn.DefaultContext | Should -BeTrue
         $null -eq $conn.ContextOverride | Should -BeTrue
-        $null -eq $conn.AuthorizationModel | Should -BeTrue
+        $null -eq $conn.AdminLocality | Should -BeTrue
     }
 
     It 'stores a single Array/Object entry for -Context with no -Kind or -AllArrays' {
@@ -380,12 +380,12 @@ Describe 'Connect-PfbArray -Context behaviour' {
     }
 }
 
-Describe 'Resolve-PfbAuthorizationModel' {
-    It 'leaves AuthorizationModel null when the admin lookup fails' {
+Describe 'Resolve-PfbAdminLocality' {
+    It 'leaves AdminLocality null when the admin lookup fails' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
             Mock -CommandName Invoke-PfbApiRequest -MockWith { throw 'HTTP 403' }
-            { Resolve-PfbAuthorizationModel -Array ([PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'u' }) } | Should -Not -Throw
-            $null -eq (Resolve-PfbAuthorizationModel -Array ([PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'u' })) | Should -BeTrue
+            { Resolve-PfbAdminLocality -Array ([PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'u' }) } | Should -Not -Throw
+            $null -eq (Resolve-PfbAdminLocality -Array ([PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'u' })) | Should -BeTrue
         }
     }
     # Mocked at the Invoke-RestMethod boundary, NOT at Invoke-PfbApiRequest. A mock of the thing
@@ -395,49 +395,77 @@ Describe 'Resolve-PfbAuthorizationModel' {
     # hands back an object[] of admin objects. The resolver read .items off that array, got $null
     # on every real array, and the whole gate was inert in production behind a green suite.
     # Letting the real Invoke-PfbApiRequest do the unwrap is what makes this a contract test.
-    It 'reads authorization_model for the connecting username through the real items unwrap' {
+    It 'reads is_local for the connecting username through the real items unwrap' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
             $fb = [PSCustomObject]@{
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
                 Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
                 Username = 'juemerson'
-                DefaultContext = $null; ContextOverride = $null; AuthorizationModel = $null
+                DefaultContext = $null; ContextOverride = $null; AdminLocality = $null
             }
             Mock -CommandName Invoke-RestMethod -MockWith {
                 [PSCustomObject]@{
-                    items = @([PSCustomObject]@{ name = 'juemerson'; authorization_model = 'dynamic' })
+                    items = @([PSCustomObject]@{ name = 'juemerson'; is_local = $false })
                     total_item_count = 1
                 }
             }
 
-            Resolve-PfbAuthorizationModel -Array $fb | Should -Be 'dynamic'
+            Resolve-PfbAdminLocality -Array $fb | Should -Be 'remote'
+        }
+    }
+    It 'resolves a local admin to local' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            Mock -CommandName Invoke-PfbApiRequest -MockWith { @([PSCustomObject]@{ name = 'u'; is_local = $true }) }
+            Resolve-PfbAdminLocality -Array ([PSCustomObject]@{ Endpoint = 'fb'; Username = 'u'; DefaultContext = $null; ContextOverride = $null }) |
+                Should -Be 'local'
+        }
+    }
+    It 'resolves a STATIC REMOTE admin to remote' {
+        # The case that falsified the old design. A static-remote admin is is_local=$false with
+        # authorization_model='static', and the array SERVES its context calls. If this returns
+        # 'local', the gate blocks a working session -- the exact defect this task exists to fix.
+        # Standing regression guard: do NOT switch the resolver back to authorization_model.
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            Mock -CommandName Invoke-PfbApiRequest -MockWith {
+                @([PSCustomObject]@{ name = 'u'; is_local = $false; authorization_model = 'static' })
+            }
+            Resolve-PfbAdminLocality -Array ([PSCustomObject]@{ Endpoint = 'fb'; Username = 'u'; DefaultContext = $null; ContextOverride = $null }) |
+                Should -Be 'remote'
+        }
+    }
+    It 'returns null when the row carries no is_local property' {
+        # $null -ne, never truthiness: absent must yield the indeterminate $null, not 'remote'.
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            Mock -CommandName Invoke-PfbApiRequest -MockWith { @([PSCustomObject]@{ name = 'u' }) }
+            $null -eq (Resolve-PfbAdminLocality -Array ([PSCustomObject]@{ Endpoint = 'fb'; Username = 'u'; DefaultContext = $null; ContextOverride = $null })) |
+                Should -BeTrue
         }
     }
     It 'ignores an admin row whose name does not match the connecting username' {
-        # A wrong-row read is worse than no read: 'static' off a peer's row would hard-throw a
-        # legitimate LDAP session out of Set-PfbContext. names= is a documented exact-match
+        # A wrong-row read is worse than no read: is_local=$true off a peer's row would hard-throw
+        # a legitimate LDAP session out of Set-PfbContext. names= is a documented exact-match
         # filter, so this is defence in depth rather than an observed server behaviour.
         InModuleScope 'PureStorageFlashBladePowerShell' {
             $fb = [PSCustomObject]@{
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
                 Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
                 Username = 'juemerson'
-                DefaultContext = $null; ContextOverride = $null; AuthorizationModel = $null
+                DefaultContext = $null; ContextOverride = $null; AdminLocality = $null
             }
             Mock -CommandName Invoke-RestMethod -MockWith {
                 [PSCustomObject]@{
-                    items = @([PSCustomObject]@{ name = 'pureuser'; authorization_model = 'static' })
+                    items = @([PSCustomObject]@{ name = 'pureuser'; is_local = $true })
                     total_item_count = 1
                 }
             }
 
-            $null -eq (Resolve-PfbAuthorizationModel -Array $fb) | Should -BeTrue
+            $null -eq (Resolve-PfbAdminLocality -Array $fb) | Should -BeTrue
         }
     }
     It 'returns null without a network call when the connection has no username' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
             Mock -CommandName Invoke-PfbApiRequest -MockWith { throw 'must not be called' }
-            $null -eq (Resolve-PfbAuthorizationModel -Array ([PSCustomObject]@{ Endpoint = 'fb.example'; Username = $null })) | Should -BeTrue
+            $null -eq (Resolve-PfbAdminLocality -Array ([PSCustomObject]@{ Endpoint = 'fb.example'; Username = $null })) | Should -BeTrue
             Should -Invoke -CommandName Invoke-PfbApiRequest -Times 0
         }
     }
@@ -452,26 +480,26 @@ Describe 'Resolve-PfbAuthorizationModel' {
                 Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
                 Username = 'juemerson'
                 # A bare Fleet context: the case that made the kind/scope gate throw INSIDE the
-                # resolver, whose catch then silently downgraded a known 'dynamic' to $null.
+                # resolver, whose catch then silently downgraded a known 'remote' to $null.
                 DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'fleet-prod' -Kind 'Fleet')))
-                ContextOverride = $null; AuthorizationModel = $null
+                ContextOverride = $null; AdminLocality = $null
             }
             $uris = [System.Collections.Generic.List[object]]::new()
             Mock -CommandName Invoke-RestMethod -MockWith {
                 $uris.Add($Uri)
                 [PSCustomObject]@{
-                    items = @([PSCustomObject]@{ name = 'juemerson'; authorization_model = 'dynamic' })
+                    items = @([PSCustomObject]@{ name = 'juemerson'; is_local = $false })
                     total_item_count = 1
                 }
             }
 
-            $model = Resolve-PfbAuthorizationModel -Array $fb
+            $locality = Resolve-PfbAdminLocality -Array $fb
 
             @($uris).Count | Should -Be 1
             $uris[0] | Should -Not -Match 'context_names' -Because 'the identity probe must never be context-scoped, or it is answered by another array'
             # The downgrade guard: without the strip this returns $null, because the kind gate
             # throws inside the resolver and the catch swallows it.
-            $model | Should -Be 'dynamic' -Because 'an existing context must not be able to downgrade a known model to indeterminate'
+            $locality | Should -Be 'remote' -Because 'an existing context must not be able to downgrade a known locality to indeterminate'
             # And the caller's connection is untouched -- the strip works on a copy.
             @($fb.DefaultContext.Entries).Count | Should -Be 1
         }
@@ -486,18 +514,18 @@ Describe 'Resolve-PfbAuthorizationModel' {
                 Username = 'juemerson'
                 DefaultContext = $null
                 ContextOverride = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B')))
-                AuthorizationModel = $null
+                AdminLocality = $null
             }
             $uris = [System.Collections.Generic.List[object]]::new()
             Mock -CommandName Invoke-RestMethod -MockWith {
                 $uris.Add($Uri)
                 [PSCustomObject]@{
-                    items = @([PSCustomObject]@{ name = 'juemerson'; authorization_model = 'dynamic' })
+                    items = @([PSCustomObject]@{ name = 'juemerson'; is_local = $false })
                     total_item_count = 1
                 }
             }
 
-            Resolve-PfbAuthorizationModel -Array $fb | Should -Be 'dynamic'
+            Resolve-PfbAdminLocality -Array $fb | Should -Be 'remote'
 
             @($uris).Count | Should -Be 1
             $uris[0] | Should -Not -Match 'context_names' -Because 'an Array-kind override would route the identity probe to a remote array, and it is read before DefaultContext'

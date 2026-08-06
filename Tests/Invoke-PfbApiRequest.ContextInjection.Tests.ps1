@@ -33,7 +33,7 @@ Describe 'context injection in Invoke-PfbApiRequest' {
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
                 Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
                 DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B')))
-                ContextOverride = $null; AuthorizationModel = $null
+                ContextOverride = $null; AdminLocality = $null
             }
             $seen = [System.Collections.Generic.List[object]]::new()
             Mock -CommandName Assert-PfbApiCapability -MockWith {
@@ -51,7 +51,7 @@ Describe 'context injection in Invoke-PfbApiRequest' {
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
                 Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
                 DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'cc-test-fleet' -Kind 'Fleet' -Form 'AllArrays')))
-                ContextOverride = $null; AuthorizationModel = $null
+                ContextOverride = $null; AdminLocality = $null
             }
             $uris = [System.Collections.Generic.List[string]]::new()
             Mock -CommandName Assert-PfbApiCapability -MockWith {}
@@ -66,7 +66,7 @@ Describe 'context injection in Invoke-PfbApiRequest' {
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
                 Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
                 DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B')))
-                ContextOverride = $null; AuthorizationModel = $null
+                ContextOverride = $null; AdminLocality = $null
             }
             $uris = [System.Collections.Generic.List[string]]::new()
             Mock -CommandName Assert-PfbApiCapability -MockWith {}
@@ -85,7 +85,7 @@ Describe 'context injection in Invoke-PfbApiRequest' {
             $fb = [PSCustomObject]@{
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
                 Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
-                DefaultContext = $null; ContextOverride = $null; AuthorizationModel = $null
+                DefaultContext = $null; ContextOverride = $null; AdminLocality = $null
             }
             $uris = [System.Collections.Generic.List[string]]::new()
             Mock -CommandName Assert-PfbApiCapability -MockWith {}
@@ -102,7 +102,7 @@ Describe 'context injection in Invoke-PfbApiRequest' {
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
                 Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
                 DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B')))
-                ContextOverride = (New-PfbContext -Entries @()); AuthorizationModel = $null
+                ContextOverride = (New-PfbContext -Entries @()); AdminLocality = $null
             }
             $uris = [System.Collections.Generic.List[string]]::new()
             # The URI alone CANNOT pin this: both downstream sinks (ConvertTo-PfbQueryString and
@@ -131,7 +131,7 @@ Describe 'context injection in Invoke-PfbApiRequest' {
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
                 Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
                 DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B')))
-                ContextOverride = $null; AuthorizationModel = $null
+                ContextOverride = $null; AdminLocality = $null
             }
             $callerParams = @{ limit = 5 }
             Mock -CommandName Assert-PfbApiCapability -MockWith {}
@@ -147,13 +147,13 @@ Describe 'context injection in Invoke-PfbApiRequest' {
 # unwired from the request path unnoticed. Tasks 10 and 11 add two more gates to this same site,
 # so the wiring gets its own detector now.
 Describe 'context gate wiring in Invoke-PfbApiRequest' {
-    It 'calls all four shape gates in order, capability before cardinality before kindMatchesScope before authorizationModel' {
+    It 'calls all four shape gates in order, capability before cardinality before kindMatchesScope before adminLocality' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
             $fb = [PSCustomObject]@{
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
                 Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
                 DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B')))
-                ContextOverride = $null; AuthorizationModel = $null
+                ContextOverride = $null; AdminLocality = $null
             }
             # A List with .Add() -- an assignment inside a Mock body does not propagate out, and
             # `$script:` inside InModuleScope would write to the MODULE's script scope.
@@ -161,7 +161,7 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             Mock -CommandName Assert-PfbContextCapability  -MockWith { $calls.Add('capability') }
             Mock -CommandName Assert-PfbContextCardinality -MockWith { $calls.Add('cardinality') }
             Mock -CommandName Assert-PfbContextKindMatchesScope -MockWith { $calls.Add('kindMatchesScope') }
-            Mock -CommandName Assert-PfbContextAuthorizationModel -MockWith { $calls.Add('authorizationModel') }
+            Mock -CommandName Assert-PfbContextAdminLocality -MockWith { $calls.Add('adminLocality') }
             Mock -CommandName Assert-PfbApiCapability -MockWith {}
             Mock -CommandName Invoke-RestMethod -MockWith { [PSCustomObject]@{ items = @() } }
 
@@ -171,37 +171,37 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             $calls[0] | Should -Be 'capability'  -Because 'the capability gate must rule on "endpoint takes no context at all" first'
             $calls[1] | Should -Be 'cardinality'
             $calls[2] | Should -Be 'kindMatchesScope' -Because 'it runs after cardinality: a wrong-KIND context aimed at an endpoint that takes no context at all should hear about capability first, not about scope'
-            $calls[3] | Should -Be 'authorizationModel' -Because 'the authorization-model gate is diagnostic and endpoint-independent, so the three endpoint-specific gates rule first'
+            $calls[3] | Should -Be 'adminLocality' -Because 'the admin-locality gate is diagnostic and endpoint-independent, so the three endpoint-specific gates rule first'
         }
     }
     # The It above records only the context gates, so it holds regardless of where the VERSION
-    # gate sits among them -- it cannot detect the authorization-model gate drifting back above
+    # gate sits among them -- it cannot detect the admin-locality gate drifting back above
     # Assert-PfbApiCapability. This one adds the version gate to the recording and pins the whole
     # sequence. The ruling it encodes was measured in Task 10: a gate that injects nothing and
     # consults no endpoint must run BELOW the version gate, or a static admin on a REST 2.20 array
     # calling an endpoint that needs 2.23 is told to go obtain an LDAP admin and only afterwards
     # learns the real blocker was firmware. Assert-PfbContextCapability defers "recorded but array
     # too old" to Assert-PfbApiCapability by design, so gates 1-3 do not catch that case.
-    It 'runs the version gate after the three injecting gates but BEFORE the authorization-model gate' {
+    It 'runs the version gate after the three injecting gates but BEFORE the admin-locality gate' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
             $fb = [PSCustomObject]@{
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
                 Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
                 DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B')))
-                ContextOverride = $null; AuthorizationModel = $null
+                ContextOverride = $null; AdminLocality = $null
             }
             $calls = [System.Collections.Generic.List[object]]::new()
             Mock -CommandName Assert-PfbContextCapability  -MockWith { $calls.Add('capability') }
             Mock -CommandName Assert-PfbContextCardinality -MockWith { $calls.Add('cardinality') }
             Mock -CommandName Assert-PfbContextKindMatchesScope -MockWith { $calls.Add('kindMatchesScope') }
-            Mock -CommandName Assert-PfbContextAuthorizationModel -MockWith { $calls.Add('authorizationModel') }
+            Mock -CommandName Assert-PfbContextAdminLocality -MockWith { $calls.Add('adminLocality') }
             # Recording, not silent: its POSITION is the thing under test here.
             Mock -CommandName Assert-PfbApiCapability -MockWith { $calls.Add('versionGate') }
             Mock -CommandName Invoke-RestMethod -MockWith { [PSCustomObject]@{ items = @() } }
 
             Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'file-systems' | Out-Null
 
-            @($calls) -join ',' | Should -Be 'capability,cardinality,kindMatchesScope,versionGate,authorizationModel' -Because 'the three injecting gates must precede the version gate (it has to see the injected context_names), and the endpoint-independent authorization-model gate must follow it so a firmware blocker wins over an admin-model one'
+            @($calls) -join ',' | Should -Be 'capability,cardinality,kindMatchesScope,versionGate,adminLocality' -Because 'the three injecting gates must precede the version gate (it has to see the injected context_names), and the endpoint-independent admin-locality gate must follow it so a firmware blocker wins over an admin-locality one'
         }
     }
     It 'passes each gate the resolved context and the shared capability map' {
@@ -210,7 +210,7 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
                 Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
                 DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B')))
-                ContextOverride = $null; AuthorizationModel = $null
+                ContextOverride = $null; AdminLocality = $null
             }
             $seen = [System.Collections.Generic.List[object]]::new()
             Mock -CommandName Assert-PfbContextCapability -MockWith {
@@ -222,12 +222,12 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             Mock -CommandName Assert-PfbContextKindMatchesScope -MockWith {
                 $seen.Add([PSCustomObject]@{ Gate = 'kindMatchesScope'; Names = @($Context.Entries.Name) -join ','; Endpoint = $Endpoint; HasMap = ($null -ne $CapabilityMap) })
             }
-            # The authorization-model gate has a DIFFERENT signature from the other three: it
+            # The admin-locality gate has a DIFFERENT signature from the other three: it
             # takes -Array (which only the capability gate also takes) and neither -Endpoint nor
             # -CapabilityMap, because the admin's model is a property of the session, not of the
             # endpoint. Record what it actually receives rather than forcing it into their shape.
             $authSeen = [System.Collections.Generic.List[object]]::new()
-            Mock -CommandName Assert-PfbContextAuthorizationModel -MockWith {
+            Mock -CommandName Assert-PfbContextAdminLocality -MockWith {
                 $authSeen.Add([PSCustomObject]@{ Names = @($Context.Entries.Name) -join ','; ArrayEndpoint = $Array.Endpoint })
             }
             Mock -CommandName Assert-PfbApiCapability -MockWith {}
@@ -242,8 +242,8 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
                 $record.HasMap   | Should -BeTrue            -Because "$($record.Gate) must receive the capability map, or it silently no-ops"
             }
             @($authSeen).Count       | Should -Be 1
-            $authSeen[0].Names         | Should -Be 'FB-B'       -Because 'the authorization-model gate must see the RESOLVED context too'
-            $authSeen[0].ArrayEndpoint | Should -Be 'fb.example' -Because 'it must receive the CONNECTION, which is where AuthorizationModel lives; without -Array it can only ever no-op'
+            $authSeen[0].Names         | Should -Be 'FB-B'       -Because 'the admin-locality gate must see the RESOLVED context too'
+            $authSeen[0].ArrayEndpoint | Should -Be 'fb.example' -Because 'it must receive the CONNECTION, which is where AdminLocality lives; without -Array it can only ever no-op'
         }
     }
     It 'calls none of the four shape gates when no context is set' {
@@ -251,13 +251,13 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             $fb = [PSCustomObject]@{
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
                 Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
-                DefaultContext = $null; ContextOverride = $null; AuthorizationModel = $null
+                DefaultContext = $null; ContextOverride = $null; AdminLocality = $null
             }
             $calls = [System.Collections.Generic.List[object]]::new()
             Mock -CommandName Assert-PfbContextCapability  -MockWith { $calls.Add('capability') }
             Mock -CommandName Assert-PfbContextCardinality -MockWith { $calls.Add('cardinality') }
             Mock -CommandName Assert-PfbContextKindMatchesScope -MockWith { $calls.Add('kindMatchesScope') }
-            Mock -CommandName Assert-PfbContextAuthorizationModel -MockWith { $calls.Add('authorizationModel') }
+            Mock -CommandName Assert-PfbContextAdminLocality -MockWith { $calls.Add('adminLocality') }
             Mock -CommandName Assert-PfbApiCapability -MockWith {}
             Mock -CommandName Invoke-RestMethod -MockWith { [PSCustomObject]@{ items = @() } }
 
@@ -269,20 +269,20 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
     # An un-mocked companion to the wiring tests above: every one of those mocks the gate, so they
     # pin that it is CALLED and say nothing about its effect through this function. This one also
     # fails if the call is ever moved outside the $hasContext branch.
-    It 'actually throws for a static-model admin with a context, gate un-mocked' {
+    It 'actually throws for a local admin with a context, gate un-mocked' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
             $fb = [PSCustomObject]@{
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
                 Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
                 Username = 'pureuser'
                 DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B')))
-                ContextOverride = $null; AuthorizationModel = 'static'
+                ContextOverride = $null; AdminLocality = 'local'
             }
             Mock -CommandName Assert-PfbApiCapability -MockWith {}
             Mock -CommandName Invoke-RestMethod -MockWith { throw 'the request must never be attempted' }
 
             { Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'file-systems' } |
-                Should -Throw -ExpectedMessage '*dynamic-authorization-model*'
+                Should -Throw -ExpectedMessage '*remotely authenticated*'
         }
     }
     # The It above counts only the four SHAPE gates, so it passes whether or not the
@@ -293,7 +293,7 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             $fb = [PSCustomObject]@{
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
                 Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
-                DefaultContext = $null; ContextOverride = $null; AuthorizationModel = $null
+                DefaultContext = $null; ContextOverride = $null; AdminLocality = $null
             }
             $required = [System.Collections.Generic.List[object]]::new()
             Mock -CommandName Assert-PfbContextRequired -MockWith {
@@ -328,7 +328,7 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
                 Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
                 DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'cc-test-fleet' -Kind 'Fleet')))
-                ContextOverride = $null; AuthorizationModel = $null
+                ContextOverride = $null; AdminLocality = $null
             }
             $required = [System.Collections.Generic.List[object]]::new()
             Mock -CommandName Assert-PfbContextRequired -MockWith { $required.Add($Endpoint) }
@@ -355,7 +355,7 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             $fb = [PSCustomObject]@{
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
                 Endpoint = 'fb.example'; ApiVersion = '2.20'; AuthToken = 't'; AuthMethod = 'ApiToken'
-                DefaultContext = $null; ContextOverride = $null; AuthorizationModel = $null
+                DefaultContext = $null; ContextOverride = $null; AdminLocality = $null
             }
             Mock -CommandName Invoke-RestMethod -MockWith { throw 'the request must never be attempted' }
 
@@ -375,7 +375,7 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
                 Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
                 DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B')))
-                ContextOverride = (New-PfbContext -Entries @()); AuthorizationModel = $null
+                ContextOverride = (New-PfbContext -Entries @()); AdminLocality = $null
             }
             $required = [System.Collections.Generic.List[object]]::new()
             Mock -CommandName Assert-PfbContextRequired -MockWith { $required.Add($Endpoint) }
@@ -433,15 +433,15 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
                     Should -Be 'FlashBlade API error: Cannot find array in fleet'
             }
         }
-        # Step 3a. Task 11's proactive authorization-model gate cannot fire for an -ApiToken session
+        # Step 3a. Task 11's proactive admin-locality gate cannot fire for an -ApiToken session
         # (no Username to look up) or for a session that only ever uses Invoke-PfbInContext, so for
         # those the wire's bare code 20 "Operation not permitted" is the ONLY signal the user gets.
-        It 'explains a code 20 permission failure as a likely static-authorization-model admin' {
+        It 'explains a code 20 permission failure as a likely LOCAL admin' {
             InModuleScope 'PureStorageFlashBladePowerShell' {
                 $ctx = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-Q'))
                 $msg = Add-PfbContextErrorAnnotation -Message 'FlashBlade API error (HTTP 400): Operation not permitted' `
                     -Context $ctx -Method 'GET' -Endpoint 'file-systems' -CapabilityMap (Get-PfbCapabilityMap)
-                $msg | Should -BeLike '*static-authorization-model*'
+                $msg | Should -BeLike '*may be a local account*'
                 $msg | Should -BeLike '*FB-Q*'
             }
         }
@@ -493,9 +493,9 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
     # ADVICE appears; these pin WHICH REMEDY appears. Folding both into one It would leave a future
     # reader unable to tell which of the two behaviours a failure refers to.
     Context 'remedy advice is branch-specific' {
-        It 'does NOT offer the context cmdlets to a likely static-model admin' {
+        It 'does NOT offer the context cmdlets to a likely local admin' {
             InModuleScope 'PureStorageFlashBladePowerShell' {
-                # A static-authorization-model admin cannot fix a code 20 by changing, clearing or
+                # A LOCAL admin cannot fix a code 20 by changing, clearing or
                 # overriding the context -- no context VALUE works for that account. This negative
                 # assertion is the load-bearing one: without it, a future edit that re-merges the
                 # two closing clauses passes silently.
@@ -505,7 +505,7 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
                 $msg | Should -Not -BeLike '*Set-PfbContext*'
                 $msg | Should -Not -BeLike '*Clear-PfbContext*'
                 $msg | Should -Not -BeLike '*Invoke-PfbInContext*'
-                $msg | Should -BeLike '*dynamic-model (LDAP/SAML) admin*'
+                $msg | Should -BeLike '*remotely authenticated (LDAP/SAML) admin*'
                 # Naming the value is diagnostic, not advice, so it must still be there.
                 $msg | Should -BeLike '*FB-Q*'
             }
@@ -533,7 +533,7 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
                     Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
                     ApiToken = $null
                     DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-Q')))
-                    ContextOverride = $null; AuthorizationModel = $null
+                    ContextOverride = $null; AdminLocality = $null
                 }
                 # No Response member on the exception, so the status is $null: the reconnect gate
                 # cannot fire and the failure takes the else branch.
@@ -552,7 +552,7 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
                     Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
                     ApiToken = 'T-fake-token'
                     DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-Q')))
-                    ContextOverride = $null; AuthorizationModel = $null
+                    ContextOverride = $null; AdminLocality = $null
                 }
                 # A 403 on a reconnectable session enters the reconnect block; the re-login then
                 # fails, so the throw comes from inside that block rather than the else branch.

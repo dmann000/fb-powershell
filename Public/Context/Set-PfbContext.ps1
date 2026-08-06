@@ -14,12 +14,12 @@ function Set-PfbContext {
         locally -- see section 9 of the design.
 
         One network call IS made, and it is not about the context: a single best-effort
-        GET /admins reads the connected admin's authorization_model, because only a
-        dynamic-authorization-model (LDAP/SAML) admin can use a Fusion context at all, and this
+        GET /admins reads the connected admin's is_local, because only a remotely authenticated
+        (LDAP/SAML) admin can use a Fusion context across arrays at all, and this
         cmdlet refuses rather than letting every later request fail with an opaque
         'Operation not permitted' (code 20). It is skipped entirely when the connection has no
         username -- which includes every -ApiToken session, the default parameter set -- and any
-        failure is swallowed, leaving the model indeterminate and this cmdlet permissive. Under a
+        failure is swallowed, leaving the locality indeterminate and this cmdlet permissive. Under a
         management-access policy that denies GET /admins it can cost ~3 round trips rather than 1.
         Worth knowing before calling this in a loop over many members: cheap, but not free.
     .NOTES
@@ -100,24 +100,24 @@ function Set-PfbContext {
         # $copy.DefaultContext then receive a stringified array instead of a context. Measured.
         $newContext = New-PfbContext -Entries $entries -AllowErrors $allowErrors
 
-        # The copy is taken BEFORE resolving, so the model is written onto the copy and the
+        # The copy is taken BEFORE resolving, so the locality is written onto the copy and the
         # caller's connection is never mutated -- this cmdlet's copy-on-write contract holds for
-        # the model exactly as it does for the context. Resolving onto $target instead would have
+        # the locality exactly as it does for the context. Resolving onto $target instead would have
         # been simpler and wrong: it mutates an object the caller may still hold.
         $copy = Copy-PfbConnection -Array $target
 
-        # Resolve the admin's authorization model HERE rather than relying on connect having done
+        # Resolve the admin's locality HERE rather than relying on connect having done
         # it. Since the 2026-08-05 ruling Connect-PfbArray only resolves when -Context was
         # supplied, so on what is now the common path -- bare connect, then Set-PfbContext -- the
-        # model is still $null at this point, and skipping this would leave the gate permanently
+        # locality is still $null at this point, and skipping this would leave the gate permanently
         # failing open. This is the second and last of the two resolution sites; do not add a
         # third, and do not memoize (see Connect-PfbArray's note).
-        $copy.AuthorizationModel = Resolve-PfbAuthorizationModel -Array $copy
+        $copy.AdminLocality = Resolve-PfbAdminLocality -Array $copy
 
-        # A static-model admin cannot use a context at all, so say so here rather than letting
-        # every later call fail with an opaque code 20. Fails open on an indeterminate model.
+        # A LOCAL admin cannot use a context at all, so say so here rather than letting
+        # every later call fail with an opaque code 20. Fails open on an indeterminate locality.
         # Before the cache repoint below: a rejected context must leave no trace.
-        Assert-PfbContextAuthorizationModel -Array $copy -Context $newContext
+        Assert-PfbContextAdminLocality -Array $copy -Context $newContext
 
         $copy.DefaultContext = $newContext
         Update-PfbConnectionCache -Array $copy

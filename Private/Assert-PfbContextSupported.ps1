@@ -321,17 +321,31 @@ function Assert-PfbContextRequired {
     throw "$key targets a fleet-scoped resource and requires a fleet context, but none is set. Set one with Set-PfbContext -Context <fleet> -Kind Fleet, or run this call in one with Invoke-PfbInContext -Context <fleet> -Kind Fleet { ... }. Get the fleet name from Get-PfbFleet."
 }
 
-function Resolve-PfbAuthorizationModel {
+function Resolve-PfbAdminLocality {
     <#
     .SYNOPSIS
-        Best-effort read of the connected admin's authorization_model.
+        Best-effort read of whether the connected admin authenticates locally or remotely.
     .DESCRIPTION
-        Only LDAP/SAML remote admins are 'dynamic'. Since 4.5.0 an admin can create additional
-        named LOCAL users with the same privileges, and the 4.8.1 service-account admin type
-        is also local -- so pureuser, custom local users and service accounts are ALL 'static'.
-        This is not "pureuser vs everyone".
+        Reads `is_local` from the admin's own row and returns 'local' or 'remote'. MEASURED RULE
+        (controlled experiment on FB-A, REST 2.26, 2026-08-06): remote => cross-array contexts are
+        PERMITTED; local => cross-array is denied with 'Operation not permitted' (code 20).
+        Since 4.5.0 an admin can create additional named LOCAL users with the same privileges, and
+        the 4.8.1 service-account admin type is also local -- so pureuser, custom local users and
+        service accounts are ALL local. This is not "pureuser vs everyone".
 
-        Returns $null rather than throwing on any failure. An indeterminate model must never fail
+        DO NOT switch this back to `authorization_model`. That was the original design and it was
+        falsified: a STATIC-REMOTE admin is is_local=$false with authorization_model='static', and
+        the array SERVES its context calls. Flipping the model on a remote admin changed nothing in
+        either direction. `authorization_model` only says where POLICIES are read from, which is
+        orthogonal to whether the fleet recognizes the identity, so reading it here produced false
+        positives that blocked working sessions.
+
+        `is_local` is on Admin from REST 2.17 -- the same floor as context_names -- so no version
+        guard is needed or wanted here. Do not use `admin_type` (same signal, but 2.24+, which
+        would reintroduce the version-era problem for nothing); `user_source` does not exist in the
+        REST spec at any version (verified 2.17/2.24/2.26/2.28).
+
+        Returns $null rather than throwing on any failure. An indeterminate locality must never fail
         a Connect-PfbArray, because this data drives a diagnostic and not a correctness gate.
         THREE distinct routes reach indeterminate, and the third is the common one:
           1. GET /admins 403s under a restrictive management-access policy.
@@ -340,8 +354,8 @@ function Resolve-PfbAuthorizationModel {
              early return below fires and the gate is permanently inert for it. Only the
              Credential, PSCredential and Certificate sets normalize Username
              (Connect-PfbArray.ps1:206-212). This is a correct application of the fail-open
-             ruling (no username, no evidence), not a bug: do NOT "fix" it by inferring a model
-             from the token or by defaulting to 'static'.
+             ruling (no username, no evidence), not a bug: do NOT "fix" it by inferring a
+             locality from the token or by defaulting to 'local'.
 
         NO .items UNWRAP. Invoke-PfbApiRequest already unwraps the envelope itself -- it collects
         $response.items into $allItems and returns $allItems.ToArray(), an object[] of admin
@@ -351,9 +365,9 @@ function Resolve-PfbAuthorizationModel {
         pagination and error handling below its early return, and no other list read in the
         module uses it. Never reintroduce an .items read here.
 
-        Matches on name rather than taking row 0: reading the WRONG admin's model is worse than
-        reading none, because a 'static' read off a peer's row would hard-throw a legitimate LDAP
-        session out of Set-PfbContext.
+        Matches on name rather than taking row 0: reading the WRONG admin's locality is worse
+        than reading none, because an is_local=$true read off a peer's row would hard-throw a
+        legitimate LDAP session out of Set-PfbContext.
 
         Cost on a 403: more than one round trip. Invoke-PfbApiRequest's auto-reconnect gate fires
         on 403 as well as 401 by design (:223-232 -- real arrays answer 403, not 401, for a bad
@@ -376,7 +390,7 @@ function Resolve-PfbAuthorizationModel {
         ?names=<user>&context_names=<previous context>. Three outcomes, all wrong: an Array/.arrays
         context routed the identity probe to a REMOTE array's admin table; a bare Fleet context made
         the kind/scope gate throw INSIDE this function, so the catch below silently downgraded a
-        known 'dynamic' to $null and the gate failed open for the rest of that connection's life;
+        known 'remote' to $null and the gate failed open for the rest of that connection's life;
         an unreachable member did the same. Stripping the context makes the invariant a property of
         this function rather than a property of where it is called from.
 
@@ -386,7 +400,7 @@ function Resolve-PfbAuthorizationModel {
 
         No recursion risk: because the probe carries no context, Invoke-PfbApiRequest's $hasContext
         is false for it, so none of the four shape gates -- including
-        Assert-PfbContextAuthorizationModel, the only one that would read back into this state --
+        Assert-PfbContextAdminLocality, the only one that would read back into this state --
         can fire. That now FOLLOWS FROM the stripping below rather than from when we happen to be
         called, which is the whole point of moving the guarantee in here.
     .OUTPUTS
@@ -416,7 +430,7 @@ function Resolve-PfbAuthorizationModel {
         #   - The cache substitution only PERSISTS if the gate then throws. Otherwise
         #     Update-PfbConnectionCache (Set-PfbContext) or the tail-end cache assignment
         #     (Connect-PfbArray) runs afterwards and overwrites the slot with the right object.
-        #   - A gate throw requires a STATIC admin, and a static admin can never have had a context
+        #   - A gate throw requires a LOCAL admin, and a local admin can never have had a context
         #     cached in the first place: Connect-PfbArray gates before its cache write, and
         #     Set-PfbContext gates before Update-PfbConnectionCache. So a stripped copy left in the
         #     cache is never a LOSS of context relative to what was cached -- it is a valid
@@ -424,7 +438,7 @@ function Resolve-PfbAuthorizationModel {
         #   - The stale token self-heals on the next request via the reactive 401 path.
         #
         # THE DEPENDENCY, stated so it can be checked rather than re-derived: this stops being
-        # benign if a future change ever (a) lets a static-model admin hold a context, or (b) moves
+        # benign if a future change ever (a) lets a local admin hold a context, or (b) moves
         # either gate to AFTER its cache write. Either one makes a stripped probe copy able to
         # persist in the caches in place of a connection that legitimately had a context.
         $probe = $Array.PSObject.Copy()
@@ -432,36 +446,40 @@ function Resolve-PfbAuthorizationModel {
         $probe.ContextOverride = $null
 
         $admins = @(Invoke-PfbApiRequest -Array $probe -Method 'GET' -Endpoint 'admins' -QueryParams @{ names = $Array.Username })
-        $model = ($admins | Where-Object { $_.name -eq $Array.Username } | Select-Object -First 1).authorization_model
-        if ($model) { return [string]$model }
+        $row = $admins | Where-Object { $_.name -eq $Array.Username } | Select-Object -First 1
+        # $null -ne, never truthiness: is_local is a BOOLEAN, so $false is a real answer ('remote')
+        # and must not collapse into the indeterminate case the way -not $row.is_local would.
+        if ($null -ne $row -and $null -ne $row.is_local) {
+            return $(if ($row.is_local) { 'local' } else { 'remote' })
+        }
         return $null
     }
     catch {
-        Write-Verbose "Could not determine the authorization model for '$($Array.Username)' on $($Array.Endpoint): $($_.Exception.Message). Cross-array context checks will not be pre-validated."
+        Write-Verbose "Could not determine whether '$($Array.Username)' on $($Array.Endpoint) is a local or remote admin: $($_.Exception.Message). Cross-array context checks will not be pre-validated."
         return $null
     }
 }
 
-function Assert-PfbContextAuthorizationModel {
+function Assert-PfbContextAdminLocality {
     <#
     .SYNOPSIS
-        Throws when a static-authorization-model admin sets any Fusion context.
+        Throws when a LOCALLY authenticated admin sets any Fusion context.
     .DESCRIPTION
-        Diagnostic, never a security boundary. A static-model admin's cross-array call fails
+        Diagnostic, never a security boundary. A local admin's cross-array call fails
         loudly on the wire with 'Operation not permitted' (code 20), so this gate can never turn
         a would-be wrong-target success into a failure -- it only replaces an opaque server error
         with the actionable reason.
 
-        Fails OPEN on an indeterminate model and CLOSED on a known-static one. Those are not in
+        Fails OPEN on an indeterminate locality and CLOSED on a known-local one. Those are not in
         tension: $null means no evidence (an OAuth2 client with no username, or GET /admins 403
-        under a restrictive management-access policy), while 'static' is positive evidence the
-        call cannot work. Failing closed on the unknown case would block legitimate OAuth2 and
+        under a restrictive management-access policy), while 'local' is positive evidence the
+        cross-array call cannot work. Failing closed on the unknown case would block legitimate OAuth2 and
         restricted-policy sessions while protecting nothing.
 
-        Takes -Array, unlike the two pure shape gates, because the model is a property of the
+        Takes -Array, unlike the two pure shape gates, because the locality is a property of the
         SESSION rather than of the endpoint -- and takes no -Endpoint or -CapabilityMap for the
         same reason. -Context does not affect WHETHER this throws (there is no local-array
-        exemption, so every context is rejected once the model is static) but it is named in the
+        exemption, so every context is rejected once the admin is local) but it is named in the
         message, which is what earns it its mandatory slot: the caller sees which values were
         rejected rather than a generic complaint.
     #>
@@ -471,17 +489,17 @@ function Assert-PfbContextAuthorizationModel {
         [Parameter(Mandatory)]$Context
     )
 
-    # Fail OPEN on an indeterminate model. See Resolve-PfbAuthorizationModel.
-    if ($Array.AuthorizationModel -ne 'static') { return }
+    # Fail OPEN on an indeterminate locality. See Resolve-PfbAdminLocality.
+    if ($Array.AdminLocality -ne 'local') { return }
 
-    # NO local-array exemption. An earlier draft let a static admin through when the context
+    # NO local-array exemption. An earlier draft let a local admin through when the context
     # named only the connected array, but (a) the connection object carries no array NAME to
     # compare against -- it has Endpoint, an IP or hostname -- so the check could only ever have
-    # worked against an invented test fixture, and (b) maintainer ruling 2026-08-05: a static
+    # worked against an invented test fixture, and (b) maintainer ruling 2026-08-05: a local
     # user has no business setting a context at all. Naming your own array buys nothing anyway,
     # since the server short-circuits it. Do not reintroduce the exemption or an ArrayName field.
     $names = @($Context.Entries | ForEach-Object { ConvertTo-PfbContextWireValue -Entry $_ }) -join ', '
-    throw "Setting a Fusion context requires a dynamic-authorization-model (LDAP/SAML) admin; static-model admins, including pureuser and other local accounts such as custom local users and service accounts, are not permitted. The connected admin '$($Array.Username)' is static-model, so the context '$names' would return 'Operation not permitted' (code 20) on any cross-array call regardless of its value."
+    throw "Setting a Fusion context requires a remotely authenticated (LDAP/SAML) admin; local accounts, including pureuser, custom local users and service accounts, are not permitted. The connected admin '$($Array.Username)' is a local account, so the context '$names' would return 'Operation not permitted' (code 20) on any cross-array call."
 }
 
 function Add-PfbContextErrorAnnotation {
@@ -495,10 +513,10 @@ function Add-PfbContextErrorAnnotation {
         in hand the annotation can also name the required KIND, not merely the value that
         failed.
 
-        THE code 20 CASE IS THE REACTIVE HALF OF Assert-PfbContextAuthorizationModel, not a
-        duplicate of it. That gate can only throw proactively when the authorization model is
+        THE code 20 CASE IS THE REACTIVE HALF OF Assert-PfbContextAdminLocality, not a
+        duplicate of it. That gate can only throw proactively when the admin locality is
         known, and it is NOT known for an -ApiToken session (no Username to look up, so
-        Resolve-PfbAuthorizationModel returns $null and the gate fails open) nor for a session
+        Resolve-PfbAdminLocality returns $null and the gate fails open) nor for a session
         that only ever supplies a context through Invoke-PfbInContext. In both cases the wire's
         bare code 20 "Operation not permitted" is the only signal the user ever gets. Do not
         remove this branch on the grounds that Task 11's gate "already covers it".
@@ -542,7 +560,7 @@ function Add-PfbContextErrorAnnotation {
     $scope = Get-PfbEndpointContextScope -Method $Method -Endpoint $Endpoint -CapabilityMap $CapabilityMap
 
     $requirement = if ($isPermissionFailure) {
-        " The connected admin may be a static-authorization-model account -- Fusion contexts require a dynamic-model (LDAP/SAML) admin, and local users and service accounts are all static."
+        " The connected admin may be a local account -- Fusion contexts require a remotely authenticated (LDAP/SAML) admin; pureuser, custom local users and service accounts are all local."
     }
     else {
         switch ($scope) {
@@ -553,12 +571,12 @@ function Add-PfbContextErrorAnnotation {
     }
 
     # The REMEDY is branch-specific, and must stay that way. Offering the context cmdlets to a
-    # static-model admin points them at the one lever that cannot help: no context VALUE works for
+    # local admin points them at the one lever that cannot help: no context VALUE works for
     # that account, so "change it / clear it / override it" is wrong advice delivered immediately
     # after correctly explaining that the account is the problem. Naming the active context value
     # is still right there -- that is diagnostic, not advice. Do NOT re-merge these two clauses.
     $remedy = if ($isPermissionFailure) {
-        ' Reconnect as a dynamic-model (LDAP/SAML) admin to use a context at all; changing or clearing the context will not help.'
+        ' Reconnect as a remotely authenticated (LDAP/SAML) admin to use a context at all; changing or clearing the context will not help.'
     }
     else {
         ' Change it with Set-PfbContext, remove it with Clear-PfbContext, or override it for one call with Invoke-PfbInContext.'

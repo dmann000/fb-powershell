@@ -460,38 +460,50 @@ Describe 'Assert-PfbContextRequired' {
     }
 }
 
-Describe 'Assert-PfbContextAuthorizationModel' {
-    It 'throws for a static-model admin setting a cross-array context' {
+Describe 'Assert-PfbContextAdminLocality' {
+    It 'throws for a local admin setting a cross-array context' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
-            $fb = [PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'pureuser'; AuthorizationModel = 'static' }
+            $fb = [PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'pureuser'; AdminLocality = 'local' }
             $ctx = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'))
-            { Assert-PfbContextAuthorizationModel -Array $fb -Context $ctx } |
-                Should -Throw -ExpectedMessage '*dynamic-authorization-model*'
+            { Assert-PfbContextAdminLocality -Array $fb -Context $ctx } |
+                Should -Throw -ExpectedMessage '*remotely authenticated*'
         }
     }
-    It 'allows a dynamic-model admin' {
+    It 'allows a remote admin' {
+        # Measured on FB-A 2026-08-06: remote => permitted REGARDLESS of authorization_model.
+        # A static-REMOTE admin is served, which is why the gate reads locality and not the model.
         InModuleScope 'PureStorageFlashBladePowerShell' {
-            $fb = [PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'juemerson'; AuthorizationModel = 'dynamic' }
+            $fb = [PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'juemerson'; AdminLocality = 'remote' }
             $ctx = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'))
-            { Assert-PfbContextAuthorizationModel -Array $fb -Context $ctx } | Should -Not -Throw
+            { Assert-PfbContextAdminLocality -Array $fb -Context $ctx } | Should -Not -Throw
         }
     }
-    It 'FAILS OPEN when the model could not be determined' {
+    It 'FAILS OPEN when the locality could not be determined' {
         # OAuth2 client with no username, or GET /admins 403 under a restrictive access policy.
         # The gate is diagnostic, never a security boundary -- blocking here would deny
         # legitimate sessions and protect nothing, since the wire still answers code 20.
         InModuleScope 'PureStorageFlashBladePowerShell' {
-            $fb = [PSCustomObject]@{ Endpoint = 'fb.example'; Username = $null; AuthorizationModel = $null }
+            $fb = [PSCustomObject]@{ Endpoint = 'fb.example'; Username = $null; AdminLocality = $null }
             $ctx = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'))
-            { Assert-PfbContextAuthorizationModel -Array $fb -Context $ctx } | Should -Not -Throw
+            { Assert-PfbContextAdminLocality -Array $fb -Context $ctx } | Should -Not -Throw
         }
     }
-    It 'mentions that pureuser and other LOCAL accounts are all static' {
+    It 'mentions that pureuser, custom local users and service accounts are all local' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
-            $fb = [PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'pureuser'; AuthorizationModel = 'static' }
+            $fb = [PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'pureuser'; AdminLocality = 'local' }
             $ctx = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'))
-            { Assert-PfbContextAuthorizationModel -Array $fb -Context $ctx } |
-                Should -Throw -ExpectedMessage '*local*'
+            { Assert-PfbContextAdminLocality -Array $fb -Context $ctx } |
+                Should -Throw -ExpectedMessage '*custom local users and service accounts*'
+        }
+    }
+    It 'qualifies the code 20 claim as CROSS-ARRAY only' {
+        # A local admin CAN target its own array; the measured denial is cross-array. Promising
+        # code 20 for every context would be a false claim in the error message.
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $fb = [PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'pureuser'; AdminLocality = 'local' }
+            $ctx = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'))
+            { Assert-PfbContextAdminLocality -Array $fb -Context $ctx } |
+                Should -Throw -ExpectedMessage '*cross-array call*'
         }
     }
     It 'names the offending context values in the message' {
@@ -499,24 +511,24 @@ Describe 'Assert-PfbContextAuthorizationModel' {
         # throws (there is no local-array exemption), but a caller who set several names needs to
         # see which ones were rejected, in their wire form.
         InModuleScope 'PureStorageFlashBladePowerShell' {
-            $fb = [PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'pureuser'; AuthorizationModel = 'static' }
+            $fb = [PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'pureuser'; AdminLocality = 'local' }
             $ctx = New-PfbContext -Entries @(
                 (New-PfbContextEntry -Name 'FB-B'),
                 (New-PfbContextEntry -Name 'fleet-prod' -Kind 'Fleet' -Form 'AllArrays')
             )
-            { Assert-PfbContextAuthorizationModel -Array $fb -Context $ctx } |
+            { Assert-PfbContextAdminLocality -Array $fb -Context $ctx } |
                 Should -Throw -ExpectedMessage '*FB-B, fleet-prod.arrays*'
         }
     }
-    It 'throws for a static-model admin even when the context names only the connected array' {
+    It 'throws for a local admin even when the context names only the connected array' {
         # No local-array exemption (maintainer ruling 2026-08-05). The connection object carries
         # no array NAME to compare against -- only Endpoint, an IP or hostname -- so the old
         # exemption could only ever have matched an invented fixture.
         InModuleScope 'PureStorageFlashBladePowerShell' {
-            $fb = [PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'pureuser'; AuthorizationModel = 'static' }
+            $fb = [PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'pureuser'; AdminLocality = 'local' }
             $ctx = New-PfbContext -Entries @((New-PfbContextEntry -Name 'fb.example'))
-            { Assert-PfbContextAuthorizationModel -Array $fb -Context $ctx } |
-                Should -Throw -ExpectedMessage '*dynamic-authorization-model*'
+            { Assert-PfbContextAdminLocality -Array $fb -Context $ctx } |
+                Should -Throw -ExpectedMessage '*remotely authenticated*'
         }
     }
 }
