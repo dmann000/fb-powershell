@@ -255,19 +255,32 @@ Describe 'Connect-PfbArray -Context behaviour' {
         }
     }
 
-    It 'rejects a connect-time context for a static-model admin and installs nothing in the caches' {
+    It 'rejects a connect-time context for a static-model admin, releases the session, and installs nothing in the caches' {
         # The connect-time context path is now gated -- it is where resolution happens, so it is
         # where the gate can rule. The cache half of this assertion is the one that matters: the
         # caches used to be repointed BEFORE this block, so a rejected context left a connection
         # the cmdlet never returned installed as $script:PfbDefaultArray.
+        #
+        # The logout assertion is the SOLE detector for the release: the throw-message and cache
+        # assertions all still hold with the entire try/catch deleted, so without this line the
+        # release would be untested while looking covered.
         InModuleScope PureStorageFlashBladePowerShell {
             Mock -CommandName Resolve-PfbAuthorizationModel -MockWith { 'static' }
+            Mock -CommandName Invoke-RestMethod -MockWith {} -ParameterFilter { $Uri -match '/api/logout' }
             $sentinel = [PSCustomObject]@{ PSTypeName = 'PureStorage.FlashBlade.Connection'; Endpoint = 'sentinel' }
             $script:PfbArrays = @{ 'sentinel' = $sentinel }
             $script:PfbDefaultArray = $sentinel
 
             { Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake' -Context 'FB-B' } |
                 Should -Throw -ExpectedMessage '*dynamic-authorization-model*'
+
+            Should -Invoke -CommandName Invoke-RestMethod -ParameterFilter { $Uri -match '/api/logout' } -Times 1 -Exactly `
+                -Because 'this is the cmdlet first throw after a successful login, so the session it minted must be released rather than abandoned'
+            # Same call, but additionally requiring a timeout: without one, an endpoint that accepts
+            # TCP and never answers would stall a cmdlet that has already decided to fail.
+            Should -Invoke -CommandName Invoke-RestMethod `
+                -ParameterFilter { $Uri -match '/api/logout' -and $TimeoutSec -gt 0 } -Times 1 -Exactly `
+                -Because 'the logout must carry the connection timeout, since the caller is already waiting on an error'
 
             [object]::ReferenceEquals($script:PfbDefaultArray, $sentinel) | Should -BeTrue -Because 'a rejected connect must not become the default array'
             $script:PfbArrays.ContainsKey('fb.test') | Should -BeFalse

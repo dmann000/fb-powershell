@@ -509,12 +509,15 @@ function Connect-PfbArray {
     # ContainsKey($Array.Endpoint) / PfbDefaultArray.Endpoint -eq. Those guards are false only when
     # the endpoint is not already cached, i.e. on a FIRST connect. On a re-connect to an endpoint
     # already in $script:PfbArrays -- routine -- a 401/403-then-success on the resolver's probe
-    # fires those writes and repoints both caches at this not-yet-gated $connection, so a
-    # subsequent gate throw still leaves them pointing at a connection this cmdlet never returned.
-    # Narrow (needs an already-cached endpoint plus a transient auth failure on the probe) and
-    # fail-safe in the common case. Closing it properly means capturing and restoring both cache
-    # slots in a catch -- the very unwind the reordering was chosen to avoid -- so it is recorded
-    # here rather than fixed. Do not delete this paragraph believing the reordering is airtight.
+    # fires those writes and repoints both caches at the object the resolver handed them, which
+    # since the context strip is the resolver's PROBE COPY, not $connection. So a subsequent gate
+    # throw still leaves the caches pointing at an object this cmdlet never returned. Narrow (needs
+    # an already-cached endpoint plus a transient auth failure on the probe) and fail-safe in the
+    # common case -- see the strip site in Resolve-PfbAuthorizationModel for why the probe copy
+    # landing there is benign, and on what that depends. Closing it properly means capturing and
+    # restoring both cache slots in a catch -- the very unwind the reordering was chosen to avoid --
+    # so it is recorded here rather than fixed. Do not delete this paragraph believing the
+    # reordering is airtight.
     if ($contextRequested) {
         # BOTH halves of the predicate, deliberately mirroring Invoke-PfbApiRequest's $hasContext
         # ($null -ne $resolvedContext -and @(...Entries).Count -gt 0). $contextRequested alone is
@@ -554,10 +557,14 @@ function Connect-PfbArray {
             catch {
                 $gateError = $_
                 try {
+                    # TimeoutSec matters MORE here than on a normal call: the caller is already
+                    # waiting on an error, so an endpoint that accepts TCP and never answers would
+                    # stall a cmdlet that has already decided to fail.
                     $logoutParams = @{
-                        Method  = 'POST'
-                        Uri     = "https://${Endpoint}/api/logout"
-                        Headers = @{ 'x-auth-token' = $authToken }
+                        Method     = 'POST'
+                        Uri        = "https://${Endpoint}/api/logout"
+                        Headers    = @{ 'x-auth-token' = $authToken }
+                        TimeoutSec = $timeoutSec
                     }
                     if ($IgnoreCertificateError -and $PSVersionTable.PSVersion.Major -ge 6) {
                         $logoutParams['SkipCertificateCheck'] = $true

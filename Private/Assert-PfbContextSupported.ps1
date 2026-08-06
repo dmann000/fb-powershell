@@ -402,6 +402,31 @@ function Resolve-PfbAuthorizationModel {
         # ContextOverride first, then DefaultContext, so leaving either populated re-opens the
         # defect. A copy rather than mutate-and-restore: the caller's object must not be touched
         # even transiently, since Invoke-PfbInContext may be holding it mid-block.
+        #
+        # KNOWN AND RULED BENIGN, with the reasoning recorded rather than just the conclusion,
+        # because the conclusion depends on facts that could change. Invoke-PfbApiRequest's
+        # proactive-refresh (:142-152) and 401/403-reconnect (:260-271) paths write the new token
+        # onto whatever $Array they were handed AND install that same object into
+        # $script:PfbDefaultArray / $script:PfbArrays. Handed this probe copy, that means (i) a
+        # refreshed token lands on the copy and is discarded, so the caller keeps a stale token,
+        # and (ii) the object installed in the caches is this context-stripped probe rather than
+        # the real connection.
+        #
+        # Why neither harms today:
+        #   - The cache substitution only PERSISTS if the gate then throws. Otherwise
+        #     Update-PfbConnectionCache (Set-PfbContext) or the tail-end cache assignment
+        #     (Connect-PfbArray) runs afterwards and overwrites the slot with the right object.
+        #   - A gate throw requires a STATIC admin, and a static admin can never have had a context
+        #     cached in the first place: Connect-PfbArray gates before its cache write, and
+        #     Set-PfbContext gates before Update-PfbConnectionCache. So a stripped copy left in the
+        #     cache is never a LOSS of context relative to what was cached -- it is a valid
+        #     equivalent connection.
+        #   - The stale token self-heals on the next request via the reactive 401 path.
+        #
+        # THE DEPENDENCY, stated so it can be checked rather than re-derived: this stops being
+        # benign if a future change ever (a) lets a static-model admin hold a context, or (b) moves
+        # either gate to AFTER its cache write. Either one makes a stripped probe copy able to
+        # persist in the caches in place of a connection that legitimately had a context.
         $probe = $Array.PSObject.Copy()
         $probe.DefaultContext = $null
         $probe.ContextOverride = $null
