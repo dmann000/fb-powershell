@@ -57,6 +57,38 @@ Describe 'Set-PfbContext' {
         Should -Invoke -CommandName Invoke-PfbApiRequest -ModuleName 'PureStorageFlashBladePowerShell' -Times 0
         Should -Invoke -CommandName Invoke-RestMethod   -ModuleName 'PureStorageFlashBladePowerShell' -Times 0
     }
+    # A SEPARATE call site from Invoke-PfbApiRequest's request path -- the wiring test over there
+    # says nothing about this one, and vice versa.
+    It 'calls the authorization-model gate with the target connection and the composed context' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $fb = [PSCustomObject]@{
+                PSTypeName = 'PureStorage.FlashBlade.Connection'
+                Endpoint = 'fb.example'; ApiVersion = '2.26'
+                DefaultContext = $null; ContextOverride = $null; AuthorizationModel = 'dynamic'
+            }
+            $seen = [System.Collections.Generic.List[object]]::new()
+            Mock -CommandName Assert-PfbContextAuthorizationModel -MockWith {
+                $seen.Add([PSCustomObject]@{ Model = $Array.AuthorizationModel; Names = @($Context.Entries.Name) -join ',' })
+            }
+
+            Set-PfbContext -Array $fb -Context 'FB-B' | Out-Null
+
+            @($seen).Count | Should -Be 1 -Because "Set-PfbContext's end{} must call the gate; a count of 0 means the call was deleted or never wired"
+            $seen[0].Model | Should -Be 'dynamic' -Because 'the gate must receive the connection that carries AuthorizationModel'
+            $seen[0].Names | Should -Be 'FB-B'
+        }
+    }
+    It 'refuses to set a context for a static-model admin' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $fb = [PSCustomObject]@{
+                PSTypeName = 'PureStorage.FlashBlade.Connection'
+                Endpoint = 'fb.example'; ApiVersion = '2.26'; Username = 'pureuser'
+                DefaultContext = $null; ContextOverride = $null; AuthorizationModel = 'static'
+            }
+            { Set-PfbContext -Array $fb -Context 'FB-B' } |
+                Should -Throw -ExpectedMessage '*dynamic-authorization-model*'
+        }
+    }
     It 'repoints the module caches at the copy' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
             $originalArrays = $script:PfbArrays; $originalDefault = $script:PfbDefaultArray

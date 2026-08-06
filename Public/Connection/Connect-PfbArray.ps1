@@ -494,6 +494,12 @@ function Connect-PfbArray {
     $script:PfbDefaultArray = $connection
     $script:PfbArrays[$Endpoint] = $connection
 
+    # Best-effort and non-fatal: see Resolve-PfbAuthorizationModel. Runs after the caches are
+    # populated and before the connect-time -Context handling, so the gate below already has the
+    # model to rule on. Safe from recursion: the resolver's own Invoke-PfbApiRequest call happens
+    # while DefaultContext and ContextOverride are both still $null, so no context gate fires.
+    $connection.AuthorizationModel = Resolve-PfbAuthorizationModel -Array $connection
+
     # A context supplied at connect is the durable session default. Already validated above,
     # before authentication. The gate is $contextRequested -- never a truthiness or $null test
     # on $contextEntries, which is what keeps $null (unset) distinct from @() (explicit

@@ -247,3 +247,29 @@ Describe 'Connect-PfbArray -Context behaviour' {
         }
     }
 }
+
+Describe 'Resolve-PfbAuthorizationModel' {
+    It 'leaves AuthorizationModel null when the admin lookup fails' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            Mock -CommandName Invoke-PfbApiRequest -MockWith { throw 'HTTP 403' }
+            { Resolve-PfbAuthorizationModel -Array ([PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'u' }) } | Should -Not -Throw
+            $null -eq (Resolve-PfbAuthorizationModel -Array ([PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'u' })) | Should -BeTrue
+        }
+    }
+    It 'reads authorization_model for the connecting username' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            Mock -CommandName Invoke-PfbApiRequest -MockWith {
+                [PSCustomObject]@{ items = @([PSCustomObject]@{ name = 'juemerson'; authorization_model = 'dynamic' }) }
+            }
+            Resolve-PfbAuthorizationModel -Array ([PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'juemerson' }) |
+                Should -Be 'dynamic'
+        }
+    }
+    It 'returns null without a network call when the connection has no username' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            Mock -CommandName Invoke-PfbApiRequest -MockWith { throw 'must not be called' }
+            $null -eq (Resolve-PfbAuthorizationModel -Array ([PSCustomObject]@{ Endpoint = 'fb.example'; Username = $null })) | Should -BeTrue
+            Should -Invoke -CommandName Invoke-PfbApiRequest -Times 0
+        }
+    }
+}

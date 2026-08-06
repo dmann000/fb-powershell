@@ -147,7 +147,7 @@ Describe 'context injection in Invoke-PfbApiRequest' {
 # unwired from the request path unnoticed. Tasks 10 and 11 add two more gates to this same site,
 # so the wiring gets its own detector now.
 Describe 'context gate wiring in Invoke-PfbApiRequest' {
-    It 'calls all three shape gates in order, capability before cardinality before kindMatchesScope' {
+    It 'calls all four shape gates in order, capability before cardinality before kindMatchesScope before authorizationModel' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
             $fb = [PSCustomObject]@{
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
@@ -161,15 +161,17 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             Mock -CommandName Assert-PfbContextCapability  -MockWith { $calls.Add('capability') }
             Mock -CommandName Assert-PfbContextCardinality -MockWith { $calls.Add('cardinality') }
             Mock -CommandName Assert-PfbContextKindMatchesScope -MockWith { $calls.Add('kindMatchesScope') }
+            Mock -CommandName Assert-PfbContextAuthorizationModel -MockWith { $calls.Add('authorizationModel') }
             Mock -CommandName Assert-PfbApiCapability -MockWith {}
             Mock -CommandName Invoke-RestMethod -MockWith { [PSCustomObject]@{ items = @() } }
 
             Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'file-systems' | Out-Null
 
-            @($calls).Count | Should -Be 3 -Because 'all three shape gates must fire from the request path; a lower count means one call was deleted or never wired'
+            @($calls).Count | Should -Be 4 -Because 'all four shape gates must fire from the request path; a lower count means one call was deleted or never wired'
             $calls[0] | Should -Be 'capability'  -Because 'the capability gate must rule on "endpoint takes no context at all" first'
             $calls[1] | Should -Be 'cardinality'
             $calls[2] | Should -Be 'kindMatchesScope' -Because 'it runs after cardinality: a wrong-KIND context aimed at an endpoint that takes no context at all should hear about capability first, not about scope'
+            $calls[3] | Should -Be 'authorizationModel' -Because 'the authorization-model gate is diagnostic and endpoint-independent, so the three endpoint-specific gates rule first'
         }
     }
     It 'passes each gate the resolved context and the shared capability map' {
@@ -190,6 +192,14 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             Mock -CommandName Assert-PfbContextKindMatchesScope -MockWith {
                 $seen.Add([PSCustomObject]@{ Gate = 'kindMatchesScope'; Names = @($Context.Entries.Name) -join ','; Endpoint = $Endpoint; HasMap = ($null -ne $CapabilityMap) })
             }
+            # The authorization-model gate has a DIFFERENT signature from the other three: it
+            # takes -Array (which only the capability gate also takes) and neither -Endpoint nor
+            # -CapabilityMap, because the admin's model is a property of the session, not of the
+            # endpoint. Record what it actually receives rather than forcing it into their shape.
+            $authSeen = [System.Collections.Generic.List[object]]::new()
+            Mock -CommandName Assert-PfbContextAuthorizationModel -MockWith {
+                $authSeen.Add([PSCustomObject]@{ Names = @($Context.Entries.Name) -join ','; ArrayEndpoint = $Array.Endpoint })
+            }
             Mock -CommandName Assert-PfbApiCapability -MockWith {}
             Mock -CommandName Invoke-RestMethod -MockWith { [PSCustomObject]@{ items = @() } }
 
@@ -201,9 +211,12 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
                 $record.Endpoint | Should -Be 'file-systems'
                 $record.HasMap   | Should -BeTrue            -Because "$($record.Gate) must receive the capability map, or it silently no-ops"
             }
+            @($authSeen).Count       | Should -Be 1
+            $authSeen[0].Names         | Should -Be 'FB-B'       -Because 'the authorization-model gate must see the RESOLVED context too'
+            $authSeen[0].ArrayEndpoint | Should -Be 'fb.example' -Because 'it must receive the CONNECTION, which is where AuthorizationModel lives; without -Array it can only ever no-op'
         }
     }
-    It 'calls none of the three shape gates when no context is set' {
+    It 'calls none of the four shape gates when no context is set' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
             $fb = [PSCustomObject]@{
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
@@ -214,6 +227,7 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             Mock -CommandName Assert-PfbContextCapability  -MockWith { $calls.Add('capability') }
             Mock -CommandName Assert-PfbContextCardinality -MockWith { $calls.Add('cardinality') }
             Mock -CommandName Assert-PfbContextKindMatchesScope -MockWith { $calls.Add('kindMatchesScope') }
+            Mock -CommandName Assert-PfbContextAuthorizationModel -MockWith { $calls.Add('authorizationModel') }
             Mock -CommandName Assert-PfbApiCapability -MockWith {}
             Mock -CommandName Invoke-RestMethod -MockWith { [PSCustomObject]@{ items = @() } }
 

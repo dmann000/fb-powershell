@@ -78,6 +78,10 @@ function Set-PfbContext {
         $entries = ConvertTo-PfbContextEntryList -Name $names.ToArray() -Kind $Kind -Form $form
         foreach ($entry in $entries) { Assert-PfbContextEntryComposition -Entry $entry }
 
+        # A static-model admin cannot use a context at all, so say so here rather than letting
+        # every later call fail with an opaque code 20. Fails open on an indeterminate model.
+        Assert-PfbContextAuthorizationModel -Array $target -Context (New-PfbContext -Entries $entries)
+
         $allowErrors = if ($PSBoundParameters.ContainsKey('AllowErrors')) { [bool]$AllowErrors } else { $null }
 
         $copy = Copy-PfbConnection -Array $target

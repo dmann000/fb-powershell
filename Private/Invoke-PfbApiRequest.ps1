@@ -75,6 +75,12 @@ function Invoke-PfbApiRequest {
         # context at all should hear about that first.
         Assert-PfbContextKindMatchesScope -Method $Method -Endpoint $Endpoint -Context $resolvedContext -CapabilityMap $capabilityMap
 
+        # Fourth gate: a static-authorization-model admin cannot use a context at all. Runs last
+        # of the four because it is endpoint-independent -- an endpoint-specific problem is the
+        # more actionable thing to hear about first. Fails open on an indeterminate model, so it
+        # cannot break OAuth2 or restricted-policy sessions.
+        Assert-PfbContextAuthorizationModel -Array $Array -Context $resolvedContext
+
         # Clone first: $QueryParams is a reference to the CALLER's hashtable, and a targeting
         # parameter must not leak back into a hashtable the caller may reuse for another call.
         # Assigning the clone to the local also means the -AutoPaginate loop below rebuilds

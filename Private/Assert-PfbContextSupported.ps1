@@ -320,3 +320,81 @@ function Assert-PfbContextRequired {
 
     throw "$key targets a fleet-scoped resource and requires a fleet context, but none is set. Set one with Set-PfbContext -Context <fleet> -Kind Fleet, or run this call in one with Invoke-PfbInContext -Context <fleet> -Kind Fleet { ... }. Get the fleet name from Get-PfbFleet."
 }
+
+function Resolve-PfbAuthorizationModel {
+    <#
+    .SYNOPSIS
+        Best-effort read of the connected admin's authorization_model.
+    .DESCRIPTION
+        Only LDAP/SAML remote admins are 'dynamic'. Since 4.5.0 an admin can create additional
+        named LOCAL users with the same privileges, and the 4.8.1 service-account admin type
+        is also local -- so pureuser, custom local users and service accounts are ALL 'static'.
+        This is not "pureuser vs everyone".
+
+        Returns $null rather than throwing on any failure. GET /admins can 403 under a
+        restrictive management-access policy, and an OAuth2 client may have no username to
+        match. An indeterminate model must never fail a Connect-PfbArray, because this data
+        drives a diagnostic and not a correctness gate.
+
+        No recursion risk despite calling Invoke-PfbApiRequest: this runs at connect time, when
+        the connection's DefaultContext and ContextOverride are both still $null, so
+        Invoke-PfbApiRequest's $hasContext is false and none of the four shape gates -- including
+        Assert-PfbContextAuthorizationModel, which is the only one that would read back into this
+        state -- can fire.
+    .OUTPUTS
+        [string]
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([Parameter(Mandatory)][PSCustomObject]$Array)
+
+    if (-not $Array.Username) { return $null }
+    try {
+        $response = Invoke-PfbApiRequest -Array $Array -Method 'GET' -Endpoint 'admins' -QueryParams @{ names = $Array.Username }
+        $model = @($response.items)[0].authorization_model
+        if ($model) { return [string]$model }
+        return $null
+    }
+    catch {
+        Write-Verbose "Could not determine the authorization model for '$($Array.Username)' on $($Array.Endpoint): $($_.Exception.Message). Cross-array context checks will not be pre-validated."
+        return $null
+    }
+}
+
+function Assert-PfbContextAuthorizationModel {
+    <#
+    .SYNOPSIS
+        Throws when a static-authorization-model admin sets any Fusion context.
+    .DESCRIPTION
+        Diagnostic, never a security boundary. A static-model admin's cross-array call fails
+        loudly on the wire with 'Operation not permitted' (code 20), so this gate can never turn
+        a would-be wrong-target success into a failure -- it only replaces an opaque server error
+        with the actionable reason.
+
+        Fails OPEN on an indeterminate model and CLOSED on a known-static one. Those are not in
+        tension: $null means no evidence (an OAuth2 client with no username, or GET /admins 403
+        under a restrictive management-access policy), while 'static' is positive evidence the
+        call cannot work. Failing closed on the unknown case would block legitimate OAuth2 and
+        restricted-policy sessions while protecting nothing.
+
+        Takes -Array, unlike the two pure shape gates, because the model is a property of the
+        SESSION rather than of the endpoint -- and takes no -Endpoint or -CapabilityMap for the
+        same reason.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][PSCustomObject]$Array,
+        [Parameter(Mandatory)]$Context
+    )
+
+    # Fail OPEN on an indeterminate model. See Resolve-PfbAuthorizationModel.
+    if ($Array.AuthorizationModel -ne 'static') { return }
+
+    # NO local-array exemption. An earlier draft let a static admin through when the context
+    # named only the connected array, but (a) the connection object carries no array NAME to
+    # compare against -- it has Endpoint, an IP or hostname -- so the check could only ever have
+    # worked against an invented test fixture, and (b) maintainer ruling 2026-08-05: a static
+    # user has no business setting a context at all. Naming your own array buys nothing anyway,
+    # since the server short-circuits it. Do not reintroduce the exemption or an ArrayName field.
+    throw "Setting a Fusion context requires a dynamic-authorization-model (LDAP/SAML) admin; static-model admins, including pureuser and other local accounts such as custom local users and service accounts, are not permitted. The connected admin '$($Array.Username)' is static-model, so a cross-array call would return 'Operation not permitted' (code 20) regardless of the context value."
+}
