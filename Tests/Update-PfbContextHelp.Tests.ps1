@@ -7,9 +7,12 @@
 .DESCRIPTION
     Notes on deliberate choices here:
 
-    * No Should -BeNullOrEmpty anywhere. This whole feature turns on the difference
-      between $null (nothing recorded / nothing to emit) and an explicit empty value,
-      and -BeNullOrEmpty cannot tell them apart. Assert `$null -eq $x` instead.
+    * No Should -BeNullOrEmpty anywhere, in either polarity. This whole feature turns on
+      the difference between $null (nothing recorded / nothing to emit) and an explicit
+      empty value, and -BeNullOrEmpty cannot tell them apart. Assert `$null -eq $x`
+      instead, or [string]::IsNullOrEmpty($x) when "neither null nor empty" really is the
+      claim. The negated -Not -BeNullOrEmpty is unambiguous on its own, but it is still
+      banned here so the rule needs no case analysis to apply.
 
     * Every path is derived from $PSScriptRoot. The Pester runner does not run with the
       repo root as its working directory, so CWD-relative paths would silently fail.
@@ -79,7 +82,7 @@ Describe 'Update-PfbContextHelp' {
         # Reported, never silently skipped: a silent skip reads as "covered everything".
         $summary.PSObject.Properties.Name | Should -Contain 'MissingCmdlet'
         foreach ($entry in $summary.MissingCmdlet) {
-            $entry.EndpointKey | Should -Not -BeNullOrEmpty
+            [string]::IsNullOrEmpty($entry.EndpointKey) | Should -BeFalse
         }
     }
 
@@ -94,17 +97,25 @@ Describe 'Update-PfbContextHelp' {
 
         $nonDefault = @(
             $map.endpoints.PSObject.Properties |
-                Where-Object { $_.Value.contextScope.scope -and $_.Value.contextScope.scope -ne 'array' } |
+                Where-Object {
+                    # Mirrors the generator's own selection exactly, including the explicit
+                    # null test -- a truthiness test here would fold an empty scope in with
+                    # an absent one and quietly stop asserting on it.
+                    $null -ne $_.Value.contextScope.scope -and $_.Value.contextScope.scope -ne 'array'
+                } |
                 ForEach-Object { $_.Name }
         )
         $nonDefault.Count | Should -BeGreaterThan 0
 
         $generatedText = ($summary.Generated | ForEach-Object { Get-Content $_ -Raw }) -join "`n"
         $missingKeys = @($summary.MissingCmdlet | ForEach-Object { $_.EndpointKey })
+        $unrenderedKeys = @($summary.UnrecognisedScope | ForEach-Object { $_.EndpointKey })
 
         foreach ($key in $nonDefault) {
-            $accounted = $generatedText.Contains("($key)") -or ($missingKeys -contains $key)
-            $accounted | Should -BeTrue -Because "$key must be documented or reported as having no cmdlet"
+            $accounted = $generatedText.Contains("($key)") -or
+                ($missingKeys -contains $key) -or
+                ($unrenderedKeys -contains $key)
+            $accounted | Should -BeTrue -Because "$key must be documented, or reported as having no cmdlet or no render arm"
         }
     }
 
@@ -127,5 +138,82 @@ Describe 'Update-PfbContextHelp' {
     It 'leaves array-scoped cmdlets untouched' {
         $arrayScoped = Join-Path $script:repoRoot 'Public/FileSystem/Get-PfbFileSystem.ps1'
         (Get-Content $arrayScoped -Raw).Contains('<!-- PfbContext:') | Should -BeFalse
+    }
+
+    Context 'a scope value the generator has no render arm for' {
+        BeforeAll {
+            function New-ScopeFixture {
+                <#
+                    Builds a throwaway capability map and Public/ tree under $TestDrive. Two
+                    endpoints, deliberately: one the generator renders and one it cannot, so
+                    the tests can tell "the odd endpoint was reported" apart from "the run
+                    aborted" or "its neighbour was collateral damage".
+
+                    No -Encoding on the writes: the content is pure ASCII, and asking for
+                    UTF8 would add a BOM under Windows PowerShell 5.1 that ConvertFrom-Json
+                    then chokes on.
+                #>
+                param([string]$Root, [string]$OddScope)
+
+                $publicRoot = Join-Path $Root 'Public'
+                New-Item -ItemType Directory -Path $publicRoot -Force | Out-Null
+
+                $mapPath = Join-Path $Root 'map.json'
+                @{
+                    endpoints = @{
+                        'GET /zzz-widgets' = @{ contextScope = @{ scope = $OddScope } }
+                        'GET /zzz-gadgets' = @{ contextScope = @{ scope = 'fleet' } }
+                    }
+                } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $mapPath
+
+                foreach ($pair in @(@('Get-ZzzWidget', 'zzz-widgets'), @('Get-ZzzGadget', 'zzz-gadgets'))) {
+                    @(
+                        '<#'
+                        '.SYNOPSIS'
+                        "    Synthetic fixture for $($pair[0])."
+                        '#>'
+                        "function $($pair[0]) {"
+                        "    Invoke-PfbApiRequest -Method GET -Endpoint '$($pair[1])'"
+                        '}'
+                    ) | Set-Content -LiteralPath (Join-Path $publicRoot "$($pair[0]).ps1")
+                }
+
+                return [PSCustomObject]@{ MapPath = $mapPath; PublicRoot = $publicRoot }
+            }
+        }
+
+        It 'reports the endpoint rather than dropping it silently' {
+            $fx = New-ScopeFixture -Root (Join-Path $TestDrive 'unrenderable') -OddScope 'quantum'
+            $summary = & $script:generator -WhatIf -CapabilityMapPath $fx.MapPath -PublicRoot $fx.PublicRoot `
+                -WarningVariable warnings -WarningAction SilentlyContinue
+
+            @($summary.UnrecognisedScope).Count | Should -Be 1
+            $summary.UnrecognisedScope[0].EndpointKey | Should -BeExactly 'GET /zzz-widgets'
+            $summary.UnrecognisedScope[0].Scope | Should -BeExactly 'quantum'
+
+            # A warning as well as a summary entry. A maintainer regenerating by hand reads
+            # the console, not the returned object, and a clean-looking run over N silently
+            # undocumented endpoints is exactly the "covered everything" illusion the
+            # MissingCmdlet path already guards against.
+            ($warnings -join "`n").Contains('quantum') | Should -BeTrue
+
+            # The renderable neighbour still generated: this is a report, not an abort.
+            @($summary.Generated).Count | Should -Be 1
+            $summary.Generated[0] | Should -BeLike '*Get-ZzzGadget.ps1'
+        }
+
+        It 'treats an explicitly empty scope as unrecognised, not as the array default' {
+            # The phase's tri-state ruling applied here: an ABSENT scope is unset, needs no
+            # note, and stays out. A scope that is PRESENT and empty is a recorded value
+            # that happens to say nothing -- so it is reported, never quietly read as the
+            # 'array' default. Collapsing the two is what a truthiness test would do.
+            $fx = New-ScopeFixture -Root (Join-Path $TestDrive 'emptyscope') -OddScope ''
+            $summary = & $script:generator -WhatIf -CapabilityMapPath $fx.MapPath -PublicRoot $fx.PublicRoot `
+                -WarningAction SilentlyContinue
+
+            @($summary.UnrecognisedScope).Count | Should -Be 1
+            $summary.UnrecognisedScope[0].EndpointKey | Should -BeExactly 'GET /zzz-widgets'
+            $summary.UnrecognisedScope[0].Scope | Should -BeExactly ''
+        }
     }
 }

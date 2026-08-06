@@ -26,6 +26,19 @@
     `Invoke-PfbApiRequest -Method <verb> ... -Endpoint '<path>'` call. Any non-default-scope
     endpoint with no matching cmdlet file is REPORTED (warning + MissingCmdlet in the
     returned summary), never silently skipped -- a silent skip reads as "covered everything".
+
+    A non-default-scope endpoint whose scope value this generator has no arm for is reported
+    the same way, for the same reason (warning + UnrecognisedScope in the summary). Two
+    independent rails already make a brand-new scope value hard to introduce by accident --
+    Build-PfbCapabilityMap maps an unrecognised domain token to `unknown` rather than
+    inventing a value, and Tests/Build-PfbCapabilityMap.Tests.ps1 asserts every endpoint's
+    scope is one of fleet/array/unknown -- but "hard to reach" is not a reason to drop the
+    endpoint quietly if it is ever reached.
+
+    Known limitation, not exercised by any endpoint today: if an endpoint's scope later
+    changes TO `array`, this generator stops emitting for that file. The strip phase removes
+    the block, but the `.NOTES` header the generator originally created stays behind as an
+    empty orphan. It is cosmetic; delete it by hand if it ever appears.
 .PARAMETER EmitLineOnly
     Diagnostic/test mode: emit the block that WOULD be generated for a single
     -Scope / -EndpointKey pair and write no files. Returns $null for the default `array`
@@ -42,10 +55,11 @@
     Directory holding the cmdlet files. Defaults to Public/ under the repo root.
 .OUTPUTS
     In generate mode, a summary object with:
-      Changed        - files whose content this run changed (or, under -WhatIf, would change)
-      Generated      - every file that carries a generated block after this run
-      Unchanged      - count of target files already correct
-      MissingCmdlet  - non-default-scope endpoints with no cmdlet file
+      Changed           - files this run changed (or, under -WhatIf, would change)
+      Generated         - every file that carries a generated block after this run
+      Unchanged         - count of target files already correct
+      MissingCmdlet     - non-default-scope endpoints with no cmdlet file
+      UnrecognisedScope - non-default-scope endpoints whose scope value has no render arm
 .EXAMPLE
     ./tools/Update-PfbContextHelp.ps1 -WhatIf
     Report what would change without writing anything.
@@ -77,6 +91,12 @@ function Get-PfbContextHelpBody {
         the default ('array') and therefore needs no note. Unrecognised scopes also return
         $null -- the capability map is the source of truth and a new scope value must be
         handled deliberately, not guessed at in help text.
+
+        $null here means only "nothing to render". Distinguishing the two reasons for it is
+        the CALLER's job, and generate mode does: 'array' is expected and silent, while an
+        unrecognised scope is warned about and recorded in UnrecognisedScope. -EmitLineOnly
+        keeps returning a bare $null for both, which is what its 'emits nothing for an
+        array-scoped endpoint' test pins.
     #>
     param(
         [string]$Scope,
@@ -137,7 +157,11 @@ $map = Get-Content -LiteralPath $CapabilityMapPath -Raw | ConvertFrom-Json
 $nonDefault = @{}
 foreach ($prop in $map.endpoints.PSObject.Properties) {
     $scopeValue = $prop.Value.contextScope.scope
-    if ($scopeValue -and $scopeValue -ne 'array') { $nonDefault[$prop.Name] = $scopeValue }
+    # $null (no scope recorded at all) is unset and stays out; an explicitly EMPTY scope is
+    # a recorded value that happens to say nothing, so it comes in and is then reported as
+    # unrecognised rather than being silently folded in with the 'array' default. Never a
+    # truthiness test here -- that collapses those two cases into one.
+    if ($null -ne $scopeValue -and $scopeValue -ne 'array') { $nonDefault[$prop.Name] = $scopeValue }
 }
 
 # Endpoint key -> cmdlet file, by scanning each cmdlet's Invoke-PfbApiRequest call.
@@ -210,6 +234,7 @@ function Set-PfbContextHelpBlock {
 $changed = @()
 $generated = @()
 $unchanged = 0
+$unrecognised = @()
 
 foreach ($file in ($fileToEndpoints.Keys | Sort-Object)) {
     $keys = $fileToEndpoints[$file] | Sort-Object -Unique
@@ -217,7 +242,15 @@ foreach ($file in ($fileToEndpoints.Keys | Sort-Object)) {
     $paragraphs = @()
     foreach ($key in $keys) {
         $body = Get-PfbContextHelpBody -Scope $nonDefault[$key] -EndpointKey $key
-        if ($null -eq $body) { continue }
+        if ($null -eq $body) {
+            # A non-default scope with no render arm. Report it rather than dropping it:
+            # this is the same "a silent skip reads as covered everything" failure the
+            # MissingCmdlet path above exists to prevent, and the only difference is which
+            # half of the pairing is missing -- there, the cmdlet; here, the render arm.
+            $unrecognised += [PSCustomObject]@{ EndpointKey = $key; Scope = $nonDefault[$key] }
+            Write-Warning ("contextScope '{0}' on '{1}' is not a value this generator renders; no help generated for it. Add a switch arm in Get-PfbContextHelpBody." -f $nonDefault[$key], $key)
+            continue
+        }
         # Strip each paragraph's own delimiters; one shared wrapper goes around them all.
         $inner = ($body -split "`r`n") | Where-Object {
             -not $_.Contains($script:BlockOpen) -and -not $_.Contains($script:BlockClose)
@@ -247,12 +280,13 @@ foreach ($file in ($fileToEndpoints.Keys | Sort-Object)) {
     }
 }
 
-Write-Verbose ("Context help: {0} changed, {1} already current, {2} endpoint(s) with no cmdlet." -f
-    $changed.Count, $unchanged, $missing.Count)
+Write-Verbose ("Context help: {0} changed, {1} already current, {2} endpoint(s) with no cmdlet, {3} with an unrecognised scope." -f
+    $changed.Count, $unchanged, $missing.Count, $unrecognised.Count)
 
 [PSCustomObject]@{
-    Changed       = $changed
-    Generated     = $generated
-    Unchanged     = $unchanged
-    MissingCmdlet = $missing
+    Changed           = $changed
+    Generated         = $generated
+    Unchanged         = $unchanged
+    MissingCmdlet     = $missing
+    UnrecognisedScope = $unrecognised
 }
