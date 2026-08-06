@@ -253,6 +253,31 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             $required[0].HasMap  | Should -BeTrue  -Because 'without the map it reads every scope as unknown and silently no-ops'
         }
     }
+    # Found by mutation during fix round 1: weakening the "-not $hasContext" guard to always-run
+    # left this whole Describe green. The only tests that caught it were the two PUT-body
+    # serialisation Its in Tests/Invoke-PfbApiRequest.Tests.ps1 -- incidental coverage in a file
+    # about something else, which would evaporate the moment those fixtures change. The negation
+    # matters: run unconditionally, and a fleet-scoped call that HAS a perfectly good fleet
+    # context is told "requires a fleet context, but none is set". Pin it deliberately.
+    It 'does NOT call the required-context gate when a context IS set' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $fb = [PSCustomObject]@{
+                PSTypeName = 'PureStorage.FlashBlade.Connection'
+                Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
+                DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'cc-test-fleet' -Kind 'Fleet')))
+                ContextOverride = $null; AuthorizationModel = $null
+            }
+            $required = [System.Collections.Generic.List[object]]::new()
+            Mock -CommandName Assert-PfbContextRequired -MockWith { $required.Add($Endpoint) }
+            Mock -CommandName Assert-PfbApiCapability -MockWith {}
+            Mock -CommandName Invoke-RestMethod -MockWith { [PSCustomObject]@{ items = @() } }
+
+            # Fleet-scoped endpoint with a valid bare-fleet context: the request must go through.
+            Invoke-PfbApiRequest -Array $fb -Method 'PUT' -Endpoint 'presets/workload' -Body @{ name = 'p1' } | Out-Null
+
+            @($required).Count | Should -Be 0 -Because 'a satisfied context must not be reported as missing'
+        }
+    }
     # Fix round 1, Important 1. The required-context gate used to run BEFORE the version gate, so
     # an array too old for the endpoint was told to "Set one with Set-PfbContext" -- advice it
     # cannot follow, because an array below the endpoint's minVersion has no fleets to name. This
