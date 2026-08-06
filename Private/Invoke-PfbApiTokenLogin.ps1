@@ -16,9 +16,16 @@ function Get-PfbLoginResponseUsername {
         it on version grounds. Nothing in here is allowed to throw: a login that already
         authenticated must never fail because a proxy rewrote the body or a test double omitted it.
 
-        Reads through PSObject.Properties rather than touching .Content / .username directly --
-        under StrictMode a direct read of an absent property is a terminating PropertyNotFound
-        error, which is exactly the throw this function must not produce.
+        Reads through PSObject.Properties rather than touching .Content / .username directly.
+        This is defensive BY CHOICE, not forced: this module does not set StrictMode anywhere, so
+        a direct read of an absent property would return $null rather than throwing. The reason to
+        keep it is that a real Invoke-WebRequest response always carries .Content while test
+        doubles and proxied/rewritten responses may not, and the property-bag read states that
+        expectation instead of relying on the absence of StrictMode to stay true.
+        (An earlier version of this comment claimed the module runs under StrictMode and that the
+        direct read would therefore be a terminating PropertyNotFound error. That was false --
+        `Set-StrictMode` appears nowhere in the module or the Pester harness. Do not reintroduce
+        the claim; if StrictMode is ever adopted, this read is already correct for it.)
     .PARAMETER Response
         The full response object from Invoke-WebRequest. $null and a Content-less object are both
         acceptable inputs and both yield $null.

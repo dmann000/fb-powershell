@@ -428,7 +428,7 @@ Describe 'Connect-PfbArray Username is array-authoritative' {
 
         $conn = Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake'
 
-        $conn.Username | Should -Be 'pureuser' -Because 'the ApiToken set has no -Username parameter, so the login response is the only possible source'
+        $conn.Username | Should -BeExactly 'pureuser' -Because 'the ApiToken set has no -Username parameter, so the login response is the only possible source'
     }
 
     It 'prefers the response username over the one the caller supplied on the Credential set' {
@@ -473,7 +473,7 @@ Describe 'Connect-PfbArray Username is array-authoritative' {
         $conn = Connect-PfbArray -Endpoint 'fb.test' -Username 'svc-jdoe' -ClientId 'client-1' `
             -Issuer 'myapp' -KeyId 'key-1' -PrivateKeyFile 'C:\keys\fake.pem'
 
-        $conn.Username | Should -Be 'svc-jdoe'
+        $conn.Username | Should -BeExactly 'svc-jdoe'
     }
 
     It 'populates Username from the post-SSH token login on the pre-2.26 fallback path' {
@@ -514,6 +514,11 @@ Describe 'Connect-PfbArray Username is array-authoritative' {
 
         $conn = Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake'
 
+        # The AuthToken co-assertion is what makes the $null above mean something. On its own,
+        # `$null -eq Username` is the value ANY swallowed failure in the username chain would also
+        # produce, so it would pass for the wrong reason; pinning the token proves the login
+        # actually succeeded and the $null is the parse's considered answer, not wreckage.
+        $conn.AuthToken | Should -BeExactly 'tok'
         $null -eq $conn.Username | Should -BeTrue
     }
 

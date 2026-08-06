@@ -87,8 +87,11 @@ Describe 'Invoke-PfbApiTokenLogin - login response username' {
     }
 
     It 'still returns the token, with a $null Username, when the response has no Content member' {
-        # A response object with no Content property at all: a direct .Content read would be a
-        # PropertyNotFound error under StrictMode, so the parse must go through PSObject.Properties.
+        # A response object with no Content property at all must yield $null rather than throwing.
+        # Note what this does and does not pin: the module sets no StrictMode, so a direct .Content
+        # read would also return $null and this test would pass against it too. It pins the
+        # OBSERVABLE contract (no throw, token still returned), not the PSObject.Properties
+        # implementation choice.
         Mock -ModuleName PureStorageFlashBladePowerShell Invoke-WebRequest {
             [PSCustomObject]@{ Headers = @{ 'x-auth-token' = 'sess-tok' } }
         } -ParameterFilter { $Uri -eq 'https://fb.test/api/login' }

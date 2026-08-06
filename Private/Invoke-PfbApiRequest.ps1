@@ -410,6 +410,14 @@ function Connect-PfbArrayInternal {
     $authToken = $loginResponse.Headers['x-auth-token']
     if ($authToken -is [array]) { $authToken = $authToken[0] }
 
+    # The response BODY is deliberately not parsed here, unlike the two /api/login sites in
+    # Connect-PfbArray, which take the admin's name from it (see Get-PfbLoginResponseUsername).
+    # This is a RECONNECT: the caller mutates the existing connection object in place, assigning
+    # only AuthToken and ConnectedAt, so Username and AdminLocality survive untouched and there is
+    # nothing here to refresh. The divergence is intentional -- do not read it as an oversight.
+    # Known marginal gap: an ApiToken session whose FIRST login body was malformed carries
+    # Username = $null forever, because a later well-formed reconnect body is never read. Fixing
+    # that means refreshing Username on the reconnect path, which is its own decision.
     return [PSCustomObject]@{
         AuthToken   = $authToken
         ConnectedAt = [datetime]::UtcNow
