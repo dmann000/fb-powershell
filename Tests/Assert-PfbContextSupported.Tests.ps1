@@ -442,7 +442,12 @@ Describe 'Assert-PfbContextRequired' {
             $nonGet = @($unknown | Where-Object { $_.Name -notlike 'GET *' })
             $get    = @($unknown | Where-Object { $_.Name -like 'GET *' })
             @($nonGet).Count | Should -BeGreaterThan 0 -Because 'a non-GET unknown-scope endpoint is what detects a deleted scope early-return'
-            @($get).Count    | Should -BeGreaterThan 0 -Because 'the name-scoped GET case detects it independently of the verb branch'
+            # The GET partition is asserted non-empty so the GET probe below exercises a real
+            # endpoint rather than vacuously passing on a $null key. It does NOT contribute kill
+            # power against a deleted scope early-return: the allowlist added in fix round 2
+            # returns before the throw for every unknown-scope GET, so the non-GET partition above
+            # is what detects that mutation. Measured, not assumed.
+            @($get).Count    | Should -BeGreaterThan 0 -Because 'the GET probe below needs a real unknown-scope GET endpoint to be meaningful'
 
             $p = $nonGet[0].Name -split ' ', 2
             { Assert-PfbContextRequired -Method $p[0] -Endpoint $p[1].TrimStart('/') -QueryParams $null -CapabilityMap $map } |
