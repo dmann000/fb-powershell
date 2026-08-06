@@ -226,6 +226,19 @@ function Invoke-PfbApiRequest {
                 $statusCode = [int]$_.Exception.Response.StatusCode
             }
 
+            # One site, both throws. Built here rather than at each throw so the two paths cannot
+            # drift, and so $_ is unambiguously the OUTER catch's error record -- at the
+            # reconnect-failed throw below we sit after an inner try/catch, where which error $_
+            # names is a question nobody should have to answer.
+            #
+            # $resolvedContext and $capabilityMap are the function-scoped locals resolved once at
+            # the top of the request path. Do NOT re-resolve or re-fetch either here: a second
+            # resolution could disagree with the one that was actually sent on the wire, which
+            # would make the annotation name a context the failing call never used.
+            $apiError = ConvertTo-PfbApiError -Method $Method -Endpoint $Endpoint -ErrorRecord $_
+            $apiError = Add-PfbContextErrorAnnotation -Message $apiError -Context $resolvedContext `
+                -Method $Method -Endpoint $Endpoint -CapabilityMap $capabilityMap
+
             # Auto-reconnect on an auth failure: ApiToken/Credential/PSCredential sessions
             # have a cached long-lived API token to re-login with; Certificate sessions
             # refresh the OAuth2 access token instead (fallback for what the proactive check
@@ -278,11 +291,11 @@ function Invoke-PfbApiRequest {
                 }
 
                 if (-not $reconnectSucceeded) {
-                    throw (ConvertTo-PfbApiError -Method $Method -Endpoint $Endpoint -ErrorRecord $_)
+                    throw $apiError
                 }
             }
             else {
-                throw (ConvertTo-PfbApiError -Method $Method -Endpoint $Endpoint -ErrorRecord $_)
+                throw $apiError
             }
         }
 

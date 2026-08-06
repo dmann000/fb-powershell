@@ -388,4 +388,118 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             $required[0] | Should -Be 'file-systems'
         }
     }
+    Context 'error annotation' {
+        It 'names the active context value in a code 42 failure' {
+            InModuleScope 'PureStorageFlashBladePowerShell' {
+                $ctx = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-Q'))
+                $msg = Add-PfbContextErrorAnnotation -Message 'FlashBlade API error: Cannot find array in fleet' `
+                    -Context $ctx -Method 'GET' -Endpoint 'file-systems' -CapabilityMap (Get-PfbCapabilityMap)
+                $msg | Should -BeLike '*FB-Q*'
+            }
+        }
+        It 'names the cmdlets that set a context, so a stale session default is diagnosable' {
+            InModuleScope 'PureStorageFlashBladePowerShell' {
+                $ctx = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-Q'))
+                $msg = Add-PfbContextErrorAnnotation -Message 'FlashBlade API error: Cannot find array in fleet' `
+                    -Context $ctx -Method 'GET' -Endpoint 'file-systems' -CapabilityMap (Get-PfbCapabilityMap)
+                $msg | Should -BeLike '*Set-PfbContext*'
+            }
+        }
+        It 'leaves an unrelated error message alone' {
+            InModuleScope 'PureStorageFlashBladePowerShell' {
+                $ctx = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'))
+                $msg = Add-PfbContextErrorAnnotation -Message 'FlashBlade API error: File system already exists' `
+                    -Context $ctx -Method 'POST' -Endpoint 'file-systems' -CapabilityMap (Get-PfbCapabilityMap)
+                $msg | Should -Be 'FlashBlade API error: File system already exists'
+            }
+        }
+        It 'does not annotate when no context was active' {
+            InModuleScope 'PureStorageFlashBladePowerShell' {
+                Add-PfbContextErrorAnnotation -Message 'FlashBlade API error: Cannot find array in fleet' `
+                    -Context $null -Method 'GET' -Endpoint 'file-systems' -CapabilityMap (Get-PfbCapabilityMap) |
+                    Should -Be 'FlashBlade API error: Cannot find array in fleet'
+            }
+        }
+        It 'does not annotate an EXPLICIT no-context (empty Entries), not just an unset one' {
+            # Tri-state, per Global Constraints: $null is unset, an empty Entries collection is an
+            # explicit "no context". Both must skip annotation, and the $null test above says nothing
+            # about the empty case -- the implementation's guard is a two-clause -or, so a mutation
+            # deleting the second clause survives without this test.
+            InModuleScope 'PureStorageFlashBladePowerShell' {
+                $ctx = New-PfbContext -Entries @()
+                @($ctx.Entries).Count | Should -Be 0
+                Add-PfbContextErrorAnnotation -Message 'FlashBlade API error: Cannot find array in fleet' `
+                    -Context $ctx -Method 'GET' -Endpoint 'file-systems' -CapabilityMap (Get-PfbCapabilityMap) |
+                    Should -Be 'FlashBlade API error: Cannot find array in fleet'
+            }
+        }
+        # Step 3a. Task 11's proactive authorization-model gate cannot fire for an -ApiToken session
+        # (no Username to look up) or for a session that only ever uses Invoke-PfbInContext, so for
+        # those the wire's bare code 20 "Operation not permitted" is the ONLY signal the user gets.
+        It 'explains a code 20 permission failure as a likely static-authorization-model admin' {
+            InModuleScope 'PureStorageFlashBladePowerShell' {
+                $ctx = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-Q'))
+                $msg = Add-PfbContextErrorAnnotation -Message 'FlashBlade API error (HTTP 400): Operation not permitted' `
+                    -Context $ctx -Method 'GET' -Endpoint 'file-systems' -CapabilityMap (Get-PfbCapabilityMap)
+                $msg | Should -BeLike '*static-authorization-model*'
+                $msg | Should -BeLike '*FB-Q*'
+            }
+        }
+        It 'leaves a code 20 permission failure alone when no context is active' {
+            InModuleScope 'PureStorageFlashBladePowerShell' {
+                Add-PfbContextErrorAnnotation -Message 'FlashBlade API error (HTTP 400): Operation not permitted' `
+                    -Context $null -Method 'GET' -Endpoint 'file-systems' -CapabilityMap (Get-PfbCapabilityMap) |
+                    Should -Be 'FlashBlade API error (HTTP 400): Operation not permitted'
+            }
+        }
+    }
+    # Step 4a. Unit tests of Add-PfbContextErrorAnnotation prove nothing about the CALL SITE, so
+    # these two mock at the Invoke-RestMethod boundary and let the real request path run. There are
+    # two throw sites in the catch and both must annotate.
+    Context 'error annotation is actually wired into the request path' {
+        It 'annotates a context-targeting failure on the plain throw site' {
+            InModuleScope 'PureStorageFlashBladePowerShell' {
+                $fb = [PSCustomObject]@{
+                    PSTypeName = 'PureStorage.FlashBlade.Connection'
+                    Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
+                    ApiToken = $null
+                    DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-Q')))
+                    ContextOverride = $null; AuthorizationModel = $null
+                }
+                # No Response member on the exception, so the status is $null: the reconnect gate
+                # cannot fire and the failure takes the else branch.
+                Mock -CommandName Invoke-RestMethod -MockWith { throw 'Cannot find array in fleet' }
+
+                { Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'file-systems' } |
+                    Should -Throw -ExpectedMessage '*FB-Q*'
+                { Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'file-systems' } |
+                    Should -Throw -ExpectedMessage '*Clear-PfbContext*'
+            }
+        }
+        It 'annotates on the reconnect-failed throw site too (403 with the reconnect unavailable)' {
+            InModuleScope 'PureStorageFlashBladePowerShell' {
+                $fb = [PSCustomObject]@{
+                    PSTypeName = 'PureStorage.FlashBlade.Connection'
+                    Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
+                    ApiToken = 'T-fake-token'
+                    DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-Q')))
+                    ContextOverride = $null; AuthorizationModel = $null
+                }
+                # A 403 on a reconnectable session enters the reconnect block; the re-login then
+                # fails, so the throw comes from inside that block rather than the else branch.
+                Mock -CommandName Invoke-RestMethod -MockWith {
+                    $ex = New-Object System.Exception('Operation not permitted')
+                    $response = [PSCustomObject]@{ StatusCode = [System.Net.HttpStatusCode]403 }
+                    Add-Member -InputObject $ex -MemberType NoteProperty -Name Response -Value $response -Force
+                    throw $ex
+                }
+                Mock -CommandName Connect-PfbArrayInternal -MockWith { throw 'reconnect unavailable' }
+
+                { Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'file-systems' } |
+                    Should -Throw -ExpectedMessage '*FB-Q*'
+                { Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'file-systems' } |
+                    Should -Throw -ExpectedMessage '*(HTTP 403)*'
+            }
+        }
+    }
 }

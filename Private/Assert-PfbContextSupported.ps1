@@ -483,3 +483,74 @@ function Assert-PfbContextAuthorizationModel {
     $names = @($Context.Entries | ForEach-Object { ConvertTo-PfbContextWireValue -Entry $_ }) -join ', '
     throw "Setting a Fusion context requires a dynamic-authorization-model (LDAP/SAML) admin; static-model admins, including pureuser and other local accounts such as custom local users and service accounts, are not permitted. The connected admin '$($Array.Username)' is static-model, so the context '$names' would return 'Operation not permitted' (code 20) on any cross-array call regardless of its value."
 }
+
+function Add-PfbContextErrorAnnotation {
+    <#
+    .SYNOPSIS
+        Annotates a context-targeting API failure with the active context and how to change it.
+    .DESCRIPTION
+        The array answers an unresolvable context with code 42 "Cannot find array in fleet",
+        which reaches the caller as a bare message naming neither the offending value nor the
+        fact that a session default set several calls earlier is responsible. With contextScope
+        in hand the annotation can also name the required KIND, not merely the value that
+        failed.
+
+        THE code 20 CASE IS THE REACTIVE HALF OF Assert-PfbContextAuthorizationModel, not a
+        duplicate of it. That gate can only throw proactively when the authorization model is
+        known, and it is NOT known for an -ApiToken session (no Username to look up, so
+        Resolve-PfbAuthorizationModel returns $null and the gate fails open) nor for a session
+        that only ever supplies a context through Invoke-PfbInContext. In both cases the wire's
+        bare code 20 "Operation not permitted" is the only signal the user ever gets. Do not
+        remove this branch on the grounds that Task 11's gate "already covers it".
+
+        Keying on a bare 'Operation not permitted' is safe HERE specifically because the function
+        has already returned unless a context is active: a permission failure with a context set
+        is overwhelmingly this cause. The annotation is advisory and hedged with "may be" -- a
+        wrong hint costs nothing, a missing one costs a support case -- so do not try to narrow
+        it further.
+    .OUTPUTS
+        [string]
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Message,
+        [Parameter()][AllowNull()]$Context,
+        [Parameter(Mandatory)][string]$Method,
+        [Parameter(Mandatory)][string]$Endpoint,
+        [Parameter()][AllowNull()]$CapabilityMap
+    )
+
+    # Tri-state, same predicate as Invoke-PfbApiRequest's $hasContext: $null is unset and an
+    # existing context with no entries is an explicit "run locally". Neither has a context value
+    # to name, so both leave the message untouched. Never truthiness on the context OBJECT.
+    if ($null -eq $Context -or @($Context.Entries).Count -eq 0) { return $Message }
+
+    # A permission failure gets a DIFFERENT explanation from a targeting failure, so it is
+    # matched separately rather than folded into the alternation below.
+    $isPermissionFailure = $Message -match 'Operation not permitted'
+
+    # Only the server's context-targeting failures. Matching more broadly would append
+    # context noise to unrelated errors.
+    if (-not $isPermissionFailure -and
+        $Message -notmatch 'Cannot find array in fleet|Executor not found|Invalid context|Cannot specify (parameter|context)') {
+        return $Message
+    }
+
+    $names = @($Context.Entries | ForEach-Object { ConvertTo-PfbContextWireValue -Entry $_ }) -join ', '
+    $key   = Get-PfbEndpointKey -Method $Method -Endpoint $Endpoint
+    $scope = Get-PfbEndpointContextScope -Method $Method -Endpoint $Endpoint -CapabilityMap $CapabilityMap
+
+    $requirement = if ($isPermissionFailure) {
+        " The connected admin may be a static-authorization-model account -- Fusion contexts require a dynamic-model (LDAP/SAML) admin, and local users and service accounts are all static."
+    }
+    else {
+        switch ($scope) {
+            'fleet' { " $key targets a fleet-scoped resource, which requires a bare fleet context." }
+            'array' { " $key is array-scoped: use a member array name, or '<fleet>.arrays' to target every array in a fleet." }
+            default { '' }
+        }
+    }
+
+    "$Message (active context: $names.$requirement Change it with Set-PfbContext, remove it with Clear-PfbContext, or override it for one call with Invoke-PfbInContext.)"
+}
