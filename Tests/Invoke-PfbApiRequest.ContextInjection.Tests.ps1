@@ -445,6 +445,42 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
                 $msg | Should -BeLike '*FB-Q*'
             }
         }
+        # The scope advice is the feature's actual value, and every assertion above is satisfied by
+        # the surrounding sentence alone -- so without these two, swapping the switch's branch
+        # strings or deleting $requirement entirely survives the whole file. Each It below picks an
+        # endpoint whose REAL contextScope in Data/PfbCapabilityMap.json selects the branch it
+        # names: GET /file-systems is scope 'array' (provenance 'default') and GET /presets/workload
+        # is scope 'fleet' (provenance 'declared'). Verified against the checked-in map, not assumed.
+        It 'names the FLEET requirement on a fleet-scoped endpoint' {
+            InModuleScope 'PureStorageFlashBladePowerShell' {
+                $map = Get-PfbCapabilityMap
+                # Guard the premise: if this endpoint stops being fleet-scoped the test would
+                # silently start exercising the array branch instead.
+                (Get-PfbEndpointContextScope -Method 'GET' -Endpoint 'presets/workload' -CapabilityMap $map) |
+                    Should -Be 'fleet'
+                $ctx = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-Q'))
+                $msg = Add-PfbContextErrorAnnotation -Message 'FlashBlade API error: Cannot find array in fleet' `
+                    -Context $ctx -Method 'GET' -Endpoint 'presets/workload' -CapabilityMap $map
+                $msg | Should -BeLike '*requires a bare fleet context*'
+                $msg | Should -BeLike '*GET /presets/workload*'
+                # The array branch's wording must NOT appear, or a swap of the two strings passes.
+                $msg | Should -Not -BeLike '*is array-scoped*'
+            }
+        }
+        It 'names the ARRAY-scoped guidance on an array-scoped endpoint' {
+            InModuleScope 'PureStorageFlashBladePowerShell' {
+                $map = Get-PfbCapabilityMap
+                (Get-PfbEndpointContextScope -Method 'GET' -Endpoint 'file-systems' -CapabilityMap $map) |
+                    Should -Be 'array'
+                $ctx = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-Q'))
+                $msg = Add-PfbContextErrorAnnotation -Message 'FlashBlade API error: Cannot find array in fleet' `
+                    -Context $ctx -Method 'GET' -Endpoint 'file-systems' -CapabilityMap $map
+                $msg | Should -BeLike '*is array-scoped*'
+                $msg | Should -BeLike "*use a member array name*"
+                $msg | Should -BeLike "*.arrays*"
+                $msg | Should -Not -BeLike '*requires a bare fleet context*'
+            }
+        }
         It 'leaves a code 20 permission failure alone when no context is active' {
             InModuleScope 'PureStorageFlashBladePowerShell' {
                 Add-PfbContextErrorAnnotation -Message 'FlashBlade API error (HTTP 400): Operation not permitted' `

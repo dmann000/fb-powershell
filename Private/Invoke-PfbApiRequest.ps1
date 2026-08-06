@@ -235,6 +235,11 @@ function Invoke-PfbApiRequest {
             # the top of the request path. Do NOT re-resolve or re-fetch either here: a second
             # resolution could disagree with the one that was actually sent on the wire, which
             # would make the annotation name a context the failing call never used.
+            #
+            # Cost-only consequence, accepted deliberately: this also runs when the reconnect below
+            # goes on to SUCCEED, so a recovering request pays two side-effect-free helper calls it
+            # does not use. Both helpers must therefore stay non-throwing -- a throw in either would
+            # convert a request that was about to recover into a hard failure.
             $apiError = ConvertTo-PfbApiError -Method $Method -Endpoint $Endpoint -ErrorRecord $_
             $apiError = Add-PfbContextErrorAnnotation -Message $apiError -Context $resolvedContext `
                 -Method $Method -Endpoint $Endpoint -CapabilityMap $capabilityMap

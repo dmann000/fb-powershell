@@ -184,4 +184,39 @@ Describe 'Invoke-PfbApiRequest reconnect on session-token rejection' {
             }
         } | Should -Throw -ExpectedMessage '*(HTTP 403)*'
     }
+
+    It 'reports the ORIGINAL failure, not the reconnect failure, when the two are distinguishable' {
+        # The It above cannot detect which error is reported: its fixture makes BOTH the original
+        # rejection and the retry a 403, so '*(HTTP 403)*' passes either way. This one makes them
+        # tell apart -- the array refuses with a 403, and the re-login then fails with a plain
+        # non-HTTP error (DNS/connection class, no .Response at all).
+        #
+        # WHY THE ORIGINAL IS THE RIGHT ANSWER, and why this test exists at all. `catch` does not
+        # push a new scope, so before the message construction was hoisted to the top of the outer
+        # catch, `$_` at the reconnect-failed throw still held the INNER catch's error record --
+        # meaning that site formatted the RETRY's error and silently discarded the array's actual
+        # rejection. The comment on the It above always claimed otherwise. Hoisting made the claim
+        # true; this pins it, because nothing else does.
+        $array = New-TestConnection
+        Mock -ModuleName PureStorageFlashBladePowerShell Connect-PfbArrayInternal {
+            throw 'no such host is known: fb.test'
+        }
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            throw (New-MockHttpError -StatusCode 403 -Message 'the array refused the session token')
+        } -ParameterFilter { $Uri -like '*file-systems*' }
+
+        $thrown = $null
+        try {
+            InModuleScope PureStorageFlashBladePowerShell -Parameters @{ array = $array } {
+                Invoke-PfbApiRequest -Array $array -Method GET -Endpoint 'file-systems' | Out-Null
+            }
+        }
+        catch { $thrown = $_.Exception.Message }
+
+        # Sanctioned idiom rather than -Not -BeNullOrEmpty, which this branch bans outright.
+        ($null -ne $thrown) | Should -BeTrue -Because 'the call must fail once the reconnect fails'
+        $thrown | Should -BeLike '*the array refused the session token*'
+        $thrown | Should -BeLike '*(HTTP 403)*' -Because 'the status belongs to the original response'
+        $thrown | Should -Not -BeLike '*no such host*' -Because 'the reconnect failure must not replace the original'
+    }
 }
