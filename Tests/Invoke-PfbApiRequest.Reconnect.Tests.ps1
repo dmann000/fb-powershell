@@ -191,12 +191,20 @@ Describe 'Invoke-PfbApiRequest reconnect on session-token rejection' {
         # tell apart -- the array refuses with a 403, and the re-login then fails with a plain
         # non-HTTP error (DNS/connection class, no .Response at all).
         #
-        # WHY THE ORIGINAL IS THE RIGHT ANSWER, and why this test exists at all. `catch` does not
-        # push a new scope, so before the message construction was hoisted to the top of the outer
-        # catch, `$_` at the reconnect-failed throw still held the INNER catch's error record --
-        # meaning that site formatted the RETRY's error and silently discarded the array's actual
-        # rejection. The comment on the It above always claimed otherwise. Hoisting made the claim
-        # true; this pins it, because nothing else does.
+        # WHY THE ORIGINAL IS THE RIGHT ANSWER, and why this test exists at all.
+        #
+        # MEASURED, because the intuition here is wrong in both directions. `catch` DOES scope $_:
+        # after an inner try/catch completes, $_ reverts to the enclosing catch's error record.
+        # Confirmed on pwsh 7 and WinPS 5.1 with
+        #   try { throw 'OUTER' } catch { try { throw 'INNER' } catch { }; $_.Exception.Message }
+        # which prints OUTER on both. So the reconnect-failed site reported the ORIGINAL error both
+        # before and after the message construction was hoisted to the top of the outer catch -- the
+        # hoist is de-duplication, NOT a fix for a $_-leakage bug. Do not "restore" a bug here that
+        # never existed.
+        #
+        # What was genuinely missing is a test: the It above cannot detect a regression in WHICH
+        # error is reported, because its fixture makes both a 403. This one can, and reds if the
+        # construction is ever moved into the inner catch.
         $array = New-TestConnection
         Mock -ModuleName PureStorageFlashBladePowerShell Connect-PfbArrayInternal {
             throw 'no such host is known: fb.test'
