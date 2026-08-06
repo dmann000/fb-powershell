@@ -251,6 +251,20 @@ function Connect-PfbArray {
         $negotiatedVersion = $v2Versions[0].Version
     }
 
+    # The username that will land on the connection object. A SEPARATE LOCAL, deliberately not
+    # $Username itself: that parameter carries [ValidateNotNullOrEmpty()] on its PSVariable, which
+    # re-validates on ANY assignment regardless of which parameter set was bound -- so writing a
+    # $null back into it would throw on the ApiToken set, exactly the already-shipped crash
+    # documented at the $ApiToken note in the Certificate branch below. Seeded with the caller's
+    # value (which is $null on the ApiToken set, and Mandatory on Certificate) and then OVERWRITTEN
+    # by the login response wherever one supplies a name -- see the precedence note at each site.
+    #
+    # NORMALIZED TO $null, not left as ''. Measured, not assumed: an UNBOUND [string] parameter is
+    # the empty string rather than $null, so before this the ApiToken set shipped Username = '' on
+    # every connection. One value means "no username known" on every path, which is what makes the
+    # $null -ne guards below the whole story rather than half of it.
+    $resolvedUsername = if ([string]::IsNullOrEmpty($Username)) { $null } else { $Username }
+
     # Authenticate based on method
     $authToken = $null
     $bearerToken = $null
@@ -259,7 +273,12 @@ function Connect-PfbArray {
 
     if ($PSCmdlet.ParameterSetName -eq 'ApiToken') {
         # Direct API token login
-        $authToken = Invoke-PfbApiTokenLogin -Endpoint $Endpoint -ApiToken $ApiToken -SkipCertificateCheck:$IgnoreCertificateError -TimeoutSec $timeoutSec
+        $tokenLogin = Invoke-PfbApiTokenLogin -Endpoint $Endpoint -ApiToken $ApiToken -SkipCertificateCheck:$IgnoreCertificateError -TimeoutSec $timeoutSec
+        $authToken = $tokenLogin.AuthToken
+        # THE point of this set: it has no -Username parameter at all, so the login body is the
+        # only possible source. $null -ne, never truthiness -- and guarded rather than assigned
+        # unconditionally so a malformed body cannot erase a name from another source.
+        if ($null -ne $tokenLogin.Username) { $resolvedUsername = $tokenLogin.Username }
     }
     elseif ($PSCmdlet.ParameterSetName -eq 'Certificate') {
         # OAuth2 JWT certificate-based authentication
@@ -338,10 +357,25 @@ function Connect-PfbArray {
             $authToken = $loginResponse.Headers['x-auth-token']
             if ($authToken -is [array]) { $authToken = $authToken[0] }
 
+            # The RESPONSE WINS over the value the caller typed. This is the point, not a side
+            # effect: GET /admins?names= is matched by the array's own spelling, and case
+            # sensitivity has already bitten this project once (.arrays). A caller who typed
+            # PUREUSER against an array that calls the account pureuser must end up with
+            # pureuser on the connection. Guarded on $null so a malformed body falls back to the
+            # caller's value rather than destroying it.
+            $responseUsername = Get-PfbLoginResponseUsername -Response $loginResponse
+            if ($null -ne $responseUsername) { $resolvedUsername = $responseUsername }
+
             # Try to retrieve (or mint) a long-lived API token for auto-reconnect.
             # Best-effort: succeeds for users with admin privileges; falls through silently otherwise.
             # Use a local variable since the $ApiToken parameter retains its [ValidateNotNullOrEmpty]
             # constraint and would reject a $null reassignment.
+            #
+            # This block deliberately still keys on $Username, NOT $resolvedUsername: it is
+            # pre-existing best-effort behaviour with its own tests, and switching it is a
+            # separate change with its own risk. Noted rather than done -- if the caller's
+            # spelling differs from the array's, the read/mint below can miss, which is exactly
+            # the behaviour it had before Task 12b.
             $cachedApiToken  = $null
             $tokenHeaders    = @{ 'x-auth-token' = $authToken }
             $encodedName     = [System.Uri]::EscapeDataString($Username)
@@ -402,7 +436,10 @@ function Connect-PfbArray {
             }
 
             $ApiToken = $mintedToken
-            $authToken = Invoke-PfbApiTokenLogin -Endpoint $Endpoint -ApiToken $ApiToken -SkipCertificateCheck:$IgnoreCertificateError -TimeoutSec $timeoutSec
+            $sshTokenLogin = Invoke-PfbApiTokenLogin -Endpoint $Endpoint -ApiToken $ApiToken -SkipCertificateCheck:$IgnoreCertificateError -TimeoutSec $timeoutSec
+            $authToken = $sshTokenLogin.AuthToken
+            # Same precedence as the native path above: the array's spelling wins.
+            if ($null -ne $sshTokenLogin.Username) { $resolvedUsername = $sshTokenLogin.Username }
         }
     }
 
@@ -444,7 +481,10 @@ function Connect-PfbArray {
         PSTypeName           = 'PureStorage.FlashBlade.Connection'
         # Pfa2-aligned properties
         HttpEndpoint         = "https://${Endpoint}"
-        Username             = $Username
+        # ARRAY-AUTHORITATIVE where a login response supplied a name (ApiToken, Credential,
+        # PSCredential), the parameter value on Certificate, which has no /api/login response to
+        # read. Never $Username directly -- see the $resolvedUsername note above.
+        Username             = $resolvedUsername
         ApiToken             = $ApiToken
         RestApiVersion       = $negotiatedVersion
         # Internal properties used by Invoke-PfbApiRequest / Disconnect-PfbArray
@@ -537,10 +577,16 @@ function Connect-PfbArray {
             # connection and a thousand-iteration loop would mean a thousand probes. Do NOT
             # memoize, and do NOT introduce a third "not yet asked" state to make memoizing safe.
             #
-            # Best-effort and non-fatal: see Resolve-PfbAdminLocality, which also documents
-            # that this is inert for the DEFAULT -ApiToken set (no Username to look up), costs ~3
-            # round trips rather than 1 on a management-access-policy 403, and strips the context
-            # from its own probe so the identity question is never routed to another array.
+            # Best-effort and non-fatal: see Resolve-PfbAdminLocality, which also documents that it
+            # costs ~3 round trips rather than 1 on a management-access-policy 403, and strips the
+            # context from its own probe so the identity question is never routed to another array.
+            #
+            # This is LIVE FOR ALL FOUR PARAMETER SETS, including the default -ApiToken one. It used
+            # to be inert there -- Username was only ever the caller's typed value, and ApiToken has
+            # no -Username parameter, so the resolver early-returned and the gate below could never
+            # fire on the most common way people connect. Task 12b closed that by taking Username
+            # from the /api/login response body on every path that has one. Do not re-add a claim
+            # that this is ApiToken-inert.
             $connection.AdminLocality = Resolve-PfbAdminLocality -Array $connection
 
             # Closes what the Task 11 review parked as a gap: the connect-time context path is now

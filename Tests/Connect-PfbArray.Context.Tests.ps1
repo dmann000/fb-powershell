@@ -159,13 +159,15 @@ Describe 'Connect-PfbArray -Context behaviour' {
     # Deleting that one line disables the whole admin-locality feature without breaking any
     # gate call site, and nothing pinned it: the two pre-existing AdminLocality assertions in
     # this file check that the PROPERTY EXISTS (declared in the object literal, so it passes
-    # either way) and that it is $null (which passes either way too, because those harnesses
-    # connect with -ApiToken and so Username is never populated). That gap is why the inert-gate
-    # defect shipped.
+    # either way) and that it is $null (which passes either way too, because this block's
+    # Invoke-WebRequest mock returns no login BODY, so no username is resolved from it). That gap
+    # is why the inert-gate defect shipped.
     #
-    # Must use a username-bearing parameter set: -ApiToken never populates Username, so the
-    # resolver early-returns and this test would pass vacuously against a deleted line. And must
-    # supply -Context: since the 2026-08-05 ruling the resolution happens ONLY on that path.
+    # Uses a credential set so the username is unambiguous. Since Task 12b -ApiToken populates
+    # Username too -- from the /api/login response body -- but only when the mocked response
+    # actually carries one, which this block's default mock does not; the Task 12b Describe below
+    # is where the ApiToken path is pinned end to end. Must supply -Context: since the 2026-08-05
+    # ruling the resolution happens ONLY on that path.
     It 'populates AdminLocality from the connected admin when -Context is supplied' {
         $cred = [System.Management.Automation.PSCredential]::new(
             'jdoe', (ConvertTo-SecureString 'pw' -AsPlainText -Force))
@@ -192,9 +194,10 @@ Describe 'Connect-PfbArray -Context behaviour' {
     }
 
     # THE detector for the whole point of the 2026-08-05 ruling: a session that never touches
-    # Fusion must not pay for a GET /admins round trip. Nothing else in the suite can see this --
-    # every other test either supplies a context or connects with -ApiToken (no Username), so the
-    # resolution would be invisible to them whether it is conditional or unconditional.
+    # Fusion must not pay for a GET /admins round trip. Nothing else in this block can see it --
+    # every other test here either supplies a context or connects against a login mock with no
+    # response body, so the resolution would be invisible to them whether it is conditional or
+    # unconditional.
     It 'makes NO admin call on a bare connect, even with a username-bearing credential' {
         $cred = [System.Management.Automation.PSCredential]::new(
             'jdoe', (ConvertTo-SecureString 'pw' -AsPlainText -Force))
@@ -217,9 +220,11 @@ Describe 'Connect-PfbArray -Context behaviour' {
     }
 
     # The tri-state case and the model-resolving case were covered by DISJOINT sets of tests, and
-    # the defect lived in their intersection: the only -Context @() test connects with -ApiToken,
-    # so there was no Username, the resolver early-returned, and the gate failed open. A
-    # username-bearing @() connect is that missing intersection.
+    # the defect lived in their intersection: the only -Context @() test connected with -ApiToken,
+    # which at the time never populated Username, so the resolver early-returned and the gate
+    # failed open. A username-bearing @() connect is that missing intersection. (Task 12b has since
+    # given the ApiToken set a Username as well, which makes this coverage matter MORE, not less --
+    # the @() early-out is now the only thing keeping the probe off that path.)
     It 'treats -Context @() as no context: no admin probe, no gate, no throw' {
         $cred = [System.Management.Automation.PSCredential]::new(
             'pureuser', (ConvertTo-SecureString 'pw' -AsPlainText -Force))
@@ -374,6 +379,175 @@ Describe 'Connect-PfbArray -Context behaviour' {
         # the guard for the reference-vs-copy trap -- Connect-PfbArray mutates $script:PfbArrays
         # in place, so capturing a reference makes the AfterEach reassignment a no-op and this
         # assertion then fails with the key still present.
+        InModuleScope PureStorageFlashBladePowerShell {
+            $script:PfbArrays.ContainsKey('fb.test') | Should -BeFalse
+        }
+    }
+}
+
+Describe 'Connect-PfbArray Username is array-authoritative' {
+    # Task 12b. `Username` used to be whatever the CALLER typed, and on the default -ApiToken set
+    # it was never populated at all -- which is why Resolve-PfbAdminLocality early-returned and
+    # the whole admin-locality gate was inert for the most common way people connect.
+    #
+    # Every mock here is at the Invoke-WebRequest / Invoke-RestMethod boundary. Mocking
+    # Invoke-PfbApiTokenLogin instead would assert nothing about where Username comes from.
+    #
+    # PINNED PER PARAMETER SET, not once: three of the four sets take the value from the login
+    # response and the fourth (Certificate) structurally cannot, so a single test could not
+    # distinguish them.
+    BeforeEach {
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            [PSCustomObject]@{ versions = @('2.26') }
+        } -ParameterFilter { $Uri -like '*api_version*' }
+        Mock -ModuleName PureStorageFlashBladePowerShell Get-PfbCapabilityMap {
+            [PSCustomObject]@{ schemaVersion = 2; generatedFrom = @('2.0', '2.26') }
+        }
+        # The best-effort API-token read/mint on the native credential paths. Answered with an
+        # empty list so it neither reaches the network nor supplies a token.
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            [PSCustomObject]@{ items = @() }
+        } -ParameterFilter { $Uri -match '/admins/api-tokens' }
+
+        $script:originalState = InModuleScope PureStorageFlashBladePowerShell {
+            @{ Arrays = @{} + $script:PfbArrays; Default = $script:PfbDefaultArray }
+        }
+    }
+
+    AfterEach {
+        InModuleScope PureStorageFlashBladePowerShell -Parameters @{ state = $script:originalState } {
+            & { param($a, $d) $script:PfbArrays = $a; $script:PfbDefaultArray = $d } $state.Arrays $state.Default
+        }
+    }
+
+    It 'populates Username from the login response on the ApiToken set' {
+        # THE headline case: the default parameter set, which has no -Username parameter at all.
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-WebRequest {
+            [PSCustomObject]@{ Headers = @{ 'x-auth-token' = 'tok' }; Content = '{"username":"pureuser"}' }
+        }
+
+        $conn = Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake'
+
+        $conn.Username | Should -Be 'pureuser' -Because 'the ApiToken set has no -Username parameter, so the login response is the only possible source'
+    }
+
+    It 'prefers the response username over the one the caller supplied on the Credential set' {
+        # THE discriminating test. Without it nothing separates "populated" from "populated
+        # correctly": the caller typed PUREUSER, the array answers pureuser, and it is the array's
+        # spelling that GET /admins?names= has to match. Case sensitivity has already bitten this
+        # project once (.arrays), so the direction of this precedence is deliberate.
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-WebRequest {
+            [PSCustomObject]@{ Headers = @{ 'x-auth-token' = 'tok' }; Content = '{"username":"pureuser"}' }
+        }
+
+        $conn = Connect-PfbArray -Endpoint 'fb.test' -Username 'PUREUSER' `
+            -Password (ConvertTo-SecureString 'pw' -AsPlainText -Force)
+
+        $conn.Username | Should -BeExactly 'pureuser' -Because "the array's own spelling wins; -BeExactly is the assertion, since -Be is case-insensitive and would pass either way"
+    }
+
+    It 'prefers the response username over the credential on the PSCredential set' {
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-WebRequest {
+            [PSCustomObject]@{ Headers = @{ 'x-auth-token' = 'tok' }; Content = '{"username":"jdoe"}' }
+        }
+        $cred = [System.Management.Automation.PSCredential]::new(
+            'JDOE', (ConvertTo-SecureString 'pw' -AsPlainText -Force))
+
+        $conn = Connect-PfbArray -Endpoint 'fb.test' -Credential $cred
+
+        $conn.Username | Should -BeExactly 'jdoe'
+    }
+
+    It 'keeps the parameter-supplied Username on the Certificate set' {
+        # No /api/login response exists on this path -- OAuth2 is a JWT exchange and returns only
+        # AccessToken/ExpiresAt/TtlSeconds. -Username is Mandatory here, so it can never be empty,
+        # and there is no /user endpoint to look one up from (probed: absent at every version).
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbOAuth2Login {
+            [PSCustomObject]@{
+                AccessToken = 'oauth-token'
+                ExpiresAt   = (Get-Date).ToUniversalTime().AddHours(1)
+                TtlSeconds  = 3600
+            }
+        }
+
+        $conn = Connect-PfbArray -Endpoint 'fb.test' -Username 'svc-jdoe' -ClientId 'client-1' `
+            -Issuer 'myapp' -KeyId 'key-1' -PrivateKeyFile 'C:\keys\fake.pem'
+
+        $conn.Username | Should -Be 'svc-jdoe'
+    }
+
+    It 'populates Username from the post-SSH token login on the pre-2.26 fallback path' {
+        # The SSH fallback ends in the SAME Invoke-PfbApiTokenLogin call, so it gets the response
+        # username too -- the second of that function's exactly two call sites.
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            [PSCustomObject]@{ versions = @('2.25') }
+        } -ParameterFilter { $Uri -like '*api_version*' }
+        Mock -ModuleName PureStorageFlashBladePowerShell Get-PfbApiTokenViaSsh { 'T-minted' }
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-WebRequest {
+            [PSCustomObject]@{ Headers = @{ 'x-auth-token' = 'tok' }; Content = '{"username":"pureuser"}' }
+        }
+
+        $conn = Connect-PfbArray -Endpoint 'fb.test' -Username 'PUREUSER' `
+            -Password (ConvertTo-SecureString 'pw' -AsPlainText -Force)
+
+        $conn.Username | Should -BeExactly 'pureuser'
+    }
+
+    It 'falls back to the caller value, not to $null, when the login body carries no username' {
+        # Defensive: a malformed body must not DESTROY a username the caller did supply.
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-WebRequest {
+            [PSCustomObject]@{ Headers = @{ 'x-auth-token' = 'tok' }; Content = '{}' }
+        }
+
+        $conn = Connect-PfbArray -Endpoint 'fb.test' -Username 'PUREUSER' `
+            -Password (ConvertTo-SecureString 'pw' -AsPlainText -Force)
+
+        $conn.Username | Should -BeExactly 'PUREUSER'
+    }
+
+    It 'leaves Username $null on the ApiToken set when the login body carries no username' {
+        # The one remaining route to an indeterminate locality on this set. $null, never '' --
+        # unset and explicit-empty must not collapse.
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-WebRequest {
+            [PSCustomObject]@{ Headers = @{ 'x-auth-token' = 'tok' }; Content = '{}' }
+        }
+
+        $conn = Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake'
+
+        $null -eq $conn.Username | Should -BeTrue
+    }
+
+    It 'now makes the admin-locality gate fire for the DEFAULT -ApiToken set' {
+        # THE BEHAVIOURAL PAYOFF of Task 12b. Before it, this connect could not throw: there was
+        # no Username, Resolve-PfbAdminLocality early-returned $null, and the gate failed open.
+        #
+        # Deliberately NOT mocking Resolve-PfbAdminLocality (the sibling test above does that to
+        # pin the call count). Here the whole chain runs for real off the wire boundary --
+        # login body -> Username -> GET /admins?names= -> is_local -> gate -- which is the only
+        # way to show the hole is actually closed.
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-WebRequest {
+            [PSCustomObject]@{ Headers = @{ 'x-auth-token' = 'tok' }; Content = '{"username":"pureuser"}' }
+        }
+        # Matched with -match so '?' is literal: '*/admins?*' would also match '/admins/api-tokens'.
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            [PSCustomObject]@{
+                items = @([PSCustomObject]@{ name = 'pureuser'; is_local = $true })
+                total_item_count = 1
+            }
+        } -ParameterFilter { $Uri -match '/admins\?' }
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {} -ParameterFilter { $Uri -match '/api/logout' }
+
+        { Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake' -Context 'FB-B' } |
+            Should -Throw -ExpectedMessage "*The connected admin 'pureuser' is a local account*"
+
+        # The load-bearing half: the probe must actually have gone out. Without it this test would
+        # also pass if the gate threw for some unrelated reason.
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell -CommandName Invoke-RestMethod `
+            -ParameterFilter { $Uri -match '/admins\?' } -Times 1 -Exactly `
+            -Because 'the ApiToken set must now have a Username to look up, which is the whole point of Task 12b'
+    }
+
+    It 'has left no fb.test entry in the module connection cache' {
         InModuleScope PureStorageFlashBladePowerShell {
             $script:PfbArrays.ContainsKey('fb.test') | Should -BeFalse
         }

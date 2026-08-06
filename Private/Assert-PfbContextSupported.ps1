@@ -347,15 +347,22 @@ function Resolve-PfbAdminLocality {
 
         Returns $null rather than throwing on any failure. An indeterminate locality must never fail
         a Connect-PfbArray, because this data drives a diagnostic and not a correctness gate.
-        THREE distinct routes reach indeterminate, and the third is the common one:
+        Two routes reach indeterminate, both narrow:
           1. GET /admins 403s under a restrictive management-access policy.
-          2. An OAuth2 client has no username to match.
-          3. -ApiToken -- the DEFAULT parameter set -- never populates Username at all, so the
-             early return below fires and the gate is permanently inert for it. Only the
-             Credential, PSCredential and Certificate sets normalize Username
-             (Connect-PfbArray.ps1:206-212). This is a correct application of the fail-open
-             ruling (no username, no evidence), not a bug: do NOT "fix" it by inferring a
-             locality from the token or by defaulting to 'local'.
+          2. There is no Username to match, so the early return below fires. Since Task 12b that
+             means only a Certificate/OAuth2 session whose -Username somehow never bound, or a
+             login whose 200 body carried no `username` at all -- malformed, not any supported
+             version. Every parameter set now populates Username: ApiToken, Credential and
+             PSCredential take it from the /api/login response body (which returns it in every
+             REST version 2.0-2.28), and Certificate has -Username as Mandatory.
+             This is a correct application of the fail-open ruling (no username, no evidence), not
+             a bug: do NOT "fix" it by inferring a locality from the token or by defaulting to
+             'local'.
+
+        The DEFAULT -ApiToken set used to be a third, and by far the commonest, route here: Username
+        was only the caller's typed value and that set has no -Username parameter, so this function
+        early-returned and the gate was permanently inert for it. That is fixed (Task 12b). Do not
+        reintroduce a note claiming ApiToken cannot reach the lookup.
 
         NO .items UNWRAP. Invoke-PfbApiRequest already unwraps the envelope itself -- it collects
         $response.items into $allItems and returns $allItems.ToArray(), an object[] of admin
@@ -524,11 +531,16 @@ function Add-PfbContextErrorAnnotation {
 
         THE code 20 CASE IS THE REACTIVE HALF OF Assert-PfbContextAdminLocality, not a
         duplicate of it. That gate can only throw proactively when the admin locality is
-        known, and it is NOT known for an -ApiToken session (no Username to look up, so
-        Resolve-PfbAdminLocality returns $null and the gate fails open) nor for a session
-        that only ever supplies a context through Invoke-PfbInContext. In both cases the wire's
-        bare code 20 "Operation not permitted" is the only signal the user ever gets. Do not
-        remove this branch on the grounds that Task 11's gate "already covers it".
+        known, and it is NOT known for a session that only ever supplies a context through
+        Invoke-PfbInContext (no resolution site is ever reached), nor when GET /admins 403s under
+        a restrictive management-access policy. In those cases the wire's bare code 20 "Operation
+        not permitted" is the only signal the user ever gets. Do not remove this branch on the
+        grounds that Task 11's gate "already covers it".
+
+        It is NO LONGER also needed for the -ApiToken set specifically: Task 12b populates Username
+        from the /api/login response body there, so that session now resolves its locality and the
+        proactive gate does fire. The Invoke-PfbInContext hole is untouched by that and is why this
+        branch stays.
 
         Keying on a bare 'Operation not permitted' is safe HERE specifically because the function
         has already returned unless a context is active: a permission failure with a context set

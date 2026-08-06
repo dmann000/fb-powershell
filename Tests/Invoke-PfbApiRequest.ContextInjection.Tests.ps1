@@ -462,9 +462,12 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
                     Should -Be 'FlashBlade API error: Cannot find array in fleet'
             }
         }
-        # Step 3a. Task 11's proactive admin-locality gate cannot fire for an -ApiToken session
-        # (no Username to look up) or for a session that only ever uses Invoke-PfbInContext, so for
-        # those the wire's bare code 20 "Operation not permitted" is the ONLY signal the user gets.
+        # Step 3a. Task 11's proactive admin-locality gate cannot fire for a session that only ever
+        # supplies its context through Invoke-PfbInContext (no resolution site is reached), nor when
+        # GET /admins 403s under a restrictive management-access policy, so for those the wire's bare
+        # code 20 "Operation not permitted" is the ONLY signal the user gets. It DOES now fire for an
+        # -ApiToken session -- Task 12b populates Username from the /api/login body -- so that is no
+        # longer one of the cases this annotation covers.
         It 'explains a code 20 permission failure as a likely LOCAL admin' {
             InModuleScope 'PureStorageFlashBladePowerShell' {
                 $ctx = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-Q'))
