@@ -15,12 +15,18 @@
 
     The generated text lives between two delimiters:
 
-        <!-- PfbContext: generated from Data/PfbCapabilityMap.json contextScope. Do not edit. -->
+        <!-- PfbContext (generated; do not edit) -->
         ...
         <!-- /PfbContext -->
 
     so a re-run REPLACES the block rather than appending to it. Running this script twice
     produces byte-identical files (see Tests/Update-PfbContextHelp.Tests.ps1).
+
+    The delimiters are rendered verbatim by `Get-Help -Full`, so the opening one is worded
+    for the person reading the help, not just the maintainer reading the .ps1. The strip
+    phase therefore matches on the stable `<!-- PfbContext` prefix rather than on the full
+    opening literal: reword the rest of it and a re-run still replaces the old block instead
+    of stripping nothing and inserting a second one beside it.
 
     Endpoint-to-cmdlet mapping is done by scanning each Public/**/*.ps1 for its
     `Invoke-PfbApiRequest -Method <verb> ... -Endpoint '<path>'` call. Any non-default-scope
@@ -82,7 +88,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$script:BlockOpen = '<!-- PfbContext: generated from Data/PfbCapabilityMap.json contextScope. Do not edit. -->'
+# $BlockOpenPrefix is the part of the opening delimiter the strip phase keys on, and the only
+# part that is a contract. Everything after it is prose for whoever reads the rendered help.
+$script:BlockOpenPrefix = '<!-- PfbContext'
+$script:BlockOpen = '<!-- PfbContext (generated; do not edit) -->'
 $script:BlockClose = '<!-- /PfbContext -->'
 
 function Get-PfbContextHelpBody {
@@ -209,9 +218,15 @@ function Set-PfbContextHelpBlock {
         [string]$Block
     )
 
-    # Phase 1: strip the previous generated block, if any.
-    $stripPattern = '(?ms)^[ \t]*' + [regex]::Escape($script:BlockOpen) + '.*?' +
-        [regex]::Escape($script:BlockClose) + '[ \t]*\r?\n'
+    # Phase 1: strip the previous generated block, if any. Keyed on the OPEN PREFIX, not the
+    # full opening literal: the rest of that line is prose that Get-Help renders to the user
+    # and may be reworded. Matching the whole literal would make a reword strip nothing and
+    # insert a second block beside the first -- a silent doubling on every later re-run, which
+    # the idempotency test cannot see because it only ever runs against already-current text.
+    # The prefix cannot collide with the close delimiter ('<!-- /PfbContext'), and the
+    # lookahead stops it matching a longer name like '<!-- PfbContextSomethingElse'.
+    $stripPattern = '(?ms)^[ \t]*' + [regex]::Escape($script:BlockOpenPrefix) + '(?![\w])' +
+        '.*?' + [regex]::Escape($script:BlockClose) + '[ \t]*\r?\n'
     $stripped = [regex]::Replace($Content, $stripPattern, '')
 
     # Phase 2: insert after an existing .NOTES header, else create one before the

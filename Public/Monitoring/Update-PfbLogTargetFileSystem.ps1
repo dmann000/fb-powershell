@@ -44,7 +44,7 @@ function Update-PfbLogTargetFileSystem {
 
         Updates the underlying file system reference using a typed parameter.
     .NOTES
-        <!-- PfbContext: generated from Data/PfbCapabilityMap.json contextScope. Do not edit. -->
+        <!-- PfbContext (generated; do not edit) -->
         Context requirement (PATCH /log-targets/file-systems): the context scope for this endpoint is not
         recorded in the capability map, so the module will not pre-validate a context
         for it. A fleet or array context may still be required by the array itself; if

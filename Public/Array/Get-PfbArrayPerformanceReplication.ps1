@@ -32,7 +32,7 @@ function Get-PfbArrayPerformanceReplication {
         Get-PfbArrayPerformanceReplication -StartTime 1609459200000 -EndTime 1609545600000
         Returns replication performance metrics for a specific time range.
     .NOTES
-        <!-- PfbContext: generated from Data/PfbCapabilityMap.json contextScope. Do not edit. -->
+        <!-- PfbContext (generated; do not edit) -->
         Context requirement (GET /arrays/performance/replication): the context scope for this endpoint is not
         recorded in the capability map, so the module will not pre-validate a context
         for it. A fleet or array context may still be required by the array itself; if

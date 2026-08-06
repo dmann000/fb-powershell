@@ -64,9 +64,12 @@ Describe 'Update-PfbContextHelp' {
 
     It 'wraps the emitted block in the do-not-edit delimiters' {
         $line = & $script:generator -EmitLineOnly -Scope 'fleet' -EndpointKey 'POST /presets/workload'
-        $line.Contains('<!-- PfbContext:') | Should -BeTrue
+        # The exact opening form is pinned HERE and nowhere else, because Get-Help renders it
+        # verbatim to the user -- so a reword is a user-visible change and should break one
+        # named test rather than several. Contains() is case-sensitive, which is the point:
+        # the lower-case wording is deliberate.
+        $line.Contains('<!-- PfbContext (generated; do not edit) -->') | Should -BeTrue
         $line.Contains('<!-- /PfbContext -->') | Should -BeTrue
-        $line.Contains('Do not edit') | Should -BeTrue
     }
 
     It 'is idempotent: a -WhatIf run against the generated tree reports zero changes' {
@@ -131,13 +134,15 @@ Describe 'Update-PfbContextHelp' {
         $summary = & $script:generator -WhatIf
         $summary.Generated.Count | Should -BeGreaterThan 0
         foreach ($file in $summary.Generated) {
-            (Get-Content $file -Raw).Contains('<!-- PfbContext:') | Should -BeTrue
+            # Presence checks use the stable prefix, so rewording the delimiter's prose does
+            # not require touching every assertion in this file.
+            (Get-Content $file -Raw).Contains('<!-- PfbContext') | Should -BeTrue
         }
     }
 
     It 'leaves array-scoped cmdlets untouched' {
         $arrayScoped = Join-Path $script:repoRoot 'Public/FileSystem/Get-PfbFileSystem.ps1'
-        (Get-Content $arrayScoped -Raw).Contains('<!-- PfbContext:') | Should -BeFalse
+        (Get-Content $arrayScoped -Raw).Contains('<!-- PfbContext') | Should -BeFalse
     }
 
     Context 'a scope value the generator has no render arm for' {
@@ -214,6 +219,53 @@ Describe 'Update-PfbContextHelp' {
             @($summary.UnrecognisedScope).Count | Should -Be 1
             $summary.UnrecognisedScope[0].EndpointKey | Should -BeExactly 'GET /zzz-widgets'
             $summary.UnrecognisedScope[0].Scope | Should -BeExactly ''
+        }
+    }
+
+    Context 'a block whose opening delimiter was worded differently' {
+        It 'replaces it rather than leaving two blocks behind' {
+            # The opening delimiter is rendered to users by Get-Help, so its prose is expected
+            # to change. This is the failure that would follow: strip keyed on the FULL
+            # opening literal matches nothing after a reword, so the run inserts a second
+            # block beside the first, and every later run adds another. The idempotency test
+            # cannot catch it -- by then the tree is already current, so nothing needs
+            # stripping. Fixture carries the previous real wording, which makes this the
+            # migration proof as well as the regression guard.
+            $legacyOpen = '<!-- PfbContext: generated from Data/PfbCapabilityMap.json contextScope. Do not edit. -->'
+
+            $root = Join-Path $TestDrive 'reworded'
+            $publicRoot = Join-Path $root 'Public'
+            New-Item -ItemType Directory -Path $publicRoot -Force | Out-Null
+
+            $mapPath = Join-Path $root 'map.json'
+            @{ endpoints = @{ 'GET /zzz-gadgets' = @{ contextScope = @{ scope = 'fleet' } } } } |
+                ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $mapPath
+
+            $cmdletPath = Join-Path $publicRoot 'Get-ZzzGadget.ps1'
+            @(
+                '<#'
+                '.SYNOPSIS'
+                '    Synthetic fixture carrying a stale, differently-worded block.'
+                '.NOTES'
+                "    $legacyOpen"
+                '    Stale prose that must not survive the run.'
+                '    <!-- /PfbContext -->'
+                '#>'
+                'function Get-ZzzGadget {'
+                "    Invoke-PfbApiRequest -Method GET -Endpoint 'zzz-gadgets'"
+                '}'
+            ) | Set-Content -LiteralPath $cmdletPath
+
+            # Not -WhatIf: the strip-and-reinsert has to actually land on disk to be counted.
+            & $script:generator -CapabilityMapPath $mapPath -PublicRoot $publicRoot |
+                Out-Null
+
+            $text = Get-Content $cmdletPath -Raw
+            [regex]::Matches($text, [regex]::Escape('<!-- PfbContext')).Count | Should -Be 1
+            [regex]::Matches($text, [regex]::Escape('<!-- /PfbContext -->')).Count | Should -Be 1
+            $text.Contains($legacyOpen) | Should -BeFalse
+            $text.Contains('Stale prose that must not survive the run.') | Should -BeFalse
+            $text.Contains('<!-- PfbContext (generated; do not edit) -->') | Should -BeTrue
         }
     }
 }

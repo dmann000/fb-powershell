@@ -32,7 +32,7 @@ function Get-PfbArraySshCaPolicy {
 
         Retrieves up to 5 SSH CA policy associations for the specified array.
     .NOTES
-        <!-- PfbContext: generated from Data/PfbCapabilityMap.json contextScope. Do not edit. -->
+        <!-- PfbContext (generated; do not edit) -->
         Context requirement (GET /arrays/ssh-certificate-authority-policies): the context scope for this endpoint is not
         recorded in the capability map, so the module will not pre-validate a context
         for it. A fleet or array context may still be required by the array itself; if

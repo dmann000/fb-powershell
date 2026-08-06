@@ -28,7 +28,7 @@ function Remove-PfbArraySshCaPolicy {
 
         Removes the association after prompting for confirmation.
     .NOTES
-        <!-- PfbContext: generated from Data/PfbCapabilityMap.json contextScope. Do not edit. -->
+        <!-- PfbContext (generated; do not edit) -->
         Context requirement (DELETE /arrays/ssh-certificate-authority-policies): the context scope for this endpoint is not
         recorded in the capability map, so the module will not pre-validate a context
         for it. A fleet or array context may still be required by the array itself; if

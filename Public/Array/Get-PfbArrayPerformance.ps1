@@ -20,7 +20,7 @@ function Get-PfbArrayPerformance {
     .EXAMPLE
         Get-PfbArrayPerformance -Protocol nfs
     .NOTES
-        <!-- PfbContext: generated from Data/PfbCapabilityMap.json contextScope. Do not edit. -->
+        <!-- PfbContext (generated; do not edit) -->
         Context requirement (GET /arrays/performance): the context scope for this endpoint is not
         recorded in the capability map, so the module will not pre-validate a context
         for it. A fleet or array context may still be required by the array itself; if

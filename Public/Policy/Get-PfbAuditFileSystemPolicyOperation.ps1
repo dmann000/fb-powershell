@@ -27,7 +27,7 @@ function Get-PfbAuditFileSystemPolicyOperation {
 
         Retrieves operations matching the filter, sorted by name.
     .NOTES
-        <!-- PfbContext: generated from Data/PfbCapabilityMap.json contextScope. Do not edit. -->
+        <!-- PfbContext (generated; do not edit) -->
         Context requirement (GET /audit-file-systems-policy-operations): the context scope for this endpoint is not
         recorded in the capability map, so the module will not pre-validate a context
         for it. A fleet or array context may still be required by the array itself; if

@@ -14,7 +14,7 @@ function Remove-PfbPresetWorkload {
     .EXAMPLE
         Remove-PfbPresetWorkload -Name 'analytics-template'
     .NOTES
-        <!-- PfbContext: generated from Data/PfbCapabilityMap.json contextScope. Do not edit. -->
+        <!-- PfbContext (generated; do not edit) -->
         Context requirement (DELETE /presets/workload): this cmdlet targets a fleet-scoped resource
         and requires a bare fleet context. Set one with
         Set-PfbContext -Context <fleet> -Kind Fleet, or scope a single call with

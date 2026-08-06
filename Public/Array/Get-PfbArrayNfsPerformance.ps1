@@ -29,7 +29,7 @@ function Get-PfbArrayNfsPerformance {
         Get-PfbArrayNfsPerformance -StartTime 1609459200000 -Resolution 30000
         Returns NFS performance metrics from a start time at 30-second resolution.
     .NOTES
-        <!-- PfbContext: generated from Data/PfbCapabilityMap.json contextScope. Do not edit. -->
+        <!-- PfbContext (generated; do not edit) -->
         Context requirement (GET /arrays/nfs-specific-performance): the context scope for this endpoint is not
         recorded in the capability map, so the module will not pre-validate a context
         for it. A fleet or array context may still be required by the array itself; if

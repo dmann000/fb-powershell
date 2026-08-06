@@ -29,7 +29,7 @@ function Get-PfbArrayClientPerformance {
         Get-PfbArrayClientPerformance -Filter "name='10.0.0.1'"
         Returns performance metrics for a specific client IP.
     .NOTES
-        <!-- PfbContext: generated from Data/PfbCapabilityMap.json contextScope. Do not edit. -->
+        <!-- PfbContext (generated; do not edit) -->
         Context requirement (GET /arrays/clients/performance): the context scope for this endpoint is not
         recorded in the capability map, so the module will not pre-validate a context
         for it. A fleet or array context may still be required by the array itself; if

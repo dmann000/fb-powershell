@@ -33,7 +33,7 @@ function Get-PfbStorageClassTieringPolicyMember {
 
         Retrieves up to 10 tiering policy associations for the specified member.
     .NOTES
-        <!-- PfbContext: generated from Data/PfbCapabilityMap.json contextScope. Do not edit. -->
+        <!-- PfbContext (generated; do not edit) -->
         Context requirement (GET /storage-class-tiering-policies/members): the context scope for this endpoint is not
         recorded in the capability map, so the module will not pre-validate a context
         for it. A fleet or array context may still be required by the array itself; if
