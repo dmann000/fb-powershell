@@ -178,7 +178,7 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
     # gate sits among them -- it cannot detect the admin-locality gate drifting back above
     # Assert-PfbApiCapability. This one adds the version gate to the recording and pins the whole
     # sequence. The ruling it encodes was measured in Task 10: a gate that injects nothing and
-    # consults no endpoint must run BELOW the version gate, or a static admin on a REST 2.20 array
+    # consults no endpoint must run BELOW the version gate, or a local admin on a REST 2.20 array
     # calling an endpoint that needs 2.23 is told to go obtain an LDAP admin and only afterwards
     # learns the real blocker was firmware. Assert-PfbContextCapability defers "recorded but array
     # too old" to Assert-PfbApiCapability by design, so gates 1-3 do not catch that case.
@@ -224,7 +224,7 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             }
             # The admin-locality gate has a DIFFERENT signature from the other three: it
             # takes -Array (which only the capability gate also takes) and neither -Endpoint nor
-            # -CapabilityMap, because the admin's model is a property of the session, not of the
+            # -CapabilityMap, because the admin's locality is a property of the session, not of the
             # endpoint. Record what it actually receives rather than forcing it into their shape.
             $authSeen = [System.Collections.Generic.List[object]]::new()
             Mock -CommandName Assert-PfbContextAdminLocality -MockWith {
@@ -518,7 +518,12 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
                 $msg | Should -BeLike '*Set-PfbContext*'
                 $msg | Should -BeLike '*Clear-PfbContext*'
                 $msg | Should -BeLike '*Invoke-PfbInContext*'
-                $msg | Should -Not -BeLike '*Reconnect as a dynamic-model*'
+                # Retargeted at the CURRENT production wording. The old pattern
+                # ('*Reconnect as a dynamic-model*') could no longer match anything after the
+                # rename, so this mirror guard for the "do NOT re-merge these two clauses"
+                # invariant was silently unfalsifiable. Verified armed by mutation: merging the
+                # two clauses in Add-PfbContextErrorAnnotation reds this line.
+                $msg | Should -Not -BeLike '*Reconnect as a remotely authenticated*'
             }
         }
     }

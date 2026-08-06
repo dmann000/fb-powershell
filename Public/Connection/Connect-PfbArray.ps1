@@ -474,7 +474,7 @@ function Connect-PfbArray {
         ContextOverride      = $null
         # Reserved: populated in a later phase. Declared here so every connection object has a
         # uniform shape.
-        AdminLocality   = $null
+        AdminLocality        = $null
     }
 
     # Hide secrets from default display. Sensitive fields (ApiToken, AuthToken,

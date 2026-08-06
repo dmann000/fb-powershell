@@ -465,10 +465,19 @@ function Assert-PfbContextAdminLocality {
     .SYNOPSIS
         Throws when a LOCALLY authenticated admin sets any Fusion context.
     .DESCRIPTION
-        Diagnostic, never a security boundary. A local admin's cross-array call fails
-        loudly on the wire with 'Operation not permitted' (code 20), so this gate can never turn
-        a would-be wrong-target success into a failure -- it only replaces an opaque server error
-        with the actionable reason.
+        Diagnostic, never a security boundary. For a CROSS-ARRAY context a local admin's call
+        fails loudly on the wire with 'Operation not permitted' (code 20), so there this gate
+        only replaces an opaque server error with the actionable reason.
+
+        It is NOT free of behavioural cost, and this docstring must not claim otherwise: a local
+        admin CAN successfully target its OWN array. Measured on FB-A 2026-08-06 -- pureuser with
+        context_names=FB-A returned data; only cross-array attracts code 20. So for a
+        self-targeting context this gate DOES convert a would-be success into a failure. That is
+        INTENDED -- maintainer ruling 2026-08-05, no local-array exemption; see the comment at the
+        throw below, which states the same thing from the other direction -- but it is a real
+        rejection of a call the server would have served, not merely a nicer error message. An
+        earlier revision of this paragraph asserted the opposite as a safety property; it was
+        falsified by live testing. Do not restore it.
 
         Fails OPEN on an indeterminate locality and CLOSED on a known-local one. Those are not in
         tension: $null means no evidence (an OAuth2 client with no username, or GET /admins 403

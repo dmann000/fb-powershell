@@ -13,7 +13,7 @@ Describe 'connection context state' {
                 ApiVersion         = '2.26'
                 DefaultContext     = $null
                 ContextOverride    = $null
-                AdminLocality = $null
+                AdminLocality      = $null
             }
             $copy = Copy-PfbConnection -Array $fake
             $copy.DefaultContext = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'))
@@ -382,10 +382,19 @@ Describe 'Connect-PfbArray -Context behaviour' {
 
 Describe 'Resolve-PfbAdminLocality' {
     It 'leaves AdminLocality null when the admin lookup fails' {
+        # DefaultContext/ContextOverride must be DECLARED on the fixture. The resolver takes
+        # $Array.PSObject.Copy() and then assigns both to $null; assigning an absent property on a
+        # PSCustomObject is a hard error, so without them the probe strip crashes into the
+        # resolver's own catch and returns $null BEFORE the mocked 403 is ever reached -- the right
+        # value for entirely the wrong reason. The Should -Invoke below is what distinguishes the
+        # two, and it is the load-bearing line here: the two $null assertions hold either way.
         InModuleScope 'PureStorageFlashBladePowerShell' {
+            $fixture = { [PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'u'; DefaultContext = $null; ContextOverride = $null } }
             Mock -CommandName Invoke-PfbApiRequest -MockWith { throw 'HTTP 403' }
-            { Resolve-PfbAdminLocality -Array ([PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'u' }) } | Should -Not -Throw
-            $null -eq (Resolve-PfbAdminLocality -Array ([PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'u' })) | Should -BeTrue
+            { Resolve-PfbAdminLocality -Array (& $fixture) } | Should -Not -Throw
+            $null -eq (Resolve-PfbAdminLocality -Array (& $fixture)) | Should -BeTrue
+            Should -Invoke -CommandName Invoke-PfbApiRequest -Times 2 -Exactly `
+                -Because 'the 403 catch is the path under test; a count below the number of resolver calls means the probe strip crashed first and the $null came from a different failure entirely'
         }
     }
     # Mocked at the Invoke-RestMethod boundary, NOT at Invoke-PfbApiRequest. A mock of the thing

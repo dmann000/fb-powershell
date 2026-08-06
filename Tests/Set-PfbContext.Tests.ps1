@@ -19,7 +19,9 @@ Describe 'Set-PfbContext' {
     It 'returns a new connection and leaves the original untouched' {
         $new = Set-PfbContext -Array $script:fb -Context 'FB-B'
         $new.DefaultContext.Entries[0].Name | Should -Be 'FB-B'
-        $script:fb.DefaultContext           | Should -BeNullOrEmpty
+        # Not -BeNullOrEmpty: it cannot tell $null (unset) from an entry list with zero entries
+        # (explicit no-context), and that distinction is the whole tri-state. Banned project-wide.
+        $null -eq $script:fb.DefaultContext | Should -BeTrue
         [object]::ReferenceEquals($new, $script:fb) | Should -BeFalse
     }
     It 'emits exactly ONE connection for N piped members, scoped to the union' {
