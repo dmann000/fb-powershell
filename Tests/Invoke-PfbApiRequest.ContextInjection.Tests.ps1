@@ -140,6 +140,35 @@ Describe 'context injection in Invoke-PfbApiRequest' {
             $callerParams.ContainsKey($script:PfbContextParameterName) | Should -BeFalse
         }
     }
+    It 'preserves the per-item context field on a fanned-out response' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            # Fan-out attribution: each item carries a `context` object naming its source
+            # array (measured on the wire as `context`, not `_context`). The response layer
+            # must pass items through as received -- projecting or rebuilding them would
+            # silently destroy per-item attribution.
+            Mock -CommandName Assert-PfbApiCapability -MockWith {}
+            Mock -CommandName Invoke-RestMethod -MockWith {
+                [PSCustomObject]@{
+                    items = @(
+                        [PSCustomObject]@{ name = 'fs1'; context = [PSCustomObject]@{ name = 'FB-B' } },
+                        [PSCustomObject]@{ name = 'fs2'; context = [PSCustomObject]@{ name = 'FB-C' } }
+                    )
+                    total_item_count = 2
+                }
+            }
+            $fb = [PSCustomObject]@{
+                PSTypeName = 'PureStorage.FlashBlade.Connection'
+                Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
+                DefaultContext = (New-PfbContext -Entries @(
+                    (New-PfbContextEntry -Name 'FB-B'), (New-PfbContextEntry -Name 'FB-C')))
+                ContextOverride = $null; AdminLocality = $null
+            }
+            $result = Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'file-systems'
+            @($result).Count            | Should -Be 2
+            $result[0].context.name     | Should -Be 'FB-B'
+            $result[1].context.name     | Should -Be 'FB-C'
+        }
+    }
 }
 
 # Fix round 1, Important 2. Both context gates were entirely unpinned at the call site: deleting

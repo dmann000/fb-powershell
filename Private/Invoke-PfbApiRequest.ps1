@@ -312,7 +312,14 @@ function Invoke-PfbApiRequest {
             return $response
         }
 
-        # Collect items
+        # Collect items. Items are added AS RECEIVED -- never project or rebuild them into a
+        # new PSCustomObject. A fanned-out (multi-array context) response carries a per-item
+        # `context` field naming the source array, and that is the caller's only way to tell
+        # which array an item came from. A "tidy up the response shape" refactor that rebuilt
+        # each item would silently destroy that attribution; the response layer deliberately
+        # reads only items / total_item_count / continuation_token off the body and leaves the
+        # items themselves alone. Guarded by the per-item-context test in
+        # Tests/Invoke-PfbApiRequest.ContextInjection.Tests.ps1.
         if ($null -ne $response.items) {
             foreach ($item in $response.items) {
                 $allItems.Add($item)
