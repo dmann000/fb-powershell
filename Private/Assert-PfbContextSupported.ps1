@@ -48,6 +48,35 @@ function Test-PfbEndpointDeclaresContextNames {
     return (@($EndpointEntry.parameters.PSObject.Properties.Name) -contains $script:PfbContextParameterName)
 }
 
+function Get-PfbEndpointContextScope {
+    <#
+    .SYNOPSIS
+        Reads the capability map's contextScope for a method and endpoint.
+    .DESCRIPTION
+        ONE home for this lookup, for the same reason Get-PfbEndpointKey exists: both scope gates
+        must agree, and both must degrade identically on absent metadata. Every read of
+        contextScope goes through here -- never by indexing the map's contextScope member at a
+        call site.
+
+        Returns 'unknown' for a missing map, a missing entry, or an entry with no contextScope,
+        so a caller has exactly one sentinel to test rather than three shapes of absence.
+    .OUTPUTS
+        [string]
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)][string]$Method,
+        [Parameter(Mandatory)][string]$Endpoint,
+        [Parameter()][AllowNull()]$CapabilityMap
+    )
+
+    if (-not $CapabilityMap) { return 'unknown' }
+    $entry = $CapabilityMap.endpoints.(Get-PfbEndpointKey -Method $Method -Endpoint $Endpoint)
+    if (-not $entry -or -not $entry.contextScope) { return 'unknown' }
+    $entry.contextScope.scope
+}
+
 function Assert-PfbContextCapability {
     <#
     .SYNOPSIS
@@ -150,4 +179,106 @@ function Assert-PfbContextCardinality {
 
     $names = @($Context.Entries | ForEach-Object { ConvertTo-PfbContextWireValue -Entry $_ }) -join ', '
     throw "$key accepts only one context, but $(@($Context.Entries).Count) were given ($names). Narrow the context to a single name. To target every array in a fleet or topology group with one context, use -AllArrays instead of listing members."
+}
+
+function Assert-PfbContextKindMatchesScope {
+    <#
+    .SYNOPSIS
+        Throws when the context's KIND cannot address the endpoint's scope.
+    .DESCRIPTION
+        Reads contextScope from the capability map through Get-PfbEndpointContextScope. One
+        uniform message rather than relaying the server's grab-bag (code 13 here, code 42 there,
+        and a silent 200 for a local context). scope 'unknown' -- 19 operations -- SUPPRESSES the
+        check: the gate must degrade, not throw, on absent metadata.
+
+        Wire truth this encodes:
+          array-scoped: bare array name OK; <fleet>.arrays and <group>.arrays OK (fan-out);
+                        bare fleet name rejected (code 42); bare group name rejected (code 42).
+          fleet-scoped: bare fleet name OK; everything else rejected (code 13), including
+                        .arrays forms and any array name other than the local one -- and the
+                        local one only because middleware short-circuits it before validating,
+                        which is not a scope grant.
+
+        Called only from inside Invoke-PfbApiRequest's
+        "$null -ne $resolvedContext -and Count -gt 0" block, so a non-null / non-empty re-check
+        here would be unreachable -- same contract as Assert-PfbContextCardinality.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Method,
+        [Parameter(Mandatory)][string]$Endpoint,
+        [Parameter(Mandatory)]$Context,
+        [Parameter()][AllowNull()]$CapabilityMap
+    )
+
+    $scope = Get-PfbEndpointContextScope -Method $Method -Endpoint $Endpoint -CapabilityMap $CapabilityMap
+    if ($scope -eq 'unknown') { return }
+
+    $key = Get-PfbEndpointKey -Method $Method -Endpoint $Endpoint
+
+    foreach ($entry in $Context.Entries) {
+        $wire = ConvertTo-PfbContextWireValue -Entry $entry
+
+        if ($scope -eq 'array') {
+            # A membership form (.arrays) fans out ACROSS arrays, so it is valid here; a bare
+            # fleet or group name addresses an object that is not an array, so it is not.
+            if ($entry.Form -eq 'Object' -and $entry.Kind -ne 'Array') {
+                throw "$key is array-scoped, so '$wire' is not a valid context for it: a $($entry.Kind.ToLowerInvariant()) name addresses a $($entry.Kind.ToLowerInvariant())-level object, not an array. Use a member array name, or '$($entry.Name).arrays' to target every array in it."
+            }
+        }
+        elseif ($scope -eq 'fleet') {
+            if ($entry.Kind -ne 'Fleet' -or $entry.Form -ne 'Object') {
+                throw "$key targets a fleet-scoped resource, which requires a bare fleet context; '$wire' is not one. Set a fleet context with Set-PfbContext -Context <fleet> -Kind Fleet, or run this call in one with Invoke-PfbInContext -Context <fleet> -Kind Fleet { ... }. Get the fleet name from Get-PfbFleet."
+            }
+        }
+    }
+}
+
+function Assert-PfbContextRequired {
+    <#
+    .SYNOPSIS
+        Throws when a fleet-scoped endpoint needs a fleet context and none is set.
+    .DESCRIPTION
+        Open question 7. On a fleet-scoped endpoint, omitting context_names does not resolve to a
+        usable local view -- it fails, and confusingly: POST returns code 13 "Creating a preset in
+        the array context is not supported", PUT/DELETE return code 6 "Preset does not exist", and
+        a NAME-SCOPED GET returns code 6 as well. Throwing here names the requirement and the
+        cmdlet that satisfies it instead.
+
+        THE ONE EXCEPTION, and it is not the verb: an UNFILTERED read with no context WORKS,
+        returning the locally replicated copy. The local view is list-only -- sufficient to
+        enumerate, insufficient to resolve a name against -- so any call targeting by names= or
+        ids= is in the mutation case regardless of its verb, and an unfiltered list is not. Keying
+        this on the verb alone would break Get-PfbPresetWorkload, the only preset operation that
+        works today.
+
+        Called from the ELSE branch in Invoke-PfbApiRequest, so unlike the three shape gates this
+        one legitimately sees BOTH the unset and the explicitly-empty context. That is deliberate:
+        on a fleet-scoped mutation or name-scoped read, an explicit @() is exactly as broken as
+        omitting the context. Do NOT add an empty-context bypass.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Method,
+        [Parameter(Mandatory)][string]$Endpoint,
+        [Parameter()][AllowNull()][hashtable]$QueryParams,
+        [Parameter()][AllowNull()]$CapabilityMap
+    )
+
+    if ((Get-PfbEndpointContextScope -Method $Method -Endpoint $Endpoint -CapabilityMap $CapabilityMap) -ne 'fleet') {
+        return
+    }
+
+    if ($Method -eq 'GET') {
+        $isNameScoped = $false
+        if ($QueryParams) {
+            foreach ($selector in 'names', 'ids') {
+                if ($QueryParams.ContainsKey($selector) -and $QueryParams[$selector]) { $isNameScoped = $true }
+            }
+        }
+        if (-not $isNameScoped) { return }   # unfiltered list: works without a context
+    }
+
+    $key = Get-PfbEndpointKey -Method $Method -Endpoint $Endpoint
+    throw "$key targets a fleet-scoped resource and requires a fleet context, but none is set. Set one with Set-PfbContext -Context <fleet> -Kind Fleet, or run this call in one with Invoke-PfbInContext -Context <fleet> -Kind Fleet { ... }. Get the fleet name from Get-PfbFleet."
 }

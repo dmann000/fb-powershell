@@ -50,15 +50,22 @@ function Invoke-PfbApiRequest {
     # through to any lower-precedence context. Hence -ne $null plus an explicit count, never
     # truthiness on the context object.
     $resolvedContext = Resolve-PfbRequestContext -Array $Array -QueryParams $QueryParams
+    # Loaded once, above the branch, because BOTH branches gate on it now. Get-PfbCapabilityMap
+    # memoizes, but hoisting it also guarantees the two branches rule on the same object.
+    $capabilityMap = Get-PfbCapabilityMap
     if ($null -ne $resolvedContext -and @($resolvedContext.Entries).Count -gt 0) {
         # Gate before injecting: an endpoint with no recorded context_names support silently
         # accepts the parameter on the wire, so the array will never tell the caller.
-        $capabilityMap = Get-PfbCapabilityMap
         Assert-PfbContextCapability -Array $Array -Method $Method -Endpoint $Endpoint -Context $resolvedContext -CapabilityMap $capabilityMap
 
         # Second gate: a multi-value context on an endpoint that accepts exactly one returns
         # 400 code 15 with no hint about the fix, so translate it client-side.
         Assert-PfbContextCardinality -Method $Method -Endpoint $Endpoint -Context $resolvedContext -CapabilityMap $capabilityMap
+
+        # Third gate: the context's KIND must be able to address the endpoint's scope. Runs AFTER
+        # the two above on purpose -- a wrong-kind context aimed at an endpoint that takes no
+        # context at all should hear about that first.
+        Assert-PfbContextKindMatchesScope -Method $Method -Endpoint $Endpoint -Context $resolvedContext -CapabilityMap $capabilityMap
 
         # Clone first: $QueryParams is a reference to the CALLER's hashtable, and a targeting
         # parameter must not leak back into a hashtable the caller may reuse for another call.
@@ -67,6 +74,13 @@ function Invoke-PfbApiRequest {
         $QueryParams = if ($null -ne $QueryParams) { $QueryParams.Clone() } else { @{} }
         $QueryParams[$script:PfbContextParameterName] =
             @($resolvedContext.Entries | ForEach-Object { ConvertTo-PfbContextWireValue -Entry $_ }) -join ','
+    }
+    else {
+        # A fleet-scoped endpoint has no usable no-context default for a mutation or a
+        # name-scoped read. An explicit @() is still the caller saying "locally", so it reaches
+        # here too -- and for those calls that is exactly as broken as omitting the context.
+        # An unfiltered fleet-scoped read is exempt; the gate handles that distinction.
+        Assert-PfbContextRequired -Method $Method -Endpoint $Endpoint -QueryParams $QueryParams -CapabilityMap $capabilityMap
     }
 
     # Fail fast if the connected array's REST version doesn't support this endpoint/param/

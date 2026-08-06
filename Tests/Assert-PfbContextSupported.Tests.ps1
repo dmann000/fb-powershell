@@ -207,3 +207,200 @@ Describe 'Test-PfbEndpointDeclaresContextNames' {
         }
     }
 }
+
+# Task 10. Scaffolding rules, all four load-bearing:
+#
+# 1. InModuleScope goes INSIDE each It. Describe-level fails at discovery in this repo, so the
+#    block silently never runs. Every function called below is private, so outside module scope
+#    they all raise CommandNotFoundException.
+# 2. The map is a plain LOCAL rebuilt per It, never `$script:map` from a BeforeEach: a `$script:`
+#    assignment inside InModuleScope writes to the MODULE's script scope and leaks past this file.
+#    Get-PfbCapabilityMap memoizes, so re-calling it is nearly free.
+# 3. These tests deliberately run against the REAL shipped map rather than a fixture, because the
+#    point is partly to pin the shipped contextScope data (see the map-literal test). That is the
+#    opposite choice from the capability-gate tests above and it is intentional.
+# 4. Every throw assertion pins a message substring taken from the actual `throw`. A bare
+#    `Should -Throw` is satisfied by CommandNotFoundException, so it would pass in RED before the
+#    function exists and keep passing however the real throw is worded.
+Describe 'Assert-PfbContextKindMatchesScope' {
+    It 'rejects a bare fleet name on an array-scoped endpoint' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $map = Get-PfbCapabilityMap
+            $fleet = New-PfbContext -Entries @((New-PfbContextEntry -Name 'cc-test-fleet' -Kind 'Fleet'))
+            { Assert-PfbContextKindMatchesScope -Method 'GET' -Endpoint 'file-systems' -Context $fleet -CapabilityMap $map } |
+                Should -Throw -ExpectedMessage '*array-scoped*'
+        }
+    }
+    It 'suggests <fleet>.arrays in the array-scoped rejection' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $map = Get-PfbCapabilityMap
+            $fleet = New-PfbContext -Entries @((New-PfbContextEntry -Name 'cc-test-fleet' -Kind 'Fleet'))
+            { Assert-PfbContextKindMatchesScope -Method 'GET' -Endpoint 'file-systems' -Context $fleet -CapabilityMap $map } |
+                Should -Throw -ExpectedMessage '*.arrays*'
+        }
+    }
+    It 'allows an array name on an array-scoped endpoint' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $map = Get-PfbCapabilityMap
+            $arr = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'))
+            { Assert-PfbContextKindMatchesScope -Method 'GET' -Endpoint 'file-systems' -Context $arr -CapabilityMap $map } |
+                Should -Not -Throw
+        }
+    }
+    It 'allows <fleet>.arrays on an array-scoped endpoint' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $map = Get-PfbCapabilityMap
+            $fanout = New-PfbContext -Entries @((New-PfbContextEntry -Name 'cc-test-fleet' -Kind 'Fleet' -Form 'AllArrays'))
+            { Assert-PfbContextKindMatchesScope -Method 'GET' -Endpoint 'file-systems' -Context $fanout -CapabilityMap $map } |
+                Should -Not -Throw
+        }
+    }
+    It 'rejects an array name on a fleet-scoped WRITE, on every write verb' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $map = Get-PfbCapabilityMap
+            $arr = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'))
+            foreach ($m in 'POST', 'PUT', 'PATCH', 'DELETE') {
+                { Assert-PfbContextKindMatchesScope -Method $m -Endpoint 'presets/workload' -Context $arr -CapabilityMap $map } |
+                    Should -Throw -ExpectedMessage '*requires a bare fleet context*'
+            }
+        }
+    }
+    It 'allows a bare fleet name on a fleet-scoped write' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $map = Get-PfbCapabilityMap
+            $fleet = New-PfbContext -Entries @((New-PfbContextEntry -Name 'cc-test-fleet' -Kind 'Fleet'))
+            { Assert-PfbContextKindMatchesScope -Method 'POST' -Endpoint 'presets/workload' -Context $fleet -CapabilityMap $map } |
+                Should -Not -Throw
+        }
+    }
+    It 'rejects <fleet>.arrays on a fleet-scoped endpoint (code 13 on the wire)' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $map = Get-PfbCapabilityMap
+            $fanout = New-PfbContext -Entries @((New-PfbContextEntry -Name 'cc-test-fleet' -Kind 'Fleet' -Form 'AllArrays'))
+            { Assert-PfbContextKindMatchesScope -Method 'POST' -Endpoint 'presets/workload' -Context $fanout -CapabilityMap $map } |
+                Should -Throw -ExpectedMessage '*requires a bare fleet context*'
+        }
+    }
+    It 'rejects an array name on GET /presets/workload and allows the fleet name' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            # Ruling: fleet. GET behaves like the writes. Measured from a REMOTE member (so the
+            # local short-circuit cannot mask it): a remote array name and <fleet>.arrays both
+            # return code 13, and only the bare fleet name is accepted, on every verb.
+            $map = Get-PfbCapabilityMap
+            $arr   = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'))
+            $fleet = New-PfbContext -Entries @((New-PfbContextEntry -Name 'cc-test-fleet' -Kind 'Fleet'))
+            { Assert-PfbContextKindMatchesScope -Method 'GET' -Endpoint 'presets/workload' -Context $arr   -CapabilityMap $map } |
+                Should -Throw -ExpectedMessage '*requires a bare fleet context*'
+            { Assert-PfbContextKindMatchesScope -Method 'GET' -Endpoint 'presets/workload' -Context $fleet -CapabilityMap $map } |
+                Should -Not -Throw
+        }
+    }
+    It 'throws for a LOCAL array name on GET /presets/workload too' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            # The server returns 200 here via the short-circuit. The module diverges on purpose:
+            # a cmdlet that works only when the context happens to name the local array is a
+            # worse contract than one that fails consistently.
+            $map = Get-PfbCapabilityMap
+            $local = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-A'))
+            { Assert-PfbContextKindMatchesScope -Method 'GET' -Endpoint 'presets/workload' -Context $local -CapabilityMap $map } |
+                Should -Throw -ExpectedMessage '*requires a bare fleet context*'
+        }
+    }
+    It "pins the map literal so a regeneration cannot silently flip this test's meaning" {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            # Without this, a map regressing to scope=array turns every assertion above into a
+            # test of the opposite behaviour that still passes.
+            $map = Get-PfbCapabilityMap
+            $map.endpoints.'GET /presets/workload'.contextScope.scope | Should -Be 'fleet'
+        }
+    }
+    It 'suppresses the check entirely for contextScope unknown' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            # 19 operations are 'unknown'. The gate must DEGRADE on absent metadata, not throw.
+            $map = Get-PfbCapabilityMap
+            $fleet = New-PfbContext -Entries @((New-PfbContextEntry -Name 'cc-test-fleet' -Kind 'Fleet'))
+            $unknown = @($map.endpoints.PSObject.Properties |
+                Where-Object { $_.Value.contextScope.scope -eq 'unknown' })
+            @($unknown).Count | Should -BeGreaterThan 0 -Because 'this test and its Assert-PfbContextRequired twin index [0] of this list, and would fail on a null index if the shipped map had none'
+            $parts = $unknown[0].Name -split ' ', 2
+            { Assert-PfbContextKindMatchesScope -Method $parts[0] -Endpoint $parts[1].TrimStart('/') -Context $fleet -CapabilityMap $map } |
+                Should -Not -Throw
+        }
+    }
+    It 'rejects a TopologyGroup AllArrays context on a fleet-scoped endpoint' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $map = Get-PfbCapabilityMap
+            $grp = New-PfbContext -Entries @((New-PfbContextEntry -Name 'zz-claude-tg-parent' -Kind 'TopologyGroup' -Form 'AllArrays'))
+            { Assert-PfbContextKindMatchesScope -Method 'POST' -Endpoint 'presets/workload' -Context $grp -CapabilityMap $map } |
+                Should -Throw -ExpectedMessage '*requires a bare fleet context*'
+        }
+    }
+}
+
+Describe 'Assert-PfbContextRequired' {
+    # Same four scaffolding rules as above. Note this gate is called from the ELSE branch in
+    # Invoke-PfbApiRequest, so unlike the three shape gates it legitimately sees BOTH the unset
+    # and the explicitly-empty context. Do not add an empty-context bypass to it.
+    It 'throws for a fleet-scoped mutation with no context, before the wire' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $map = Get-PfbCapabilityMap
+            foreach ($m in 'POST', 'PUT', 'PATCH', 'DELETE') {
+                { Assert-PfbContextRequired -Method $m -Endpoint 'presets/workload' -QueryParams $null -CapabilityMap $map } |
+                    Should -Throw -ExpectedMessage '*Set-PfbContext*'
+            }
+        }
+    }
+    It 'names Invoke-PfbInContext as the per-call alternative' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $map = Get-PfbCapabilityMap
+            { Assert-PfbContextRequired -Method 'POST' -Endpoint 'presets/workload' -QueryParams $null -CapabilityMap $map } |
+                Should -Throw -ExpectedMessage '*Invoke-PfbInContext*'
+        }
+    }
+    It 'does NOT throw for an unfiltered GET on a fleet-scoped endpoint' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            # The unfiltered read with no context WORKS -- it returns the locally replicated copy,
+            # and it is the only preset operation that functions on main today. Throwing here
+            # would break Get-PfbPresetWorkload.
+            $map = Get-PfbCapabilityMap
+            { Assert-PfbContextRequired -Method 'GET' -Endpoint 'presets/workload' -QueryParams $null -CapabilityMap $map } |
+                Should -Not -Throw
+            { Assert-PfbContextRequired -Method 'GET' -Endpoint 'presets/workload' -QueryParams @{ limit = 10 } -CapabilityMap $map } |
+                Should -Not -Throw
+        }
+    }
+    It 'DOES throw for a name-scoped GET on a fleet-scoped endpoint' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            # ?names= with no context returns code 6 "Preset does not exist." The local view is
+            # list-only: enough to enumerate, not enough to resolve a name against. This is the
+            # case a verb-shaped gate misses in the other direction.
+            $map = Get-PfbCapabilityMap
+            { Assert-PfbContextRequired -Method 'GET' -Endpoint 'presets/workload' -QueryParams @{ names = 'p1' } -CapabilityMap $map } |
+                Should -Throw -ExpectedMessage '*Set-PfbContext*'
+        }
+    }
+    It 'treats ?ids= the same as ?names=' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $map = Get-PfbCapabilityMap
+            { Assert-PfbContextRequired -Method 'GET' -Endpoint 'presets/workload' -QueryParams @{ ids = 'abc' } -CapabilityMap $map } |
+                Should -Throw -ExpectedMessage '*requires a fleet context*'
+        }
+    }
+    It 'does not throw for an array-scoped endpoint with no context, name-scoped or not' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $map = Get-PfbCapabilityMap
+            { Assert-PfbContextRequired -Method 'GET'  -Endpoint 'file-systems' -QueryParams @{ names = 'fs1' } -CapabilityMap $map } | Should -Not -Throw
+            { Assert-PfbContextRequired -Method 'POST' -Endpoint 'file-systems' -QueryParams $null            -CapabilityMap $map } | Should -Not -Throw
+        }
+    }
+    It 'does not throw for an unknown-scope endpoint with no context' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $map = Get-PfbCapabilityMap
+            $unknown = @($map.endpoints.PSObject.Properties | Where-Object { $_.Value.contextScope.scope -eq 'unknown' })
+            @($unknown).Count | Should -BeGreaterThan 0
+            $parts = $unknown[0].Name -split ' ', 2
+            { Assert-PfbContextRequired -Method $parts[0] -Endpoint $parts[1].TrimStart('/') -QueryParams $null -CapabilityMap $map } |
+                Should -Not -Throw
+        }
+    }
+}

@@ -147,7 +147,7 @@ Describe 'context injection in Invoke-PfbApiRequest' {
 # unwired from the request path unnoticed. Tasks 10 and 11 add two more gates to this same site,
 # so the wiring gets its own detector now.
 Describe 'context gate wiring in Invoke-PfbApiRequest' {
-    It 'calls both context gates, capability before cardinality, when a context is set' {
+    It 'calls all three shape gates in order, capability before cardinality before kindMatchesScope' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
             $fb = [PSCustomObject]@{
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
@@ -160,14 +160,16 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             $calls = [System.Collections.Generic.List[object]]::new()
             Mock -CommandName Assert-PfbContextCapability  -MockWith { $calls.Add('capability') }
             Mock -CommandName Assert-PfbContextCardinality -MockWith { $calls.Add('cardinality') }
+            Mock -CommandName Assert-PfbContextKindMatchesScope -MockWith { $calls.Add('kindMatchesScope') }
             Mock -CommandName Assert-PfbApiCapability -MockWith {}
             Mock -CommandName Invoke-RestMethod -MockWith { [PSCustomObject]@{ items = @() } }
 
             Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'file-systems' | Out-Null
 
-            @($calls).Count | Should -Be 2 -Because 'both gates must fire from the request path; a count of 1 means one call was deleted or never wired'
+            @($calls).Count | Should -Be 3 -Because 'all three shape gates must fire from the request path; a lower count means one call was deleted or never wired'
             $calls[0] | Should -Be 'capability'  -Because 'the capability gate must rule on "endpoint takes no context at all" first'
             $calls[1] | Should -Be 'cardinality'
+            $calls[2] | Should -Be 'kindMatchesScope' -Because 'it runs after cardinality: a wrong-KIND context aimed at an endpoint that takes no context at all should hear about capability first, not about scope'
         }
     }
     It 'passes each gate the resolved context and the shared capability map' {
@@ -185,12 +187,15 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             Mock -CommandName Assert-PfbContextCardinality -MockWith {
                 $seen.Add([PSCustomObject]@{ Gate = 'cardinality'; Names = @($Context.Entries.Name) -join ','; Endpoint = $Endpoint; HasMap = ($null -ne $CapabilityMap) })
             }
+            Mock -CommandName Assert-PfbContextKindMatchesScope -MockWith {
+                $seen.Add([PSCustomObject]@{ Gate = 'kindMatchesScope'; Names = @($Context.Entries.Name) -join ','; Endpoint = $Endpoint; HasMap = ($null -ne $CapabilityMap) })
+            }
             Mock -CommandName Assert-PfbApiCapability -MockWith {}
             Mock -CommandName Invoke-RestMethod -MockWith { [PSCustomObject]@{ items = @() } }
 
             Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'file-systems' | Out-Null
 
-            @($seen).Count | Should -Be 2
+            @($seen).Count | Should -Be 3
             foreach ($record in $seen) {
                 $record.Names    | Should -Be 'FB-B'         -Because "$($record.Gate) must see the RESOLVED context, not a raw parameter"
                 $record.Endpoint | Should -Be 'file-systems'
@@ -198,7 +203,7 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             }
         }
     }
-    It 'calls neither gate when no context is set' {
+    It 'calls none of the three shape gates when no context is set' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
             $fb = [PSCustomObject]@{
                 PSTypeName = 'PureStorage.FlashBlade.Connection'
@@ -208,12 +213,65 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             $calls = [System.Collections.Generic.List[object]]::new()
             Mock -CommandName Assert-PfbContextCapability  -MockWith { $calls.Add('capability') }
             Mock -CommandName Assert-PfbContextCardinality -MockWith { $calls.Add('cardinality') }
+            Mock -CommandName Assert-PfbContextKindMatchesScope -MockWith { $calls.Add('kindMatchesScope') }
             Mock -CommandName Assert-PfbApiCapability -MockWith {}
             Mock -CommandName Invoke-RestMethod -MockWith { [PSCustomObject]@{ items = @() } }
 
             Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'file-systems' | Out-Null
 
             @($calls).Count | Should -Be 0
+        }
+    }
+    # The It above counts only the three SHAPE gates, so it passes whether or not the
+    # required-context gate is wired at all -- it looks like coverage of the else branch and is
+    # not. This is the detector for that call site: its own List, its own count.
+    It 'calls the required-context gate exactly once, with the caller query params and the shared map, when no context is set' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $fb = [PSCustomObject]@{
+                PSTypeName = 'PureStorage.FlashBlade.Connection'
+                Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
+                DefaultContext = $null; ContextOverride = $null; AuthorizationModel = $null
+            }
+            $required = [System.Collections.Generic.List[object]]::new()
+            Mock -CommandName Assert-PfbContextRequired -MockWith {
+                $required.Add([PSCustomObject]@{
+                    Method   = $Method
+                    Endpoint = $Endpoint
+                    Limit    = if ($null -ne $QueryParams -and $QueryParams.ContainsKey('limit')) { $QueryParams['limit'] } else { $null }
+                    HasMap   = ($null -ne $CapabilityMap)
+                })
+            }
+            Mock -CommandName Assert-PfbApiCapability -MockWith {}
+            Mock -CommandName Invoke-RestMethod -MockWith { [PSCustomObject]@{ items = @() } }
+
+            Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'file-systems' -QueryParams @{ limit = 5 } | Out-Null
+
+            @($required).Count   | Should -Be 1 -Because 'the else branch must gate the context-free call; a count of 0 means the call was deleted or never wired'
+            $required[0].Method  | Should -Be 'GET'
+            $required[0].Endpoint | Should -Be 'file-systems'
+            $required[0].Limit   | Should -Be 5    -Because 'it must see the CALLER query params, which carry the names=/ids= selectors it discriminates on'
+            $required[0].HasMap  | Should -BeTrue  -Because 'without the map it reads every scope as unknown and silently no-ops'
+        }
+    }
+    It 'calls the required-context gate for an explicit empty context too' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            # An explicit @() is the caller saying "locally", which on a fleet-scoped mutation is
+            # exactly as broken as omitting the context -- so it must reach the gate, not bypass it.
+            $fb = [PSCustomObject]@{
+                PSTypeName = 'PureStorage.FlashBlade.Connection'
+                Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
+                DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B')))
+                ContextOverride = (New-PfbContext -Entries @()); AuthorizationModel = $null
+            }
+            $required = [System.Collections.Generic.List[object]]::new()
+            Mock -CommandName Assert-PfbContextRequired -MockWith { $required.Add($Endpoint) }
+            Mock -CommandName Assert-PfbApiCapability -MockWith {}
+            Mock -CommandName Invoke-RestMethod -MockWith { [PSCustomObject]@{ items = @() } }
+
+            Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'file-systems' | Out-Null
+
+            @($required).Count | Should -Be 1
+            $required[0] | Should -Be 'file-systems'
         }
     }
 }
