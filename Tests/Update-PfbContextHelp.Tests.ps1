@@ -83,6 +83,31 @@ Describe 'Update-PfbContextHelp' {
         }
     }
 
+    It 'accounts for every non-default-scope endpoint as either generated or missing' {
+        # The strong form of the reporting requirement: no non-default-scope endpoint may
+        # fall off the end. Each must appear verbatim in a generated block or in
+        # MissingCmdlet. Asserted as an invariant rather than a pinned count, because the
+        # capability map is regenerated whenever the specs are refreshed.
+        $summary = & $script:generator -WhatIf
+        $mapPath = Join-Path $script:repoRoot 'Data/PfbCapabilityMap.json'
+        $map = Get-Content $mapPath -Raw | ConvertFrom-Json
+
+        $nonDefault = @(
+            $map.endpoints.PSObject.Properties |
+                Where-Object { $_.Value.contextScope.scope -and $_.Value.contextScope.scope -ne 'array' } |
+                ForEach-Object { $_.Name }
+        )
+        $nonDefault.Count | Should -BeGreaterThan 0
+
+        $generatedText = ($summary.Generated | ForEach-Object { Get-Content $_ -Raw }) -join "`n"
+        $missingKeys = @($summary.MissingCmdlet | ForEach-Object { $_.EndpointKey })
+
+        foreach ($key in $nonDefault) {
+            $accounted = $generatedText.Contains("($key)") -or ($missingKeys -contains $key)
+            $accounted | Should -BeTrue -Because "$key must be documented or reported as having no cmdlet"
+        }
+    }
+
     It 'generates the line from contextScope, so help cannot drift from validation' {
         InModuleScope PureStorageFlashBladePowerShell {
             $map = Get-PfbCapabilityMap
