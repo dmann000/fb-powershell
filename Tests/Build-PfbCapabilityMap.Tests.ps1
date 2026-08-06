@@ -799,6 +799,23 @@ Describe 'Build-PfbCapabilityMap: contextScope' -Skip:($PSVersionTable.PSVersion
         $committed.endpoints.'GET /presets/workload'.contextScope.scope | Should -Be 'fleet'
         @($committed.endpoints.PSObject.Properties |
             Where-Object { $_.Value.contextScope.scope -eq 'fleet' }).Count | Should -Be 8
+
+        # PROVENANCE IS PINNED TOO, not just scope. The whole kind-vs-scope gate design rests on
+        # the provenance distinction -- 'unknown' suppresses the gate and nothing else does,
+        # because 'default' means "no override AND upstream did not flag x-pure-incomplete-gre"
+        # and is therefore evidence rather than absent metadata (see Get-PfbEndpointContextScope).
+        # Without this, a regeneration that kept scope 'fleet' but flipped 'declared' ->
+        # 'default' would pass, silently discarding upstream's own statement.
+        $committed.endpoints.'GET /presets/workload'.contextScope.provenance | Should -Be 'declared'
+
+        # And the overall distribution, so a regeneration that ERODES the evidence-bearing set
+        # reds a test instead of passing quietly. 'default' is deliberately not pinned: it is
+        # the ~600-entry residue and it moves whenever the specs are refreshed.
+        $byProvenance = @($committed.endpoints.PSObject.Properties) |
+            Group-Object { $_.Value.contextScope.provenance } -AsHashTable -AsString
+        @($byProvenance['declared']).Count    | Should -Be 5 -Because 'the five override-bearing preset operations'
+        @($byProvenance['live-tested']).Count | Should -Be 4 -Because 'the curated live-tested readings'
+        @($byProvenance['unknown']).Count     | Should -Be 19 -Because 'upstream-flagged-incomplete with no curated value -- the only provenance that suppresses the kind gate'
     }
 
     It 'applies the curated value for a flagged, curated endpoint' {
