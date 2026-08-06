@@ -494,6 +494,20 @@ Describe 'Assert-PfbContextAuthorizationModel' {
                 Should -Throw -ExpectedMessage '*local*'
         }
     }
+    It 'names the offending context values in the message' {
+        # This is what earns -Context its mandatory slot. It does not change WHETHER the gate
+        # throws (there is no local-array exemption), but a caller who set several names needs to
+        # see which ones were rejected, in their wire form.
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $fb = [PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'pureuser'; AuthorizationModel = 'static' }
+            $ctx = New-PfbContext -Entries @(
+                (New-PfbContextEntry -Name 'FB-B'),
+                (New-PfbContextEntry -Name 'fleet-prod' -Kind 'Fleet' -Form 'AllArrays')
+            )
+            { Assert-PfbContextAuthorizationModel -Array $fb -Context $ctx } |
+                Should -Throw -ExpectedMessage '*FB-B, fleet-prod.arrays*'
+        }
+    }
     It 'throws for a static-model admin even when the context names only the connected array' {
         # No local-array exemption (maintainer ruling 2026-08-05). The connection object carries
         # no array NAME to compare against -- only Endpoint, an IP or hostname -- so the old

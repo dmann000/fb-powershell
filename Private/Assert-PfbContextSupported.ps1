@@ -331,10 +331,37 @@ function Resolve-PfbAuthorizationModel {
         is also local -- so pureuser, custom local users and service accounts are ALL 'static'.
         This is not "pureuser vs everyone".
 
-        Returns $null rather than throwing on any failure. GET /admins can 403 under a
-        restrictive management-access policy, and an OAuth2 client may have no username to
-        match. An indeterminate model must never fail a Connect-PfbArray, because this data
-        drives a diagnostic and not a correctness gate.
+        Returns $null rather than throwing on any failure. An indeterminate model must never fail
+        a Connect-PfbArray, because this data drives a diagnostic and not a correctness gate.
+        THREE distinct routes reach indeterminate, and the third is the common one:
+          1. GET /admins 403s under a restrictive management-access policy.
+          2. An OAuth2 client has no username to match.
+          3. -ApiToken -- the DEFAULT parameter set -- never populates Username at all, so the
+             early return below fires and the gate is permanently inert for it. Only the
+             Credential, PSCredential and Certificate sets normalize Username
+             (Connect-PfbArray.ps1:206-212). This is a correct application of the fail-open
+             ruling (no username, no evidence), not a bug: do NOT "fix" it by inferring a model
+             from the token or by defaulting to 'static'.
+
+        NO .items UNWRAP. Invoke-PfbApiRequest already unwraps the envelope itself -- it collects
+        $response.items into $allItems and returns $allItems.ToArray(), an object[] of admin
+        objects (Invoke-PfbApiRequest.ps1:287-291, :328). Reading .items off that value yields
+        nothing on every real array, which silently returned $null forever and left the gate
+        inert. Measured on both editions. -Raw would give the raw envelope but bypasses the
+        pagination and error handling below its early return, and no other list read in the
+        module uses it. Never reintroduce an .items read here.
+
+        Matches on name rather than taking row 0: reading the WRONG admin's model is worse than
+        reading none, because a 'static' read off a peer's row would hard-throw a legitimate LDAP
+        session out of Set-PfbContext.
+
+        Cost on a 403: more than one round trip. Invoke-PfbApiRequest's auto-reconnect gate fires
+        on 403 as well as 401 by design (:223-232 -- real arrays answer 403, not 401, for a bad
+        token), so a legitimate management-access-policy 403 is indistinguishable from an expired
+        token and costs ~3 round trips plus a spurious re-login per connect. Non-fatal -- the
+        catch below contains it -- and deliberately NOT worked around here: the only real fix
+        touches reconnect logic shared by every cmdlet in the module. Parked for live measurement
+        in Task 15. Do not change the shared reconnect logic on this note alone.
 
         No recursion risk despite calling Invoke-PfbApiRequest: this runs at connect time, when
         the connection's DefaultContext and ContextOverride are both still $null, so
@@ -350,8 +377,8 @@ function Resolve-PfbAuthorizationModel {
 
     if (-not $Array.Username) { return $null }
     try {
-        $response = Invoke-PfbApiRequest -Array $Array -Method 'GET' -Endpoint 'admins' -QueryParams @{ names = $Array.Username }
-        $model = @($response.items)[0].authorization_model
+        $admins = @(Invoke-PfbApiRequest -Array $Array -Method 'GET' -Endpoint 'admins' -QueryParams @{ names = $Array.Username })
+        $model = ($admins | Where-Object { $_.name -eq $Array.Username } | Select-Object -First 1).authorization_model
         if ($model) { return [string]$model }
         return $null
     }
@@ -379,7 +406,10 @@ function Assert-PfbContextAuthorizationModel {
 
         Takes -Array, unlike the two pure shape gates, because the model is a property of the
         SESSION rather than of the endpoint -- and takes no -Endpoint or -CapabilityMap for the
-        same reason.
+        same reason. -Context does not affect WHETHER this throws (there is no local-array
+        exemption, so every context is rejected once the model is static) but it is named in the
+        message, which is what earns it its mandatory slot: the caller sees which values were
+        rejected rather than a generic complaint.
     #>
     [CmdletBinding()]
     param(
@@ -396,5 +426,6 @@ function Assert-PfbContextAuthorizationModel {
     # worked against an invented test fixture, and (b) maintainer ruling 2026-08-05: a static
     # user has no business setting a context at all. Naming your own array buys nothing anyway,
     # since the server short-circuits it. Do not reintroduce the exemption or an ArrayName field.
-    throw "Setting a Fusion context requires a dynamic-authorization-model (LDAP/SAML) admin; static-model admins, including pureuser and other local accounts such as custom local users and service accounts, are not permitted. The connected admin '$($Array.Username)' is static-model, so a cross-array call would return 'Operation not permitted' (code 20) regardless of the context value."
+    $names = @($Context.Entries | ForEach-Object { ConvertTo-PfbContextWireValue -Entry $_ }) -join ', '
+    throw "Setting a Fusion context requires a dynamic-authorization-model (LDAP/SAML) admin; static-model admins, including pureuser and other local accounts such as custom local users and service accounts, are not permitted. The connected admin '$($Array.Username)' is static-model, so the context '$names' would return 'Operation not permitted' (code 20) on any cross-array call regardless of its value."
 }

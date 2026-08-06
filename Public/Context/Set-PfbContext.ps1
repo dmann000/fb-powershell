@@ -78,14 +78,24 @@ function Set-PfbContext {
         $entries = ConvertTo-PfbContextEntryList -Name $names.ToArray() -Kind $Kind -Form $form
         foreach ($entry in $entries) { Assert-PfbContextEntryComposition -Entry $entry }
 
-        # A static-model admin cannot use a context at all, so say so here rather than letting
-        # every later call fail with an opaque code 20. Fails open on an indeterminate model.
-        Assert-PfbContextAuthorizationModel -Array $target -Context (New-PfbContext -Entries $entries)
-
         $allowErrors = if ($PSBoundParameters.ContainsKey('AllowErrors')) { [bool]$AllowErrors } else { $null }
 
+        # Built ONCE, above the gate, and the same object is both gated and stored. An earlier
+        # revision passed a throwaway New-PfbContext to the gate and built the real one after,
+        # which minted two objects per call and meant the gate never saw -AllowErrors.
+        #
+        # NOT named $context: PowerShell variable names are case-insensitive, so that is the
+        # SAME variable as the [string[]]$Context parameter -- assigning a PfbContext object to
+        # it silently COERCES it to a one-element string[], and both the gate and
+        # $copy.DefaultContext then receive a stringified array instead of a context. Measured.
+        $newContext = New-PfbContext -Entries $entries -AllowErrors $allowErrors
+
+        # A static-model admin cannot use a context at all, so say so here rather than letting
+        # every later call fail with an opaque code 20. Fails open on an indeterminate model.
+        Assert-PfbContextAuthorizationModel -Array $target -Context $newContext
+
         $copy = Copy-PfbConnection -Array $target
-        $copy.DefaultContext = New-PfbContext -Entries $entries -AllowErrors $allowErrors
+        $copy.DefaultContext = $newContext
         Update-PfbConnectionCache -Array $copy
         $copy
     }

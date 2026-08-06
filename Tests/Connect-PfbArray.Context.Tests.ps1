@@ -155,6 +155,48 @@ Describe 'Connect-PfbArray -Context behaviour' {
         }
     }
 
+    # THE detector for Connect-PfbArray.ps1's `$connection.AuthorizationModel = Resolve-...` line.
+    # Deleting that one line disables the whole authorization-model feature without breaking any
+    # gate call site, and nothing pinned it: the two pre-existing AuthorizationModel assertions in
+    # this file check that the PROPERTY EXISTS (declared in the object literal, so it passes
+    # either way) and that it is $null (which passes either way too, because those harnesses
+    # connect with -ApiToken and so Username is never populated). That gap is why the inert-gate
+    # defect shipped.
+    #
+    # Must use a username-bearing parameter set: -ApiToken never populates Username, so the
+    # resolver early-returns and this test would pass vacuously against a deleted line.
+    It 'populates AuthorizationModel from the connected admin' {
+        $cred = [System.Management.Automation.PSCredential]::new(
+            'jdoe', (ConvertTo-SecureString 'pw' -AsPlainText -Force))
+        # Boundary mocks, matched with -match so `?` is a literal and not the -like single-char
+        # wildcard: '*/admins?*' would also match the api-tokens URI's '/admins/'.
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            [PSCustomObject]@{
+                items = @([PSCustomObject]@{ name = 'jdoe'; authorization_model = 'static' })
+                total_item_count = 1
+            }
+        } -ParameterFilter { $Uri -match '/admins\?' }
+        # The best-effort API-token read/mint on the credential path. Answered with an empty list
+        # so it neither reaches the network nor supplies a token.
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            [PSCustomObject]@{ items = @() }
+        } -ParameterFilter { $Uri -match '/admins/api-tokens' }
+
+        $conn = Connect-PfbArray -Endpoint 'fb.test' -Credential $cred
+
+        $conn.AuthorizationModel | Should -Be 'static' -Because 'Connect-PfbArray must assign the resolver result onto the connection; a $null here means the capture line was never wired'
+    }
+
+    It 'resolves the authorization model exactly once per connect' {
+        # Pins the cost as "one lookup per connect, not one per request".
+        InModuleScope PureStorageFlashBladePowerShell {
+            Mock -CommandName Resolve-PfbAuthorizationModel -MockWith { 'dynamic' }
+            $conn = Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake'
+            $conn.AuthorizationModel | Should -Be 'dynamic'
+            Should -Invoke -CommandName Resolve-PfbAuthorizationModel -Times 1 -Exactly
+        }
+    }
+
     It 'rejects -Context $null at the binder, naming -Context, not a downstream parameter' {
         # Without [ValidateNotNull()] on -Context, $null flows into
         # ConvertTo-PfbContextEntryList -Name $null and is rejected there, blaming -Name -- a
@@ -256,13 +298,50 @@ Describe 'Resolve-PfbAuthorizationModel' {
             $null -eq (Resolve-PfbAuthorizationModel -Array ([PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'u' })) | Should -BeTrue
         }
     }
-    It 'reads authorization_model for the connecting username' {
+    # Mocked at the Invoke-RestMethod boundary, NOT at Invoke-PfbApiRequest. A mock of the thing
+    # under test cannot prove its own return contract: an earlier revision mocked
+    # Invoke-PfbApiRequest returning [PSCustomObject]@{ items = @(...) } -- the WIRE envelope,
+    # which Invoke-PfbApiRequest can never actually return, because it unwraps items itself and
+    # hands back an object[] of admin objects. The resolver read .items off that array, got $null
+    # on every real array, and the whole gate was inert in production behind a green suite.
+    # Letting the real Invoke-PfbApiRequest do the unwrap is what makes this a contract test.
+    It 'reads authorization_model for the connecting username through the real items unwrap' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
-            Mock -CommandName Invoke-PfbApiRequest -MockWith {
-                [PSCustomObject]@{ items = @([PSCustomObject]@{ name = 'juemerson'; authorization_model = 'dynamic' }) }
+            $fb = [PSCustomObject]@{
+                PSTypeName = 'PureStorage.FlashBlade.Connection'
+                Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
+                Username = 'juemerson'
+                DefaultContext = $null; ContextOverride = $null; AuthorizationModel = $null
             }
-            Resolve-PfbAuthorizationModel -Array ([PSCustomObject]@{ Endpoint = 'fb.example'; Username = 'juemerson' }) |
-                Should -Be 'dynamic'
+            Mock -CommandName Invoke-RestMethod -MockWith {
+                [PSCustomObject]@{
+                    items = @([PSCustomObject]@{ name = 'juemerson'; authorization_model = 'dynamic' })
+                    total_item_count = 1
+                }
+            }
+
+            Resolve-PfbAuthorizationModel -Array $fb | Should -Be 'dynamic'
+        }
+    }
+    It 'ignores an admin row whose name does not match the connecting username' {
+        # A wrong-row read is worse than no read: 'static' off a peer's row would hard-throw a
+        # legitimate LDAP session out of Set-PfbContext. names= is a documented exact-match
+        # filter, so this is defence in depth rather than an observed server behaviour.
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $fb = [PSCustomObject]@{
+                PSTypeName = 'PureStorage.FlashBlade.Connection'
+                Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
+                Username = 'juemerson'
+                DefaultContext = $null; ContextOverride = $null; AuthorizationModel = $null
+            }
+            Mock -CommandName Invoke-RestMethod -MockWith {
+                [PSCustomObject]@{
+                    items = @([PSCustomObject]@{ name = 'pureuser'; authorization_model = 'static' })
+                    total_item_count = 1
+                }
+            }
+
+            $null -eq (Resolve-PfbAuthorizationModel -Array $fb) | Should -BeTrue
         }
     }
     It 'returns null without a network call when the connection has no username' {

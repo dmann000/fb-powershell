@@ -174,6 +174,36 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             $calls[3] | Should -Be 'authorizationModel' -Because 'the authorization-model gate is diagnostic and endpoint-independent, so the three endpoint-specific gates rule first'
         }
     }
+    # The It above records only the context gates, so it holds regardless of where the VERSION
+    # gate sits among them -- it cannot detect the authorization-model gate drifting back above
+    # Assert-PfbApiCapability. This one adds the version gate to the recording and pins the whole
+    # sequence. The ruling it encodes was measured in Task 10: a gate that injects nothing and
+    # consults no endpoint must run BELOW the version gate, or a static admin on a REST 2.20 array
+    # calling an endpoint that needs 2.23 is told to go obtain an LDAP admin and only afterwards
+    # learns the real blocker was firmware. Assert-PfbContextCapability defers "recorded but array
+    # too old" to Assert-PfbApiCapability by design, so gates 1-3 do not catch that case.
+    It 'runs the version gate after the three injecting gates but BEFORE the authorization-model gate' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $fb = [PSCustomObject]@{
+                PSTypeName = 'PureStorage.FlashBlade.Connection'
+                Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
+                DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B')))
+                ContextOverride = $null; AuthorizationModel = $null
+            }
+            $calls = [System.Collections.Generic.List[object]]::new()
+            Mock -CommandName Assert-PfbContextCapability  -MockWith { $calls.Add('capability') }
+            Mock -CommandName Assert-PfbContextCardinality -MockWith { $calls.Add('cardinality') }
+            Mock -CommandName Assert-PfbContextKindMatchesScope -MockWith { $calls.Add('kindMatchesScope') }
+            Mock -CommandName Assert-PfbContextAuthorizationModel -MockWith { $calls.Add('authorizationModel') }
+            # Recording, not silent: its POSITION is the thing under test here.
+            Mock -CommandName Assert-PfbApiCapability -MockWith { $calls.Add('versionGate') }
+            Mock -CommandName Invoke-RestMethod -MockWith { [PSCustomObject]@{ items = @() } }
+
+            Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'file-systems' | Out-Null
+
+            @($calls) -join ',' | Should -Be 'capability,cardinality,kindMatchesScope,versionGate,authorizationModel' -Because 'the three injecting gates must precede the version gate (it has to see the injected context_names), and the endpoint-independent authorization-model gate must follow it so a firmware blocker wins over an admin-model one'
+        }
+    }
     It 'passes each gate the resolved context and the shared capability map' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
             $fb = [PSCustomObject]@{
@@ -236,7 +266,26 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             @($calls).Count | Should -Be 0
         }
     }
-    # The It above counts only the three SHAPE gates, so it passes whether or not the
+    # An un-mocked companion to the wiring tests above: every one of those mocks the gate, so they
+    # pin that it is CALLED and say nothing about its effect through this function. This one also
+    # fails if the call is ever moved outside the $hasContext branch.
+    It 'actually throws for a static-model admin with a context, gate un-mocked' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $fb = [PSCustomObject]@{
+                PSTypeName = 'PureStorage.FlashBlade.Connection'
+                Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
+                Username = 'pureuser'
+                DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B')))
+                ContextOverride = $null; AuthorizationModel = 'static'
+            }
+            Mock -CommandName Assert-PfbApiCapability -MockWith {}
+            Mock -CommandName Invoke-RestMethod -MockWith { throw 'the request must never be attempted' }
+
+            { Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'file-systems' } |
+                Should -Throw -ExpectedMessage '*dynamic-authorization-model*'
+        }
+    }
+    # The It above counts only the four SHAPE gates, so it passes whether or not the
     # required-context gate is wired at all -- it looks like coverage of the else branch and is
     # not. This is the detector for that call site: its own List, its own count.
     It 'calls the required-context gate exactly once, with the caller query params and the shared map, when no context is set' {

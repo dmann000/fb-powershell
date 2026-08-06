@@ -75,12 +75,6 @@ function Invoke-PfbApiRequest {
         # context at all should hear about that first.
         Assert-PfbContextKindMatchesScope -Method $Method -Endpoint $Endpoint -Context $resolvedContext -CapabilityMap $capabilityMap
 
-        # Fourth gate: a static-authorization-model admin cannot use a context at all. Runs last
-        # of the four because it is endpoint-independent -- an endpoint-specific problem is the
-        # more actionable thing to hear about first. Fails open on an indeterminate model, so it
-        # cannot break OAuth2 or restricted-policy sessions.
-        Assert-PfbContextAuthorizationModel -Array $Array -Context $resolvedContext
-
         # Clone first: $QueryParams is a reference to the CALLER's hashtable, and a targeting
         # parameter must not leak back into a hashtable the caller may reuse for another call.
         # Assigning the clone to the local also means the -AutoPaginate loop below rebuilds
@@ -95,7 +89,23 @@ function Invoke-PfbApiRequest {
     # Assert-PfbApiCapability's header for why an unrecognized endpoint is a silent no-op.
     Assert-PfbApiCapability -Array $Array -Method $Method -Endpoint $Endpoint -Body $Body -QueryParams $QueryParams -ApiVersion $ApiVersionOverride
 
-    if (-not $hasContext) {
+    # A symmetric pair, and BOTH halves sit below Assert-PfbApiCapability for the same measured
+    # reason. Neither injects anything and neither consults the endpoint, so neither has an
+    # ordering requirement against the version gate -- and a version failure is the more
+    # fundamental fact, so it must win. See the else branch for the 2.20 measurement that
+    # established this.
+    if ($hasContext) {
+        # Fourth shape gate, and the only one placed here rather than above the injection: a
+        # static-authorization-model admin cannot use a context at all, on any endpoint. Placed
+        # above the injection it reintroduced exactly the failure Task 10 measured -- a static
+        # admin on a REST 2.20 array calling a context-capable endpoint that needs 2.23 was told
+        # to go obtain an LDAP admin, and only after doing so learned the real blocker was
+        # firmware. Assert-PfbContextCapability defers "recorded but array too old" to
+        # Assert-PfbApiCapability by design, so gates 1-3 all pass in that scenario and this one
+        # got the last word. Fails open on an indeterminate model.
+        Assert-PfbContextAuthorizationModel -Array $Array -Context $resolvedContext
+    }
+    else {
         # A fleet-scoped endpoint has no usable no-context default for a mutation or a
         # name-scoped read. An explicit @() is still the caller saying "locally", so it reaches
         # here too -- and for those calls that is exactly as broken as omitting the context.
