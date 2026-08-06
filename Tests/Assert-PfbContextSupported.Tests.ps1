@@ -231,7 +231,9 @@ Describe 'Assert-PfbContextKindMatchesScope' {
                 Should -Throw -ExpectedMessage '*array-scoped*'
         }
     }
-    It 'suggests <fleet>.arrays in the array-scoped rejection' {
+    # Titles below say "fleet-dot-arrays", not the angle-bracket form: Pester reads <...> in an It
+    # name as a -ForEach data placeholder and expands it to $null when there is no data.
+    It 'suggests fleet-dot-arrays in the array-scoped rejection' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
             $map = Get-PfbCapabilityMap
             $fleet = New-PfbContext -Entries @((New-PfbContextEntry -Name 'cc-test-fleet' -Kind 'Fleet'))
@@ -247,7 +249,7 @@ Describe 'Assert-PfbContextKindMatchesScope' {
                 Should -Not -Throw
         }
     }
-    It 'allows <fleet>.arrays on an array-scoped endpoint' {
+    It 'allows fleet-dot-arrays on an array-scoped endpoint' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
             $map = Get-PfbCapabilityMap
             $fanout = New-PfbContext -Entries @((New-PfbContextEntry -Name 'cc-test-fleet' -Kind 'Fleet' -Form 'AllArrays'))
@@ -273,7 +275,7 @@ Describe 'Assert-PfbContextKindMatchesScope' {
                 Should -Not -Throw
         }
     }
-    It 'rejects <fleet>.arrays on a fleet-scoped endpoint (code 13 on the wire)' {
+    It 'rejects fleet-dot-arrays on a fleet-scoped endpoint (code 13 on the wire)' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
             $map = Get-PfbCapabilityMap
             $fanout = New-PfbContext -Entries @((New-PfbContextEntry -Name 'cc-test-fleet' -Kind 'Fleet' -Form 'AllArrays'))
@@ -308,8 +310,11 @@ Describe 'Assert-PfbContextKindMatchesScope' {
     }
     It "pins the map literal so a regeneration cannot silently flip this test's meaning" {
         InModuleScope 'PureStorageFlashBladePowerShell' {
-            # Without this, a map regressing to scope=array turns every assertion above into a
-            # test of the opposite behaviour that still passes.
+            # NOT because a scope flip would otherwise pass silently -- measured, it would not:
+            # flipping GET /presets/workload to scope=array fails four sibling Its independently.
+            # What this pins buys is LOCALISATION. Without it, a map regression surfaces as a
+            # scatter of confusing throw/no-throw mismatches across this Describe; with it, one
+            # obviously-named assertion says "the shipped map changed" and the rest is noise.
             $map = Get-PfbCapabilityMap
             $map.endpoints.'GET /presets/workload'.contextScope.scope | Should -Be 'fleet'
         }
@@ -393,13 +398,26 @@ Describe 'Assert-PfbContextRequired' {
             { Assert-PfbContextRequired -Method 'POST' -Endpoint 'file-systems' -QueryParams $null            -CapabilityMap $map } | Should -Not -Throw
         }
     }
-    It 'does not throw for an unknown-scope endpoint with no context' {
+    It 'does not throw for an unknown-scope endpoint with no context, on either side of the GET split' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
+            # The scope early-return is what must be pinned here, so the two cases are chosen
+            # DELIBERATELY rather than taken from [0] of the unknown list. An unfiltered GET
+            # returns early on the verb branch as well, so it alone cannot detect a deleted scope
+            # check; a non-GET, and a name-scoped GET, both reach the throw if the scope check
+            # goes. Picking [0] and hoping it is a non-GET makes the kill power accidental.
             $map = Get-PfbCapabilityMap
             $unknown = @($map.endpoints.PSObject.Properties | Where-Object { $_.Value.contextScope.scope -eq 'unknown' })
-            @($unknown).Count | Should -BeGreaterThan 0
-            $parts = $unknown[0].Name -split ' ', 2
-            { Assert-PfbContextRequired -Method $parts[0] -Endpoint $parts[1].TrimStart('/') -QueryParams $null -CapabilityMap $map } |
+            $nonGet = @($unknown | Where-Object { $_.Name -notlike 'GET *' })
+            $get    = @($unknown | Where-Object { $_.Name -like 'GET *' })
+            @($nonGet).Count | Should -BeGreaterThan 0 -Because 'a non-GET unknown-scope endpoint is what detects a deleted scope early-return'
+            @($get).Count    | Should -BeGreaterThan 0 -Because 'the name-scoped GET case detects it independently of the verb branch'
+
+            $p = $nonGet[0].Name -split ' ', 2
+            { Assert-PfbContextRequired -Method $p[0] -Endpoint $p[1].TrimStart('/') -QueryParams $null -CapabilityMap $map } |
+                Should -Not -Throw
+
+            $p = $get[0].Name -split ' ', 2
+            { Assert-PfbContextRequired -Method $p[0] -Endpoint $p[1].TrimStart('/') -QueryParams @{ names = 'x' } -CapabilityMap $map } |
                 Should -Not -Throw
         }
     }

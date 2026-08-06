@@ -192,8 +192,17 @@ function Assert-PfbContextKindMatchesScope {
         check: the gate must degrade, not throw, on absent metadata.
 
         Wire truth this encodes:
-          array-scoped: bare array name OK; <fleet>.arrays and <group>.arrays OK (fan-out);
-                        bare fleet name rejected (code 42); bare group name rejected (code 42).
+          array-scoped: bare array name OK; fleet-dot-arrays and group-dot-arrays OK (fan-out);
+                        bare fleet name rejected (code 42).
+                        A bare GROUP name is invalid on the wire too (code 42) but never reaches
+                        this gate: ConvertTo-PfbContextWireValue runs first on each entry and
+                        Assert-PfbContextEntryComposition rejects TopologyGroup+Object outright,
+                        for EVERY endpoint rather than only array-scoped ones. That is the correct
+                        home for it -- the combination addresses nothing anywhere -- so the doc
+                        claim, not the code, was what needed fixing. The array branch below stays
+                        written as the general "Kind is not Array" predicate rather than being
+                        narrowed to Fleet: only Fleet can reach it today, and a fourth Kind would
+                        be handled without an edit.
           fleet-scoped: bare fleet name OK; everything else rejected (code 13), including
                         .arrays forms and any array name other than the local one -- and the
                         local one only because middleware short-circuits it before validating,
@@ -212,6 +221,11 @@ function Assert-PfbContextKindMatchesScope {
     )
 
     $scope = Get-PfbEndpointContextScope -Method $Method -Endpoint $Endpoint -CapabilityMap $CapabilityMap
+    # Belt and braces, and NOT redundant even though it is currently behaviour-neutral: the loop
+    # below already no-ops for any scope that is neither 'array' nor 'fleet', so deleting this
+    # line changes nothing today and no test can pin it. It exists so that the day a third scope
+    # value gains a branch down there, 'unknown' does not silently acquire that branch's meaning.
+    # Do not delete it on the grounds that it is untested.
     if ($scope -eq 'unknown') { return }
 
     $key = Get-PfbEndpointKey -Method $Method -Endpoint $Endpoint
@@ -221,7 +235,8 @@ function Assert-PfbContextKindMatchesScope {
 
         if ($scope -eq 'array') {
             # A membership form (.arrays) fans out ACROSS arrays, so it is valid here; a bare
-            # fleet or group name addresses an object that is not an array, so it is not.
+            # fleet name addresses an object that is not an array, so it is not. (A bare group
+            # name cannot reach this line -- see the .DESCRIPTION note.)
             if ($entry.Form -eq 'Object' -and $entry.Kind -ne 'Array') {
                 throw "$key is array-scoped, so '$wire' is not a valid context for it: a $($entry.Kind.ToLowerInvariant()) name addresses a $($entry.Kind.ToLowerInvariant())-level object, not an array. Use a member array name, or '$($entry.Name).arrays' to target every array in it."
             }

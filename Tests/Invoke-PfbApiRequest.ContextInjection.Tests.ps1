@@ -253,6 +253,32 @@ Describe 'context gate wiring in Invoke-PfbApiRequest' {
             $required[0].HasMap  | Should -BeTrue  -Because 'without the map it reads every scope as unknown and silently no-ops'
         }
     }
+    # Fix round 1, Important 1. The required-context gate used to run BEFORE the version gate, so
+    # an array too old for the endpoint was told to "Set one with Set-PfbContext" -- advice it
+    # cannot follow, because an array below the endpoint's minVersion has no fleets to name. This
+    # It pins the corrected precedence and fails if the call moves back above the version gate.
+    #
+    # Assert-PfbApiCapability is deliberately NOT mocked here: the assertion is about which of two
+    # REAL gates wins, so mocking either away would make the test vacuous.
+    It 'lets the version gate win over the required-context gate on a too-old array' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            # DELETE /presets/workload is fleet-scoped (so the required-context gate WOULD fire)
+            # and has minVersion 2.23, above this array's 2.20 (so the version gate fires too).
+            $fb = [PSCustomObject]@{
+                PSTypeName = 'PureStorage.FlashBlade.Connection'
+                Endpoint = 'fb.example'; ApiVersion = '2.20'; AuthToken = 't'; AuthMethod = 'ApiToken'
+                DefaultContext = $null; ContextOverride = $null; AuthorizationModel = $null
+            }
+            Mock -CommandName Invoke-RestMethod -MockWith { throw 'the request must never be attempted' }
+
+            # '*Upgrade the array*' is unique to Assert-PfbApiCapability's throw and absent from
+            # the required-context throw, so this substring alone discriminates the two gates.
+            { Invoke-PfbApiRequest -Array $fb -Method 'DELETE' -Endpoint 'presets/workload' } |
+                Should -Throw -ExpectedMessage '*Upgrade the array*'
+            { Invoke-PfbApiRequest -Array $fb -Method 'DELETE' -Endpoint 'presets/workload' } |
+                Should -Throw -ExpectedMessage '*requires REST 2.23*'
+        }
+    }
     It 'calls the required-context gate for an explicit empty context too' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
             # An explicit @() is the caller saying "locally", which on a fleet-scoped mutation is

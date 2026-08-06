@@ -50,10 +50,18 @@ function Invoke-PfbApiRequest {
     # through to any lower-precedence context. Hence -ne $null plus an explicit count, never
     # truthiness on the context object.
     $resolvedContext = Resolve-PfbRequestContext -Array $Array -QueryParams $QueryParams
-    # Loaded once, above the branch, because BOTH branches gate on it now. Get-PfbCapabilityMap
+
+    # ONE home for the tri-state predicate. Both branches need it and they are no longer
+    # adjacent (the required-context gate moved below Assert-PfbApiCapability -- see there), so a
+    # second copy would have to stay in exact negated agreement forever. $hasContext is a plain
+    # [bool], so "-not $hasContext" is legitimate: the truthiness ban is on the context OBJECT,
+    # which is a PSCustomObject and therefore unconditionally truthy.
+    $hasContext = ($null -ne $resolvedContext -and @($resolvedContext.Entries).Count -gt 0)
+
+    # Loaded once, above the branch, because BOTH branches gate on it. Get-PfbCapabilityMap
     # memoizes, but hoisting it also guarantees the two branches rule on the same object.
     $capabilityMap = Get-PfbCapabilityMap
-    if ($null -ne $resolvedContext -and @($resolvedContext.Entries).Count -gt 0) {
+    if ($hasContext) {
         # Gate before injecting: an endpoint with no recorded context_names support silently
         # accepts the parameter on the wire, so the array will never tell the caller.
         Assert-PfbContextCapability -Array $Array -Method $Method -Endpoint $Endpoint -Context $resolvedContext -CapabilityMap $capabilityMap
@@ -75,18 +83,29 @@ function Invoke-PfbApiRequest {
         $QueryParams[$script:PfbContextParameterName] =
             @($resolvedContext.Entries | ForEach-Object { ConvertTo-PfbContextWireValue -Entry $_ }) -join ','
     }
-    else {
-        # A fleet-scoped endpoint has no usable no-context default for a mutation or a
-        # name-scoped read. An explicit @() is still the caller saying "locally", so it reaches
-        # here too -- and for those calls that is exactly as broken as omitting the context.
-        # An unfiltered fleet-scoped read is exempt; the gate handles that distinction.
-        Assert-PfbContextRequired -Method $Method -Endpoint $Endpoint -QueryParams $QueryParams -CapabilityMap $capabilityMap
-    }
 
     # Fail fast if the connected array's REST version doesn't support this endpoint/param/
     # field, before any network call is made. Never sent if incompatible: see
     # Assert-PfbApiCapability's header for why an unrecognized endpoint is a silent no-op.
     Assert-PfbApiCapability -Array $Array -Method $Method -Endpoint $Endpoint -Body $Body -QueryParams $QueryParams -ApiVersion $ApiVersionOverride
+
+    if (-not $hasContext) {
+        # A fleet-scoped endpoint has no usable no-context default for a mutation or a
+        # name-scoped read. An explicit @() is still the caller saying "locally", so it reaches
+        # here too -- and for those calls that is exactly as broken as omitting the context.
+        # An unfiltered fleet-scoped read is exempt; the gate handles that distinction.
+        #
+        # Deliberately AFTER Assert-PfbApiCapability. Do NOT move this back above the version
+        # gate. Unlike the three shape gates, this one injects nothing, so it has no ordering
+        # requirement against Assert-PfbApiCapability -- and a version failure is the more
+        # fundamental fact, so it must win. Measured on an array at REST 2.20 calling
+        # Remove-PfbPresetWorkload -Name p1 with this call placed FIRST: the caller was told
+        # "requires a fleet context ... Set one with Set-PfbContext" instead of
+        # "DELETE /presets/workload requires REST 2.23 ... but the connected array is running
+        # REST 2.20". The first message cannot be acted on -- an array too old for the endpoint
+        # has no fleets to name.
+        Assert-PfbContextRequired -Method $Method -Endpoint $Endpoint -QueryParams $QueryParams -CapabilityMap $capabilityMap
+    }
 
     # Certificate/OAuth2 sessions: proactively refresh the access token before it expires,
     # rather than waiting for a 401. A proactive refresh generates no failed-authentication
