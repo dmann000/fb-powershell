@@ -20,6 +20,34 @@ function Get-PfbEndpointKey {
     "$Method /" + $Endpoint.TrimStart('/')
 }
 
+function Test-PfbEndpointDeclaresContextNames {
+    <#
+    .SYNOPSIS
+        Does this capability-map endpoint entry declare the context_names parameter?
+    .DESCRIPTION
+        ONE home for this question, for the same reason Get-PfbEndpointKey exists: both context
+        gates need it and they must agree. Assert-PfbContextCapability uses it to decide whether
+        to throw; Assert-PfbContextCardinality uses it as a precondition, so an endpoint that
+        takes no context at all is left entirely to the capability gate rather than being told to
+        "narrow the context" -- advice that cannot possibly work there.
+
+        This is NOT the same question as "did Resolve-PfbParameterComponent return a component".
+        That helper falls back to the map's DEFAULT component for the 256 entries that do not
+        declare the parameter, so a non-null component is no evidence the endpoint supports a
+        context. Only the parameters collection is evidence.
+    .OUTPUTS
+        [bool]
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)][AllowNull()]$EndpointEntry
+    )
+
+    if (-not $EndpointEntry -or -not $EndpointEntry.parameters) { return $false }
+    return (@($EndpointEntry.parameters.PSObject.Properties.Name) -contains $script:PfbContextParameterName)
+}
+
 function Assert-PfbContextCapability {
     <#
     .SYNOPSIS
@@ -53,11 +81,10 @@ function Assert-PfbContextCapability {
     $key = Get-PfbEndpointKey -Method $Method -Endpoint $Endpoint
     $entry = $CapabilityMap.endpoints.$key
 
-    $supportsContext = $false
-    if ($entry -and $entry.parameters) {
-        $supportsContext = @($entry.parameters.PSObject.Properties.Name) -contains $script:PfbContextParameterName
+    # Shared with Assert-PfbContextCardinality -- one home for "does this entry declare it".
+    if (Test-PfbEndpointDeclaresContextNames -EndpointEntry $entry) {
+        return   # Assert-PfbApiCapability owns "recorded but array too old"
     }
-    if ($supportsContext) { return }   # Assert-PfbApiCapability owns "recorded but array too old"
 
     # Beyond the scanned range the map has no evidence, so proceed permissively rather than
     # punish a packaging lag the caller cannot see.
@@ -84,6 +111,15 @@ function Assert-PfbContextCardinality {
         "$null -ne $resolvedContext -and Count -gt 0" block, so a non-null / non-empty
         re-check here would be unreachable. The Count -le 1 early return below is about
         CARDINALITY, not emptiness.
+
+        SCOPE. This gate rules only on endpoints that actually DECLARE context_names. An entry
+        that does not declare it (or is absent from the map) is out of scope and returns
+        silently: Resolve-PfbParameterComponent would hand back the map's default component for
+        such an entry, the cardinality rule would then read $false, and this gate would advise
+        narrowing a context the endpoint cannot take at all. Worse, that would fire precisely
+        where Assert-PfbContextCapability deliberately abstains -- an array beyond the map's
+        scanned range, where absence is no evidence -- reversing its permissiveness. The
+        precondition makes this gate independent of which gate runs first.
     #>
     [CmdletBinding()]
     param(
@@ -98,7 +134,10 @@ function Assert-PfbContextCardinality {
 
     $key = Get-PfbEndpointKey -Method $Method -Endpoint $Endpoint
     $entry = $CapabilityMap.endpoints.$key
-    if (-not $entry) { return }   # Assert-PfbContextCapability already ruled on absence; do not double-throw
+    # Out of scope unless the endpoint declares context_names -- see SCOPE above. This also
+    # covers an entry absent from the map entirely, so the gate is order-independent: whether
+    # Assert-PfbContextCapability runs before or after, this returns silently either way.
+    if (-not (Test-PfbEndpointDeclaresContextNames -EndpointEntry $entry)) { return }
 
     $component = Resolve-PfbParameterComponent -EndpointEntry $entry `
         -ParameterName $script:PfbContextParameterName `

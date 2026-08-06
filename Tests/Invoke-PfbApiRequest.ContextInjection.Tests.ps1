@@ -141,3 +141,79 @@ Describe 'context injection in Invoke-PfbApiRequest' {
         }
     }
 }
+
+# Fix round 1, Important 2. Both context gates were entirely unpinned at the call site: deleting
+# either call from Invoke-PfbApiRequest left every relevant test green, so both gates could be
+# unwired from the request path unnoticed. Tasks 10 and 11 add two more gates to this same site,
+# so the wiring gets its own detector now.
+Describe 'context gate wiring in Invoke-PfbApiRequest' {
+    It 'calls both context gates, capability before cardinality, when a context is set' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $fb = [PSCustomObject]@{
+                PSTypeName = 'PureStorage.FlashBlade.Connection'
+                Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
+                DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B')))
+                ContextOverride = $null; AuthorizationModel = $null
+            }
+            # A List with .Add() -- an assignment inside a Mock body does not propagate out, and
+            # `$script:` inside InModuleScope would write to the MODULE's script scope.
+            $calls = [System.Collections.Generic.List[object]]::new()
+            Mock -CommandName Assert-PfbContextCapability  -MockWith { $calls.Add('capability') }
+            Mock -CommandName Assert-PfbContextCardinality -MockWith { $calls.Add('cardinality') }
+            Mock -CommandName Assert-PfbApiCapability -MockWith {}
+            Mock -CommandName Invoke-RestMethod -MockWith { [PSCustomObject]@{ items = @() } }
+
+            Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'file-systems' | Out-Null
+
+            @($calls).Count | Should -Be 2 -Because 'both gates must fire from the request path; a count of 1 means one call was deleted or never wired'
+            $calls[0] | Should -Be 'capability'  -Because 'the capability gate must rule on "endpoint takes no context at all" first'
+            $calls[1] | Should -Be 'cardinality'
+        }
+    }
+    It 'passes each gate the resolved context and the shared capability map' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $fb = [PSCustomObject]@{
+                PSTypeName = 'PureStorage.FlashBlade.Connection'
+                Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
+                DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B')))
+                ContextOverride = $null; AuthorizationModel = $null
+            }
+            $seen = [System.Collections.Generic.List[object]]::new()
+            Mock -CommandName Assert-PfbContextCapability -MockWith {
+                $seen.Add([PSCustomObject]@{ Gate = 'capability'; Names = @($Context.Entries.Name) -join ','; Endpoint = $Endpoint; HasMap = ($null -ne $CapabilityMap) })
+            }
+            Mock -CommandName Assert-PfbContextCardinality -MockWith {
+                $seen.Add([PSCustomObject]@{ Gate = 'cardinality'; Names = @($Context.Entries.Name) -join ','; Endpoint = $Endpoint; HasMap = ($null -ne $CapabilityMap) })
+            }
+            Mock -CommandName Assert-PfbApiCapability -MockWith {}
+            Mock -CommandName Invoke-RestMethod -MockWith { [PSCustomObject]@{ items = @() } }
+
+            Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'file-systems' | Out-Null
+
+            @($seen).Count | Should -Be 2
+            foreach ($record in $seen) {
+                $record.Names    | Should -Be 'FB-B'         -Because "$($record.Gate) must see the RESOLVED context, not a raw parameter"
+                $record.Endpoint | Should -Be 'file-systems'
+                $record.HasMap   | Should -BeTrue            -Because "$($record.Gate) must receive the capability map, or it silently no-ops"
+            }
+        }
+    }
+    It 'calls neither gate when no context is set' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $fb = [PSCustomObject]@{
+                PSTypeName = 'PureStorage.FlashBlade.Connection'
+                Endpoint = 'fb.example'; ApiVersion = '2.26'; AuthToken = 't'; AuthMethod = 'ApiToken'
+                DefaultContext = $null; ContextOverride = $null; AuthorizationModel = $null
+            }
+            $calls = [System.Collections.Generic.List[object]]::new()
+            Mock -CommandName Assert-PfbContextCapability  -MockWith { $calls.Add('capability') }
+            Mock -CommandName Assert-PfbContextCardinality -MockWith { $calls.Add('cardinality') }
+            Mock -CommandName Assert-PfbApiCapability -MockWith {}
+            Mock -CommandName Invoke-RestMethod -MockWith { [PSCustomObject]@{ items = @() } }
+
+            Invoke-PfbApiRequest -Array $fb -Method 'GET' -Endpoint 'file-systems' | Out-Null
+
+            @($calls).Count | Should -Be 0
+        }
+    }
+}

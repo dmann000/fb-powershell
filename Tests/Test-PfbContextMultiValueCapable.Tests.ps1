@@ -64,15 +64,27 @@ Describe 'Cardinality rule single-home invariant' {
     # by matching the comparison itself, plus a whole-file sweep proving no other file in
     # Private/ mentions the literal outside a line comment.
     It 'has exactly one Context_names_get comparison in Private/' {
-        $all = Select-String -Path (Join-Path $PSScriptRoot '../Private/*.ps1') -Pattern 'Context_names_get'
+        # Recurse: a stray comparison in a Private/ SUBDIRECTORY must not escape the sweep.
+        $files = Get-ChildItem -Path (Join-Path $PSScriptRoot '../Private') -Filter '*.ps1' -Recurse -File
+        $all = Select-String -Path $files.FullName -Pattern 'Context_names_get'
 
         $comparisons = @($all | Where-Object { $_.Line -match "-eq\s+'Context_names_get'" })
-        $comparisons.Count | Should -Be 1
+        $comparisons.Count | Should -Be 1 -Because @'
+the cardinality rule must be compared in exactly ONE place in Private/.
+  Got 0? The comparison in Test-PfbContextMultiValueCapable.ps1 was most likely refactored to
+  another form (-match, a switch, a lookup variable) rather than removed. That is
+  behaviour-preserving but moves the rule out of this tripwire's sight -- update the pattern here
+  deliberately.
+  Got more than 1? A second home for the rule has appeared, which is exactly the defect the
+  spec risk table exists to catch: feed Test-PfbContextMultiValueCapable instead of re-deriving.
+'@
         (Split-Path $comparisons[0].Path -Leaf) | Should -Be 'Test-PfbContextMultiValueCapable.ps1'
 
         $strayFiles = @($all |
             Where-Object { $_.Line -notmatch '^\s*#' } |
             Where-Object { (Split-Path $_.Path -Leaf) -ne 'Test-PfbContextMultiValueCapable.ps1' })
-        $strayFiles.Count | Should -Be 0
+        $strayFiles.Count | Should -Be 0 -Because (
+            'only Test-PfbContextMultiValueCapable.ps1 may mention the component literal outside ' +
+            'a line comment; stray hits: ' + (($strayFiles | ForEach-Object { "$($_.Filename):$($_.LineNumber)" }) -join ', '))
     }
 }

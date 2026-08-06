@@ -148,4 +148,62 @@ Describe 'Assert-PfbContextCardinality' {
                 Should -Not -Throw
         }
     }
+    # Fix round 1, Important 1. Resolve-PfbParameterComponent returns the map's DEFAULT component
+    # for the 256 entries that do not declare context_names, so without a precondition the
+    # cardinality rule reads $false for them and this gate advised "narrow the context to a single
+    # name" for an endpoint that takes no context at all -- and it fired precisely where
+    # Assert-PfbContextCapability deliberately abstains (array beyond the map's scanned range).
+    It 'stays silent for an entry that declares no context_names, even beyond map coverage' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $multi = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'), (New-PfbContextEntry -Name 'FB-C'))
+            $map = [PSCustomObject]@{
+                generatedFrom = @('2.0', '2.28')
+                parameterComponentDefaults = [PSCustomObject]@{ context_names = 'Context_names' }
+                endpoints = [PSCustomObject]@{
+                    'GET /active-directory' = [PSCustomObject]@{ parameters = [PSCustomObject]@{ names = '2.0' } }
+                }
+            }
+            { Assert-PfbContextCardinality -Method 'GET' -Endpoint 'active-directory' -Context $multi -CapabilityMap $map } |
+                Should -Not -Throw
+        }
+    }
+    It 'stays silent for an endpoint absent from the map, in either gate order' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $multi = New-PfbContext -Entries @((New-PfbContextEntry -Name 'FB-B'), (New-PfbContextEntry -Name 'FB-C'))
+            $map = [PSCustomObject]@{
+                generatedFrom = @('2.0', '2.28')
+                parameterComponentDefaults = [PSCustomObject]@{ context_names = 'Context_names' }
+                endpoints = [PSCustomObject]@{}
+            }
+            { Assert-PfbContextCardinality -Method 'GET' -Endpoint 'not-an-endpoint' -Context $multi -CapabilityMap $map } |
+                Should -Not -Throw
+        }
+    }
+}
+
+Describe 'Test-PfbEndpointDeclaresContextNames' {
+    It 'is true only when the parameters collection actually lists context_names' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            $declares = [PSCustomObject]@{ parameters = [PSCustomObject]@{ context_names = '2.23'; allow_errors = '2.23' } }
+            $lacks    = [PSCustomObject]@{ parameters = [PSCustomObject]@{ names = '2.0' } }
+            $noParams = [PSCustomObject]@{ contextScope = [PSCustomObject]@{ scope = 'array' } }
+
+            Test-PfbEndpointDeclaresContextNames -EndpointEntry $declares | Should -BeTrue
+            Test-PfbEndpointDeclaresContextNames -EndpointEntry $lacks    | Should -BeFalse
+            Test-PfbEndpointDeclaresContextNames -EndpointEntry $noParams | Should -BeFalse
+            Test-PfbEndpointDeclaresContextNames -EndpointEntry $null     | Should -BeFalse
+        }
+    }
+    It 'ignores a resolvable default component -- only the parameters collection is evidence' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            # The exact confusion behind Important 1: a component resolves for this entry, yet
+            # the endpoint declares no context_names.
+            $lacks = [PSCustomObject]@{ parameters = [PSCustomObject]@{ names = '2.0' } }
+            $defaults = [PSCustomObject]@{ context_names = 'Context_names' }
+            $component = Resolve-PfbParameterComponent -EndpointEntry $lacks `
+                -ParameterName $script:PfbContextParameterName -ParameterComponentDefaults $defaults
+            $component | Should -Be 'Context_names'   # a component IS resolved...
+            Test-PfbEndpointDeclaresContextNames -EndpointEntry $lacks | Should -BeFalse   # ...and means nothing
+        }
+    }
 }
