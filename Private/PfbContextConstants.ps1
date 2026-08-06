@@ -11,3 +11,11 @@
 # duplication #74 is about.
 $script:PfbContextParameterName     = 'context_names'
 $script:PfbAllowErrorsParameterName = 'allow_errors'
+
+# Fleet-scoped endpoints where a NAME-SCOPED read genuinely cannot resolve without a fleet
+# context. Measured, not derived: GET /presets/workload?names=<a preset that exists> returns
+# code 6 with no context and 200 with a fleet context, because the locally replicated view is
+# list-only. The three fleet-scoped topology-group GETs are deliberately ABSENT -- a
+# name-scoped context-free read returns 200 there, so throwing would reject a working call.
+# Add an endpoint here only with a measurement; absent evidence, do not throw.
+$script:PfbNameScopedContextRequiredEndpoints = @('GET /presets/workload')

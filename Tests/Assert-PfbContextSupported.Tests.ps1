@@ -391,6 +391,38 @@ Describe 'Assert-PfbContextRequired' {
                 Should -Throw -ExpectedMessage '*requires a fleet context*'
         }
     }
+    # Fix round 2. Live-measured on FB-B/FB-C with NO context set: a name-scoped read on the three
+    # fleet-scoped topology-group GETs returns 200, so the scope-derived rule was rejecting calls
+    # the array answers happily. The rule is now an evidence-backed allowlist.
+    #   GET /topology-groups?names=zz-claude-tg-parent                  -> 200, 1 item
+    #   GET /topology-groups/members?topology_group_names=<that group>   -> 200, 2 items
+    #   GET /topology-groups/arrays?topology_group_names=<that group>    -> 200, 2 items
+    It 'does not throw for a name-scoped context-free GET on the topology-group endpoints' -ForEach @(
+        @{ Ep = 'topology-groups' }
+        @{ Ep = 'topology-groups/members' }
+        @{ Ep = 'topology-groups/arrays' }
+    ) {
+        InModuleScope 'PureStorageFlashBladePowerShell' -Parameters @{ Ep = $Ep } {
+            param($Ep)
+            $map = Get-PfbCapabilityMap
+            # Pin that these really are fleet-scoped, so the test cannot be satisfied by the scope
+            # early-return instead of the allowlist -- that would make it prove nothing.
+            $map.endpoints."GET /$Ep".contextScope.scope | Should -Be 'fleet'
+            { Assert-PfbContextRequired -Method 'GET' -Endpoint $Ep -QueryParams @{ names = 'zz-claude-tg-parent' } -CapabilityMap $map } |
+                Should -Not -Throw
+            { Assert-PfbContextRequired -Method 'GET' -Endpoint $Ep -QueryParams @{ ids = 'abc' } -CapabilityMap $map } |
+                Should -Not -Throw
+        }
+    }
+    It 'pins the name-scoped allowlist to what was actually measured' {
+        InModuleScope 'PureStorageFlashBladePowerShell' {
+            # Makes "someone widened this without a measurement" a test failure in both directions.
+            $script:PfbNameScopedContextRequiredEndpoints | Should -Contain 'GET /presets/workload'
+            foreach ($ep in 'GET /topology-groups', 'GET /topology-groups/members', 'GET /topology-groups/arrays') {
+                $script:PfbNameScopedContextRequiredEndpoints | Should -Not -Contain $ep -Because "a name-scoped context-free read returns 200 on $ep, so requiring a context there rejects a working call"
+            }
+        }
+    }
     It 'does not throw for an array-scoped endpoint with no context, name-scoped or not' {
         InModuleScope 'PureStorageFlashBladePowerShell' {
             $map = Get-PfbCapabilityMap

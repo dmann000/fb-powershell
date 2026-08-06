@@ -260,12 +260,25 @@ function Assert-PfbContextRequired {
         a NAME-SCOPED GET returns code 6 as well. Throwing here names the requirement and the
         cmdlet that satisfies it instead.
 
-        THE ONE EXCEPTION, and it is not the verb: an UNFILTERED read with no context WORKS,
-        returning the locally replicated copy. The local view is list-only -- sufficient to
-        enumerate, insufficient to resolve a name against -- so any call targeting by names= or
-        ids= is in the mutation case regardless of its verb, and an unfiltered list is not. Keying
-        this on the verb alone would break Get-PfbPresetWorkload, the only preset operation that
-        works today.
+        READS ARE NARROWER THAN THE VERB, TWICE OVER, and both narrowings are measured rather
+        than derived.
+
+        First: an UNFILTERED read with no context WORKS, returning the locally replicated copy.
+        Verified on one preset that provably existed (created, probed, deleted): ?names=<it> with
+        no context returned code 6 while the unfiltered list returned 200 with that same object
+        in it, and ?names=<it> with a fleet context returned 200. The local view is list-only --
+        sufficient to enumerate, insufficient to resolve a name against. Keying this on the verb
+        alone would break Get-PfbPresetWorkload, the only preset operation that works today.
+
+        Second: even a NAME-SCOPED read only needs a context on the endpoints where that was
+        measured, listed in $script:PfbNameScopedContextRequiredEndpoints. "scope: fleet" is not
+        sufficient evidence -- three of the eight fleet-scoped endpoints contradict the
+        derivation. Measured with no context: GET /topology-groups?names=<group> returns 200 with
+        1 item, and /topology-groups/members and /topology-groups/arrays each return 200 with 2
+        items. Throwing on those rejected calls the array answers happily. Non-GET verbs stay
+        unconditional: the five preset write verbs fail without a context, and the topology-group
+        write verbs are scope: array, so the early return above already covers them (confirmed
+        live -- those writes succeed with no context).
 
         Called from the ELSE branch in Invoke-PfbApiRequest, so unlike the three shape gates this
         one legitimately sees BOTH the unset and the explicitly-empty context. That is deliberate:
@@ -284,6 +297,11 @@ function Assert-PfbContextRequired {
         return
     }
 
+    # Hoisted above the GET branch so the allowlist is matched against the SAME key the throw
+    # names, built the one sanctioned way. Never build this key a second way -- see
+    # Get-PfbEndpointKey on why a one-character drift fails silently.
+    $key = Get-PfbEndpointKey -Method $Method -Endpoint $Endpoint
+
     if ($Method -eq 'GET') {
         $isNameScoped = $false
         if ($QueryParams) {
@@ -292,8 +310,13 @@ function Assert-PfbContextRequired {
             }
         }
         if (-not $isNameScoped) { return }   # unfiltered list: works without a context
+
+        # And a name-scoped read only needs a context where that was MEASURED. scope: fleet is not
+        # sufficient evidence: three of the eight fleet-scoped endpoints -- GET /topology-groups,
+        # /topology-groups/members, /topology-groups/arrays -- answer a name-scoped context-free
+        # read with 200, so deriving the rule from scope alone rejected working calls.
+        if ($key -notin $script:PfbNameScopedContextRequiredEndpoints) { return }
     }
 
-    $key = Get-PfbEndpointKey -Method $Method -Endpoint $Endpoint
     throw "$key targets a fleet-scoped resource and requires a fleet context, but none is set. Set one with Set-PfbContext -Context <fleet> -Kind Fleet, or run this call in one with Invoke-PfbInContext -Context <fleet> -Kind Fleet { ... }. Get the fleet name from Get-PfbFleet."
 }
