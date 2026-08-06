@@ -521,8 +521,11 @@ function Connect-PfbArray {
         # durable for the session; ContextOverride is block-scoped (Invoke-PfbInContext).
         DefaultContext       = $null
         ContextOverride      = $null
-        # Reserved: populated in a later phase. Declared here so every connection object has a
-        # uniform shape.
+        # Initialised unset. Locality is only probed when a context is actually requested, so a
+        # context-less connection keeps $null here -- and $null means "indeterminate", which the
+        # gates fail open on. Populated further down this same function (the -Context branch,
+        # via Resolve-PfbAdminLocality) and re-read by Set-PfbContext. Declared here so every
+        # connection object has a uniform shape whether or not a context was asked for.
         AdminLocality        = $null
     }
 

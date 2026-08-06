@@ -95,13 +95,29 @@ function Invoke-PfbApiRequest {
     # fundamental fact, so it must win. See the else branch for the 2.20 measurement that
     # established this.
     if ($hasContext) {
-        # Fourth shape gate, and the only one placed here rather than above the injection: a
-        # LOCALLY authenticated admin cannot use a context at all, on any endpoint -- there is no
-        # local-array exemption, so every context is rejected once the admin is local. Placed
-        # above the injection it reintroduced exactly the failure Task 10 measured -- a local
-        # admin on a REST 2.20 array calling a context-capable endpoint that needs 2.23 was told
-        # to go obtain an LDAP admin, and only after doing so learned the real blocker was
-        # firmware. Assert-PfbContextCapability defers "recorded but array too old" to
+        # Fourth shape gate: a LOCALLY authenticated admin cannot use a context at all, on any
+        # endpoint -- there is no local-array exemption, so every context is rejected once the
+        # admin is local.
+        #
+        # DEFENCE IN DEPTH -- this call is not expected to fire in production. Both sites that
+        # resolve AdminLocality run this same gate BEFORE they return a connection
+        # (Connect-PfbArray.ps1 resolves then gates; Set-PfbContext.ps1 resolves then gates, and
+        # discards its copy on the throw), so no connection object the module hands back to a
+        # caller can be resting on AdminLocality = 'local'. What this call covers is a future
+        # THIRD resolution site that forgets to gate, or a hand-constructed connection object.
+        # Deliberately NOT a per-call resolution site: probing locality here would mean one probe
+        # per request, so a thousand-iteration loop would mean a thousand probes.
+        #
+        # The gap this does NOT close: a session that only ever supplies a context through
+        # Invoke-PfbInContext never resolves locality at all, so a local admin there is caught
+        # REACTIVELY by the code-20 annotation in Add-PfbContextErrorAnnotation (see its header),
+        # not proactively here.
+        #
+        # Placement: it sits BELOW the injection and below Assert-PfbApiCapability. Above the
+        # injection it reintroduced exactly the failure Task 10 measured -- a local admin on a
+        # REST 2.20 array calling a context-capable endpoint that needs 2.23 was told to go
+        # obtain an LDAP admin, and only after doing so learned the real blocker was firmware.
+        # Assert-PfbContextCapability defers "recorded but array too old" to
         # Assert-PfbApiCapability by design, so gates 1-3 all pass in that scenario and this one
         # got the last word. Fails open on an indeterminate locality.
         Assert-PfbContextAdminLocality -Array $Array -Context $resolvedContext

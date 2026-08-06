@@ -60,6 +60,26 @@ function Get-PfbEndpointContextScope {
 
         Returns 'unknown' for a missing map, a missing entry, or an entry with no contextScope,
         so a caller has exactly one sentinel to test rather than three shapes of absence.
+
+        Deliberately returns the scope ALONE and drops contextScope.provenance. Adjudicated
+        2026-08-06, not an oversight -- the gates are meant to rule on the scope regardless of
+        which of the three provenances produced it, because 'default' is a real answer and not
+        absent metadata:
+
+        - 'declared'    -- upstream carries an x-pure-remote-execution-context-domains-override
+                           for this operation, so the scope is upstream's own statement.
+        - 'live-tested' -- no override, but upstream flagged the operation x-pure-incomplete-gre
+                           (its machine-readable marker for "my remote-execution annotation is
+                           unfinished here"), and we hold a curated live-tested reading.
+        - 'default'     -- no override AND not flagged x-pure-incomplete-gre. Upstream considers
+                           its annotation COMPLETE at this operation, and a complete annotation on
+                           a fleet-scoped operation would have to carry an override. So the
+                           absence of an override is itself evidence of 'array'.
+
+        'unknown' is therefore the sentinel reserved for upstream-flagged-incomplete (and for the
+        structural absences above) -- which is exactly why 'unknown' alone suppresses the
+        kind-vs-scope gate while 'default' does not. Do not "degrade" the gate on 'default': that
+        would discard the only signal 604 endpoints have.
     .OUTPUTS
         [string]
     #>
