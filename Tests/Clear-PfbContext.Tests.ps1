@@ -16,7 +16,10 @@ Describe 'Clear-PfbContext' {
         # a DIFFERENT documented meaning at the Invoke-PfbInContext layer -- so a change making
         # this cmdlet emit @() must red. Test the reference directly.
         $null -eq $new.DefaultContext | Should -BeTrue
-        $fb.DefaultContext.Entries | Should -Not -BeNullOrEmpty
+        # The original connection's entries must be undisturbed -- assert the count AND the
+        # identity of the entry, since a count alone would survive the list being rebuilt.
+        @($fb.DefaultContext.Entries).Count | Should -Be 1
+        $fb.DefaultContext.Entries[0].Name  | Should -Be 'FB-B'
     }
 
     It 'repoints the module caches at the copy' {

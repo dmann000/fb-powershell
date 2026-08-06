@@ -104,7 +104,7 @@ Describe 'Connect-PfbArray context properties' {
         $cmd = Get-Command Connect-PfbArray
         $validate = $cmd.Parameters['Kind'].Attributes |
             Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }
-        $validate | Should -Not -BeNullOrEmpty
+        $null -ne $validate | Should -BeTrue
         $validate.ValidValues | Should -Be @('Array', 'Fleet', 'TopologyGroup')
     }
 
@@ -362,7 +362,12 @@ Describe 'Connect-PfbArray -Context behaviour' {
                 $script:PfbArrays = @{ 'sentinel' = $sentinel }
                 $script:PfbDefaultArray = $sentinel
 
-                { Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake' -Context 'g' -Kind TopologyGroup } | Should -Throw
+                # Pinned to the composition throw specifically: an unpinned Should -Throw would be
+                # satisfied by a login failure, a mock-harness failure, or a future change that
+                # moved the composition check AFTER the cache write but left something else
+                # throwing earlier -- i.e. by exactly the regression this It exists to catch.
+                { Connect-PfbArray -Endpoint 'fb.test' -ApiToken 'T-fake' -Context 'g' -Kind TopologyGroup } |
+                    Should -Throw -ExpectedMessage '*<name>.arrays*'
 
                 [object]::ReferenceEquals($script:PfbDefaultArray, $sentinel) | Should -BeTrue
                 $script:PfbArrays.ContainsKey('fb.test') | Should -BeFalse

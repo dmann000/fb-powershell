@@ -80,7 +80,9 @@ Describe 'PfbContext object' {
         }
         It 'reserves AllowErrors as tri-state, defaulting to null (Phase 2 surfaces it)' {
             InModuleScope PureStorageFlashBladePowerShell {
-                (New-PfbContext -Entries @((New-PfbContextEntry -Name 'x'))).AllowErrors | Should -BeNullOrEmpty
+                # -BeNullOrEmpty would also pass for '' or @(), which are NOT the tri-state
+                # contract this It reserves ($null unset / $true / $false). Pin $null exactly.
+                $null -eq (New-PfbContext -Entries @((New-PfbContextEntry -Name 'x'))).AllowErrors | Should -BeTrue
             }
         }
         It 'resolves the -AllArrays switch to the AllArrays form' {
