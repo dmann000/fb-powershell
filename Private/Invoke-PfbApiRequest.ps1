@@ -318,8 +318,11 @@ function Invoke-PfbApiRequest {
         # which array an item came from. A "tidy up the response shape" refactor that rebuilt
         # each item would silently destroy that attribution; the response layer deliberately
         # reads only items / total_item_count / continuation_token off the body and leaves the
-        # items themselves alone. Guarded by the per-item-context test in
-        # Tests/Invoke-PfbApiRequest.ContextInjection.Tests.ps1.
+        # items themselves alone. The per-item-context test in
+        # Tests/Invoke-PfbApiRequest.ContextInjection.Tests.ps1 fails if the per-item `context`
+        # field is dropped. That guard is deliberately narrower than the rule above: a rebuild
+        # that happened to forward `context` would still pass it. Treat the no-rebuild rule as
+        # the standard and the test as the backstop, not the definition.
         if ($null -ne $response.items) {
             foreach ($item in $response.items) {
                 $allItems.Add($item)
