@@ -76,8 +76,10 @@ function Test-PfbAssignmentGuardedBySwitch {
     .SYNOPSIS
         True if $Assignment is lexically inside an `if ($ParameterName) { ... }` clause
         whose condition is exactly a bare reference to $ParameterName -- the guard shape
-        Test-PfbAssignmentGuardedBySwitch's caller requires before trusting a literal
-        string assignment as switch-derived.
+        this function's caller requires before trusting a literal string assignment as
+        derived from that parameter. The caller's own gate is boolean-like (switch, bool,
+        or Nullable[bool]); this function tests only the guard shape and neither knows nor
+        cares which of those types the parameter has.
     #>
     [CmdletBinding()]
     param(
