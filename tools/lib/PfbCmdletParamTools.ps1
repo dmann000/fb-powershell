@@ -155,8 +155,25 @@ function Test-PfbWireValueIsParameter {
             $Param                  -- direct
             @($Param)               -- array-wrapped
             $Param -join ','        -- joined into a plural query key
-            'literal'               -- ONLY for a [switch] whose mere presence is keyed to a
-                                       hardcoded string, and only inside an `if ($Param)` guard
+            'literal'               -- ONLY for a BOOLEAN-LIKE parameter whose mere presence is
+                                       keyed to a hardcoded string, and only inside an
+                                       `if ($Param)` guard
+            if ($Param) { 'a' } else { 'b' }
+                                    -- ONLY for a BOOLEAN-LIKE parameter, and only in exactly
+                                       that shape: one clause plus an else (no elseif), a
+                                       condition that is textually the bare `$Param` or
+                                       `-not $Param` and nothing more, and a single constant
+                                       statement in each branch. This is how a [Nullable[bool]]
+                                       reaches a string-valued query key (real:
+                                       New-PfbFileSystemReplicaLink's remote_default_exports,
+                                       whose $false must reach the wire, so the assignment is
+                                       guarded on $PSBoundParameters.ContainsKey rather than on
+                                       truthiness). Boolean-like means [switch], [bool] or
+                                       [Nullable[bool]] -- see -IsBooleanLikeParameter, computed
+                                       by Get-PfbCmdletParameterInventory from the declared
+                                       StaticType. A wider condition or a non-constant branch
+                                       means the wire value is derived from something other
+                                       than this parameter alone, and stays refused.
         Refused (correctly, per this file's "never guess" contract): anything else, e.g.
         `"$Param"`. The array-projection shape `@($Param | ForEach-Object { @{ name = $_ } })`
         is also refused HERE by design -- it is matched by the sibling
@@ -172,7 +189,7 @@ function Test-PfbWireValueIsParameter {
         [Parameter(Mandatory)]
         [string]$ParameterName,
 
-        [switch]$IsSwitchParameter
+        [switch]$IsBooleanLikeParameter
     )
 
     $text = $ValueAst.Extent.Text.Trim()
@@ -187,8 +204,33 @@ function Test-PfbWireValueIsParameter {
         if ($joinLeft -and $joinLeft.VariablePath.UserPath -eq $ParameterName) { return $true }
     }
 
-    if ($IsSwitchParameter -and $expr -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
+    if ($IsBooleanLikeParameter -and $expr -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
         if (Test-PfbAssignmentGuardedBySwitch -Assignment $ValueAst -ParameterName $ParameterName) { return $true }
+    }
+
+    # `if ($Param) { 'true' } else { 'false' }` as the VALUE half. An if-expression right-hand
+    # side arrives as an IfStatementAst directly (Resolve-PfbSingleExpression peels only the
+    # Pipeline/CommandExpression wrappers a bare expression gets, and correctly leaves this
+    # alone). Every condition below is load-bearing: without them the branch would credit the
+    # parameter with a key whose value some OTHER expression decides.
+    if ($IsBooleanLikeParameter -and $expr -is [System.Management.Automation.Language.IfStatementAst]) {
+        $clauses = @($expr.Clauses)
+        if ($clauses.Count -eq 1 -and $null -ne $expr.ElseClause) {
+            $condition = $clauses[0].Item1.Extent.Text.Trim()
+            if ($condition -eq $simple -or $condition -eq ('-not ' + $simple)) {
+                $allConstant = $true
+                foreach ($block in @($clauses[0].Item2, $expr.ElseClause)) {
+                    if (@($block.Statements).Count -ne 1) { $allConstant = $false; break }
+                    # StringConstantExpressionAst derives from ConstantExpressionAst, so the one
+                    # test covers both the quoted and the bare-number forms.
+                    $branch = Resolve-PfbSingleExpression -Ast $block.Statements[0]
+                    if ($branch -isnot [System.Management.Automation.Language.ConstantExpressionAst]) {
+                        $allConstant = $false; break
+                    }
+                }
+                if ($allConstant) { return $true }
+            }
+        }
     }
 
     return $false
@@ -434,7 +476,7 @@ function Get-PfbWireNameForParameter {
         [Parameter(Mandatory)]
         [string]$ParameterName,
 
-        [switch]$IsSwitchParameter
+        [switch]$IsBooleanLikeParameter
     )
 
     $assignments = $FunctionAst.FindAll({
@@ -452,7 +494,7 @@ function Get-PfbWireNameForParameter {
         $keyExpr = $indexExpr.Index -as [System.Management.Automation.Language.StringConstantExpressionAst]
         if (-not $keyExpr) { continue }
 
-        if (Test-PfbWireValueIsParameter -ValueAst $assign.Right -ParameterName $ParameterName -IsSwitchParameter:$IsSwitchParameter) {
+        if (Test-PfbWireValueIsParameter -ValueAst $assign.Right -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter) {
             return [PSCustomObject]@{
                 WireName       = $keyExpr.Value
                 TargetVariable = $targetVar.VariablePath.UserPath
@@ -466,14 +508,14 @@ function Get-PfbWireNameForParameter {
     # New-PfbObjectStoreAccount, the whole Policy/*Rule family, ...). Runs after the index
     # form, not instead of it: a cmdlet routinely does both (literal initializer for its
     # -Name, then `$body['x'] = $X` lines), and both key sets must resolve.
-    $literalMatch = Get-PfbHashtableLiteralWireNameForParameter -FunctionAst $FunctionAst -ParameterName $ParameterName -IsSwitchParameter:$IsSwitchParameter
+    $literalMatch = Get-PfbHashtableLiteralWireNameForParameter -FunctionAst $FunctionAst -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter
     if ($literalMatch) { return $literalMatch }
 
     # Third idiom: a nested single-key REFERENCE OBJECT -- `$body['account'] = @{ name =
     # $Account }` -- whose wire field is the OUTER key. Runs strictly after both direct
     # forms above so it can only ever add a resolution, never rename one: a parameter that
     # already resolved via a direct assignment returned before reaching here.
-    $nestedMatch = Get-PfbNestedReferenceWireNameForParameter -FunctionAst $FunctionAst -ParameterName $ParameterName -IsSwitchParameter:$IsSwitchParameter
+    $nestedMatch = Get-PfbNestedReferenceWireNameForParameter -FunctionAst $FunctionAst -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter
     if ($nestedMatch) { return $nestedMatch }
 
     # No literal assignment of any shape in this function body -- but the parameter may
@@ -512,7 +554,7 @@ function Get-PfbHashtableLiteralWireNameForParameter {
         [Parameter(Mandatory)]
         [string]$ParameterName,
 
-        [switch]$IsSwitchParameter
+        [switch]$IsBooleanLikeParameter
     )
 
     $assignments = @($FunctionAst.FindAll({
@@ -535,7 +577,7 @@ function Get-PfbHashtableLiteralWireNameForParameter {
             $keyExpr = $pair.Item1 -as [System.Management.Automation.Language.StringConstantExpressionAst]
             if (-not $keyExpr) { continue }
 
-            if (Test-PfbWireValueIsParameter -ValueAst $pair.Item2 -ParameterName $ParameterName -IsSwitchParameter:$IsSwitchParameter) {
+            if (Test-PfbWireValueIsParameter -ValueAst $pair.Item2 -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter) {
                 return [PSCustomObject]@{
                     WireName       = $keyExpr.Value
                     TargetVariable = $targetVar.VariablePath.UserPath
@@ -596,7 +638,7 @@ function Get-PfbNestedReferenceWireNameForParameter {
         [Parameter(Mandatory)]
         [string]$ParameterName,
 
-        [switch]$IsSwitchParameter
+        [switch]$IsBooleanLikeParameter
     )
 
     # Local predicate: is $Candidate a single-string-key hashtable literal whose one value
@@ -612,7 +654,7 @@ function Get-PfbNestedReferenceWireNameForParameter {
         if ($hash.KeyValuePairs.Count -ne 1) { return $false }
         $innerPair = $hash.KeyValuePairs[0]
         if (-not ($innerPair.Item1 -as [System.Management.Automation.Language.StringConstantExpressionAst])) { return $false }
-        return (Test-PfbWireValueIsParameter -ValueAst $innerPair.Item2 -ParameterName $ParameterName -IsSwitchParameter:$IsSwitchParameter)
+        return (Test-PfbWireValueIsParameter -ValueAst $innerPair.Item2 -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter)
     }
 
     $assignments = @($FunctionAst.FindAll({
@@ -1012,8 +1054,16 @@ function Get-PfbCmdletParameterInventory {
                     }
                 }
 
-                $isSwitch = $p.StaticType -eq [System.Management.Automation.SwitchParameter]
-                $wireInfo = Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName $paramName -IsSwitchParameter:$isSwitch
+                # Boolean-like, not switch-only: a [bool] or [Nullable[bool]] reaches a wire key
+                # through the same presence-keyed literal and if-expression shapes a [switch]
+                # does. [Nullable[bool]]'s StaticType is System.Nullable`1[[System.Boolean,...]],
+                # so compare against the constructed type rather than string-matching its name.
+                $isBooleanLike = $p.StaticType -in @(
+                    [System.Management.Automation.SwitchParameter]
+                    [bool]
+                    [System.Nullable[bool]]
+                )
+                $wireInfo = Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName $paramName -IsBooleanLikeParameter:$isBooleanLike
                 if (-not $wireInfo) {
                     $accumulatorName = Find-PfbAccumulatorVariable -FunctionAst $funcAst -ParameterName $paramName
                     if ($accumulatorName) {
