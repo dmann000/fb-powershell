@@ -123,6 +123,15 @@ Describe 'New-PfbApiToken - query parameters (#31)' {
             "$warnings" | Should -BeLike '*-Attributes*'
         }
 
+        It 'warns once for the whole invocation, not once per piped name' {
+            # -Attributes binds once for the whole invocation, so the warning lives in begin.
+            # Emitted from process it would repeat per item in the bulk-rotation flow.
+            $warnings = @()
+            'ops-admin', 'svc-admin' | New-PfbApiToken -Attributes @{ ignored = 'x' } -Confirm:$false -Array $fakeArray -WarningVariable warnings -WarningAction SilentlyContinue
+
+            @($warnings).Count | Should -Be 1
+        }
+
         It 'does not warn when -Attributes is absent' {
             $warnings = @()
             New-PfbApiToken -Name 'ops-admin' -Confirm:$false -Array $fakeArray -WarningVariable warnings -WarningAction SilentlyContinue
@@ -133,6 +142,13 @@ Describe 'New-PfbApiToken - query parameters (#31)' {
 
     Context 'a request with no selector never reaches the wire (#99)' {
 
+        # NOTE: the bare-call and -Timeout-only cases below are ALSO caught upstream by
+        # AmbiguousParameterSet -- two parameter sets with no DefaultParameterSetName and no
+        # set-unique bound parameter fail to resolve before `process` is entered, with or
+        # without the Mandatory flags. They are kept as regression rails, but they do not
+        # prove the Mandatory flags work. The empty-string tests at the end of this block are
+        # the ones that discriminate: pre-fix, -Name '' bound legally to the ByName set,
+        # `if ($Name)` was false, and an unfiltered POST went out.
         It 'throws on a bare call' {
             { New-PfbApiToken -Array $fakeArray -Confirm:$false -ErrorAction Stop } | Should -Throw
         }
@@ -145,6 +161,16 @@ Describe 'New-PfbApiToken - query parameters (#31)' {
 
         It 'issues no request when only -Timeout is supplied' {
             try { New-PfbApiToken -Timeout 86400000 -Array $fakeArray -Confirm:$false -ErrorAction Stop } catch { }
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+        }
+
+        It 'throws when the selector is an empty string' {
+            { New-PfbApiToken -Name '' -Array $fakeArray -Confirm:$false -ErrorAction Stop } | Should -Throw
+        }
+
+        It 'issues no request when the selector is an empty string' {
+            try { New-PfbApiToken -Name '' -Array $fakeArray -Confirm:$false -ErrorAction Stop } catch { }
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
         }

@@ -65,6 +65,16 @@ function New-PfbApiToken {
 
     begin {
         Assert-PfbConnection -Array ([ref]$Array)
+
+        # -Attributes is not a pipeline parameter -- it binds once for the whole invocation,
+        # so the warning belongs in begin. Emitting it from process would repeat it once per
+        # piped name, in exactly the bulk-rotation flow ValueFromPipeline exists to enable.
+        if ($PSBoundParameters.ContainsKey('Attributes')) {
+            Write-Warning ('-Attributes is accepted for backward compatibility only. ' +
+                           'POST /admins/api-tokens declares no request body, so nothing ' +
+                           "supplied here is sent to the array. Use -Timeout to set the " +
+                           "token's validity period.")
+        }
     }
 
     process {
@@ -82,13 +92,6 @@ function New-PfbApiToken {
             throw 'New-PfbApiToken requires -Name or -Id. An unfiltered POST ' +
                   '/admins/api-tokens has no explicit target and would act on the ' +
                   'authenticated administrator.'
-        }
-
-        if ($PSBoundParameters.ContainsKey('Attributes')) {
-            Write-Warning ('-Attributes is accepted for backward compatibility only. ' +
-                           'POST /admins/api-tokens declares no request body, so nothing ' +
-                           "supplied here is sent to the array. Use -Timeout to set the " +
-                           "token's validity period.")
         }
 
         $target = if ($Name) { $Name } else { $Id }
