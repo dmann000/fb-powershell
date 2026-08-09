@@ -494,6 +494,16 @@
     },
     {
       "cmdlet": "Get-PfbApiToken",
+      "parameter": "ExposeApiToken",
+      "wireName": "expose_api_token",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbApiToken",
       "parameter": "Filter",
       "wireName": "filter",
       "status": "no-spec-enum-found",
@@ -505,7 +515,7 @@
     {
       "cmdlet": "Get-PfbApiToken",
       "parameter": "Id",
-      "wireName": "ids",
+      "wireName": "admin_ids",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -525,7 +535,7 @@
     {
       "cmdlet": "Get-PfbApiToken",
       "parameter": "Name",
-      "wireName": "names",
+      "wireName": "admin_names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -12159,16 +12169,6 @@
     },
     {
       "cmdlet": "New-PfbFileSystemReplicaLink",
-      "parameter": "RemoteDefaultExports",
-      "wireName": "remote_default_exports",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "New-PfbFileSystemReplicaLink",
       "parameter": "RemoteFileSystemName",
       "wireName": "remote_file_system_names",
       "status": "no-spec-enum-found",
@@ -14200,7 +14200,7 @@
     {
       "cmdlet": "Remove-PfbApiToken",
       "parameter": "Id",
-      "wireName": "ids",
+      "wireName": "admin_ids",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -14210,7 +14210,7 @@
     {
       "cmdlet": "Remove-PfbApiToken",
       "parameter": "Name",
-      "wireName": "names",
+      "wireName": "admin_names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -20516,6 +20516,10 @@
     {
       "cmdlet": "New-PfbDataEvictionPolicy",
       "parameter": "Disabled"
+    },
+    {
+      "cmdlet": "New-PfbFileSystemReplicaLink",
+      "parameter": "RemoteDefaultExports"
     },
     {
       "cmdlet": "New-PfbFileSystemSnapshot",

@@ -116,7 +116,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `Update-PfbSmbSharePolicy -Enabled`
 - `Update-PfbUserGroupQuotaPolicy -Enabled`
 
-## Typed but unresolved wire name (needs manual inspection): 39
+## Typed but unresolved wire name (needs manual inspection): 40
 
 - `Connect-PfbArray -ApiToken`
 - `Connect-PfbArray -ApiVersion`
@@ -139,6 +139,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `Get-PfbUserGroupQuotaPolicy -Id`
 - `Get-PfbUserGroupQuotaPolicy -Name`
 - `New-PfbDataEvictionPolicy -Disabled`
+- `New-PfbFileSystemReplicaLink -RemoteDefaultExports`
 - `New-PfbFileSystemSnapshot -SourceName`
 - `New-PfbLocalGroupMember -Member`
 - `New-PfbWorkloadPlacementRecommendation -Inputs`
