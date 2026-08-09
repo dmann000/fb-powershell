@@ -14,9 +14,12 @@ function Remove-PfbApiToken {
         issue #99 this cmdlet sent names/ids, so -Name pointed at another admin destroyed the
         CALLING session's own token and left the named admin's token untouched.
 
-        A selector is therefore mandatory, and enforced twice over: -Name and -Id are
-        Mandatory within their parameter sets, and the process block refuses to issue a
-        request whose query carries neither key.
+        A selector is therefore mandatory. It is enforced by the parameter binder: -Name and
+        -Id are Mandatory within their parameter sets, so a call supplying neither fails to
+        resolve a parameter set and a call supplying an empty string is rejected as an empty
+        argument -- in both cases before the process block runs. The process block also
+        refuses to issue a request whose query carries neither key, but that check is a
+        defensive backstop that no input reaches today, not a second live layer.
     .PARAMETER Name
         The name of the administrator account whose API token to remove. Sent as the
         `admin_names` query parameter. Also accepts the alias -AdminNames. Accepts pipeline input.
@@ -71,6 +74,11 @@ function Remove-PfbApiToken {
         if ($Name) { $queryParams['admin_names'] = $Name }
         if ($Id)   { $queryParams['admin_ids']   = $Id }
 
+        # Unreachable today: Mandatory on both sets means a selectorless call fails with
+        # AmbiguousParameterSet and an empty-string selector fails with EmptyStringNotAllowed,
+        # both at binding time. Kept deliberately as a backstop -- adding a
+        # DefaultParameterSetName or relaxing a Mandatory flag would silently re-open #99.
+        # Do not "simplify" it away.
         if (-not $queryParams.ContainsKey('admin_names') -and -not $queryParams.ContainsKey('admin_ids')) {
             throw 'Remove-PfbApiToken requires -Name or -Id. An unfiltered DELETE ' +
                   "/admins/api-tokens destroys the CALLING session's own API token."

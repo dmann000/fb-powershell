@@ -8,9 +8,10 @@ function Assert-PfbAdminNameNotCoerced {
 
         A Get-PfbApiToken row exposes only `admin`, `api_token` and `context` at the top
         level -- the administrator's name is nested at .admin.name -- so piping one into
-        New-PfbApiToken or Remove-PfbApiToken matches neither pass 1 nor pass 2, and the
-        entire PSCustomObject is ToString()-ed into [string]$Name at pass 3. The result is
-        a garbage filter such as
+        Get-PfbApiToken, New-PfbApiToken or Remove-PfbApiToken matches neither pass 1 nor
+        pass 2, and the entire PSCustomObject is ToString()-ed into $Name at pass 3 (into
+        the single element of [string[]]$Name on Get-). The result is a garbage filter such
+        as
 
             admin_names=@{admin=; api_token=}
 
@@ -19,6 +20,11 @@ function Assert-PfbAdminNameNotCoerced {
 
         Plain strings ('ops-admin','svc' | Remove-PfbApiToken) are unaffected, as is
         binding by property name from a Get-PfbAdmin object.
+
+        Called by all three /admins/api-tokens cmdlets. New- and Remove- take a scalar
+        [string]$Name and call it once per pipeline item; Get- takes [string[]]$Name and
+        calls it per element. -Value therefore accepts either a scalar or a collection and
+        checks each member.
 
         Deliberately called imperatively from each cmdlet's process block rather than wired
         as [ValidateScript({ ... })]. That was tried and reverted under issue #64: a

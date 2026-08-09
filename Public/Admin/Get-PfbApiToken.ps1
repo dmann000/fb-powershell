@@ -18,6 +18,16 @@ function Get-PfbApiToken {
     .PARAMETER Name
         One or more administrator account names whose API tokens to retrieve. Sent as the
         `admin_names` query parameter. Also accepts the alias -AdminNames. Accepts pipeline input.
+
+        -Name is optional, so an EMPTY array is a legal "no filter" value: -Name @() (or a
+        variable that happens to be empty, or a pipeline that produced nothing) emits no
+        `admin_names` key and therefore returns EVERY administrator's row, exactly as a bare
+        Get-PfbApiToken does. If a caller builds the name list dynamically and an empty list
+        should mean "nothing", test for that before calling.
+
+        A piped Get-PfbApiToken row is rejected rather than silently misbound: the object has
+        no top-level name property (the administrator name is nested at .admin.name), so it
+        would otherwise be ToString()-ed whole into -Name. Pipe $_.admin.name instead.
     .PARAMETER Id
         One or more administrator account IDs whose API tokens to retrieve. Sent as the
         `admin_ids` query parameter. Also accepts the alias -AdminIds.
@@ -77,7 +87,7 @@ function Get-PfbApiToken {
         $allIds = [System.Collections.Generic.List[string]]::new()
     }
     process {
-        if ($Name) { foreach ($n in $Name) { $allNames.Add($n) } }
+        if ($Name) { foreach ($n in $Name) { Assert-PfbAdminNameNotCoerced -Value $n; $allNames.Add($n) } }
         if ($Id)   { foreach ($i in $Id)   { $allIds.Add($i) } }
     }
     end {

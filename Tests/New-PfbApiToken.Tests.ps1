@@ -146,9 +146,16 @@ Describe 'New-PfbApiToken - query parameters (#31)' {
         # AmbiguousParameterSet -- two parameter sets with no DefaultParameterSetName and no
         # set-unique bound parameter fail to resolve before `process` is entered, with or
         # without the Mandatory flags. They are kept as regression rails, but they do not
-        # prove the Mandatory flags work. The empty-string tests at the end of this block are
-        # the ones that discriminate: pre-fix, -Name '' bound legally to the ByName set,
-        # `if ($Name)` was false, and an unfiltered POST went out.
+        # prove the Mandatory flags work.
+        #
+        # Neither do the empty-string tests at the end of this block. They are regressions
+        # against the pre-fix behaviour -- where -Name '' bound legally to the ByName set,
+        # `if ($Name)` was false, and an unfiltered POST went out -- but what stops them
+        # today is Mandatory's own EmptyStringNotAllowed check at binding time, not the
+        # in-process throw this Context is named after. That throw is unreachable from every
+        # input (see the .DESCRIPTION note in New-PfbApiToken.ps1); it is kept as a backstop
+        # and is not covered by any test here. The parameter-metadata test below is what
+        # actually pins the Mandatory flags and the parameter sets in place.
         It 'throws on a bare call' {
             { New-PfbApiToken -Array $fakeArray -Confirm:$false -ErrorAction Stop } | Should -Throw
         }

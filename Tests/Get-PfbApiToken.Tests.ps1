@@ -104,6 +104,33 @@ Describe 'Get-PfbApiToken (#99)' {
         }
     }
 
+    Context 'coercion guard' {
+
+        It 'throws on a piped Get-PfbApiToken-shaped object' {
+            {
+                [PSCustomObject]@{ admin = [PSCustomObject]@{ name = 'ops-admin' }; api_token = @{} } |
+                    Get-PfbApiToken -Array $fakeArray -ErrorAction Stop
+            } | Should -Throw -ExpectedMessage '*stringified object*'
+        }
+
+        It 'issues no request when the guard fires' {
+            try {
+                [PSCustomObject]@{ admin = [PSCustomObject]@{ name = 'ops-admin' }; api_token = @{} } |
+                    Get-PfbApiToken -Array $fakeArray -ErrorAction Stop
+            } catch { }
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+        }
+
+        It 'still binds -Name by property name from a Get-PfbAdmin-shaped object' {
+            [PSCustomObject]@{ name = 'ops-admin' } | Get-PfbApiToken -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $QueryParams['admin_names'] -eq 'ops-admin'
+            }
+        }
+    }
+
     Context 'common query parameters still flow through the helper' {
 
         It 'sends filter, sort and limit' {
