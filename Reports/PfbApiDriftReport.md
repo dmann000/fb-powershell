@@ -23,11 +23,11 @@ This report accepts **false positives in order to eliminate false negatives**. A
 - Uncovered endpoints: 96
 - Endpoints with parameter gaps: 438
 - Missing body properties (addable): 422
-- Missing query parameters (addable): 948
+- Missing query parameters (addable): 947
 - Read-only body fields (not addable -- see the Read-only fields section below): 382
 - Phantom fields silently excluded (accumulated in the capability map, absent from the newest analysed spec): 40
-- Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 60
-- Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): 244
+- Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 59
+- Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): 250
 - ValidateSet drift: 0
 - New ValidateSet candidates: 1
 - Context cardinality signal disagreements (fb2.28): 9
@@ -39,13 +39,13 @@ This report accepts **false positives in order to eliminate false negatives**. A
 
 One finding per distinct wire field name, collapsed across every endpoint where a high-confidence gap exists (decision 7) -- turns hundreds of per-endpoint rows into a handful of real, actionable decisions. "Cmdlets already using this name" is decision 8's convention-strength ranking: a high count means closing the remaining gaps for this name is a mechanical batch fix; zero means no established convention exists to extend at all -- closing it is an architectural decision, not a mechanical one.
 
-Showing the top 25 of 244 findings by endpoint count -- the full list is in the JSON manifest's `systemicGaps`, nothing is dropped there.
+Showing the top 25 of 250 findings by endpoint count -- the full list is in the JSON manifest's `systemicGaps`, nothing is dropped there.
 
 | Field name | Endpoints | Query | Body | Cmdlets already using this name | Annotation |
 |---|---|---|---|---|---|
-| `context_names` | 269 | 269 | 0 | 0 | not yet implemented |
+| `context_names` | 270 | 270 | 0 | 0 | not yet implemented |
 | `allow_errors` | 118 | 118 | 0 | 0 | not yet implemented |
-| `ids` | 42 | 42 | 0 | 221 |  |
+| `ids` | 43 | 43 | 0 | 221 |  |
 | `names` | 31 | 31 | 0 | 306 |  |
 | `sort` | 28 | 28 | 0 | 180 |  |
 | `bucket_ids` | 17 | 17 | 0 | 2 |  |
@@ -53,13 +53,13 @@ Showing the top 25 of 244 findings by endpoint count -- the full list is in the 
 | `total_only` | 17 | 17 | 0 | 39 |  |
 | `bucket_names` | 16 | 16 | 0 | 3 |  |
 | `member_ids` | 15 | 15 | 0 | 85 |  |
-| `remote_ids` | 14 | 14 | 0 | 3 |  |
+| `remote_ids` | 15 | 15 | 0 | 3 |  |
 | `policy_names` | 11 | 11 | 0 | 118 |  |
 | `file_system_ids` | 9 | 9 | 0 | 9 |  |
 | `remote_names` | 9 | 9 | 0 | 9 |  |
+| `local_file_system_ids` | 8 | 8 | 0 | 2 |  |
 | `actions` | 7 | 0 | 7 | 2 |  |
 | `limit` | 7 | 7 | 0 | 199 |  |
-| `local_file_system_ids` | 7 | 7 | 0 | 2 |  |
 | `name` | 7 | 0 | 7 | 20 |  |
 | `versions` | 7 | 7 | 0 | 5 |  |
 | `enabled` | 6 | 0 | 6 | 10 |  |
@@ -437,7 +437,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `POST /directory-services/roles` | New-PfbDirectoryServiceRole |  | group, group_base, management_access_policies, role | `high` |  |
 | `POST /dns` | New-PfbDns | context_names, names | ca_certificate, ca_certificate_group, domain, nameservers, services, sources | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `POST /file-system-exports` | New-PfbFileSystemExport | context_names, member_ids, policy_ids |  | `high` |  |
-| `POST /file-system-replica-links` | New-PfbFileSystemReplicaLink | context_names, ids, local_file_system_ids, remote_default_exports, remote_ids | direction, link_type, local_file_system, policies, remote, remote_file_system | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
+| `POST /file-system-replica-links` | New-PfbFileSystemReplicaLink | context_names, ids, local_file_system_ids, remote_ids | direction, link_type, local_file_system, policies, remote, remote_file_system | `high` |  |
 | `POST /file-system-replica-links/policies` | New-PfbFileSystemReplicaLinkPolicy | context_names |  | `high` |  |
 | `POST /file-system-snapshots` | New-PfbFileSystemSnapshot | context_names, source_ids, source_names |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `POST /file-systems` | New-PfbFileSystem | context_names, default_exports, discard_non_snapshotted_data, include_snapshot, overwrite, policy_ids, policy_names | fast_remove_directory_enabled, hard_limit_enabled, http, multi_protocol, nfs, node_group, smb, snapshot_directory_enabled, workload, writable | `partial` -- /!\ 15 unresolved params (see Partial-confidence detail below) |  |
@@ -572,7 +572,6 @@ Per the decision-6 procedure above: open each parameter at its `file:line` and f
 | `POST /data-eviction-policies` | `-Disabled` | TypedUnresolved | `Public/DataEviction/New-PfbDataEvictionPolicy.ps1:31` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
 | `POST /directory-services/local/groups/members` | `-Member` | TypedUnresolved | `Public/DirectoryService/New-PfbLocalGroupMember.ps1:35` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
 | `POST /dns` | `-Name` | AttributesOnly | `Public/Network/New-PfbDns.ps1:29` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `POST /file-system-replica-links` | `-RemoteDefaultExports` | TypedUnresolved | `Public/Replication/New-PfbFileSystemReplicaLink.ps1:57` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
 | `POST /file-system-snapshots` | `-SourceName` | TypedUnresolved | `Public/FileSystemSnapshot/New-PfbFileSystemSnapshot.ps1:36` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
 | `POST /file-systems` | `-FastRemoveDirectoryEnabled` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:139` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /file-systems` | `-HardLimit` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:93` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |

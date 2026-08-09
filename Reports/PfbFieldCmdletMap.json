@@ -12169,6 +12169,16 @@
     },
     {
       "cmdlet": "New-PfbFileSystemReplicaLink",
+      "parameter": "RemoteDefaultExports",
+      "wireName": "remote_default_exports",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbFileSystemReplicaLink",
       "parameter": "RemoteFileSystemName",
       "wireName": "remote_file_system_names",
       "status": "no-spec-enum-found",
@@ -20516,10 +20526,6 @@
     {
       "cmdlet": "New-PfbDataEvictionPolicy",
       "parameter": "Disabled"
-    },
-    {
-      "cmdlet": "New-PfbFileSystemReplicaLink",
-      "parameter": "RemoteDefaultExports"
     },
     {
       "cmdlet": "New-PfbFileSystemSnapshot",

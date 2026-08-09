@@ -9,7 +9,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - matched: 1
 - collision: 1
 - not-found-in-resource: 29
-- no-spec-enum-found: 1981
+- no-spec-enum-found: 1982
 
 | Cmdlet | Parameter | Wire name | Status | Spec values | Recommendation |
 |---|---|---|---|---|---|
@@ -116,7 +116,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `Update-PfbSmbSharePolicy -Enabled`
 - `Update-PfbUserGroupQuotaPolicy -Enabled`
 
-## Typed but unresolved wire name (needs manual inspection): 40
+## Typed but unresolved wire name (needs manual inspection): 39
 
 - `Connect-PfbArray -ApiToken`
 - `Connect-PfbArray -ApiVersion`
@@ -139,7 +139,6 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `Get-PfbUserGroupQuotaPolicy -Id`
 - `Get-PfbUserGroupQuotaPolicy -Name`
 - `New-PfbDataEvictionPolicy -Disabled`
-- `New-PfbFileSystemReplicaLink -RemoteDefaultExports`
 - `New-PfbFileSystemSnapshot -SourceName`
 - `New-PfbLocalGroupMember -Member`
 - `New-PfbWorkloadPlacementRecommendation -Inputs`
