@@ -13,9 +13,10 @@ function New-PfbApiToken {
         A selector is mandatory. An unfiltered POST would arrive with no target, and what the
         array does then is not established -- most likely it falls back to the authenticated
         administrator, rotating the caller's own token and invalidating any stored copy of it.
-        Rather than depend on that, -Name and -Id are Mandatory within their parameter sets, so
-        the parameter binder rejects a call supplying neither (no parameter set resolves) or
-        supplying an empty string, before the process block runs. The process block also
+        Rather than depend on that, the parameter binder rejects both bad calls before the
+        process block runs. A call supplying neither selector cannot resolve a parameter set
+        at all, because there are two sets and no DefaultParameterSetName. A call supplying an
+        empty string is rejected because -Name and -Id are Mandatory. The process block also
         refuses to issue a request whose query carries neither key, but that check is a
         defensive backstop that no input reaches today, not a second live layer. To create
         a token for the current session's own account, name that account explicitly. To rotate
@@ -91,11 +92,13 @@ function New-PfbApiToken {
         if ($Id)   { $queryParams['admin_ids']   = $Id }
         if ($PSBoundParameters.ContainsKey('Timeout')) { $queryParams['timeout'] = $Timeout }
 
-        # Unreachable today: Mandatory on both sets means a selectorless call fails with
-        # AmbiguousParameterSet and an empty-string selector fails with EmptyStringNotAllowed,
-        # both at binding time. Kept deliberately as a backstop -- adding a
-        # DefaultParameterSetName or relaxing a Mandatory flag would silently re-open #99.
-        # Do not "simplify" it away.
+        # Unreachable today, for two different reasons. A selectorless call cannot resolve a
+        # parameter set -- two sets, no DefaultParameterSetName, no set-unique bound parameter
+        # -- so it fails with AmbiguousParameterSet whether or not Mandatory is present. An
+        # empty-string selector fails with EmptyStringNotAllowed, and that one IS Mandatory's
+        # doing. Both fire at binding time, before process. Kept deliberately as a backstop --
+        # adding a DefaultParameterSetName or relaxing a Mandatory flag would silently re-open
+        # #99. Do not "simplify" it away.
         if (-not $queryParams.ContainsKey('admin_names') -and -not $queryParams.ContainsKey('admin_ids')) {
             throw 'New-PfbApiToken requires -Name or -Id. An unfiltered POST ' +
                   '/admins/api-tokens has no explicit target and would act on the ' +

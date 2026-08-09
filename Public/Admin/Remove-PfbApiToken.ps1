@@ -14,10 +14,11 @@ function Remove-PfbApiToken {
         issue #99 this cmdlet sent names/ids, so -Name pointed at another admin destroyed the
         CALLING session's own token and left the named admin's token untouched.
 
-        A selector is therefore mandatory. It is enforced by the parameter binder: -Name and
-        -Id are Mandatory within their parameter sets, so a call supplying neither fails to
-        resolve a parameter set and a call supplying an empty string is rejected as an empty
-        argument -- in both cases before the process block runs. The process block also
+        A selector is therefore mandatory, and the parameter binder enforces it before the
+        process block runs. A call supplying neither selector cannot resolve a parameter set,
+        because there are two sets and no DefaultParameterSetName. A call supplying an empty
+        string is rejected as an empty argument, because -Name and -Id are Mandatory within
+        their sets. The process block also
         refuses to issue a request whose query carries neither key, but that check is a
         defensive backstop that no input reaches today, not a second live layer.
     .PARAMETER Name
@@ -74,11 +75,13 @@ function Remove-PfbApiToken {
         if ($Name) { $queryParams['admin_names'] = $Name }
         if ($Id)   { $queryParams['admin_ids']   = $Id }
 
-        # Unreachable today: Mandatory on both sets means a selectorless call fails with
-        # AmbiguousParameterSet and an empty-string selector fails with EmptyStringNotAllowed,
-        # both at binding time. Kept deliberately as a backstop -- adding a
-        # DefaultParameterSetName or relaxing a Mandatory flag would silently re-open #99.
-        # Do not "simplify" it away.
+        # Unreachable today, for two different reasons. A selectorless call cannot resolve a
+        # parameter set -- two sets, no DefaultParameterSetName, no set-unique bound parameter
+        # -- so it fails with AmbiguousParameterSet whether or not Mandatory is present. An
+        # empty-string selector fails with EmptyStringNotAllowed, and that one IS Mandatory's
+        # doing. Both fire at binding time, before process. Kept deliberately as a backstop --
+        # adding a DefaultParameterSetName or relaxing a Mandatory flag would silently re-open
+        # #99. Do not "simplify" it away.
         if (-not $queryParams.ContainsKey('admin_names') -and -not $queryParams.ContainsKey('admin_ids')) {
             throw 'Remove-PfbApiToken requires -Name or -Id. An unfiltered DELETE ' +
                   "/admins/api-tokens destroys the CALLING session's own API token."

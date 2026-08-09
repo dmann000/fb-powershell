@@ -19,11 +19,12 @@ function Get-PfbApiToken {
         One or more administrator account names whose API tokens to retrieve. Sent as the
         `admin_names` query parameter. Also accepts the alias -AdminNames. Accepts pipeline input.
 
-        -Name is optional, so an EMPTY array is a legal "no filter" value: -Name @() (or a
-        variable that happens to be empty, or a pipeline that produced nothing) emits no
-        `admin_names` key and therefore returns EVERY administrator's row, exactly as a bare
-        Get-PfbApiToken does. If a caller builds the name list dynamically and an empty list
-        should mean "nothing", test for that before calling.
+        -Name is optional, so any value that is falsy in PowerShell is a legal "no filter":
+        -Name @(), -Name '', a variable that happens to be empty, or a pipeline that produced
+        nothing. All of them emit no `admin_names` key and therefore return EVERY
+        administrator's row, exactly as a bare Get-PfbApiToken does. If a caller builds the
+        name list dynamically and an empty list should mean "nothing", test for that before
+        calling.
 
         A piped Get-PfbApiToken row is rejected rather than silently misbound: the object has
         no top-level name property (the administrator name is nested at .admin.name), so it
