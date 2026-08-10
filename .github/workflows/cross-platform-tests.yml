@@ -104,16 +104,13 @@ jobs:
         with:
           shell: pwsh
 
+      # Suite invocation + the issue-#63 coverage gate live in scripts/Invoke-PfbCiPester.ps1
+      # rather than inline here: this same block was copy-pasted in three places across two
+      # workflows, and all three needed the same change. A script is also lintable, diffable
+      # and runnable outside Actions, which YAML-embedded PowerShell is not.
       - name: Run Pester tests
         shell: pwsh
-        run: |
-          Import-Module Pester -MinimumVersion 5.0 -Force
-          Import-Module Posh-SSH -Force
-          $cfg = New-PesterConfiguration
-          $cfg.Run.Path = 'Tests'
-          $cfg.Run.Exit = $true
-          $cfg.Output.Verbosity = 'Detailed'
-          Invoke-Pester -Configuration $cfg
+        run: ./scripts/Invoke-PfbCiPester.ps1 -Edition pwsh7
 
   test-windows-powershell-5-1:
     name: Test (windows-latest, Windows PowerShell 5.1)
@@ -141,13 +138,10 @@ jobs:
         with:
           shell: powershell
 
+      # `shell:` stays per-leg and must remain a literal (see the header note about the
+      # matrix context) -- it selects the interpreter. -Edition selects only which
+      # Tests/coverage-baseline.psd1 block applies, since the two editions legitimately
+      # differ by ~200 skips.
       - name: Run Pester tests
         shell: powershell
-        run: |
-          Import-Module Pester -MinimumVersion 5.0 -Force
-          Import-Module Posh-SSH -Force
-          $cfg = New-PesterConfiguration
-          $cfg.Run.Path = 'Tests'
-          $cfg.Run.Exit = $true
-          $cfg.Output.Verbosity = 'Detailed'
-          Invoke-Pester -Configuration $cfg
+        run: ./scripts/Invoke-PfbCiPester.ps1 -Edition winps51
