@@ -111,10 +111,6 @@
       "minVersion": "2.0"
     },
     {
-      "endpoint": "PATCH /smtp-servers",
-      "minVersion": "2.0"
-    },
-    {
       "endpoint": "POST /kmip",
       "minVersion": "2.1"
     },
@@ -1789,13 +1785,19 @@
             "parameter": "FileSystemName",
             "surface": "TypedUnresolved",
             "file": "Public/Quota/Remove-PfbQuotaGroup.ps1",
-            "line": 30
+            "line": 35
+          },
+          {
+            "parameter": "GroupId",
+            "surface": "TypedUnresolved",
+            "file": "Public/Quota/Remove-PfbQuotaGroup.ps1",
+            "line": 37
           },
           {
             "parameter": "GroupName",
             "surface": "TypedUnresolved",
             "file": "Public/Quota/Remove-PfbQuotaGroup.ps1",
-            "line": 31
+            "line": 36
           }
         ],
         "escapeHatchOnly": [],
@@ -3339,7 +3341,6 @@
       "missingQueryParameters": [
         "allow_errors",
         "context_names",
-        "names_or_owner_names",
         "remote_ids",
         "remote_names"
       ],
@@ -7965,17 +7966,24 @@
             "parameter": "FileSystemName",
             "surface": "AttributesOnly",
             "file": "Public/Quota/Update-PfbQuotaGroup.ps1",
-            "line": 35
+            "line": 40
+          },
+          {
+            "parameter": "GroupId",
+            "surface": "AttributesOnly",
+            "file": "Public/Quota/Update-PfbQuotaGroup.ps1",
+            "line": 42
           },
           {
             "parameter": "GroupName",
             "surface": "AttributesOnly",
             "file": "Public/Quota/Update-PfbQuotaGroup.ps1",
-            "line": 36
+            "line": 41
           }
         ],
         "escapeHatchOnly": [
           "FileSystemName",
+          "GroupId",
           "GroupName"
         ],
         "caveat": "body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability"
@@ -8593,6 +8601,25 @@
           }
         }
       ],
+      "readOnlyFields": [
+        "id",
+        "name"
+      ],
+      "confidence": {
+        "level": "high",
+        "unresolvedParameters": [],
+        "escapeHatchOnly": [],
+        "caveat": ""
+      },
+      "annotations": []
+    },
+    {
+      "endpoint": "PATCH /smtp-servers",
+      "cmdlets": [
+        "Update-PfbSmtpServer"
+      ],
+      "missingQueryParameters": [],
+      "missingBodyProperties": [],
       "readOnlyFields": [
         "id",
         "name"
@@ -11955,48 +11982,9 @@
         "New-PfbObjectStoreAccountExport"
       ],
       "missingQueryParameters": [
-        "context_names",
-        "member_ids",
-        "member_names",
-        "policy_ids",
-        "policy_names"
+        "context_names"
       ],
-      "missingBodyProperties": [
-        {
-          "name": "export_enabled",
-          "type": "boolean",
-          "format": null,
-          "specRequired": false,
-          "synopsis": "If set to `true`, the account export is enabled.",
-          "suggestedPowerShellType": "[bool]",
-          "enumValues": [],
-          "enumStatus": "no-spec-enum-found",
-          "target": {
-            "file": "Public/ObjectStore/New-PfbObjectStoreAccountExport.ps1",
-            "paramBlockLine": 38,
-            "payloadVariable": "body",
-            "assignmentStyle": "unknown",
-            "hasAttributes": true
-          }
-        },
-        {
-          "name": "server",
-          "type": null,
-          "format": null,
-          "specRequired": true,
-          "synopsis": "Reference to the server the export will be visible on.",
-          "suggestedPowerShellType": "[object]",
-          "enumValues": [],
-          "enumStatus": "no-spec-enum-found",
-          "target": {
-            "file": "Public/ObjectStore/New-PfbObjectStoreAccountExport.ps1",
-            "paramBlockLine": 38,
-            "payloadVariable": "body",
-            "assignmentStyle": "unknown",
-            "hasAttributes": true
-          }
-        }
-      ],
+      "missingBodyProperties": [],
       "readOnlyFields": [],
       "confidence": {
         "level": "high",
@@ -12889,10 +12877,33 @@
         "name"
       ],
       "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
+        "level": "partial",
+        "unresolvedParameters": [
+          {
+            "parameter": "FileSystemName",
+            "surface": "AttributesOnly",
+            "file": "Public/Quota/New-PfbQuotaGroup.ps1",
+            "line": 40
+          },
+          {
+            "parameter": "GroupId",
+            "surface": "AttributesOnly",
+            "file": "Public/Quota/New-PfbQuotaGroup.ps1",
+            "line": 42
+          },
+          {
+            "parameter": "GroupName",
+            "surface": "AttributesOnly",
+            "file": "Public/Quota/New-PfbQuotaGroup.ps1",
+            "line": 41
+          }
+        ],
+        "escapeHatchOnly": [
+          "FileSystemName",
+          "GroupId",
+          "GroupName"
+        ],
+        "caveat": "body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability"
       },
       "annotations": []
     },
@@ -14165,8 +14176,8 @@
   "systemicGaps": [
     {
       "name": "context_names",
-      "endpointCount": 270,
-      "queryEndpointCount": 270,
+      "endpointCount": 269,
+      "queryEndpointCount": 269,
       "bodyEndpointCount": 0,
       "endpoints": [
         "DELETE /admins/api-tokens",
@@ -14430,7 +14441,6 @@
         "POST /presets/workload",
         "POST /qos-policies",
         "POST /qos-policies/members",
-        "POST /quotas/groups",
         "POST /s3-export-policies/rules",
         "POST /smb-client-policies/rules",
         "POST /smb-share-policies/rules",
@@ -14741,32 +14751,6 @@
       "annotations": []
     },
     {
-      "name": "policy_ids",
-      "endpointCount": 17,
-      "queryEndpointCount": 17,
-      "bodyEndpointCount": 0,
-      "endpoints": [
-        "DELETE /network-interfaces/tls-policies",
-        "DELETE /object-store-access-policies/object-store-roles",
-        "DELETE /object-store-access-policies/object-store-users",
-        "DELETE /object-store-access-policies/rules",
-        "DELETE /object-store-roles/object-store-access-policies",
-        "DELETE /object-store-users/object-store-access-policies",
-        "GET /object-store-roles/object-store-access-policies",
-        "PATCH /object-store-access-policies/rules",
-        "PATCH /s3-export-policies/rules",
-        "PATCH /smb-share-policies/rules",
-        "POST /file-system-exports",
-        "POST /object-store-access-policies/object-store-roles",
-        "POST /object-store-access-policies/object-store-users",
-        "POST /object-store-access-policies/rules",
-        "POST /object-store-account-exports",
-        "POST /object-store-roles/object-store-access-policies",
-        "POST /object-store-users/object-store-access-policies"
-      ],
-      "annotations": []
-    },
-    {
       "name": "total_only",
       "endpointCount": 17,
       "queryEndpointCount": 17,
@@ -14818,24 +14802,25 @@
       "annotations": []
     },
     {
-      "name": "member_ids",
-      "endpointCount": 15,
-      "queryEndpointCount": 15,
+      "name": "policy_ids",
+      "endpointCount": 16,
+      "queryEndpointCount": 16,
       "bodyEndpointCount": 0,
       "endpoints": [
-        "DELETE /directory-services/local/groups/members",
-        "DELETE /fleets/members",
         "DELETE /network-interfaces/tls-policies",
         "DELETE /object-store-access-policies/object-store-roles",
         "DELETE /object-store-access-policies/object-store-users",
+        "DELETE /object-store-access-policies/rules",
         "DELETE /object-store-roles/object-store-access-policies",
         "DELETE /object-store-users/object-store-access-policies",
-        "GET /directory-services/local/groups/members",
-        "GET /fleets/members",
+        "GET /object-store-roles/object-store-access-policies",
+        "PATCH /object-store-access-policies/rules",
+        "PATCH /s3-export-policies/rules",
+        "PATCH /smb-share-policies/rules",
         "POST /file-system-exports",
         "POST /object-store-access-policies/object-store-roles",
         "POST /object-store-access-policies/object-store-users",
-        "POST /object-store-account-exports",
+        "POST /object-store-access-policies/rules",
         "POST /object-store-roles/object-store-access-policies",
         "POST /object-store-users/object-store-access-policies"
       ],
@@ -14866,9 +14851,32 @@
       "annotations": []
     },
     {
+      "name": "member_ids",
+      "endpointCount": 14,
+      "queryEndpointCount": 14,
+      "bodyEndpointCount": 0,
+      "endpoints": [
+        "DELETE /directory-services/local/groups/members",
+        "DELETE /fleets/members",
+        "DELETE /network-interfaces/tls-policies",
+        "DELETE /object-store-access-policies/object-store-roles",
+        "DELETE /object-store-access-policies/object-store-users",
+        "DELETE /object-store-roles/object-store-access-policies",
+        "DELETE /object-store-users/object-store-access-policies",
+        "GET /directory-services/local/groups/members",
+        "GET /fleets/members",
+        "POST /file-system-exports",
+        "POST /object-store-access-policies/object-store-roles",
+        "POST /object-store-access-policies/object-store-users",
+        "POST /object-store-roles/object-store-access-policies",
+        "POST /object-store-users/object-store-access-policies"
+      ],
+      "annotations": []
+    },
+    {
       "name": "policy_names",
-      "endpointCount": 11,
-      "queryEndpointCount": 11,
+      "endpointCount": 10,
+      "queryEndpointCount": 10,
       "bodyEndpointCount": 0,
       "endpoints": [
         "DELETE /buckets/bucket-access-policies/rules",
@@ -14880,26 +14888,7 @@
         "PATCH /s3-export-policies/rules",
         "PATCH /smb-share-policies/rules",
         "POST /buckets/cross-origin-resource-sharing-policies/rules",
-        "POST /object-store-account-exports",
         "POST /object-store-roles/object-store-access-policies"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "file_system_ids",
-      "endpointCount": 9,
-      "queryEndpointCount": 9,
-      "bodyEndpointCount": 0,
-      "endpoints": [
-        "DELETE /file-systems/locks",
-        "GET /file-systems/locks",
-        "GET /file-systems/open-files",
-        "GET /legal-holds/held-entities",
-        "GET /quotas/groups",
-        "GET /quotas/users",
-        "GET /usage/groups",
-        "GET /usage/users",
-        "POST /quotas/groups"
       ],
       "annotations": []
     },
@@ -14918,6 +14907,23 @@
         "GET /file-system-replica-links/transfer",
         "GET /policies-all/members",
         "GET /policies/file-system-replica-links"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "file_system_ids",
+      "endpointCount": 8,
+      "queryEndpointCount": 8,
+      "bodyEndpointCount": 0,
+      "endpoints": [
+        "DELETE /file-systems/locks",
+        "GET /file-systems/locks",
+        "GET /file-systems/open-files",
+        "GET /legal-holds/held-entities",
+        "GET /quotas/groups",
+        "GET /quotas/users",
+        "GET /usage/groups",
+        "GET /usage/users"
       ],
       "annotations": []
     },
@@ -15033,21 +15039,6 @@
       "annotations": []
     },
     {
-      "name": "gids",
-      "endpointCount": 6,
-      "queryEndpointCount": 6,
-      "bodyEndpointCount": 0,
-      "endpoints": [
-        "DELETE /directory-services/local/groups",
-        "GET /directory-services/local/groups",
-        "GET /file-systems/groups/performance",
-        "GET /quotas/groups",
-        "GET /usage/groups",
-        "POST /quotas/groups"
-      ],
-      "annotations": []
-    },
-    {
       "name": "role_ids",
       "endpointCount": 6,
       "queryEndpointCount": 6,
@@ -15108,16 +15099,16 @@
       "annotations": []
     },
     {
-      "name": "file_system_names",
+      "name": "gids",
       "endpointCount": 5,
       "queryEndpointCount": 5,
       "bodyEndpointCount": 0,
       "endpoints": [
-        "DELETE /file-systems/locks",
-        "GET /file-systems/locks",
-        "GET /file-systems/open-files",
-        "GET /legal-holds/held-entities",
-        "POST /quotas/groups"
+        "DELETE /directory-services/local/groups",
+        "GET /directory-services/local/groups",
+        "GET /file-systems/groups/performance",
+        "GET /quotas/groups",
+        "GET /usage/groups"
       ],
       "annotations": []
     },
@@ -15257,15 +15248,15 @@
       "annotations": []
     },
     {
-      "name": "group_names",
+      "name": "file_system_names",
       "endpointCount": 4,
       "queryEndpointCount": 4,
       "bodyEndpointCount": 0,
       "endpoints": [
-        "GET /file-systems/groups/performance",
-        "GET /quotas/groups",
-        "GET /usage/groups",
-        "POST /quotas/groups"
+        "DELETE /file-systems/locks",
+        "GET /file-systems/locks",
+        "GET /file-systems/open-files",
+        "GET /legal-holds/held-entities"
       ],
       "annotations": []
     },
@@ -15420,6 +15411,18 @@
       "annotations": []
     },
     {
+      "name": "group_names",
+      "endpointCount": 3,
+      "queryEndpointCount": 3,
+      "bodyEndpointCount": 0,
+      "endpoints": [
+        "GET /file-systems/groups/performance",
+        "GET /quotas/groups",
+        "GET /usage/groups"
+      ],
+      "annotations": []
+    },
+    {
       "name": "index",
       "endpointCount": 3,
       "queryEndpointCount": 0,
@@ -15476,18 +15479,6 @@
         "PATCH /password-policies",
         "POST /management-access-policies",
         "POST /qos-policies"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "names_or_owner_names",
-      "endpointCount": 3,
-      "queryEndpointCount": 3,
-      "bodyEndpointCount": 0,
-      "endpoints": [
-        "GET /file-system-replica-links/transfer",
-        "GET /file-system-snapshots",
-        "GET /file-system-snapshots/transfer"
       ],
       "annotations": []
     },
@@ -15736,6 +15727,17 @@
       "endpoints": [
         "POST /keytabs",
         "POST /keytabs/upload"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "names_or_owner_names",
+      "endpointCount": 2,
+      "queryEndpointCount": 2,
+      "bodyEndpointCount": 0,
+      "endpoints": [
+        "GET /file-system-snapshots",
+        "GET /file-system-snapshots/transfer"
       ],
       "annotations": []
     },
@@ -16472,16 +16474,6 @@
       "annotations": []
     },
     {
-      "name": "export_enabled",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /object-store-account-exports"
-      ],
-      "annotations": []
-    },
-    {
       "name": "expose_api_token",
       "endpointCount": 1,
       "queryEndpointCount": 1,
@@ -16888,16 +16880,6 @@
       "bodyEndpointCount": 1,
       "endpoints": [
         "POST /qos-policies"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "member_names",
-      "endpointCount": 1,
-      "queryEndpointCount": 1,
-      "bodyEndpointCount": 0,
-      "endpoints": [
-        "POST /object-store-account-exports"
       ],
       "annotations": []
     },
@@ -17322,16 +17304,6 @@
       "annotations": []
     },
     {
-      "name": "server",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /object-store-account-exports"
-      ],
-      "annotations": []
-    },
-    {
       "name": "session_names",
       "endpointCount": 1,
       "queryEndpointCount": 1,
@@ -17485,7 +17457,7 @@
   "conventionStrength": [
     {
       "name": "names",
-      "cmdletCount": 306,
+      "cmdletCount": 303,
       "cmdlets": [
         "Get-PfbActiveDirectory",
         "Get-PfbAdmin",
@@ -17520,7 +17492,6 @@
         "Get-PfbFileLockClient",
         "Get-PfbFileSystem",
         "Get-PfbFileSystemExport",
-        "Get-PfbFileSystemReplicaLinkTransfer",
         "Get-PfbFileSystemSession",
         "Get-PfbFileSystemSnapshot",
         "Get-PfbFileSystemSnapshotTransfer",
@@ -17630,7 +17601,6 @@
         "New-PfbNlmReclamation",
         "New-PfbObjectStoreAccessPolicy",
         "New-PfbObjectStoreAccount",
-        "New-PfbObjectStoreAccountExport",
         "New-PfbObjectStoreRemoteCredential",
         "New-PfbObjectStoreRole",
         "New-PfbObjectStoreUser",
@@ -17728,7 +17698,6 @@
         "Test-PfbKmip",
         "Test-PfbSaml2Idp",
         "Test-PfbSnmpManager",
-        "Test-PfbSyslogServer",
         "Update-PfbActiveDirectory",
         "Update-PfbAdmin",
         "Update-PfbAlert",
@@ -17797,7 +17766,7 @@
     },
     {
       "name": "ids",
-      "cmdletCount": 221,
+      "cmdletCount": 220,
       "cmdlets": [
         "Get-PfbAdmin",
         "Get-PfbAdminCache",
@@ -17962,7 +17931,6 @@
         "Test-PfbKmip",
         "Test-PfbSaml2Idp",
         "Test-PfbSnmpManager",
-        "Test-PfbSyslogServer",
         "Update-PfbActiveDirectory",
         "Update-PfbAdmin",
         "Update-PfbAlert",
@@ -18623,7 +18591,7 @@
     },
     {
       "name": "policy_names",
-      "cmdletCount": 118,
+      "cmdletCount": 119,
       "cmdlets": [
         "Add-PfbDataEvictionPolicyFileSystem",
         "Get-PfbAdminManagementAccessPolicy",
@@ -18697,6 +18665,7 @@
         "New-PfbObjectStoreAccessPolicyRole",
         "New-PfbObjectStoreAccessPolicyRule",
         "New-PfbObjectStoreAccessPolicyUser",
+        "New-PfbObjectStoreAccountExport",
         "New-PfbObjectStoreTrustPolicyRule",
         "New-PfbObjectStoreUserAccessPolicy",
         "New-PfbPolicyFileSystem",
@@ -18746,119 +18715,8 @@
       ]
     },
     {
-      "name": "member_names",
-      "cmdletCount": 105,
-      "cmdlets": [
-        "Add-PfbDataEvictionPolicyFileSystem",
-        "Get-PfbAdminManagementAccessPolicy",
-        "Get-PfbAdminSshCaPolicy",
-        "Get-PfbArraySshCaPolicy",
-        "Get-PfbAuditFileSystemPolicyMember",
-        "Get-PfbAuditObjectStorePolicyMember",
-        "Get-PfbBucketAccessPolicy",
-        "Get-PfbBucketAccessPolicyRule",
-        "Get-PfbBucketAuditFilter",
-        "Get-PfbBucketCorsPolicy",
-        "Get-PfbBucketCorsPolicyRule",
-        "Get-PfbDataEvictionPolicyFileSystem",
-        "Get-PfbDataEvictionPolicyMember",
-        "Get-PfbDirectoryServiceRoleManagementPolicy",
-        "Get-PfbFileSystemAuditPolicy",
-        "Get-PfbFileSystemPolicy",
-        "Get-PfbFileSystemReplicaLinkPolicy",
-        "Get-PfbFileSystemSnapshotPolicy",
-        "Get-PfbFileSystemUserGroupQuotaPolicy",
-        "Get-PfbFileSystemWormPolicy",
-        "Get-PfbFleetMember",
-        "Get-PfbLegalHoldEntity",
-        "Get-PfbLocalGroupMember",
-        "Get-PfbManagementAccessPolicyAdmin",
-        "Get-PfbManagementAccessPolicyDirectoryRole",
-        "Get-PfbManagementAccessPolicyMember",
-        "Get-PfbNetworkAccessPolicyMember",
-        "Get-PfbNetworkInterfaceTlsPolicy",
-        "Get-PfbNodeGroupNode",
-        "Get-PfbObjectStoreAccessPolicyRole",
-        "Get-PfbObjectStoreAccessPolicyUser",
-        "Get-PfbObjectStoreRoleAccessPolicy",
-        "Get-PfbObjectStoreUserAccessPolicy",
-        "Get-PfbPolicyAllMember",
-        "Get-PfbPolicyFileSystem",
-        "Get-PfbPolicyFileSystemReplicaLink",
-        "Get-PfbPolicyFileSystemSnapshot",
-        "Get-PfbQosPolicyBucket",
-        "Get-PfbQosPolicyFileSystem",
-        "Get-PfbQosPolicyMember",
-        "Get-PfbSshCaPolicyAdmin",
-        "Get-PfbSshCaPolicyArray",
-        "Get-PfbSshCaPolicyMember",
-        "Get-PfbStorageClassTieringPolicyMember",
-        "Get-PfbTlsPolicyMember",
-        "Get-PfbUserGroupQuotaPolicyFileSystem",
-        "Get-PfbUserGroupQuotaPolicyMember",
-        "Get-PfbWormPolicyMember",
-        "New-PfbAdminManagementAccessPolicy",
-        "New-PfbAdminSshCaPolicy",
-        "New-PfbArraySshCaPolicy",
-        "New-PfbAuditFileSystemPolicyMember",
-        "New-PfbAuditObjectStorePolicyMember",
-        "New-PfbBucketAccessPolicy",
-        "New-PfbBucketAccessPolicyRule",
-        "New-PfbBucketAuditFilter",
-        "New-PfbBucketCorsPolicy",
-        "New-PfbDirectoryServiceRoleManagementPolicy",
-        "New-PfbFileSystemAuditPolicy",
-        "New-PfbFileSystemExport",
-        "New-PfbFileSystemPolicy",
-        "New-PfbFileSystemUserGroupQuotaPolicy",
-        "New-PfbManagementAccessPolicyAdmin",
-        "New-PfbManagementAccessPolicyDirectoryRole",
-        "New-PfbNetworkInterfaceTlsPolicy",
-        "New-PfbObjectStoreAccessPolicyRole",
-        "New-PfbObjectStoreAccessPolicyUser",
-        "New-PfbObjectStoreRoleAccessPolicy",
-        "New-PfbObjectStoreUserAccessPolicy",
-        "New-PfbPolicyFileSystem",
-        "New-PfbQosPolicyMember",
-        "New-PfbSshCaPolicyAdmin",
-        "New-PfbSshCaPolicyArray",
-        "New-PfbUserGroupQuotaPolicyFileSystem",
-        "Remove-PfbAdminManagementAccessPolicy",
-        "Remove-PfbAdminSshCaPolicy",
-        "Remove-PfbArraySshCaPolicy",
-        "Remove-PfbAuditFileSystemPolicyMember",
-        "Remove-PfbAuditObjectStorePolicyMember",
-        "Remove-PfbBucketAccessPolicy",
-        "Remove-PfbBucketAuditFilter",
-        "Remove-PfbBucketCorsPolicy",
-        "Remove-PfbDataEvictionPolicyFileSystem",
-        "Remove-PfbDirectoryServiceRoleManagementPolicy",
-        "Remove-PfbFileSystemAuditPolicy",
-        "Remove-PfbFileSystemPolicy",
-        "Remove-PfbFileSystemReplicaLinkPolicy",
-        "Remove-PfbFileSystemSnapshotPolicy",
-        "Remove-PfbFileSystemUserGroupQuotaPolicy",
-        "Remove-PfbFleetMember",
-        "Remove-PfbLocalGroupMember",
-        "Remove-PfbManagementAccessPolicyAdmin",
-        "Remove-PfbManagementAccessPolicyDirectoryRole",
-        "Remove-PfbNetworkInterfaceTlsPolicy",
-        "Remove-PfbNodeGroupNode",
-        "Remove-PfbObjectStoreAccessPolicyRole",
-        "Remove-PfbObjectStoreAccessPolicyUser",
-        "Remove-PfbObjectStoreRoleAccessPolicy",
-        "Remove-PfbObjectStoreUserAccessPolicy",
-        "Remove-PfbPolicyFileSystem",
-        "Remove-PfbPolicyFileSystemReplicaLink",
-        "Remove-PfbQosPolicyMember",
-        "Remove-PfbSshCaPolicyAdmin",
-        "Remove-PfbSshCaPolicyArray",
-        "Remove-PfbUserGroupQuotaPolicyFileSystem"
-      ]
-    },
-    {
       "name": "policy_ids",
-      "cmdletCount": 98,
+      "cmdletCount": 99,
       "cmdlets": [
         "Add-PfbDataEvictionPolicyFileSystem",
         "Get-PfbAdminManagementAccessPolicy",
@@ -18922,6 +18780,7 @@
         "New-PfbNetworkAccessRule",
         "New-PfbNetworkInterfaceTlsPolicy",
         "New-PfbNfsExportRule",
+        "New-PfbObjectStoreAccountExport",
         "New-PfbPolicyFileSystem",
         "New-PfbPolicyFileSystemReplicaLink",
         "New-PfbQosPolicyMember",
@@ -18962,7 +18821,7 @@
     },
     {
       "name": "member_ids",
-      "cmdletCount": 85,
+      "cmdletCount": 86,
       "cmdlets": [
         "Add-PfbDataEvictionPolicyFileSystem",
         "Get-PfbAdminManagementAccessPolicy",
@@ -19021,6 +18880,7 @@
         "New-PfbManagementAccessPolicyAdmin",
         "New-PfbManagementAccessPolicyDirectoryRole",
         "New-PfbNetworkInterfaceTlsPolicy",
+        "New-PfbObjectStoreAccountExport",
         "New-PfbPolicyFileSystem",
         "New-PfbPolicyFileSystemReplicaLink",
         "New-PfbQosPolicyMember",
@@ -19053,7 +18913,7 @@
     },
     {
       "name": "total_only",
-      "cmdletCount": 39,
+      "cmdletCount": 38,
       "cmdlets": [
         "Get-PfbBucket",
         "Get-PfbBucketPerformance",
@@ -19080,7 +18940,6 @@
         "Get-PfbObjectStoreAccessPolicyRule",
         "Get-PfbObjectStoreAccessPolicyUser",
         "Get-PfbObjectStoreAccount",
-        "Get-PfbObjectStoreAccountExport",
         "Get-PfbObjectStoreRemoteCredential",
         "Get-PfbObjectStoreRole",
         "Get-PfbObjectStoreRoleAccessPolicy",
@@ -19555,27 +19414,11 @@
       ]
     },
     {
-      "name": "file_system",
-      "cmdletCount": 2,
-      "cmdlets": [
-        "New-PfbQuotaGroup",
-        "Update-PfbLogTargetFileSystem"
-      ]
-    },
-    {
       "name": "gids",
       "cmdletCount": 2,
       "cmdlets": [
         "Get-PfbFileSystemGroup",
         "Get-PfbFileSystemGroupQuota"
-      ]
-    },
-    {
-      "name": "group",
-      "cmdletCount": 2,
-      "cmdlets": [
-        "New-PfbQuotaGroup",
-        "Update-PfbDirectoryServiceRole"
       ]
     },
     {
@@ -19640,14 +19483,6 @@
       "cmdlets": [
         "Get-PfbObjectStoreRoleAccessPolicy",
         "Get-PfbObjectStoreTrustPolicy"
-      ]
-    },
-    {
-      "name": "server",
-      "cmdletCount": 2,
-      "cmdlets": [
-        "New-PfbFileSystemExport",
-        "Update-PfbFileSystemExport"
       ]
     },
     {
@@ -19814,17 +19649,17 @@
       ]
     },
     {
-      "name": "export_enabled",
-      "cmdletCount": 1,
-      "cmdlets": [
-        "Update-PfbObjectStoreAccountExport"
-      ]
-    },
-    {
       "name": "expose_api_token",
       "cmdletCount": 1,
       "cmdlets": [
         "Get-PfbApiToken"
+      ]
+    },
+    {
+      "name": "file_system",
+      "cmdletCount": 1,
+      "cmdlets": [
+        "Update-PfbLogTargetFileSystem"
       ]
     },
     {
@@ -19846,6 +19681,13 @@
       "cmdletCount": 1,
       "cmdlets": [
         "New-PfbSmbShareRule"
+      ]
+    },
+    {
+      "name": "group",
+      "cmdletCount": 1,
+      "cmdlets": [
+        "Update-PfbDirectoryServiceRole"
       ]
     },
     {
@@ -19972,6 +19814,13 @@
       "cmdletCount": 1,
       "cmdlets": [
         "Update-PfbQosPolicy"
+      ]
+    },
+    {
+      "name": "names_or_owner_names",
+      "cmdletCount": 1,
+      "cmdlets": [
+        "Get-PfbFileSystemReplicaLinkTransfer"
       ]
     },
     {
@@ -20517,11 +20366,6 @@
       "cmdlets": []
     },
     {
-      "name": "names_or_owner_names",
-      "cmdletCount": 0,
-      "cmdlets": []
-    },
-    {
       "name": "network_access_policy",
       "cmdletCount": 0,
       "cmdlets": []
@@ -20763,6 +20607,15 @@
         "file-system-snapshots",
         "file-system-replica-links",
         "object-store-users"
+      ],
+      "recommendation": "ArgumentCompleter"
+    },
+    {
+      "cmdlet": "Update-PfbSmtpServer",
+      "parameter": "EncryptionMode",
+      "wireName": "encryption_mode",
+      "specValues": [
+        "starttls"
       ],
       "recommendation": "ArgumentCompleter"
     }

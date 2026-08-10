@@ -3974,8 +3974,8 @@
     },
     {
       "cmdlet": "Get-PfbFileSystemReplicaLinkTransfer",
-      "parameter": "Name",
-      "wireName": "names",
+      "parameter": "NameOrOwnerName",
+      "wireName": "names_or_owner_names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -7366,16 +7366,6 @@
       "cmdlet": "Get-PfbObjectStoreAccountExport",
       "parameter": "Sort",
       "wireName": "sort",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Get-PfbObjectStoreAccountExport",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -13059,8 +13049,68 @@
     },
     {
       "cmdlet": "New-PfbObjectStoreAccountExport",
-      "parameter": "Name",
-      "wireName": "names",
+      "parameter": "ExportEnabled",
+      "wireName": "export_enabled",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbObjectStoreAccountExport",
+      "parameter": "MemberId",
+      "wireName": "member_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbObjectStoreAccountExport",
+      "parameter": "MemberName",
+      "wireName": "member_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbObjectStoreAccountExport",
+      "parameter": "PolicyId",
+      "wireName": "policy_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbObjectStoreAccountExport",
+      "parameter": "PolicyName",
+      "wireName": "policy_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbObjectStoreAccountExport",
+      "parameter": "ServerId",
+      "wireName": "server",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbObjectStoreAccountExport",
+      "parameter": "ServerName",
+      "wireName": "server",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -13391,26 +13441,6 @@
       "cmdlet": "New-PfbQosPolicyMember",
       "parameter": "PolicyName",
       "wireName": "policy_names",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "New-PfbQuotaGroup",
-      "parameter": "FileSystemName",
-      "wireName": "file_system",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "New-PfbQuotaGroup",
-      "parameter": "GroupName",
-      "wireName": "group",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -16878,26 +16908,6 @@
       "recommendation": null
     },
     {
-      "cmdlet": "Test-PfbSyslogServer",
-      "parameter": "Id",
-      "wireName": "ids",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Test-PfbSyslogServer",
-      "parameter": "Name",
-      "wireName": "names",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
       "cmdlet": "Update-PfbActiveDirectory",
       "parameter": "CaCertificate",
       "wireName": "ca_certificate",
@@ -19458,7 +19468,19 @@
       "recommendation": null
     },
     {
-      "cmdlet": "Update-PfbSmtp",
+      "cmdlet": "Update-PfbSmtpServer",
+      "parameter": "EncryptionMode",
+      "wireName": "encryption_mode",
+      "status": "matched",
+      "matchedKey": "SmtpServer.encryption_mode",
+      "specValues": [
+        "starttls"
+      ],
+      "stableSinceOldestVersion": false,
+      "recommendation": "ArgumentCompleter"
+    },
+    {
+      "cmdlet": "Update-PfbSmtpServer",
       "parameter": "RelayHost",
       "wireName": "relay_host",
       "status": "no-spec-enum-found",
@@ -19468,7 +19490,7 @@
       "recommendation": null
     },
     {
-      "cmdlet": "Update-PfbSmtp",
+      "cmdlet": "Update-PfbSmtpServer",
       "parameter": "SenderDomain",
       "wireName": "sender_domain",
       "status": "no-spec-enum-found",
@@ -20270,6 +20292,18 @@
       "parameter": "Enabled"
     },
     {
+      "cmdlet": "New-PfbQuotaGroup",
+      "parameter": "FileSystemName"
+    },
+    {
+      "cmdlet": "New-PfbQuotaGroup",
+      "parameter": "GroupId"
+    },
+    {
+      "cmdlet": "New-PfbQuotaGroup",
+      "parameter": "GroupName"
+    },
+    {
       "cmdlet": "New-PfbQuotaUser",
       "parameter": "FileSystemName"
     },
@@ -20408,6 +20442,10 @@
     {
       "cmdlet": "Update-PfbQuotaGroup",
       "parameter": "FileSystemName"
+    },
+    {
+      "cmdlet": "Update-PfbQuotaGroup",
+      "parameter": "GroupId"
     },
     {
       "cmdlet": "Update-PfbQuotaGroup",
@@ -20558,6 +20596,10 @@
     {
       "cmdlet": "Remove-PfbQuotaGroup",
       "parameter": "FileSystemName"
+    },
+    {
+      "cmdlet": "Remove-PfbQuotaGroup",
+      "parameter": "GroupId"
     },
     {
       "cmdlet": "Remove-PfbQuotaGroup",
