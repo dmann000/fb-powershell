@@ -1625,3 +1625,47 @@ function Get-PfbFixtureOrderAlpha {
         @($gap.Cmdlets) | Should -Be @('Get-PfbFixtureOrderZulu', 'Test-PfbFixtureOrderZulu')
     }
 }
+
+Describe 'ConvertTo-PfbRepoRelativePath (REGRESSION guard for issue #63: runs with no spec cache, on every edition)' {
+    # DELIBERATELY UNGATED -- matching the ungated siblings in this file, not the PS7-gated ones,
+    # and it must stay that way: the whole point is that this runs on every CI leg.
+    #
+    # Issue #63: every guard that checks the drift report for absolute paths asserts against a
+    # FRESHLY REGENERATED report, so all of them need tools/specs/ -- a gitignored build cache
+    # absent on every runner. They reported "skipped", the job reported success, and the
+    # regression they exist to catch was unprotected in CI. Re-pointing them at the COMMITTED
+    # report fixes the cache dependency, but cannot catch a regression in this function:
+    # breaking it does not alter a file that is already committed. Only a direct unit test does.
+    It 'strips the repo root and returns a forward-slashed relative path' {
+        ConvertTo-PfbRepoRelativePath -Path 'C:\repo\Public\Get-PfbThing.ps1' -RepoRoot 'C:\repo' |
+            Should -Be 'Public/Get-PfbThing.ps1'
+    }
+
+    It 'strips the repo root case-insensitively' {
+        ConvertTo-PfbRepoRelativePath -Path 'C:\REPO\Public\Get-PfbThing.ps1' -RepoRoot 'C:\repo' |
+            Should -Be 'Public/Get-PfbThing.ps1'
+    }
+
+    It 'forward-slashes a POSIX repo-root path too' {
+        ConvertTo-PfbRepoRelativePath -Path '/home/runner/work/fb/Public/Get-PfbThing.ps1' -RepoRoot '/home/runner/work/fb' |
+            Should -Be 'Public/Get-PfbThing.ps1'
+    }
+
+    It 'emits no drive-letter or leading-slash absolute path for any path under the repo root' {
+        $result = ConvertTo-PfbRepoRelativePath -Path 'C:\repo\Private\Invoke-PfbApiRequest.ps1' -RepoRoot 'C:\repo'
+        $result | Should -Not -Match '^[A-Za-z]:[\\/]'
+        $result | Should -Not -Match '^[\\/]'
+    }
+
+    It 'falls back to the forward-slashed absolute path when the file is genuinely outside the repo root' {
+        # A test pointing -PublicDirectory at a synthetic fixture tree hits this. Documented
+        # behaviour, not a bug -- it must not throw a Substring range error.
+        ConvertTo-PfbRepoRelativePath -Path 'D:\elsewhere\Thing.ps1' -RepoRoot 'C:\repo' |
+            Should -Be 'D:/elsewhere/Thing.ps1'
+    }
+
+    It 'returns an empty or null path unchanged' {
+        ConvertTo-PfbRepoRelativePath -Path '' -RepoRoot 'C:\repo' | Should -BeNullOrEmpty
+        ConvertTo-PfbRepoRelativePath -Path $null -RepoRoot 'C:\repo' | Should -BeNullOrEmpty
+    }
+}

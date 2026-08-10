@@ -1569,3 +1569,39 @@ function Get-PfbResponseShapeFindings {
         UnhandledEnvelopeFields = @($unhandled | Sort-Object { -$_.EndpointCount }, { $_.Field })
     }
 }
+
+function ConvertTo-PfbRepoRelativePath {
+    <#
+    .SYNOPSIS
+        Rewrites an absolute cmdlet path to a forward-slashed path relative to $RepoRoot.
+    .DESCRIPTION
+        Every path the drift report emits MUST be repo-relative. These artifacts are committed, so
+        an absolute path bakes the generating machine's directory layout into the repository: it
+        leaks a local filesystem structure, and it makes the committed file depend on WHERE it was
+        generated -- regenerating from a git worktree instead of the main checkout rewrites every
+        such line, producing hundreds of lines of diff churn that bury the real changes.
+
+        Falls back to the forward-slashed absolute path when the file genuinely is not under
+        $RepoRoot (a test pointing -PublicDirectory at a synthetic fixture tree), rather than
+        throwing a Substring range error.
+
+        Lives here rather than in tools/Build-PfbApiDriftReport.ps1 so it can be unit-tested
+        directly with no tools/specs/ cache present -- see issue #63. The guards that assert the
+        report carries no absolute path cannot catch a regression in this function on their own:
+        the ones reading the COMMITTED report are unaffected by it, and the ones regenerating a
+        report need the spec cache, so they skipped silently on every CI runner.
+    .PARAMETER RepoRoot
+        Explicit rather than closed-over: a lib function must not depend on a caller's
+        script-scoped variable.
+    #>
+    param(
+        [string]$Path,
+        [Parameter(Mandatory)][string]$RepoRoot
+    )
+
+    if (-not $Path) { return $Path }
+    if ($Path.StartsWith($RepoRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return ($Path.Substring($RepoRoot.Length + 1)) -replace '\\', '/'
+    }
+    return $Path -replace '\\', '/'
+}
