@@ -21,7 +21,10 @@
     # all of them. A single shared ceiling would be either a permanent false red on 5.1 or
     # useless on 7.
     pwsh7   = @{
-        MaxSkipped        = 15
+        # Measured 2 on run 31359783827 (ubuntu-latest, pwsh, spec cache restored): 1842
+        # passed / 0 failed / 2 skipped. 8 leaves room for a handful of legitimate additions
+        # without going so loose that a real regression hides under it.
+        MaxSkipped        = 8
         RequiredDescribes = @(
             # Ungated -- these run on every leg and are the #63 regression guards themselves.
             'Committed drift report (REGRESSION guard, no spec cache required)'
@@ -39,7 +42,10 @@
         )
     }
     winps51 = @{
-        MaxSkipped        = 260
+        # Measured 169 on the same run (windows-latest, Windows PowerShell 5.1): 1675 passed /
+        # 0 failed / 169 skipped. The gap versus pwsh7's 2 is the PS7-gated tooling Describes,
+        # skipping exactly as designed -- not a defect.
+        MaxSkipped        = 185
         # Only the ungated blocks are required here. The six spec-cache blocks above are
         # PS7-gated by design, so requiring them on 5.1 would be a permanent false red.
         RequiredDescribes = @(

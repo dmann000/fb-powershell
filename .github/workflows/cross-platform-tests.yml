@@ -72,7 +72,7 @@ jobs:
           key: pfb-specs-${{ github.run_id }}
 
       - name: Publish specs to the test jobs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: pfb-specs
           path: tools/specs
@@ -92,7 +92,7 @@ jobs:
 
       # Issue #63: without this, every tools/specs-gated test skips and the job still passes.
       - name: Download API spec cache
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: pfb-specs
           path: tools/specs
@@ -124,7 +124,7 @@ jobs:
       # additionally PS7-gated so they still skip on this leg, but a future spec-dependent
       # test that does NOT carry the PS7 guard then works with no workflow change.
       - name: Download API spec cache
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: pfb-specs
           path: tools/specs
