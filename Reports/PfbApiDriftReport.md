@@ -23,11 +23,11 @@ This report accepts **false positives in order to eliminate false negatives**. A
 - Uncovered endpoints: 96
 - Endpoints with parameter gaps: 438
 - Missing body properties (addable): 422
-- Missing query parameters (addable): 952
+- Missing query parameters (addable): 947
 - Read-only body fields (not addable -- see the Read-only fields section below): 382
 - Phantom fields silently excluded (accumulated in the capability map, absent from the newest analysed spec): 40
 - Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 59
-- Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): 252
+- Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): 250
 - ValidateSet drift: 0
 - New ValidateSet candidates: 1
 - Context cardinality signal disagreements (fb2.28): 9
@@ -39,14 +39,14 @@ This report accepts **false positives in order to eliminate false negatives**. A
 
 One finding per distinct wire field name, collapsed across every endpoint where a high-confidence gap exists (decision 7) -- turns hundreds of per-endpoint rows into a handful of real, actionable decisions. "Cmdlets already using this name" is decision 8's convention-strength ranking: a high count means closing the remaining gaps for this name is a mechanical batch fix; zero means no established convention exists to extend at all -- closing it is an architectural decision, not a mechanical one.
 
-Showing the top 25 of 252 findings by endpoint count -- the full list is in the JSON manifest's `systemicGaps`, nothing is dropped there.
+Showing the top 25 of 250 findings by endpoint count -- the full list is in the JSON manifest's `systemicGaps`, nothing is dropped there.
 
 | Field name | Endpoints | Query | Body | Cmdlets already using this name | Annotation |
 |---|---|---|---|---|---|
 | `context_names` | 270 | 270 | 0 | 0 | not yet implemented |
 | `allow_errors` | 118 | 118 | 0 | 0 | not yet implemented |
-| `ids` | 43 | 43 | 0 | 223 |  |
-| `names` | 31 | 31 | 0 | 308 |  |
+| `ids` | 43 | 43 | 0 | 221 |  |
+| `names` | 31 | 31 | 0 | 306 |  |
 | `sort` | 28 | 28 | 0 | 180 |  |
 | `bucket_ids` | 17 | 17 | 0 | 2 |  |
 | `policy_ids` | 17 | 17 | 0 | 98 |  |
@@ -76,7 +76,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | Endpoint | Cmdlets | Missing query parameters | Missing body properties | Confidence | Notes |
 |---|---|---|---|---|---|
 | `DELETE /active-directory` | Remove-PfbActiveDirectory | local_only |  | `high` |  |
-| `DELETE /admins/api-tokens` | Remove-PfbApiToken | admin_ids, admin_names, context_names |  | `high` |  |
+| `DELETE /admins/api-tokens` | Remove-PfbApiToken | context_names |  | `high` |  |
 | `DELETE /admins/cache` | Remove-PfbAdminCache | context_names |  | `high` |  |
 | `DELETE /admins/management-access-policies` | Remove-PfbAdminManagementAccessPolicy | context_names |  | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
 | `DELETE /admins/ssh-certificate-authority-policies` | Remove-PfbAdminSshCaPolicy | context_names |  | `high` |  |
@@ -161,7 +161,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /active-directory` | Get-PfbActiveDirectory | ids, limit, sort |  | `high` |  |
 | `GET /active-directory/test` | Test-PfbActiveDirectory | allow_errors, context_names, filter, limit, sort |  | `high` |  |
 | `GET /admins` | Get-PfbAdmin | allow_errors, context_names, expose_api_token |  | `high` |  |
-| `GET /admins/api-tokens` | Get-PfbApiToken | admin_ids, admin_names, allow_errors, context_names, expose_api_token |  | `high` |  |
+| `GET /admins/api-tokens` | Get-PfbApiToken | allow_errors, context_names |  | `high` |  |
 | `GET /admins/cache` | Get-PfbAdminCache | allow_errors, context_names, refresh |  | `high` |  |
 | `GET /admins/management-access-policies` | Get-PfbAdminManagementAccessPolicy | allow_errors, context_names, sort |  | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
 | `GET /admins/ssh-certificate-authority-policies` | Get-PfbAdminSshCaPolicy | allow_errors, context_names, sort |  | `high` |  |

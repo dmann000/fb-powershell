@@ -476,8 +476,6 @@
         "Remove-PfbApiToken"
       ],
       "missingQueryParameters": [
-        "admin_ids",
-        "admin_names",
         "context_names"
       ],
       "missingBodyProperties": [],
@@ -2189,11 +2187,8 @@
         "Get-PfbApiToken"
       ],
       "missingQueryParameters": [
-        "admin_ids",
-        "admin_names",
         "allow_errors",
-        "context_names",
-        "expose_api_token"
+        "context_names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -10565,7 +10560,7 @@
           "enumStatus": "matched",
           "target": {
             "file": "Public/Replication/New-PfbFileSystemReplicaLink.ps1",
-            "paramBlockLine": 55,
+            "paramBlockLine": 61,
             "payloadVariable": "body",
             "assignmentStyle": "unknown",
             "hasAttributes": false
@@ -10582,7 +10577,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Replication/New-PfbFileSystemReplicaLink.ps1",
-            "paramBlockLine": 55,
+            "paramBlockLine": 61,
             "payloadVariable": "body",
             "assignmentStyle": "unknown",
             "hasAttributes": false
@@ -10599,7 +10594,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Replication/New-PfbFileSystemReplicaLink.ps1",
-            "paramBlockLine": 55,
+            "paramBlockLine": 61,
             "payloadVariable": "body",
             "assignmentStyle": "unknown",
             "hasAttributes": false
@@ -10616,7 +10611,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Replication/New-PfbFileSystemReplicaLink.ps1",
-            "paramBlockLine": 55,
+            "paramBlockLine": 61,
             "payloadVariable": "body",
             "assignmentStyle": "unknown",
             "hasAttributes": false
@@ -10633,7 +10628,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Replication/New-PfbFileSystemReplicaLink.ps1",
-            "paramBlockLine": 55,
+            "paramBlockLine": 61,
             "payloadVariable": "body",
             "assignmentStyle": "unknown",
             "hasAttributes": false
@@ -10650,7 +10645,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Replication/New-PfbFileSystemReplicaLink.ps1",
-            "paramBlockLine": 55,
+            "paramBlockLine": 61,
             "payloadVariable": "body",
             "assignmentStyle": "unknown",
             "hasAttributes": false
@@ -15569,28 +15564,6 @@
       "annotations": []
     },
     {
-      "name": "admin_ids",
-      "endpointCount": 2,
-      "queryEndpointCount": 2,
-      "bodyEndpointCount": 0,
-      "endpoints": [
-        "DELETE /admins/api-tokens",
-        "GET /admins/api-tokens"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "admin_names",
-      "endpointCount": 2,
-      "queryEndpointCount": 2,
-      "bodyEndpointCount": 0,
-      "endpoints": [
-        "DELETE /admins/api-tokens",
-        "GET /admins/api-tokens"
-      ],
-      "annotations": []
-    },
-    {
       "name": "component_name",
       "endpointCount": 2,
       "queryEndpointCount": 2,
@@ -15642,17 +15615,6 @@
       "endpoints": [
         "POST /presets/workload",
         "PUT /presets/workload"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "expose_api_token",
-      "endpointCount": 2,
-      "queryEndpointCount": 2,
-      "bodyEndpointCount": 0,
-      "endpoints": [
-        "GET /admins",
-        "GET /admins/api-tokens"
       ],
       "annotations": []
     },
@@ -16516,6 +16478,16 @@
       "bodyEndpointCount": 1,
       "endpoints": [
         "POST /object-store-account-exports"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "expose_api_token",
+      "endpointCount": 1,
+      "queryEndpointCount": 1,
+      "bodyEndpointCount": 0,
+      "endpoints": [
+        "GET /admins"
       ],
       "annotations": []
     },
@@ -17513,7 +17485,7 @@
   "conventionStrength": [
     {
       "name": "names",
-      "cmdletCount": 308,
+      "cmdletCount": 306,
       "cmdlets": [
         "Get-PfbActiveDirectory",
         "Get-PfbAdmin",
@@ -17521,7 +17493,6 @@
         "Get-PfbAlert",
         "Get-PfbAlertWatcher",
         "Get-PfbApiClient",
-        "Get-PfbApiToken",
         "Get-PfbArrayConnectionKey",
         "Get-PfbAsyncLog",
         "Get-PfbAsyncLogDownload",
@@ -17683,7 +17654,6 @@
         "Remove-PfbAdminCache",
         "Remove-PfbAlertWatcher",
         "Remove-PfbApiClient",
-        "Remove-PfbApiToken",
         "Remove-PfbAuditFileSystemPolicy",
         "Remove-PfbAuditObjectStorePolicy",
         "Remove-PfbBucket",
@@ -17827,14 +17797,13 @@
     },
     {
       "name": "ids",
-      "cmdletCount": 223,
+      "cmdletCount": 221,
       "cmdlets": [
         "Get-PfbAdmin",
         "Get-PfbAdminCache",
         "Get-PfbAlert",
         "Get-PfbAlertWatcher",
         "Get-PfbApiClient",
-        "Get-PfbApiToken",
         "Get-PfbArrayConnection",
         "Get-PfbAsyncLog",
         "Get-PfbAsyncLogDownload",
@@ -17927,7 +17896,6 @@
         "Remove-PfbAdminCache",
         "Remove-PfbAlertWatcher",
         "Remove-PfbApiClient",
-        "Remove-PfbApiToken",
         "Remove-PfbArrayConnection",
         "Remove-PfbAuditFileSystemPolicy",
         "Remove-PfbAuditObjectStorePolicy",
@@ -19720,20 +19688,6 @@
       ]
     },
     {
-      "name": "admin_ids",
-      "cmdletCount": 1,
-      "cmdlets": [
-        "New-PfbApiToken"
-      ]
-    },
-    {
-      "name": "admin_names",
-      "cmdletCount": 1,
-      "cmdlets": [
-        "New-PfbApiToken"
-      ]
-    },
-    {
       "name": "aggregation_strategy",
       "cmdletCount": 1,
       "cmdlets": [
@@ -19864,6 +19818,13 @@
       "cmdletCount": 1,
       "cmdlets": [
         "Update-PfbObjectStoreAccountExport"
+      ]
+    },
+    {
+      "name": "expose_api_token",
+      "cmdletCount": 1,
+      "cmdlets": [
+        "Get-PfbApiToken"
       ]
     },
     {
@@ -20392,11 +20353,6 @@
     },
     {
       "name": "export_configurations",
-      "cmdletCount": 0,
-      "cmdlets": []
-    },
-    {
-      "name": "expose_api_token",
       "cmdletCount": 0,
       "cmdlets": []
     },
