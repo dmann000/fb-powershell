@@ -60,14 +60,10 @@ Describe 'Get-PfbFileSystemGroup' {
         }
     }
 
-    It 'sends total_only=true when -TotalOnly is set' {
-        InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
-            param($arr)
-            Get-PfbFileSystemGroup -TotalOnly -Array $arr
-        }
+    It 'does not expose -TotalOnly (file-systems/groups does not declare total_only, #102)' {
+        (Get-Command Get-PfbFileSystemGroup).Parameters.Keys | Should -Not -Contain 'TotalOnly'
 
-        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
-            $QueryParams['total_only'] -eq 'true'
-        }
+        { Get-PfbFileSystemGroup -TotalOnly -Array $fakeArray } |
+            Should -Throw -ExpectedMessage '*TotalOnly*'
     }
 }
