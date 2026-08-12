@@ -20,8 +20,6 @@ function Get-PfbFileSystemUserGroupQuotaPolicy {
         Sort field and direction.
     .PARAMETER Limit
         Maximum number of items to return.
-    .PARAMETER TotalOnly
-        Return only the total count, not the items.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
@@ -38,7 +36,6 @@ function Get-PfbFileSystemUserGroupQuotaPolicy {
         [Parameter()] [string]$Filter,
         [Parameter()] [string]$Sort,
         [Parameter()] [int]$Limit,
-        [Parameter()] [switch]$TotalOnly,
         [Parameter()] [PSCustomObject]$Array
     )
 

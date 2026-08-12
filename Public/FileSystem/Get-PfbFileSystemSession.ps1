@@ -16,8 +16,6 @@ function Get-PfbFileSystemSession {
         Sort field and direction.
     .PARAMETER Limit
         Maximum number of items to return.
-    .PARAMETER TotalOnly
-        Return only the total count, not the items.
     .PARAMETER Protocol
         Restricts results to sessions using one or more specific protocols. Valid values are
         "nfs" and "smb".
@@ -48,9 +46,6 @@ function Get-PfbFileSystemSession {
         [Parameter()]
         [ValidateRange(1, 10000)]
         [int]$Limit,
-
-        [Parameter()]
-        [switch]$TotalOnly,
 
         [Parameter()]
         [ValidateSet('nfs', 'smb')]

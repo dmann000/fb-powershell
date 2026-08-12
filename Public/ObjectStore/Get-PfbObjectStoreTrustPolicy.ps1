@@ -16,8 +16,6 @@ function Get-PfbObjectStoreTrustPolicy {
         Sort field and direction.
     .PARAMETER Limit
         Maximum number of items to return.
-    .PARAMETER TotalOnly
-        Return only the total count.
     .PARAMETER Array
         The FlashBlade connection object.
     .EXAMPLE
@@ -41,7 +39,6 @@ function Get-PfbObjectStoreTrustPolicy {
         [Parameter()] [string]$Filter,
         [Parameter()] [string]$Sort,
         [Parameter()] [int]$Limit,
-        [Parameter()] [switch]$TotalOnly,
         [Parameter()] [PSCustomObject]$Array
     )
 
