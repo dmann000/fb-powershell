@@ -21,7 +21,8 @@ function Update-PfbArrayConnection {
         pipeline input by property name.
     .PARAMETER Id
         The ID of the array connection to update. Accepts pipeline input by property name, so
-        connection objects from Get-PfbArrayConnection can be piped in directly.
+        connection objects from Get-PfbArrayConnection can be piped in directly. Legal on its own
+        and alongside -RemoteId.
     .PARAMETER ManagementAddress
         Management address of the target array.
     .PARAMETER ReplicationAddresses
@@ -39,10 +40,9 @@ function Update-PfbArrayConnection {
         The bandwidth throttling for the array connection, as a hashtable -- for example
         @{ default_limit = 1073741824 }.
     .PARAMETER RemoteId
-        Narrows the operation to the array connection with the specified remote array ID. This
-        is an additional filter, not a selector: it cannot be used on its own, so combine it
-        with -RemoteName or -Id. To select purely by remote array ID, filter client-side -- see
-        the last example.
+        The ID of the REMOTE array whose connection to update. A selector in its own right, and
+        combinable with -Id. Mutually exclusive with -RemoteName: the API declares remote_names
+        and remote_ids as alternative ways to name the same remote dimension.
     .PARAMETER Attributes
         A hashtable of array connection attributes to modify. Mutually exclusive with the
         individual typed parameters above.
@@ -67,13 +67,11 @@ function Update-PfbArrayConnection {
         Throttles every asynchronous replication connection. The type filter is required, not
         optional: fleet-management connections are managed by the system and reject writes.
     .EXAMPLE
-        Get-PfbArrayConnection |
-            Where-Object { $_.remote.id -eq '10314f42-020d-7080-8013-000133810cd0' } |
-            Update-PfbArrayConnection -Throttle @{ default_limit = 1073741824 }
+        Update-PfbArrayConnection -RemoteId '10314f42-020d-7080-8013-000133810cd0' `
+            -Throttle @{ default_limit = 1073741824 }
 
-        Selects a connection by the remote array's id. -RemoteId narrows a request that is
-        already scoped by -RemoteName or -Id; it cannot select on its own, so filter
-        client-side and let the connection's own id bind through the pipeline.
+        Selects the connection by the remote array's id. PATCH /array-connections documents
+        remote_ids as a selector, so no other selector is needed.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium',
                    DefaultParameterSetName = 'ByRemoteNameIndividual')]
@@ -89,39 +87,48 @@ function Update-PfbArrayConnection {
 
         [Parameter(ParameterSetName = 'ByRemoteNameIndividual')]
         [Parameter(ParameterSetName = 'ByIdIndividual')]
+        [Parameter(ParameterSetName = 'ByRemoteIdIndividual')]
         [string]$ManagementAddress,
 
         [Parameter(ParameterSetName = 'ByRemoteNameIndividual')]
         [Parameter(ParameterSetName = 'ByIdIndividual')]
+        [Parameter(ParameterSetName = 'ByRemoteIdIndividual')]
         [string[]]$ReplicationAddresses,
 
         [Parameter(ParameterSetName = 'ByRemoteNameIndividual')]
         [Parameter(ParameterSetName = 'ByIdIndividual')]
+        [Parameter(ParameterSetName = 'ByRemoteIdIndividual')]
         [string]$CaCertificateGroup,
 
         [Parameter(ParameterSetName = 'ByRemoteNameIndividual')]
         [Parameter(ParameterSetName = 'ByIdIndividual')]
+        [Parameter(ParameterSetName = 'ByRemoteIdIndividual')]
         [Nullable[bool]]$Encrypted,
 
         [Parameter(ParameterSetName = 'ByRemoteNameIndividual')]
         [Parameter(ParameterSetName = 'ByIdIndividual')]
+        [Parameter(ParameterSetName = 'ByRemoteIdIndividual')]
         [string]$Remote,
 
         [Parameter(ParameterSetName = 'ByRemoteNameIndividual')]
         [Parameter(ParameterSetName = 'ByIdIndividual')]
+        [Parameter(ParameterSetName = 'ByRemoteIdIndividual')]
         [hashtable]$Throttle,
 
         [Parameter(ParameterSetName = 'ByRemoteNameAttributes', Mandatory)]
         [Parameter(ParameterSetName = 'ByIdAttributes',   Mandatory)]
+        [Parameter(ParameterSetName = 'ByRemoteIdAttributes', Mandatory)]
         [hashtable]$Attributes,
 
-        # Constraint 17: remote_ids is an orthogonal query FILTER, not a body field and not a
-        # selector, so it is declared bare rather than added to the Individual parameter sets --
-        # it must stay usable alongside -Attributes. remote_names used to live here too, but
-        # issue #64 promoted it into the by-name parameter sets: an array connection has no name
-        # of its own, so the remote array's name IS the selector. remote_ids remains a filter
-        # that narrows an already-selected request; see the .PARAMETER RemoteId help.
-        [Parameter()] [string]$RemoteId,
+        # remote_ids is a selector and cannot be combined with remote_names. It is mandatory in
+        # its own two sets so it can select alone, and optional in the ById sets so ids +
+        # remote_ids stays legal. -Id is deliberately not mirrored into the ByRemoteId sets --
+        # see Remove-PfbArrayConnection.ps1 for the binding-pass reason.
+        [Parameter(ParameterSetName = 'ByIdIndividual')]
+        [Parameter(ParameterSetName = 'ByIdAttributes')]
+        [Parameter(ParameterSetName = 'ByRemoteIdIndividual', Mandatory)]
+        [Parameter(ParameterSetName = 'ByRemoteIdAttributes',  Mandatory)]
+        [string]$RemoteId,
 
         [Parameter()] [PSCustomObject]$Array
     )
@@ -156,7 +163,7 @@ function Update-PfbArrayConnection {
             if ($PSBoundParameters.ContainsKey('Throttle'))           { $body['throttle'] = $Throttle }
         }
 
-        $target = if ($RemoteName) { $RemoteName } else { $Id }
+        $target = if ($RemoteName) { $RemoteName } elseif ($RemoteId) { $RemoteId } else { $Id }
         if ($PSCmdlet.ShouldProcess($target, 'Update array connection')) {
             Invoke-PfbApiRequest -Array $Array -Method PATCH -Endpoint 'array-connections' -Body $body -QueryParams $queryParams
         }

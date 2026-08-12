@@ -6,13 +6,14 @@ function Assert-PfbRemoteNameNotCoerced {
         PowerShell resolves pipeline binding in three passes: ByValue-without-coercion,
         then ByPropertyName-without-coercion, then ByValue-WITH-coercion.
 
-        Get-PfbArrayConnectionPath and Get-PfbArrayConnectionPerformanceReplication have no -Id
-        parameter at all, so a piped connection object falls through to pass 3 and the entire
-        PSCustomObject is ToString()-ed into [string[]]$RemoteName. Get-/Remove-PfbArrayConnection
-        do expose -Id and usually bind at pass 2 on it, but that is a property of the piped
-        OBJECT, not of the cmdlet: pipe anything lacking id/name/remoteName and pass 3 fires
-        there too. (Update-PfbArrayConnection is genuinely immune -- neither of its parameters
-        declares ValueFromPipeline, so pass 3 is unreachable and the guard would be dead code.)
+        Every array-connection read and the remove cmdlet now expose -Id, so a piped connection
+        object that carries an `id` property binds at pass 2 and never reaches pass 3. That is a
+        property of the piped OBJECT, not of the cmdlet: pipe anything that has neither a
+        bindable `id` nor a name/remoteName property and pass 3 still fires, ToString()-ing the
+        entire PSCustomObject into [string[]]$RemoteName. Objects of that shape are what this
+        guard exists for. (Update-PfbArrayConnection is genuinely immune -- none of its
+        parameters declares ValueFromPipeline, so pass 3 is unreachable and the guard would be
+        dead code.)
 
         Either way the result is a garbage filter such as
 
