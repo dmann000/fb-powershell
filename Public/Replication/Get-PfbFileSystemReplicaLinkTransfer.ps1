@@ -19,6 +19,13 @@ function Get-PfbFileSystemReplicaLinkTransfer {
     .PARAMETER Id
         One or more replica link transfer IDs to retrieve transfer status for. Accepts
         pipeline input by property name.
+    .PARAMETER RemoteName
+        One or more REMOTE ARRAY names whose transfers to retrieve. Composes with either
+        selector set. Mutually exclusive with -RemoteId: the API declares remote_names and
+        remote_ids as alternative ways to name the same remote dimension.
+    .PARAMETER RemoteId
+        One or more REMOTE ARRAY IDs whose transfers to retrieve. Composes with either selector
+        set. Mutually exclusive with -RemoteName.
     .PARAMETER Filter
         A server-side filter expression to narrow results (e.g., "direction='outbound'").
     .PARAMETER Sort
@@ -59,6 +66,19 @@ function Get-PfbFileSystemReplicaLinkTransfer {
         [ValidateNotNullOrEmpty()]
         [string[]]$Id,
 
+        # The remote-array dimension is orthogonal to the existing selector sets, so
+        # -RemoteName and -RemoteId stay out of them and remain usable alongside either. The
+        # spec forbids only their combination with each other, which is enforced at runtime in
+        # begin{} rather than by two more parameter sets: putting them in exclusive sets would
+        # split every existing set in two and make -Name/-Id resolution ambiguous.
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string[]]$RemoteName,
+
+        [Parameter()]
+        [ValidateNotNullOrEmpty()]
+        [string[]]$RemoteId,
+
         [Parameter()]
         [string]$Filter,
 
@@ -77,6 +97,9 @@ function Get-PfbFileSystemReplicaLinkTransfer {
     )
 
     begin {
+        if ($PSBoundParameters.ContainsKey('RemoteName') -and $PSBoundParameters.ContainsKey('RemoteId')) {
+            throw '-RemoteName and -RemoteId cannot be used together: remote_names and remote_ids are mutually exclusive.'
+        }
         Assert-PfbConnection -Array ([ref]$Array)
         $allNames = [System.Collections.Generic.List[string]]::new()
         $allIds = [System.Collections.Generic.List[string]]::new()
@@ -96,8 +119,12 @@ function Get-PfbFileSystemReplicaLinkTransfer {
         $queryParams = @{}
         # names_or_owner_names is an endpoint-specific selector. The common helper only
         # knows the generic names key, which this endpoint does not declare.
+        # remote_names and remote_ids are assigned inline for the reason given in
+        # Get-PfbArrayConnection.ps1: they are replication-family keys, not common ones.
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Ids $allIds
         if ($allNames.Count) { $queryParams['names_or_owner_names'] = $allNames -join ',' }
+        if ($RemoteName) { $queryParams['remote_names'] = $RemoteName -join ',' }
+        if ($RemoteId)   { $queryParams['remote_ids']   = $RemoteId   -join ',' }
 
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'file-system-replica-links/transfer' -QueryParams $queryParams -AutoPaginate
     }
