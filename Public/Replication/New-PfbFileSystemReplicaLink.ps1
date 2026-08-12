@@ -27,8 +27,9 @@ function New-PfbFileSystemReplicaLink {
         -LocalFileSystemName is still required, because a replica link is created from a
         local/remote pair and the remote selector alone does not identify one.
     .PARAMETER Id
-        The endpoint's documented ids selector, sent as ids. An optional qualifier on the
-        create; it does not replace the mandatory -LocalFileSystemName identity.
+        Sent verbatim as the ids query parameter, which this endpoint publishes. The published
+        spec does not document what ids means on a create, so no create behaviour is claimed
+        for it here.
     .PARAMETER RemoteFileSystemName
         Name of the target file system on the remote array. If omitted, the FlashBlade
         will name it after the local file system.

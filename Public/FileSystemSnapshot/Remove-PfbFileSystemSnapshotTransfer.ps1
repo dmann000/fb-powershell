@@ -6,6 +6,9 @@ function Remove-PfbFileSystemSnapshotTransfer {
         Cancels or removes an in-progress or completed file system snapshot transfer.
         This is a disruptive operation that stops replication of the snapshot to
         the remote target.
+
+        -RemoteName and -RemoteId are qualifiers rather than identities: one of -Name or -Id
+        is always required, and a remote selector only narrows that transfer further.
     .PARAMETER Name
         The name of the snapshot transfer to remove.
     .PARAMETER Id
