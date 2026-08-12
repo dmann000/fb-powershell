@@ -290,8 +290,9 @@ function New-PfbFileSystem {
             if ($null -ne $Attributes) { $smbValue = $Attributes['smb'] }
 
             if ($smbValue -is [System.Collections.IDictionary]) {
-                # Cast first: IDictionary's own indexer returns $null for a missing key on every
-                # implementation, whereas a generic dictionary's typed indexer throws.
+                # The cast pins the lookup to the non-generic IDictionary indexer explicitly,
+                # so the same indexer is used for whatever concrete dictionary type the caller
+                # supplied rather than leaving the choice implicit.
                 $smbSharePolicySupplied = $null -ne ([System.Collections.IDictionary]$smbValue)['share_policy']
             }
             elseif ($null -ne $smbValue) {
