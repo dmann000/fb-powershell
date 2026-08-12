@@ -13,6 +13,12 @@ function New-PfbFileSystem {
         export records in a disabled state — this is API behavior, not a module bug. Only
         the protocol switches you pass are flipped to enabled.
 
+        Default exports: this cmdlet always sends the API's default_exports query parameter,
+        and sends the documented empty value when -DefaultExports is omitted, so no default
+        NFS or SMB export to the default server is created unless you ask for one. Because
+        default_exports was introduced in REST 2.16, every invocation of this cmdlet now
+        requires an array running REST 2.16 or newer.
+
         SMB security note: enabling SMB without -SmbSharePolicy uses the FB's pre-defined
         full-access share policy. For production shares, pass -SmbSharePolicy with the
         name of a policy that grants the access you intend.
@@ -65,9 +71,25 @@ function New-PfbFileSystem {
         Source snapshot to clone the file system from.
     .PARAMETER QosPolicy
         Name of a QoS policy to attach.
+    .PARAMETER DefaultExports
+        Protocols for which the FlashBlade should create a default export with default
+        access. Valid: nfs, smb. Omit it and no default exports are created — the cmdlet
+        sends the API's explicit empty value rather than letting the array apply its own
+        default of 'nfs,smb'.
+
+        Per the published API rule, an explicit protocol policy always creates that
+        protocol's default export regardless of this parameter: -NfsRules or
+        -NfsExportPolicy always creates the NFS export, and -SmbSharePolicy or
+        -SmbClientPolicy always creates the SMB export.
+
+        Passing 'nfs' with no -NfsRules and no -NfsExportPolicy sets nfs.rules to
+        "*(rw,no_root_squash)". Passing 'smb' with no SMB policy creates the SMB export
+        with default policies.
     .PARAMETER Attributes
         Full request body as a hashtable. Mutually exclusive with the typed parameters
         above — use only when the typed params don't expose a field you need.
+        -DefaultExports still applies: it is a query parameter and never enters the body,
+        so the hashtable you supply is passed through untouched.
     .PARAMETER Array
         FlashBlade connection. Defaults to the current Connect-PfbArray session.
     .EXAMPLE
@@ -80,6 +102,11 @@ function New-PfbFileSystem {
         New-PfbFileSystem -Name "shared-fs" -Nfs -Smb `
             -SmbSharePolicy "smb-readwrite" -NfsExportPolicy "nfs-rw" `
             -MultiProtocolAccessControlStyle shared -SafeguardAcls $true
+    .EXAMPLE
+        New-PfbFileSystem -Name "legacy-nfs" -Nfs -DefaultExports nfs
+
+        Opt back in to the array's default NFS export. Without -DefaultExports, no default
+        export is created.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium', DefaultParameterSetName = 'Individual')]
     param(
@@ -159,6 +186,11 @@ function New-PfbFileSystem {
         [Parameter(Mandatory, ParameterSetName = 'Attributes')]
         [hashtable]$Attributes,
 
+        # No ParameterSetName: this belongs to both 'Individual' and 'Attributes'.
+        [Parameter()]
+        [ValidateSet('nfs', 'smb')]
+        [string[]]$DefaultExports,
+
         [Parameter()]
         [PSCustomObject]$Array
     )
@@ -219,6 +251,25 @@ function New-PfbFileSystem {
     }
 
     $queryParams = @{ 'names' = $Name }
+
+    # default_exports is a QUERY parameter only — it must never enter $body, including on the
+    # -Attributes path, where the caller owns the body outright.
+    #
+    # The local is deliberately named differently from the parameter: a local whose name
+    # matches a parameter IS that parameter in PowerShell (case-insensitive), so assigning to
+    # $DefaultExports here would re-run its ValidateSet against '' and throw.
+    #
+    # The omitted case is a single-element array containing the empty string, not a bare empty
+    # string: ConvertTo-PfbQueryString drops scalar empty strings but joins arrays with commas,
+    # so @('') is what actually reaches the wire as `default_exports=` — the documented value
+    # for "create no default exports". It is assigned in two statements rather than from an
+    # if/else expression because an if/else yields pipeline output, where a single-element array
+    # collapses back to its element — direct assignment of an array literal does not.
+    $defaultExportsValue = @('')
+    if ($PSBoundParameters.ContainsKey('DefaultExports')) {
+        $defaultExportsValue = @($DefaultExports)
+    }
+    $queryParams['default_exports'] = $defaultExportsValue
 
     if ($PSCmdlet.ShouldProcess($Name, 'Create file system')) {
         Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'file-systems' -Body $body -QueryParams $queryParams

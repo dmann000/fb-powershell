@@ -188,4 +188,176 @@ Describe 'New-PfbFileSystem - request construction baseline' {
             }
         }
     }
+
+    Context 'default_exports query control' {
+
+        BeforeEach {
+            Mock -ModuleName PureStorageFlashBladePowerShell Assert-PfbConnection { }
+            Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { }
+        }
+
+        It 'sends a single empty-string element when -DefaultExports is omitted' {
+            New-PfbFileSystem -Name 'fs01' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $QueryParams.ContainsKey('default_exports') -and
+                $QueryParams['default_exports'] -is [array] -and
+                @($QueryParams['default_exports']).Count -eq 1 -and
+                @($QueryParams['default_exports'])[0] -eq ''
+            }
+        }
+
+        It 'sends only nfs for -DefaultExports nfs' {
+            New-PfbFileSystem -Name 'fs01' -DefaultExports 'nfs' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                @($QueryParams['default_exports']).Count -eq 1 -and
+                @($QueryParams['default_exports'])[0] -eq 'nfs'
+            }
+        }
+
+        It 'sends only smb for -DefaultExports smb' {
+            New-PfbFileSystem -Name 'fs01' -DefaultExports 'smb' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                @($QueryParams['default_exports']).Count -eq 1 -and
+                @($QueryParams['default_exports'])[0] -eq 'smb'
+            }
+        }
+
+        It 'preserves order and both values for -DefaultExports nfs,smb' {
+            New-PfbFileSystem -Name 'fs01' -DefaultExports 'nfs', 'smb' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                @($QueryParams['default_exports']).Count -eq 2 -and
+                @($QueryParams['default_exports'])[0] -eq 'nfs' -and
+                @($QueryParams['default_exports'])[1] -eq 'smb'
+            }
+        }
+
+        It 'rejects a protocol outside the published set at bind time' {
+            { New-PfbFileSystem -Name 'fs01' -DefaultExports 'http' -Confirm:$false -Array $fakeArray -ErrorAction Stop } |
+                Should -Throw
+        }
+
+        It 'never puts default_exports into the request body on the typed path' {
+            New-PfbFileSystem -Name 'fs01' -DefaultExports 'nfs' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                -not $Body.ContainsKey('default_exports')
+            }
+        }
+
+        It 'leaves an -Attributes body untouched while still sending the query parameter' {
+            New-PfbFileSystem -Name 'fs01' -Attributes @{ provisioned = 42 } -DefaultExports 'nfs' `
+                -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.Count -eq 1 -and
+                $Body['provisioned'] -eq 42 -and
+                -not $Body.ContainsKey('default_exports') -and
+                @($QueryParams['default_exports'])[0] -eq 'nfs'
+            }
+        }
+
+        It 'suppresses default exports on the -Attributes path too when -DefaultExports is omitted' {
+            New-PfbFileSystem -Name 'fs01' -Attributes @{ provisioned = 42 } -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.Count -eq 1 -and
+                -not $Body.ContainsKey('default_exports') -and
+                @($QueryParams['default_exports'])[0] -eq ''
+            }
+        }
+
+        It 'serializes the omitted value to the exact wire form default_exports=' {
+            # The value is taken from the cmdlet and handed to the real serializer, so this
+            # covers the whole path rather than a believed-equivalent literal. A scalar empty
+            # string would be dropped by ConvertTo-PfbQueryString and never reach the wire.
+            # The mock returns $QueryParams so the cmdlet's own value can be read in the test
+            # scope; the hashtable is then passed into the module by -Parameters, because a
+            # variable set inside a mock body is not visible from InModuleScope.
+            Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { $QueryParams }
+
+            $captured = New-PfbFileSystem -Name 'fs01' -Confirm:$false -Array $fakeArray
+
+            InModuleScope PureStorageFlashBladePowerShell -Parameters @{ Captured = $captured } {
+                param($Captured)
+                ConvertTo-PfbQueryString -Parameters @{ default_exports = $Captured['default_exports'] } |
+                    Should -Be '?default_exports='
+            }
+        }
+
+        It 'serializes both protocols to the percent-encoded wire form default_exports=nfs%2Csmb' {
+            Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { $QueryParams }
+
+            $captured = New-PfbFileSystem -Name 'fs01' -DefaultExports 'nfs', 'smb' -Confirm:$false -Array $fakeArray
+
+            InModuleScope PureStorageFlashBladePowerShell -Parameters @{ Captured = $captured } {
+                param($Captured)
+                ConvertTo-PfbQueryString -Parameters @{ default_exports = $Captured['default_exports'] } |
+                    Should -Be '?default_exports=nfs%2Csmb'
+            }
+        }
+
+        It 'exposes -DefaultExports in both parameter sets' {
+            $p = (Get-Command New-PfbFileSystem).Parameters['DefaultExports']
+            $p.ParameterType | Should -Be ([string[]])
+            $p.ParameterSets.Keys | Should -Contain '__AllParameterSets'
+        }
+    }
+}
+
+Describe 'New-PfbFileSystem - default_exports REST 2.16 floor (mock-only)' {
+    # Mock-only by necessity: the lab arrays run REST 2.26 and can never exercise the
+    # pre-2.16 branch. Invoke-PfbApiRequest is deliberately NOT mocked -- the point is that
+    # the real Assert-PfbApiCapability inside it fires against the real
+    # Data/PfbCapabilityMap.json, which records default_exports on POST /file-systems at 2.16.
+
+    BeforeAll {
+        $script:oldArray = [PSCustomObject]@{
+            Endpoint             = 'fb.example.test'
+            ApiVersion           = '2.15'
+            AuthToken            = 'session-token'
+            BearerToken          = $null
+            ApiToken             = 'T-fake-token'
+            AuthMethod           = 'ApiToken'
+            SkipCertificateCheck = $false
+        }
+    }
+
+    BeforeEach {
+        Mock -ModuleName PureStorageFlashBladePowerShell Assert-PfbConnection { }
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod { throw 'should never be called' }
+    }
+
+    It 'throws naming default_exports below REST 2.16 even when -DefaultExports is omitted' {
+        { New-PfbFileSystem -Name 'fs01' -Confirm:$false -Array $oldArray } |
+            Should -Throw -ExpectedMessage "*parameter 'default_exports' on POST /file-systems requires REST 2.16*Upgrade the array or omit the unsupported option(s).*"
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod -Times 0 -Exactly
+    }
+
+    It 'throws naming default_exports below REST 2.16 when -DefaultExports is explicit' {
+        { New-PfbFileSystem -Name 'fs01' -DefaultExports 'nfs', 'smb' -Confirm:$false -Array $oldArray } |
+            Should -Throw -ExpectedMessage "*parameter 'default_exports' on POST /file-systems requires REST 2.16*Upgrade the array or omit the unsupported option(s).*"
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod -Times 0 -Exactly
+    }
+
+    It 'does not gate on default_exports for an array at REST 2.16 or later' {
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod { [PSCustomObject]@{ items = @() } }
+
+        $newArray = [PSCustomObject]@{
+            Endpoint             = 'fb.example.test'
+            ApiVersion           = '2.16'
+            AuthToken            = 'session-token'
+            BearerToken          = $null
+            ApiToken             = 'T-fake-token'
+            AuthMethod           = 'ApiToken'
+            SkipCertificateCheck = $false
+        }
+
+        { New-PfbFileSystem -Name 'fs01' -Confirm:$false -Array $newArray } | Should -Not -Throw
+    }
 }
