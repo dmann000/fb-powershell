@@ -29,12 +29,12 @@ function Update-PfbObjectStoreAccountExport {
         Disables the specified account export using a typed parameter.
     .EXAMPLE
         Update-PfbObjectStoreAccountExport -Name "nfs-export-1" -Attributes @{
-            enabled = $false
+            export_enabled = $false
         }
         Disables the specified account export.
     .EXAMPLE
         Update-PfbObjectStoreAccountExport -Id "10314f42-020d-7080-8013-000ddt400090" -Attributes @{
-            enabled = $true
+            export_enabled = $true
         }
         Enables an account export by its ID.
     .EXAMPLE

@@ -20,16 +20,16 @@ This report accepts **false positives in order to eliminate false negatives**. A
 
 ## Summary
 
-- Uncovered endpoints: 96
-- Endpoints with parameter gaps: 438
-- Missing body properties (addable): 422
-- Missing query parameters (addable): 947
-- Read-only body fields (not addable -- see the Read-only fields section below): 382
+- Uncovered endpoints: 95
+- Endpoints with parameter gaps: 439
+- Missing body properties (addable): 420
+- Missing query parameters (addable): 942
+- Read-only body fields (not addable -- see the Read-only fields section below): 384
 - Phantom fields silently excluded (accumulated in the capability map, absent from the newest analysed spec): 40
-- Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 59
-- Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): 250
+- Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 60
+- Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): 247
 - ValidateSet drift: 0
-- New ValidateSet candidates: 1
+- New ValidateSet candidates: 2
 - Context cardinality signal disagreements (fb2.28): 9
 - Removed response fields: **7**
 - Response rename candidates: **3**
@@ -39,24 +39,24 @@ This report accepts **false positives in order to eliminate false negatives**. A
 
 One finding per distinct wire field name, collapsed across every endpoint where a high-confidence gap exists (decision 7) -- turns hundreds of per-endpoint rows into a handful of real, actionable decisions. "Cmdlets already using this name" is decision 8's convention-strength ranking: a high count means closing the remaining gaps for this name is a mechanical batch fix; zero means no established convention exists to extend at all -- closing it is an architectural decision, not a mechanical one.
 
-Showing the top 25 of 250 findings by endpoint count -- the full list is in the JSON manifest's `systemicGaps`, nothing is dropped there.
+Showing the top 25 of 247 findings by endpoint count -- the full list is in the JSON manifest's `systemicGaps`, nothing is dropped there.
 
 | Field name | Endpoints | Query | Body | Cmdlets already using this name | Annotation |
 |---|---|---|---|---|---|
-| `context_names` | 270 | 270 | 0 | 0 | not yet implemented |
+| `context_names` | 269 | 269 | 0 | 0 | not yet implemented |
 | `allow_errors` | 118 | 118 | 0 | 0 | not yet implemented |
-| `ids` | 43 | 43 | 0 | 221 |  |
-| `names` | 31 | 31 | 0 | 306 |  |
+| `ids` | 43 | 43 | 0 | 220 |  |
+| `names` | 31 | 31 | 0 | 303 |  |
 | `sort` | 28 | 28 | 0 | 180 |  |
 | `bucket_ids` | 17 | 17 | 0 | 2 |  |
-| `policy_ids` | 17 | 17 | 0 | 98 |  |
-| `total_only` | 17 | 17 | 0 | 39 |  |
+| `total_only` | 17 | 17 | 0 | 38 |  |
 | `bucket_names` | 16 | 16 | 0 | 3 |  |
-| `member_ids` | 15 | 15 | 0 | 85 |  |
+| `policy_ids` | 16 | 16 | 0 | 99 |  |
 | `remote_ids` | 15 | 15 | 0 | 3 |  |
-| `policy_names` | 11 | 11 | 0 | 118 |  |
-| `file_system_ids` | 9 | 9 | 0 | 9 |  |
+| `member_ids` | 14 | 14 | 0 | 86 |  |
+| `policy_names` | 10 | 10 | 0 | 119 |  |
 | `remote_names` | 9 | 9 | 0 | 9 |  |
+| `file_system_ids` | 8 | 8 | 0 | 9 |  |
 | `local_file_system_ids` | 8 | 8 | 0 | 2 |  |
 | `actions` | 7 | 0 | 7 | 2 |  |
 | `limit` | 7 | 7 | 0 | 199 |  |
@@ -64,10 +64,10 @@ Showing the top 25 of 250 findings by endpoint count -- the full list is in the 
 | `versions` | 7 | 7 | 0 | 5 |  |
 | `enabled` | 6 | 0 | 6 | 10 |  |
 | `filter` | 6 | 6 | 0 | 202 |  |
-| `gids` | 6 | 6 | 0 | 2 |  |
 | `role_ids` | 6 | 6 | 0 | 2 |  |
 | `role_names` | 6 | 6 | 0 | 4 |  |
 | `workload_ids` | 6 | 6 | 0 | 0 |  |
+| `workload_names` | 6 | 6 | 0 | 0 |  |
 
 ## Parameter gaps
 
@@ -141,7 +141,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `DELETE /presets/workload` | Remove-PfbPresetWorkload | context_names |  | `high` |  |
 | `DELETE /qos-policies` | Remove-PfbQosPolicy | context_names |  | `high` |  |
 | `DELETE /qos-policies/members` | Remove-PfbQosPolicyMember | context_names, member_types |  | `high` |  |
-| `DELETE /quotas/groups` | Remove-PfbQuotaGroup | context_names, file_system_ids, file_system_names, gids, group_names, names |  | `partial` -- /!\ 2 unresolved params (see Partial-confidence detail below) |  |
+| `DELETE /quotas/groups` | Remove-PfbQuotaGroup | context_names, file_system_ids, file_system_names, gids, group_names, names |  | `partial` -- /!\ 3 unresolved params (see Partial-confidence detail below) |  |
 | `DELETE /quotas/users` | Remove-PfbQuotaUser | context_names, file_system_ids, file_system_names, names, uids, user_names |  | `partial` -- /!\ 2 unresolved params (see Partial-confidence detail below) |  |
 | `DELETE /s3-export-policies` | Remove-PfbS3ExportPolicy | context_names |  | `high` |  |
 | `DELETE /s3-export-policies/rules` | Remove-PfbS3ExportRule | context_names |  | `high` |  |
@@ -217,7 +217,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /file-system-group-quotas` | Get-PfbFileSystemGroupQuota | allow_errors, context_names |  | `high` |  |
 | `GET /file-system-replica-links` | Get-PfbFileSystemReplicaLink | allow_errors, context_names, ids, local_file_system_ids, remote_file_system_ids, remote_ids, remote_names |  | `high` |  |
 | `GET /file-system-replica-links/policies` | Get-PfbFileSystemReplicaLinkPolicy | allow_errors, context_names, local_file_system_ids, local_file_system_names, remote_file_system_ids, remote_file_system_names, remote_ids, remote_names |  | `high` |  |
-| `GET /file-system-replica-links/transfer` | Get-PfbFileSystemReplicaLinkTransfer | allow_errors, context_names, names_or_owner_names, remote_ids, remote_names |  | `high` |  |
+| `GET /file-system-replica-links/transfer` | Get-PfbFileSystemReplicaLinkTransfer | allow_errors, context_names, remote_ids, remote_names |  | `high` |  |
 | `GET /file-system-snapshots` | Get-PfbFileSystemSnapshot | allow_errors, context_names, names_or_owner_names, owner_ids |  | `high` |  |
 | `GET /file-system-snapshots/policies` | Get-PfbFileSystemSnapshotPolicy | allow_errors, context_names |  | `high` |  |
 | `GET /file-system-snapshots/transfer` | Get-PfbFileSystemSnapshotTransfer | allow_errors, context_names, names_or_owner_names |  | `high` |  |
@@ -381,7 +381,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `PATCH /policies` | Update-PfbPolicy | context_names, destroy_snapshots | add_rules, enabled, location, remove_rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PATCH /presets/workload` | Update-PfbPresetWorkload | context_names |  | `high` |  |
 | `PATCH /qos-policies` | Update-PfbQosPolicy | context_names |  | `high` |  |
-| `PATCH /quotas/groups` | Update-PfbQuotaGroup | context_names, file_system_ids, file_system_names, gids, group_names, names |  | `partial` -- /!\ 2 unresolved params (see Partial-confidence detail below) |  |
+| `PATCH /quotas/groups` | Update-PfbQuotaGroup | context_names, file_system_ids, file_system_names, gids, group_names, names |  | `partial` -- /!\ 3 unresolved params (see Partial-confidence detail below) |  |
 | `PATCH /quotas/settings` | Update-PfbQuotaSettings |  | contact, direct_notifications_enabled | `high` |  |
 | `PATCH /quotas/users` | Update-PfbQuotaUser | context_names, file_system_ids, file_system_names, names, uids, user_names |  | `partial` -- /!\ 2 unresolved params (see Partial-confidence detail below) |  |
 | `PATCH /rapid-data-locking` | Update-PfbRapidDataLocking |  | enabled, kmip_server | `high` |  |
@@ -393,6 +393,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `PATCH /smb-client-policies/rules` | Update-PfbSmbClientRule | before_rule_id, before_rule_name, context_names, ids, versions | client, encryption, index, permission, policy | `high` |  |
 | `PATCH /smb-share-policies` | Update-PfbSmbSharePolicy | context_names | enabled, location, name, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PATCH /smb-share-policies/rules` | Update-PfbSmbShareRule | context_names, ids, policy_ids, policy_names | change, full_control, policy, principal, read | `high` |  |
+| `PATCH /smtp-servers` | Update-PfbSmtpServer |  |  | `high` |  |
 | `PATCH /snmp-agents` | Update-PfbSnmpAgent |  | v2c, v3, version | `high` |  |
 | `PATCH /snmp-managers` | Update-PfbSnmpManager |  |  | `high` |  |
 | `PATCH /ssh-certificate-authority-policies` | Update-PfbSshCaPolicy |  |  | `high` |  |
@@ -466,7 +467,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `POST /object-store-access-policies/object-store-roles` | New-PfbObjectStoreAccessPolicyRole | context_names, member_ids, policy_ids |  | `high` |  |
 | `POST /object-store-access-policies/object-store-users` | New-PfbObjectStoreAccessPolicyUser | context_names, member_ids, policy_ids |  | `high` |  |
 | `POST /object-store-access-policies/rules` | New-PfbObjectStoreAccessPolicyRule | context_names, enforce_action_restrictions, names, policy_ids | actions, conditions, effect, resources | `high` |  |
-| `POST /object-store-account-exports` | New-PfbObjectStoreAccountExport | context_names, member_ids, member_names, policy_ids, policy_names | export_enabled, server | `high` |  |
+| `POST /object-store-account-exports` | New-PfbObjectStoreAccountExport | context_names |  | `high` |  |
 | `POST /object-store-accounts` | New-PfbObjectStoreAccount | context_names | account_exports, bucket_defaults, hard_limit_enabled, quota_limit | `high` |  |
 | `POST /object-store-remote-credentials` | New-PfbObjectStoreRemoteCredential | context_names | access_key_id, secret_access_key | `high` |  |
 | `POST /object-store-roles` | New-PfbObjectStoreRole | context_names | max_session_duration | `high` |  |
@@ -482,7 +483,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `POST /public-keys` | New-PfbPublicKey |  | public_key | `high` |  |
 | `POST /qos-policies` | New-PfbQosPolicy | context_names | enabled, location, max_total_bytes_per_sec, max_total_ops_per_sec, name | `high` |  |
 | `POST /qos-policies/members` | New-PfbQosPolicyMember | context_names |  | `high` |  |
-| `POST /quotas/groups` | New-PfbQuotaGroup | context_names, file_system_ids, file_system_names, gids, group_names |  | `high` |  |
+| `POST /quotas/groups` | New-PfbQuotaGroup | context_names, file_system_ids, file_system_names, gids, group_names |  | `partial` -- /!\ 3 unresolved params (see Partial-confidence detail below) |  |
 | `POST /quotas/users` | New-PfbQuotaUser | context_names, file_system_ids, file_system_names, uids, user_names |  | `partial` -- /!\ 3 unresolved params (see Partial-confidence detail below) |  |
 | `POST /realms` | New-PfbRealm | without_default_access_list |  | `high` |  |
 | `POST /s3-export-policies` | New-PfbS3ExportPolicy | context_names | enabled, rules | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
@@ -524,8 +525,9 @@ Per the decision-6 procedure above: open each parameter at its `file:line` and f
 | `DELETE /file-system-snapshots` | `-Eradicate` | TypedUnresolved | `Public/FileSystemSnapshot/Remove-PfbFileSystemSnapshot.ps1:24` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
 | `DELETE /file-systems` | `-Eradicate` | TypedUnresolved | `Public/FileSystem/Remove-PfbFileSystem.ps1:38` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
 | `DELETE /file-systems/sessions` | `-Force` | TypedUnresolved | `Public/FileSystem/Remove-PfbFileSystemSession.ps1:59` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
-| `DELETE /quotas/groups` | `-FileSystemName` | TypedUnresolved | `Public/Quota/Remove-PfbQuotaGroup.ps1:30` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
-| `DELETE /quotas/groups` | `-GroupName` | TypedUnresolved | `Public/Quota/Remove-PfbQuotaGroup.ps1:31` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
+| `DELETE /quotas/groups` | `-FileSystemName` | TypedUnresolved | `Public/Quota/Remove-PfbQuotaGroup.ps1:35` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
+| `DELETE /quotas/groups` | `-GroupId` | TypedUnresolved | `Public/Quota/Remove-PfbQuotaGroup.ps1:37` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
+| `DELETE /quotas/groups` | `-GroupName` | TypedUnresolved | `Public/Quota/Remove-PfbQuotaGroup.ps1:36` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
 | `DELETE /quotas/users` | `-FileSystemName` | TypedUnresolved | `Public/Quota/Remove-PfbQuotaUser.ps1:25` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
 | `DELETE /quotas/users` | `-UserName` | TypedUnresolved | `Public/Quota/Remove-PfbQuotaUser.ps1:26` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
 | `DELETE /servers` | `-Eradicate` | TypedUnresolved | `Public/Server/Remove-PfbServer.ps1:35` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
@@ -554,8 +556,9 @@ Per the decision-6 procedure above: open each parameter at its `file:line` and f
 | `PATCH /network-access-policies` | `-Enabled` | AttributesOnly | `Public/Policy/Update-PfbNetworkAccessPolicy.ps1:42` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `PATCH /nfs-export-policies` | `-Enabled` | AttributesOnly | `Public/Policy/Update-PfbNfsExportPolicy.ps1:42` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `PATCH /policies` | `-Enabled` | AttributesOnly | `Public/Policy/Update-PfbPolicy.ps1:28` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `PATCH /quotas/groups` | `-FileSystemName` | AttributesOnly | `Public/Quota/Update-PfbQuotaGroup.ps1:35` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `PATCH /quotas/groups` | `-GroupName` | AttributesOnly | `Public/Quota/Update-PfbQuotaGroup.ps1:36` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `PATCH /quotas/groups` | `-FileSystemName` | AttributesOnly | `Public/Quota/Update-PfbQuotaGroup.ps1:40` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `PATCH /quotas/groups` | `-GroupId` | AttributesOnly | `Public/Quota/Update-PfbQuotaGroup.ps1:42` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `PATCH /quotas/groups` | `-GroupName` | AttributesOnly | `Public/Quota/Update-PfbQuotaGroup.ps1:41` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `PATCH /quotas/users` | `-FileSystemName` | AttributesOnly | `Public/Quota/Update-PfbQuotaUser.ps1:30` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `PATCH /quotas/users` | `-UserName` | AttributesOnly | `Public/Quota/Update-PfbQuotaUser.ps1:31` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `PATCH /realms` | `-Destroyed` | AttributesOnly | `Public/Realm/Update-PfbRealm.ps1:31` | body reachable via -Attributes for some parameters and untraceable for others; lists reflect typed-parameter coverage only, not full wire reachability |
@@ -593,6 +596,9 @@ Per the decision-6 procedure above: open each parameter at its `file:line` and f
 | `POST /nfs-export-policies` | `-Enabled` | AttributesOnly | `Public/Policy/New-PfbNfsExportPolicy.ps1:36` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /node-groups` | `-Name` | AttributesOnly | `Public/Node/New-PfbNodeGroup.ps1:30` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /policies` | `-Enabled` | AttributesOnly | `Public/Policy/New-PfbPolicy.ps1:23` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /quotas/groups` | `-FileSystemName` | AttributesOnly | `Public/Quota/New-PfbQuotaGroup.ps1:40` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /quotas/groups` | `-GroupId` | AttributesOnly | `Public/Quota/New-PfbQuotaGroup.ps1:42` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /quotas/groups` | `-GroupName` | AttributesOnly | `Public/Quota/New-PfbQuotaGroup.ps1:41` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /quotas/users` | `-FileSystemName` | AttributesOnly | `Public/Quota/New-PfbQuotaUser.ps1:42` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /quotas/users` | `-UserId` | AttributesOnly | `Public/Quota/New-PfbQuotaUser.ps1:44` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /quotas/users` | `-UserName` | AttributesOnly | `Public/Quota/New-PfbQuotaUser.ps1:43` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
@@ -664,6 +670,7 @@ The capability map knows these body properties exist, but the newest analysed sp
 | `PATCH /smb-client-policies/rules` | Update-PfbSmbClientRule | context, id, name, policy_version |
 | `PATCH /smb-share-policies` | Update-PfbSmbSharePolicy | id, is_local, policy_type, realms |
 | `PATCH /smb-share-policies/rules` | Update-PfbSmbShareRule | id, name |
+| `PATCH /smtp-servers` | Update-PfbSmtpServer | id, name |
 | `PATCH /snmp-agents` | Update-PfbSnmpAgent | engine_id, id, name |
 | `PATCH /snmp-managers` | Update-PfbSnmpManager | id |
 | `PATCH /ssh-certificate-authority-policies` | Update-PfbSshCaPolicy | context, id, is_local, policy_type, realms |
@@ -776,7 +783,6 @@ _Informational coverage observation, not a correctness claim -- many envelope ke
 | `PATCH /object-store-access-keys` | 2.0 |
 | `DELETE /policies/file-system-snapshots` | 2.0 |
 | `GET /policies/members` | 2.0 |
-| `PATCH /smtp-servers` | 2.0 |
 | `POST /kmip` | 2.1 |
 | `DELETE /kmip` | 2.1 |
 | `PATCH /object-store-access-policies` | 2.2 |
@@ -867,6 +873,7 @@ _Informational coverage observation, not a correctness claim -- many envelope ke
 | Cmdlet | Parameter | Spec values |
 |---|---|---|
 | `Get-PfbPolicyAllMember` | `-MemberType` | file-systems, file-system-snapshots, file-system-replica-links, object-store-users |
+| `Update-PfbSmtpServer` | `-EncryptionMode` | starttls |
 
 ## Spec-vs-module assumptions: `context_names` cardinality
 

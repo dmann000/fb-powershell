@@ -6,10 +6,10 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 
 ## Summary
 
-- matched: 1
+- matched: 2
 - collision: 1
 - not-found-in-resource: 29
-- no-spec-enum-found: 1982
+- no-spec-enum-found: 1983
 
 | Cmdlet | Parameter | Wire name | Status | Spec values | Recommendation |
 |---|---|---|---|---|---|
@@ -37,6 +37,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 | `Update-PfbQosPolicy` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbSaml2Idp` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbSaml2Idp` | `-Services` | services | not-found-in-resource |  |  |
+| `Update-PfbSmtpServer` | `-EncryptionMode` | encryption_mode | matched | starttls | ArgumentCompleter |
 | `Update-PfbSnmpManager` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbSshCaPolicy` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbStorageClassTieringPolicy` | `-NewName` | name | not-found-in-resource |  |  |
@@ -45,7 +46,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 | `Update-PfbWorkload` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbWormPolicy` | `-DefaultRetention` | default_retention | not-found-in-resource |  |  |
 
-## Attributes-only parameters (no typed field to attach either mechanism to): 68
+## Attributes-only parameters (no typed field to attach either mechanism to): 72
 
 - `New-PfbActiveDirectory -Name`
 - `New-PfbAuditFileSystemPolicy -Enabled`
@@ -72,6 +73,9 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `New-PfbNfsExportPolicy -Enabled`
 - `New-PfbNodeGroup -Name`
 - `New-PfbPolicy -Enabled`
+- `New-PfbQuotaGroup -FileSystemName`
+- `New-PfbQuotaGroup -GroupId`
+- `New-PfbQuotaGroup -GroupName`
 - `New-PfbQuotaUser -FileSystemName`
 - `New-PfbQuotaUser -UserId`
 - `New-PfbQuotaUser -UserName`
@@ -107,6 +111,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `Update-PfbNfsExportPolicy -Enabled`
 - `Update-PfbPolicy -Enabled`
 - `Update-PfbQuotaGroup -FileSystemName`
+- `Update-PfbQuotaGroup -GroupId`
 - `Update-PfbQuotaGroup -GroupName`
 - `Update-PfbQuotaUser -FileSystemName`
 - `Update-PfbQuotaUser -UserName`
@@ -116,7 +121,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `Update-PfbSmbSharePolicy -Enabled`
 - `Update-PfbUserGroupQuotaPolicy -Enabled`
 
-## Typed but unresolved wire name (needs manual inspection): 39
+## Typed but unresolved wire name (needs manual inspection): 40
 
 - `Connect-PfbArray -ApiToken`
 - `Connect-PfbArray -ApiVersion`
@@ -147,6 +152,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `Remove-PfbFileSystemSession -Force`
 - `Remove-PfbFileSystemSnapshot -Eradicate`
 - `Remove-PfbQuotaGroup -FileSystemName`
+- `Remove-PfbQuotaGroup -GroupId`
 - `Remove-PfbQuotaGroup -GroupName`
 - `Remove-PfbQuotaUser -FileSystemName`
 - `Remove-PfbQuotaUser -UserName`
