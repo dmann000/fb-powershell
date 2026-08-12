@@ -44,6 +44,70 @@ Describe 'Remove-PfbArrayConnection - selector query keys (#64)' {
         }
     }
 
+    It 'targets the connection by remote_ids when -RemoteId is used alone' {
+        Remove-PfbArrayConnection -RemoteId 'r-77' -Confirm:$false -Array $fakeArray
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $Method -eq 'DELETE' -and $Endpoint -eq 'array-connections' -and
+            $QueryParams['remote_ids'] -eq 'r-77' -and
+            -not $QueryParams.ContainsKey('remote_names') -and -not $QueryParams.ContainsKey('ids')
+        }
+    }
+
+    It 'composes -Id with -RemoteId and emits both plural keys' {
+        Remove-PfbArrayConnection -Id 'conn-1' -RemoteId 'r-77' -Confirm:$false -Array $fakeArray
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['ids'] -eq 'conn-1' -and $QueryParams['remote_ids'] -eq 'r-77' -and
+            -not $QueryParams.ContainsKey('remote_names')
+        }
+    }
+
+    It 'omits remote_ids entirely when -RemoteId is not supplied' {
+        Remove-PfbArrayConnection -Id 'conn-1' -Confirm:$false -Array $fakeArray
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            -not $QueryParams.ContainsKey('remote_ids')
+        }
+    }
+
+    It 'rejects -RemoteName together with -RemoteId at bind time, and deletes nothing' {
+        # The spec forbids remote_names and remote_ids on the same request; on a DELETE the
+        # exclusion has to bite before any call is made.
+        { Remove-PfbArrayConnection -RemoteName 'FB-B' -RemoteId 'r-77' -Confirm:$false -Array $fakeArray -ErrorAction Stop } |
+            Should -Throw -ExpectedMessage '*Parameter set cannot be resolved*'
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+    }
+
+    It 'keeps -RemoteId, not -Id, as the parameter that spans the ById and ByRemoteId sets' {
+        # Load-bearing shape. -Id + -RemoteId is legal, and the tempting way to express that
+        # is to mirror -Id into the ByRemoteId set. That silently breaks ByPropertyName
+        # binding of a piped connection object, which then falls through to the coercion
+        # pass. Mirroring -RemoteId instead keeps both behaviours. See the two pipeline
+        # tests below, which are the observable half of this contract.
+        $cmd = Get-Command Remove-PfbArrayConnection
+        $setsOf = {
+            param($p)
+            @($cmd.Parameters[$p].Attributes |
+                Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] } |
+                ForEach-Object { $_.ParameterSetName }) | Sort-Object
+        }
+
+        & $setsOf 'Id'       | Should -Be @('ById')
+        & $setsOf 'RemoteId' | Should -Be @('ById', 'ByRemoteId')
+    }
+
+    It 'puts no ValidateSet on the free-form selector -<Parameter>' -ForEach @(
+        @{ Parameter = 'RemoteName' }
+        @{ Parameter = 'RemoteId' }
+        @{ Parameter = 'Id' }
+    ) {
+        $attrs = (Get-Command Remove-PfbArrayConnection).Parameters[$Parameter].Attributes
+        @($attrs | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }).Count |
+            Should -Be 0
+    }
+
     It 'binds a piped connection object by id' {
         [PSCustomObject]@{ id = 'conn-9' } |
             Remove-PfbArrayConnection -Confirm:$false -Array $fakeArray

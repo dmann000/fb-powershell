@@ -60,6 +60,52 @@ Describe 'Get-PfbArrayConnection - selector query keys (#64)' {
         }
     }
 
+    It 'sends remote_ids when -RemoteId is used, and no other selector key' {
+        Get-PfbArrayConnection -RemoteId 'r-1' -Array $fakeArray
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['remote_ids'] -eq 'r-1' -and
+            -not $QueryParams.ContainsKey('remote_names') -and
+            -not $QueryParams.ContainsKey('names') -and -not $QueryParams.ContainsKey('ids')
+        }
+    }
+
+    It 'comma-joins multiple remote ids into one key' {
+        Get-PfbArrayConnection -RemoteId 'r-1','r-2' -Array $fakeArray
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['remote_ids'] -eq 'r-1,r-2'
+        }
+    }
+
+    It 'composes -Id with -RemoteId and emits both plural keys' {
+        Get-PfbArrayConnection -Id 'conn-1' -RemoteId 'r-1' -Array $fakeArray
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['ids'] -eq 'conn-1' -and $QueryParams['remote_ids'] -eq 'r-1' -and
+            -not $QueryParams.ContainsKey('remote_names')
+        }
+    }
+
+    It 'rejects -RemoteName together with -RemoteId at bind time, and makes no API call' {
+        # The spec forbids remote_names and remote_ids on the same request, so the two
+        # selectors live in different parameter sets rather than being validated at runtime.
+        { Get-PfbArrayConnection -RemoteName 'FB-B' -RemoteId 'r-1' -Array $fakeArray -ErrorAction Stop } |
+            Should -Throw -ExpectedMessage '*Parameter set cannot be resolved*'
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+    }
+
+    It 'puts no ValidateSet on the free-form selector -<Parameter>' -ForEach @(
+        @{ Parameter = 'RemoteName' }
+        @{ Parameter = 'RemoteId' }
+        @{ Parameter = 'Id' }
+    ) {
+        $attrs = (Get-Command Get-PfbArrayConnection).Parameters[$Parameter].Attributes
+        @($attrs | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }).Count |
+            Should -Be 0
+    }
+
     It 'binds piped connection objects by id' {
         @([PSCustomObject]@{ id = 'conn-1' }, [PSCustomObject]@{ id = 'conn-2' }) |
             Get-PfbArrayConnection -Array $fakeArray
@@ -108,7 +154,7 @@ Describe 'Get-PfbArrayConnection - selector query keys (#64)' {
         Get-PfbArrayConnection -Array $fakeArray
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
-            -not $QueryParams.ContainsKey('remote_names') -and
+            -not $QueryParams.ContainsKey('remote_names') -and -not $QueryParams.ContainsKey('remote_ids') -and
             -not $QueryParams.ContainsKey('names') -and -not $QueryParams.ContainsKey('ids')
         }
     }

@@ -78,17 +78,83 @@ Describe 'Get-PfbArrayConnectionPerformanceReplication' {
         }
     }
 
-    It 'does NOT coerce a piped object into -RemoteName (binding-order guard)' {
+    It 'sends remote_ids when -RemoteId is used, and no other selector key' {
+        Get-PfbArrayConnectionPerformanceReplication -RemoteId 'r-1' -Array $fakeArray
+
+        Should -Invoke Invoke-PfbApiRequest -ModuleName PureStorageFlashBladePowerShell -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['remote_ids'] -eq 'r-1' -and
+            -not $QueryParams.ContainsKey('remote_names') -and
+            -not $QueryParams.ContainsKey('names') -and -not $QueryParams.ContainsKey('ids')
+        }
+    }
+
+    It 'sends ids when -Id is used, and no remote_names' {
+        Get-PfbArrayConnectionPerformanceReplication -Id 'conn-1','conn-2' -Array $fakeArray
+
+        Should -Invoke Invoke-PfbApiRequest -ModuleName PureStorageFlashBladePowerShell -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['ids'] -eq 'conn-1,conn-2' -and -not $QueryParams.ContainsKey('remote_names')
+        }
+    }
+
+    It 'composes -Id with -RemoteId and emits both plural keys' {
+        Get-PfbArrayConnectionPerformanceReplication -Id 'conn-1' -RemoteId 'r-1' -Array $fakeArray
+
+        Should -Invoke Invoke-PfbApiRequest -ModuleName PureStorageFlashBladePowerShell -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['ids'] -eq 'conn-1' -and $QueryParams['remote_ids'] -eq 'r-1' -and
+            -not $QueryParams.ContainsKey('remote_names')
+        }
+    }
+
+    It 'rejects -RemoteName together with -RemoteId at bind time, and makes no API call' {
+        { Get-PfbArrayConnectionPerformanceReplication -RemoteName 'FB-B' -RemoteId 'r-1' -Array $fakeArray -ErrorAction Stop } |
+            Should -Throw -ExpectedMessage '*Parameter set cannot be resolved*'
+
+        Should -Invoke Invoke-PfbApiRequest -ModuleName PureStorageFlashBladePowerShell -Times 0 -Exactly
+    }
+
+    It 'puts no ValidateSet on the free-form selector -<Parameter>' -ForEach @(
+        @{ Parameter = 'RemoteName' }
+        @{ Parameter = 'RemoteId' }
+        @{ Parameter = 'Id' }
+    ) {
+        $attrs = (Get-Command Get-PfbArrayConnectionPerformanceReplication).Parameters[$Parameter].Attributes
+        @($attrs | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }).Count |
+            Should -Be 0
+    }
+
+    It 'binds a piped connection-shaped object by id and emits ids' {
+        # A whole connection object carries `id`, which binds -Id by property name. This is
+        # the shape the guard used to intercept before -Id existed on this cmdlet.
+        [PSCustomObject]@{
+            id     = '10314f42-aaaa'
+            status = 'connected'
+            remote = [PSCustomObject]@{ id = 'r-1'; name = 'FB-B' }
+        } | Get-PfbArrayConnectionPerformanceReplication -Array $fakeArray
+
+        Should -Invoke Invoke-PfbApiRequest -ModuleName PureStorageFlashBladePowerShell -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['ids'] -eq '10314f42-aaaa' -and -not $QueryParams.ContainsKey('remote_names')
+        }
+    }
+
+    It 'rejects a piped object that carries no id/name property instead of stringifying it' {
+        # An object that binds to neither -Id nor a name property falls through to the
+        # ByValue-with-coercion pass and would be ToString()-ed into -RemoteName.
         {
-            [PSCustomObject]@{
-                id     = '10314f42-aaaa'
-                status = 'connected'
-                remote = [PSCustomObject]@{ id = 'r-1'; name = 'FB-B' }
-            } | Get-PfbArrayConnectionPerformanceReplication -Array $fakeArray
+            [PSCustomObject]@{ status = 'connected'; type = 'async-replication' } |
+                Get-PfbArrayConnectionPerformanceReplication -Array $fakeArray
         } | Should -Throw -ExpectedMessage '*stringified object*'
 
         # The throw is terminating, so the end block never runs and no request is issued at all.
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+    }
+
+    It 'sends no selector key at all when listing everything' {
+        Get-PfbArrayConnectionPerformanceReplication -Array $fakeArray
+
+        Should -Invoke Invoke-PfbApiRequest -ModuleName PureStorageFlashBladePowerShell -Times 1 -Exactly -ParameterFilter {
+            -not $QueryParams.ContainsKey('remote_names') -and -not $QueryParams.ContainsKey('remote_ids') -and
+            -not $QueryParams.ContainsKey('names') -and -not $QueryParams.ContainsKey('ids')
+        }
     }
 
     It 'keeps remote_names alongside the time-range keys' {
