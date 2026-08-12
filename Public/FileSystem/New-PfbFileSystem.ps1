@@ -83,8 +83,12 @@ function New-PfbFileSystem {
         -SmbClientPolicy always creates the SMB export.
 
         Passing 'nfs' with no -NfsRules and no -NfsExportPolicy sets nfs.rules to
-        "*(rw,no_root_squash)". Passing 'smb' with no SMB policy creates the SMB export
-        with default policies.
+        "*(rw,no_root_squash)".
+
+        Passing 'smb' requires a share policy: supply -SmbSharePolicy, or on the
+        -Attributes path an smb.share_policy in the body you provide. Without one the
+        cmdlet throws before issuing the request, because the array would otherwise
+        attach its built-in full-access share policy to the default SMB export.
     .PARAMETER Attributes
         Full request body as a hashtable. Mutually exclusive with the typed parameters
         above — use only when the typed params don't expose a field you need.
@@ -270,6 +274,40 @@ function New-PfbFileSystem {
         $defaultExportsValue = @($DefaultExports)
     }
     $queryParams['default_exports'] = $defaultExportsValue
+
+    # Requesting a default SMB export without naming a share policy makes the array attach its
+    # built-in full-access share policy. Reject that here, before any request is issued, so the
+    # broad policy can never be attached implicitly.
+    #
+    # On the -Attributes path the body is caller-owned and must not be mutated or reshaped, so
+    # this only inspects it. The nested smb value can be any shape the caller supplied: absent,
+    # $null, a hashtable, another IDictionary, a ConvertFrom-Json PSCustomObject, or a scalar.
+    # Each of those has to reach the same message rather than an indexing or property error.
+    if ($defaultExportsValue -contains 'smb') {
+        $smbSharePolicySupplied = $false
+        if ($PSCmdlet.ParameterSetName -eq 'Attributes') {
+            $smbValue = $null
+            if ($null -ne $Attributes) { $smbValue = $Attributes['smb'] }
+
+            if ($smbValue -is [System.Collections.IDictionary]) {
+                # Cast first: IDictionary's own indexer returns $null for a missing key on every
+                # implementation, whereas a generic dictionary's typed indexer throws.
+                $smbSharePolicySupplied = $null -ne ([System.Collections.IDictionary]$smbValue)['share_policy']
+            }
+            elseif ($null -ne $smbValue) {
+                $smbSharePolicySupplied =
+                    ($null -ne $smbValue.psobject.Properties['share_policy']) -and
+                    ($null -ne $smbValue.share_policy)
+            }
+        }
+        else {
+            $smbSharePolicySupplied = [bool]$SmbSharePolicy
+        }
+
+        if (-not $smbSharePolicySupplied) {
+            throw "-DefaultExports includes 'smb' but no SMB share policy was supplied. Pass -SmbSharePolicy or omit 'smb' from -DefaultExports."
+        }
+    }
 
     if ($PSCmdlet.ShouldProcess($Name, 'Create file system')) {
         Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'file-systems' -Body $body -QueryParams $queryParams

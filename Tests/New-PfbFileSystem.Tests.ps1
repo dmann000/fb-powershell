@@ -217,7 +217,9 @@ Describe 'New-PfbFileSystem - request construction baseline' {
         }
 
         It 'sends only smb for -DefaultExports smb' {
-            New-PfbFileSystem -Name 'fs01' -DefaultExports 'smb' -Confirm:$false -Array $fakeArray
+            # A default SMB export needs a named share policy, so this path always carries one.
+            New-PfbFileSystem -Name 'fs01' -SmbSharePolicy 'smb-rw' -DefaultExports 'smb' `
+                -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 @($QueryParams['default_exports']).Count -eq 1 -and
@@ -226,7 +228,8 @@ Describe 'New-PfbFileSystem - request construction baseline' {
         }
 
         It 'preserves order and both values for -DefaultExports nfs,smb' {
-            New-PfbFileSystem -Name 'fs01' -DefaultExports 'nfs', 'smb' -Confirm:$false -Array $fakeArray
+            New-PfbFileSystem -Name 'fs01' -SmbSharePolicy 'smb-rw' -DefaultExports 'nfs', 'smb' `
+                -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 @($QueryParams['default_exports']).Count -eq 2 -and
@@ -291,7 +294,8 @@ Describe 'New-PfbFileSystem - request construction baseline' {
         It 'serializes both protocols to the percent-encoded wire form default_exports=nfs%2Csmb' {
             Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { $QueryParams }
 
-            $captured = New-PfbFileSystem -Name 'fs01' -DefaultExports 'nfs', 'smb' -Confirm:$false -Array $fakeArray
+            $captured = New-PfbFileSystem -Name 'fs01' -SmbSharePolicy 'smb-rw' -DefaultExports 'nfs', 'smb' `
+                -Confirm:$false -Array $fakeArray
 
             InModuleScope PureStorageFlashBladePowerShell -Parameters @{ Captured = $captured } {
                 param($Captured)
@@ -304,6 +308,146 @@ Describe 'New-PfbFileSystem - request construction baseline' {
             $p = (Get-Command New-PfbFileSystem).Parameters['DefaultExports']
             $p.ParameterType | Should -Be ([string[]])
             $p.ParameterSets.Keys | Should -Contain '__AllParameterSets'
+        }
+    }
+
+    Context 'default SMB export requires an explicit share policy' {
+
+        BeforeEach {
+            Mock -ModuleName PureStorageFlashBladePowerShell Assert-PfbConnection { }
+            Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { }
+        }
+
+        It 'rejects -DefaultExports smb with no share policy and issues no request' {
+            { New-PfbFileSystem -Name 'fs01' -DefaultExports 'smb' -Confirm:$false -Array $fakeArray } |
+                Should -Throw -ExpectedMessage "*-DefaultExports includes 'smb' but no SMB share policy was supplied*"
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+        }
+
+        It 'rejects -DefaultExports nfs,smb with no share policy and issues no request' {
+            { New-PfbFileSystem -Name 'fs01' -Nfs -Smb -DefaultExports 'nfs', 'smb' `
+                    -Confirm:$false -Array $fakeArray -WarningAction SilentlyContinue } |
+                Should -Throw -ExpectedMessage "*-DefaultExports includes 'smb' but no SMB share policy was supplied*"
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+        }
+
+        It 'names the remedies in the rejection message' {
+            { New-PfbFileSystem -Name 'fs01' -DefaultExports 'smb' -Confirm:$false -Array $fakeArray } |
+                Should -Throw -ExpectedMessage "*Pass -SmbSharePolicy or omit 'smb' from -DefaultExports.*"
+        }
+
+        It 'allows -DefaultExports smb when -SmbSharePolicy names a policy' {
+            New-PfbFileSystem -Name 'fs01' -Smb -SmbSharePolicy 'smb-rw' -DefaultExports 'smb' `
+                -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body['smb']['share_policy']['name'] -eq 'smb-rw' -and
+                @($QueryParams['default_exports'])[0] -eq 'smb'
+            }
+        }
+
+        It 'allows -DefaultExports nfs with no SMB policy' {
+            New-PfbFileSystem -Name 'fs01' -Nfs -DefaultExports 'nfs' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly
+        }
+
+        It 'allows an -Attributes body whose smb hashtable carries a share_policy' {
+            New-PfbFileSystem -Name 'fs01' `
+                -Attributes @{ smb = @{ enabled = $true; share_policy = @{ name = 'smb-rw' } } } `
+                -DefaultExports 'smb' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body['smb']['share_policy']['name'] -eq 'smb-rw'
+            }
+        }
+
+        It 'allows an -Attributes body whose smb value is a ConvertFrom-Json PSCustomObject' {
+            $smbObject = '{"enabled":true,"share_policy":{"name":"smb-rw"}}' | ConvertFrom-Json
+
+            New-PfbFileSystem -Name 'fs01' -Attributes @{ smb = $smbObject } `
+                -DefaultExports 'smb' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body['smb'].share_policy.name -eq 'smb-rw'
+            }
+        }
+
+        It 'allows an -Attributes body whose smb value is a non-hashtable IDictionary' {
+            $ordered = [ordered]@{ enabled = $true; share_policy = @{ name = 'smb-rw' } }
+
+            New-PfbFileSystem -Name 'fs01' -Attributes @{ smb = $ordered } -DefaultExports 'smb' `
+                -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly
+        }
+
+        It 'rejects an -Attributes body whose smb non-hashtable IDictionary lacks share_policy' {
+            $ordered = [ordered]@{ enabled = $true }
+
+            { New-PfbFileSystem -Name 'fs01' -Attributes @{ smb = $ordered } -DefaultExports 'smb' `
+                    -Confirm:$false -Array $fakeArray } |
+                Should -Throw -ExpectedMessage "*-DefaultExports includes 'smb' but no SMB share policy was supplied*"
+        }
+
+        It 'rejects an -Attributes body with no smb key at all' {
+            { New-PfbFileSystem -Name 'fs01' -Attributes @{ provisioned = 42 } -DefaultExports 'smb' `
+                    -Confirm:$false -Array $fakeArray } |
+                Should -Throw -ExpectedMessage "*-DefaultExports includes 'smb' but no SMB share policy was supplied*"
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+        }
+
+        It 'rejects an -Attributes body whose smb value is null' {
+            { New-PfbFileSystem -Name 'fs01' -Attributes @{ smb = $null } -DefaultExports 'smb' `
+                    -Confirm:$false -Array $fakeArray } |
+                Should -Throw -ExpectedMessage "*-DefaultExports includes 'smb' but no SMB share policy was supplied*"
+        }
+
+        It 'rejects an -Attributes body whose smb hashtable has no share_policy' {
+            { New-PfbFileSystem -Name 'fs01' -Attributes @{ smb = @{ enabled = $true } } `
+                    -DefaultExports 'smb' -Confirm:$false -Array $fakeArray } |
+                Should -Throw -ExpectedMessage "*-DefaultExports includes 'smb' but no SMB share policy was supplied*"
+        }
+
+        It 'rejects an -Attributes body whose smb hashtable has a null share_policy' {
+            { New-PfbFileSystem -Name 'fs01' -Attributes @{ smb = @{ share_policy = $null } } `
+                    -DefaultExports 'smb' -Confirm:$false -Array $fakeArray } |
+                Should -Throw -ExpectedMessage "*-DefaultExports includes 'smb' but no SMB share policy was supplied*"
+        }
+
+        It 'rejects an -Attributes body whose smb PSCustomObject has no share_policy property' {
+            $smbObject = '{"enabled":true}' | ConvertFrom-Json
+
+            { New-PfbFileSystem -Name 'fs01' -Attributes @{ smb = $smbObject } -DefaultExports 'smb' `
+                    -Confirm:$false -Array $fakeArray } |
+                Should -Throw -ExpectedMessage "*-DefaultExports includes 'smb' but no SMB share policy was supplied*"
+        }
+
+        It 'rejects an -Attributes body whose smb PSCustomObject has a null share_policy' {
+            $smbObject = '{"enabled":true,"share_policy":null}' | ConvertFrom-Json
+
+            { New-PfbFileSystem -Name 'fs01' -Attributes @{ smb = $smbObject } -DefaultExports 'smb' `
+                    -Confirm:$false -Array $fakeArray } |
+                Should -Throw -ExpectedMessage "*-DefaultExports includes 'smb' but no SMB share policy was supplied*"
+        }
+
+        It 'rejects an -Attributes body whose smb value is a non-dictionary scalar' {
+            { New-PfbFileSystem -Name 'fs01' -Attributes @{ smb = 'enabled' } -DefaultExports 'smb' `
+                    -Confirm:$false -Array $fakeArray } |
+                Should -Throw -ExpectedMessage "*-DefaultExports includes 'smb' but no SMB share policy was supplied*"
+        }
+
+        It 'leaves the default call with no SMB body and an empty default_exports value' {
+            New-PfbFileSystem -Name 'fs01' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                -not $Body.ContainsKey('smb') -and
+                @($QueryParams['default_exports']).Count -eq 1 -and
+                @($QueryParams['default_exports'])[0] -eq ''
+            }
         }
     }
 }
@@ -339,7 +483,10 @@ Describe 'New-PfbFileSystem - default_exports REST 2.16 floor (mock-only)' {
     }
 
     It 'throws naming default_exports below REST 2.16 when -DefaultExports is explicit' {
-        { New-PfbFileSystem -Name 'fs01' -DefaultExports 'nfs', 'smb' -Confirm:$false -Array $oldArray } |
+        # -SmbSharePolicy keeps the default-SMB-export policy guard satisfied, so the version
+        # gate is what this case actually exercises.
+        { New-PfbFileSystem -Name 'fs01' -SmbSharePolicy 'smb-rw' -DefaultExports 'nfs', 'smb' `
+                -Confirm:$false -Array $oldArray } |
             Should -Throw -ExpectedMessage "*parameter 'default_exports' on POST /file-systems requires REST 2.16*Upgrade the array or omit the unsupported option(s).*"
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod -Times 0 -Exactly
