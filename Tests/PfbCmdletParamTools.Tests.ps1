@@ -519,10 +519,10 @@ Describe 'Get-PfbWireNameForParameter: switch-to-literal pattern' {
         $ast = [System.Management.Automation.Language.Parser]::ParseInput(
             'function Test-Fixture { param([switch]$Foo) $body = @{}; $body["bar"] = "literal" }', [ref]$tokens, [ref]$errs)
         $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
-        Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Foo' -IsSwitchParameter | Should -BeNullOrEmpty
+        Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Foo' -IsBooleanLikeParameter | Should -BeNullOrEmpty
     }
 
-    It 'does NOT apply the switch-literal match when -IsSwitchParameter is not passed' {
+    It 'does NOT apply the switch-literal match when -IsBooleanLikeParameter is not passed' {
         $tokens = $null; $errs = $null
         $ast = [System.Management.Automation.Language.Parser]::ParseInput(
             'function Test-Fixture { param([switch]$Foo) if ($Foo) { $body["bar"] = "literal" } }', [ref]$tokens, [ref]$errs)
@@ -1226,5 +1226,122 @@ function Get-PfbFixtureOrderAlpha {
             'Get-PfbFixtureOrderZulu|Apple'
             'Get-PfbFixtureOrderZulu|Zebra'
         )
+    }
+}
+
+Describe 'Conditional right-hand side awareness (issue #99)' {
+    # New-PfbFileSystemReplicaLink sends a [Nullable[bool]] as
+    # `$queryParams['remote_default_exports'] = if ($RemoteDefaultExports) { 'true' } else { 'false' }`
+    # -- the $false value must reach the wire, so the assignment is guarded on
+    # $PSBoundParameters.ContainsKey rather than on truthiness. The tracer refused that shape
+    # twice over: its only constant-value branch was gated on [switch], and an if-EXPRESSION
+    # right-hand side matched no branch at all.
+    BeforeAll {
+        $script:condDir = Join-Path $TestDrive 'Conditional/Public'
+        New-Item -ItemType Directory -Path $script:condDir -Force | Out-Null
+
+        Set-Content -Path (Join-Path $script:condDir 'New-PfbFixtureConditional.ps1') -Value @'
+function New-PfbFixtureConditional {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [Nullable[bool]]$RemoteDefaultExports,
+        [Parameter()] [bool]$PlainBool,
+        [Parameter()] [switch]$SwitchFlag,
+        [Parameter()] [Nullable[bool]]$Negated,
+        [Parameter()] [string]$NotBoolean,
+        [Parameter()] [PSCustomObject]$Array
+    )
+
+    $queryParams = @{}
+    if ($PSBoundParameters.ContainsKey('RemoteDefaultExports')) {
+        $queryParams['remote_default_exports'] = if ($RemoteDefaultExports) { 'true' } else { 'false' }
+    }
+    if ($PSBoundParameters.ContainsKey('PlainBool')) {
+        $queryParams['plain_bool'] = if ($PlainBool) { 'true' } else { 'false' }
+    }
+    $queryParams['switch_flag'] = if ($SwitchFlag) { 'true' } else { 'false' }
+    $queryParams['negated'] = if (-not $Negated) { 'false' } else { 'true' }
+    $queryParams['not_boolean'] = if ($NotBoolean) { 'true' } else { 'false' }
+    Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'conditional' -QueryParams $queryParams
+}
+'@
+
+        Set-Content -Path (Join-Path $script:condDir 'New-PfbFixtureConditionalLiteral.ps1') -Value @'
+function New-PfbFixtureConditionalLiteral {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [Nullable[bool]]$Enabled,
+        [Parameter()] [PSCustomObject]$Array
+    )
+
+    $queryParams = @{
+        'enabled' = if ($Enabled) { 'true' } else { 'false' }
+    }
+    Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'conditional-literal' -QueryParams $queryParams
+}
+'@
+
+        $script:condInventory = Get-PfbCmdletParameterInventory -PublicDirectory $script:condDir
+    }
+
+    It 'resolves a <Type> parameter assigned a two-branch constant if-expression' -ForEach @(
+        @{ Type = '[Nullable[bool]]'; Parameter = 'RemoteDefaultExports'; WireName = 'remote_default_exports' }
+        @{ Type = '[bool]';           Parameter = 'PlainBool';            WireName = 'plain_bool' }
+        @{ Type = '[switch]';         Parameter = 'SwitchFlag';           WireName = 'switch_flag' }
+        @{ Type = '-not, swapped';    Parameter = 'Negated';              WireName = 'negated' }
+    ) {
+        $rec = $script:condInventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureConditional' -and $_.Parameter -eq $Parameter }
+        $rec.WireName | Should -Be $WireName
+        $rec.Surface | Should -Be 'Typed'
+    }
+
+    It 'refuses the same shape for a parameter that is not boolean-like' {
+        $rec = $script:condInventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureConditional' -and $_.Parameter -eq 'NotBoolean' }
+        $rec.WireName | Should -BeNullOrEmpty
+        $rec.Surface | Should -Be 'TypedUnresolved'
+    }
+
+    It 'resolves the same shape inside a hashtable literal initializer' {
+        $rec = $script:condInventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureConditionalLiteral' -and $_.Parameter -eq 'Enabled' }
+        $rec.WireName | Should -Be 'enabled'
+        $rec.Surface | Should -Be 'Typed'
+        $rec.Endpoint | Should -Be 'conditional-literal'
+        $rec.Method | Should -Be 'POST'
+    }
+
+    It 'resolves end-to-end through Get-PfbWireNameForParameter to the wire name AND the target variable' {
+        $tokens = $null; $errs = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput(@'
+function Test-Fixture {
+    param([Nullable[bool]]$RemoteDefaultExports)
+    $queryParams = @{}
+    if ($PSBoundParameters.ContainsKey('RemoteDefaultExports')) {
+        $queryParams['remote_default_exports'] = if ($RemoteDefaultExports) { 'true' } else { 'false' }
+    }
+}
+'@, [ref]$tokens, [ref]$errs)
+        $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
+        $result = Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'RemoteDefaultExports' -IsBooleanLikeParameter
+        $result.WireName | Should -Be 'remote_default_exports'
+        $result.TargetVariable | Should -Be 'queryParams'
+    }
+
+    # The guard on the "never guess" contract: every one of these is boolean-like, so only the
+    # SHAPE rules keep them refused.
+    It 'refuses <Case>' -ForEach @(
+        @{ Case = 'a condition naming a DIFFERENT variable'
+           Body = '$queryParams["k"] = if ($Other) { "true" } else { "false" }' }
+        @{ Case = 'a branch that is not a constant'
+           Body = '$queryParams["k"] = if ($Param) { $Other } else { "false" }' }
+        @{ Case = 'a missing else clause'
+           Body = '$queryParams["k"] = if ($Param) { "true" }' }
+        @{ Case = 'an elseif, so Clauses.Count is 2'
+           Body = '$queryParams["k"] = if ($Param) { "true" } elseif ($Other) { "maybe" } else { "false" }' }
+    ) {
+        $tokens = $null; $errs = $null
+        $source = 'function Test-Fixture { param([Nullable[bool]]$Param, [Nullable[bool]]$Other) ' + $Body + ' }'
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput($source, [ref]$tokens, [ref]$errs)
+        $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
+        Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Param' -IsBooleanLikeParameter | Should -BeNullOrEmpty
     }
 }

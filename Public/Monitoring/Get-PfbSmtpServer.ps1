@@ -4,8 +4,12 @@ function Get-PfbSmtpServer {
         Retrieves the SMTP server configuration from a FlashBlade array.
     .DESCRIPTION
         The Get-PfbSmtpServer cmdlet returns the SMTP server configuration from the connected
-        Pure Storage FlashBlade. This is a singleton endpoint returning the mail relay settings.
-        This cmdlet is an alias for Get-PfbSmtp using the newer API endpoint.
+        Everpure FlashBlade. It reads the /smtp-servers endpoint, which has carried the mail
+        relay settings since REST 2.0 and is the only SMTP surface the module exposes.
+
+        Note that `name` is the SMTP *resource* name (for example `management`), not the array
+        name. The retired Get-PfbSmtp cmdlet read the legacy REST 1.12 /smtp path and returned
+        the array name in that field.
     .PARAMETER Filter
         A server-side filter expression to narrow results.
     .PARAMETER Sort

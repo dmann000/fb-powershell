@@ -1,38 +1,33 @@
 function Test-PfbSyslogServer {
     <#
     .SYNOPSIS
-        Tests a syslog server configuration on a FlashBlade array.
+        Tests all configured syslog servers on a FlashBlade array.
     .DESCRIPTION
-        The Test-PfbSyslogServer cmdlet tests the connectivity and configuration of a syslog
-        server on the connected Pure Storage FlashBlade.
-    .PARAMETER Name
-        The name of the syslog server to test.
-    .PARAMETER Id
-        The ID of the syslog server to test.
+        The Test-PfbSyslogServer cmdlet tests the connectivity and configuration of all
+        configured syslog servers on the connected FlashBlade. The API does not provide a
+        way to scope this test to a specific server, so use Where-Object to narrow the
+        returned results on the client side.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
-        Test-PfbSyslogServer -Name "syslog-prod"
+        Test-PfbSyslogServer
 
-        Tests the syslog server named "syslog-prod".
+        Tests all configured syslog servers.
     .EXAMPLE
-        Test-PfbSyslogServer -Id "10314f42-020d-7080-8013-000ddt400012"
+        Test-PfbSyslogServer | Where-Object component_name -eq "syslog-prod"
 
-        Tests the syslog server by ID.
+        Tests all configured syslog servers and displays the result for "syslog-prod".
+        The API provides no way to scope the test request to one server.
     .EXAMPLE
-        Test-PfbSyslogServer -Name "syslog-prod" | Select-Object result_details
+        Test-PfbSyslogServer | Select-Object component_name, result_details
 
-        Tests the syslog server and displays detailed results.
+        Tests all configured syslog servers and displays their detailed results.
     #>
-    [CmdletBinding(DefaultParameterSetName = 'ByName')]
+    [CmdletBinding()]
     param(
-        [Parameter(ParameterSetName = 'ByName')] [string]$Name,
-        [Parameter(ParameterSetName = 'ById')] [string]$Id,
         [Parameter()] [PSCustomObject]$Array
     )
     Assert-PfbConnection -Array ([ref]$Array)
     $queryParams = @{}
-    if ($Name) { $queryParams['names'] = $Name }
-    if ($Id) { $queryParams['ids'] = $Id }
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'syslog-servers/test' -QueryParams $queryParams
 }
