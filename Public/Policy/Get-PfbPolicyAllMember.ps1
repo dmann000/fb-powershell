@@ -5,12 +5,18 @@ function Get-PfbPolicyAllMember {
     .DESCRIPTION
         The Get-PfbPolicyAllMember cmdlet returns a read-only unified view of all policy
         member associations across all policy types on the connected Pure Storage FlashBlade.
+
+        -MemberName is retained here deliberately. The replica-link membership cmdlets lost
+        theirs because `member_names` is absent from their endpoints' published parameter
+        lists, but `GET /policies-all/members` does declare `member_names` (from REST 2.2,
+        the version that introduced the endpoint), so the filter is honoured on the wire.
     .PARAMETER PolicyName
         One or more policy names to filter by.
     .PARAMETER PolicyId
         One or more policy IDs to filter by.
     .PARAMETER MemberName
-        One or more member names to filter by.
+        One or more member names to filter by. Sent as the spec-declared `member_names`
+        query parameter, which this endpoint -- unlike its replica-link siblings -- honours.
     .PARAMETER MemberId
         One or more member IDs to filter by.
     .PARAMETER MemberType
