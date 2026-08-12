@@ -139,6 +139,9 @@ Describe 'Get-PfbArrayConnection - selector query keys (#64)' {
             [PSCustomObject]@{ status = 'connected'; type = 'async-replication' } |
                 Get-PfbArrayConnection -Array $fakeArray
         } | Should -Throw -ExpectedMessage '*stringified object*'
+
+        # The throw is terminating, so the end block never runs and no request is issued at all.
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
     }
 
     It 'still routes filter/sort/limit through the common helper' {

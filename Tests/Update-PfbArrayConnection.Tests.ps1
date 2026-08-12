@@ -166,16 +166,45 @@ Describe 'Update-PfbArrayConnection - typed body parameters (#31)' {
             # ByPropertyName binding of a piped connection object, which then falls through
             # to the coercion pass. Mirroring -RemoteId instead keeps both behaviours.
             $cmd = Get-Command Update-PfbArrayConnection
-            $setsOf = {
+            $paramAttrs = {
                 param($p)
                 @($cmd.Parameters[$p].Attributes |
-                    Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] } |
-                    ForEach-Object { $_.ParameterSetName }) | Sort-Object
+                    Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] })
+            }
+            $setsOf      = { param($p) @((& $paramAttrs $p).ParameterSetName) | Sort-Object }
+            $mandatoryIn = {
+                param($p, $set)
+                @(& $paramAttrs $p | Where-Object { $_.ParameterSetName -eq $set })[0].Mandatory
             }
 
             & $setsOf 'Id' | Should -Be @('ByIdAttributes', 'ByIdIndividual')
             & $setsOf 'RemoteId' | Should -Be @(
                 'ByIdAttributes', 'ByIdIndividual', 'ByRemoteIdAttributes', 'ByRemoteIdIndividual')
+
+            # The Mandatory flags are the other half of the shape. Every set must carry
+            # exactly one mandatory selector, or a call could resolve with no selector key
+            # at all and PATCH every array connection on the appliance.
+            & $mandatoryIn 'Id'         'ByIdIndividual'         | Should -BeTrue
+            & $mandatoryIn 'Id'         'ByIdAttributes'         | Should -BeTrue
+            & $mandatoryIn 'RemoteId'   'ByRemoteIdIndividual'   | Should -BeTrue
+            & $mandatoryIn 'RemoteId'   'ByRemoteIdAttributes'   | Should -BeTrue
+            & $mandatoryIn 'RemoteName' 'ByRemoteNameIndividual' | Should -BeTrue
+            & $mandatoryIn 'RemoteName' 'ByRemoteNameAttributes' | Should -BeTrue
+
+            # -RemoteId spans into the ById* sets and must stay OPTIONAL there --
+            # mandatory would stop -Id from selecting alone.
+            & $mandatoryIn 'RemoteId' 'ByIdIndividual' | Should -BeFalse
+            & $mandatoryIn 'RemoteId' 'ByIdAttributes' | Should -BeFalse
+        }
+
+        It 'refuses a selector-less call and patches nothing' {
+            # Observable half of the mandatory contract above. The default set is
+            # ByRemoteNameIndividual, whose mandatory -RemoteName is the only thing stopping
+            # a bare call from resolving into a fleet-wide PATCH.
+            { Update-PfbArrayConnection -ManagementAddress '10.0.2.101' `
+                -Confirm:$false -Array $fakeArray -ErrorAction Stop } | Should -Throw
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
         }
 
         It 'omits remote_ids entirely when not supplied' {

@@ -87,15 +87,41 @@ Describe 'Remove-PfbArrayConnection - selector query keys (#64)' {
         # pass. Mirroring -RemoteId instead keeps both behaviours. See the two pipeline
         # tests below, which are the observable half of this contract.
         $cmd = Get-Command Remove-PfbArrayConnection
-        $setsOf = {
+        $paramAttrs = {
             param($p)
             @($cmd.Parameters[$p].Attributes |
-                Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] } |
-                ForEach-Object { $_.ParameterSetName }) | Sort-Object
+                Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] })
+        }
+        $setsOf     = { param($p) @((& $paramAttrs $p).ParameterSetName) | Sort-Object }
+        $mandatoryIn = {
+            param($p, $set)
+            @(& $paramAttrs $p | Where-Object { $_.ParameterSetName -eq $set })[0].Mandatory
         }
 
         & $setsOf 'Id'       | Should -Be @('ById')
         & $setsOf 'RemoteId' | Should -Be @('ById', 'ByRemoteId')
+
+        # The Mandatory flags are the other half of the shape, and the more dangerous half.
+        # This cmdlet has no DefaultParameterSetName; it is safe from a blanket delete only
+        # because every set carries exactly one mandatory selector. Making -RemoteId optional
+        # in ByRemoteId leaves the set-name lists above untouched, but lets a bare call
+        # resolve to ByRemoteId and DELETE array-connections with no selector key at all.
+        & $mandatoryIn 'Id'         'ById'         | Should -BeTrue
+        & $mandatoryIn 'RemoteName' 'ByRemoteName' | Should -BeTrue
+        & $mandatoryIn 'RemoteId'   'ByRemoteId'   | Should -BeTrue
+
+        # -RemoteId is the spanning parameter, so it must stay OPTIONAL in ById --
+        # mandatory there would stop -Id from selecting alone.
+        & $mandatoryIn 'RemoteId' 'ById' | Should -BeFalse
+    }
+
+    It 'refuses a selector-less call and deletes nothing' {
+        # Observable half of the mandatory contract above. A no-selector DELETE would target
+        # every array connection on the appliance, so it must never reach the wire.
+        { Remove-PfbArrayConnection -Confirm:$false -Array $fakeArray -ErrorAction Stop } |
+            Should -Throw
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
     }
 
     It 'puts no ValidateSet on the free-form selector -<Parameter>' -ForEach @(
@@ -160,6 +186,12 @@ Describe 'Remove-PfbArrayConnection - selector query keys (#64)' {
             [PSCustomObject]@{ status = 'connected'; type = 'async-replication' } |
                 Remove-PfbArrayConnection -Confirm:$false -Array $fakeArray
         } | Should -Throw -ExpectedMessage '*stringified object*'
+
+        # The guard is terminating and fires before request assembly, so no DELETE is
+        # issued at all. Without this assertion a guard moved after assembly, or made
+        # non-terminating, would still pass while remote_names=@{status=connected...}
+        # went out on the wire.
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
     }
 
     It 'makes no API call when ShouldProcess is declined via -WhatIf' {
