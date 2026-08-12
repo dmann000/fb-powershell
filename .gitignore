@@ -33,6 +33,9 @@ docs/superpowers/
 # full history), committing these would bloat every clone of this repo, which today is
 # also what users copy directly into their PSModulePath (see README "From source").
 # Only the small derived Data/PfbCapabilityMap.json is committed/shipped.
+#
+# This is the ONLY tools/ exclusion. The generator scripts and libs under tools/ are
+# tracked and belong in the repo -- do not re-add a blanket `tools/` rule (see issue #63).
 tools/specs/
 
 # PowerShell
@@ -41,9 +44,6 @@ tools/specs/
 # Pinned test-only modules saved by .github/actions/install-test-modules (Save-Module
 # into a workspace-relative path so every OS/edition shares one cache location).
 .psmodules/
-
-# Not yet decided whether this should be tracked -- excluded for now
-tools/
 
 # OS
 Thumbs.db
