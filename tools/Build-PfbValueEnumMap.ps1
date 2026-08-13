@@ -214,7 +214,7 @@ $reconciliation = foreach ($hw in $handWritten) {
     # live) — those start with an underscore, so a plain prefix check already excludes
     # them without needing a word-boundary check. Known private nested-object schemas
     # that don't share the resource's own name prefix are listed as explicit extra hints
-    # above (e.g. '_multiProtocol', '_fileSystemEradicationConfig'), not matched via a
+    # above (e.g. '_multiProtocol'), not matched via a
     # looser "contains" rule that would just reopen the same false-positive risk.
     $hints = @($hw.ResourceHint) | Where-Object { $_ }
     $candidates = if ($hints.Count -gt 0) {

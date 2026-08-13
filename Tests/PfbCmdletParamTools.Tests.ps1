@@ -375,13 +375,10 @@ function New-PfbFixtureNestedLiteral {
 }
 '@
 
-    # Real New-PfbBucket/New-PfbFileSystem/New-PfbServer shape: a nested single-key reference
-    # object keyed in by INDEX assignment. Covers, in order: the plain reference object; two
-    # parameters legitimately resolving to the SAME outer key ('account' addressed by name and
-    # by id -- correct, not a collision to suppress); a non-'name' inner key (real
-    # New-PfbFileSystem: eradication_config = @{ eradication_mode = ... }); a plain sibling key
-    # that must keep resolving directly; a MULTI-key sub-object, whose per-field ownership
-    # cannot be attributed to one parameter; and two levels of nesting, which is not descended.
+    # Nested single-key reference objects keyed in by INDEX assignment. Covers, in order: a
+    # plain reference object; two parameters resolving to the same outer key (one field addressed
+    # by name or id); a non-'name' inner key; a plain sibling key; a multi-key sub-object whose
+    # fields cannot be attributed to one parameter; and two nesting levels, which are not descended.
     Set-Content -Path (Join-Path $fixtureDir 'New-PfbFixtureNestedReference.ps1') -Value @'
 function New-PfbFixtureNestedReference {
     [CmdletBinding()]
@@ -791,7 +788,7 @@ Describe 'Nested single-key reference-object awareness' {
         $byId.Surface | Should -Be 'Typed'
     }
 
-    It 'does not require the inner key to be "name" (real New-PfbFileSystem eradication_config shape)' {
+    It 'does not require the inner key to be "name"' {
         $rec = $inventory | Where-Object { $_.Cmdlet -eq 'New-PfbFixtureNestedReference' -and $_.Parameter -eq 'EradicationMode' }
         $rec.WireName | Should -Be 'eradication_config'
         $rec.Surface | Should -Be 'Typed'

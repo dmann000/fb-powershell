@@ -6,18 +6,11 @@ function New-PfbPolicyFileSystemReplicaLink {
         The New-PfbPolicyFileSystemReplicaLink cmdlet creates an association between a policy
         and a file system replica link on the connected Pure Storage FlashBlade.
 
-        Bug fix (#31, corrected after review): `POST /policies/file-system-replica-links` has
-        no `member_names` query parameter, but `member_ids` IS a real, spec-declared query
-        parameter on this endpoint (and its GET/DELETE siblings) -- confirmed directly against
-        the OpenAPI spec's parameter list, which the original fix missed, causing it to remove
-        -MemberId entirely as if it were as invalid as -MemberName. The endpoint also identifies
-        the replica link by its local file system (`local_file_system_names`/
-        `local_file_system_ids`) and its remote side (`remote_names`/`remote_ids`), so
-        -MemberName is replaced with -LocalFileSystemName/-LocalFileSystemId and
-        -RemoteName/-RemoteId, while -MemberId is kept (mapped to the real `member_ids` key) as
-        an additional, independent selector alongside them. -LocalFileSystemName keeps
-        -MemberName as a backward-compatible alias (whole-branch review finding I-3: matches
-        the identical rename on the sibling cmdlet New-PfbFileSystemReplicaLinkPolicy).
+        The endpoint identifies the replica link by its local file system
+        (`local_file_system_names`/`local_file_system_ids`) and remote side
+        (`remote_names`/`remote_ids`). -MemberId is an additional independent selector mapped
+        to the endpoint's `member_ids` query parameter. -LocalFileSystemName also accepts
+        -MemberName as a backward-compatible alias, matching New-PfbFileSystemReplicaLinkPolicy.
     .PARAMETER PolicyName
         The policy name.
     .PARAMETER PolicyId
