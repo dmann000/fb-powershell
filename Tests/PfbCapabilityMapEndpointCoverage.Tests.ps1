@@ -95,31 +95,24 @@ Describe 'Public cmdlet endpoints resolve to capability-map keys' {
                     Where-Object { $mapKeys -notcontains $_ }
             )
 
-            # EXACT-MATCH expected set, not a pattern and not a subset assertion, so a third gap
-            # cannot hide behind it. Both entries are known and both retire TOGETHER with
-            # issue #80 ("Update-PfbSmtp targets a nonexistent 2.x path; consolidate the SMTP
-            # cmdlets onto /smtp-servers"):
+            # EXACT-MATCH expected set, empty: EVERY endpoint literal in Public/ must resolve to
+            # a capability-map key. No allowlist, so a gap cannot hide behind one.
             #
-            #   GET /smtp   -- Get-PfbSmtp pins -ApiVersionOverride '1.12', so this is a working
-            #                 REST 1.x call. Its absence from the map is correct BY
-            #                 CONSTRUCTION: the map is generated from the 2.0-2.28 specs, so no
-            #                 1.x path can ever appear in it. This is the module's entire 1.x
-            #                 surface -- one cmdlet, not a family -- and #80 replaces it with an
-            #                 alias for Get-PfbSmtpServer.
-            #   PATCH /smtp -- Update-PfbSmtp passes no override, so it resolves against the
-            #                 negotiated 2.x, where /smtp does not exist. It has never worked:
-            #                 the GET was ported to 1.12 and the PATCH was not. #80 retires it.
+            # This started life carrying two entries, GET /smtp and PATCH /smtp, as a deliberately
+            # self-retiring tripwire against issue #80. #80 landed in PR #108 and the tripwire
+            # fired exactly as designed: Get-PfbSmtp and Update-PfbSmtp are gone, consolidated
+            # onto /smtp-servers, and the module now has no REST 1.x surface at all
+            # (zero -ApiVersionOverride sites). The set was DELETED rather than updated, per its
+            # own instruction. Tests/RemovedCmdlets.Tests.ps1 guards the removal itself.
             #
-            # Deliberately self-retiring: this assertion is a tripwire in BOTH directions.
-            $expected = @('GET /smtp', 'PATCH /smtp')
+            # Do not reintroduce an allowlist to silence a failure here. A new entry means either
+            # a cmdlet's endpoint path is wrong or the capability map needs regenerating.
+            $expected = @()
 
             $detail = if ($unresolved.Count) { $unresolved -join ', ' } else { '(none)' }
             $unresolved -join ',' | Should -Be ($expected -join ',') -Because (
-                "found: $detail. If a NEW endpoint appears here, either the cmdlet's path is " +
-                'wrong or the capability map needs regenerating -- do not widen this list to ' +
-                'silence it. If the list is now EMPTY, issue #80 has landed and the SMTP ' +
-                'cmdlets are consolidated onto /smtp-servers: DELETE the expected set and this ' +
-                'comment rather than updating them.')
+                "found: $detail. Either the cmdlet's endpoint path is wrong or the capability " +
+                'map needs regenerating -- do not widen this list to silence it.')
         }
     }
 }
