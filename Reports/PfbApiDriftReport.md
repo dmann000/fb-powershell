@@ -22,12 +22,12 @@ This report accepts **false positives in order to eliminate false negatives**. A
 
 - Uncovered endpoints: 95
 - Endpoints with parameter gaps: 439
-- Missing body properties (addable): 425
-- Missing query parameters (addable): 942
+- Missing body properties (addable): 426
+- Missing query parameters (addable): 913
 - Read-only body fields (not addable -- see the Read-only fields section below): 384
 - Phantom fields silently excluded (accumulated in the capability map, absent from the newest analysed spec): 40
 - Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 60
-- Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): 247
+- Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): 245
 - ValidateSet drift: 0
 - New ValidateSet candidates: 2
 - Context cardinality signal disagreements (fb2.28): 9
@@ -39,23 +39,21 @@ This report accepts **false positives in order to eliminate false negatives**. A
 
 One finding per distinct wire field name, collapsed across every endpoint where a high-confidence gap exists (decision 7) -- turns hundreds of per-endpoint rows into a handful of real, actionable decisions. "Cmdlets already using this name" is decision 8's convention-strength ranking: a high count means closing the remaining gaps for this name is a mechanical batch fix; zero means no established convention exists to extend at all -- closing it is an architectural decision, not a mechanical one.
 
-Showing the top 25 of 247 findings by endpoint count -- the full list is in the JSON manifest's `systemicGaps`, nothing is dropped there.
+Showing the top 25 of 245 findings by endpoint count -- the full list is in the JSON manifest's `systemicGaps`, nothing is dropped there.
 
 | Field name | Endpoints | Query | Body | Cmdlets already using this name | Annotation |
 |---|---|---|---|---|---|
 | `context_names` | 269 | 269 | 0 | 0 | implemented in Phase 1 via central injection; still listed as a gap because the drift detector does not resolve the variable-keyed injection site (issue #113) |
 | `allow_errors` | 118 | 118 | 0 | 0 | not yet implemented; deferred to Phase 2 |
-| `ids` | 43 | 43 | 0 | 220 |  |
+| `ids` | 38 | 38 | 0 | 225 |  |
 | `names` | 31 | 31 | 0 | 303 |  |
 | `sort` | 28 | 28 | 0 | 180 |  |
 | `bucket_ids` | 17 | 17 | 0 | 2 |  |
-| `total_only` | 17 | 17 | 0 | 38 |  |
+| `total_only` | 17 | 17 | 0 | 12 |  |
 | `bucket_names` | 16 | 16 | 0 | 3 |  |
 | `policy_ids` | 16 | 16 | 0 | 99 |  |
-| `remote_ids` | 15 | 15 | 0 | 3 |  |
 | `member_ids` | 14 | 14 | 0 | 86 |  |
 | `policy_names` | 10 | 10 | 0 | 119 |  |
-| `remote_names` | 9 | 9 | 0 | 9 |  |
 | `file_system_ids` | 8 | 8 | 0 | 9 |  |
 | `local_file_system_ids` | 8 | 8 | 0 | 2 |  |
 | `actions` | 7 | 0 | 7 | 2 |  |
@@ -68,6 +66,8 @@ Showing the top 25 of 247 findings by endpoint count -- the full list is in the 
 | `role_names` | 6 | 6 | 0 | 4 |  |
 | `workload_ids` | 6 | 6 | 0 | 0 |  |
 | `workload_names` | 6 | 6 | 0 | 0 |  |
+| `gids` | 5 | 5 | 0 | 2 |  |
+| `local_file_system_names` | 5 | 5 | 0 | 5 |  |
 
 ## Parameter gaps
 
@@ -80,7 +80,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `DELETE /admins/cache` | Remove-PfbAdminCache | context_names |  | `high` |  |
 | `DELETE /admins/management-access-policies` | Remove-PfbAdminManagementAccessPolicy | context_names |  | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
 | `DELETE /admins/ssh-certificate-authority-policies` | Remove-PfbAdminSshCaPolicy | context_names |  | `high` |  |
-| `DELETE /array-connections` | Remove-PfbArrayConnection | context_names, remote_ids |  | `high` |  |
+| `DELETE /array-connections` | Remove-PfbArrayConnection | context_names |  | `high` |  |
 | `DELETE /arrays/ssh-certificate-authority-policies` | Remove-PfbArraySshCaPolicy | context_names |  | `high` |  |
 | `DELETE /audit-file-systems-policies` | Remove-PfbAuditFileSystemPolicy | context_names |  | `high` |  |
 | `DELETE /audit-file-systems-policies/members` | Remove-PfbAuditFileSystemPolicyMember | context_names |  | `high` |  |
@@ -99,11 +99,11 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `DELETE /directory-services/local/groups/members` | Remove-PfbLocalGroupMember | context_names, group_gids, group_sids, local_directory_service_ids, local_directory_service_names, member_ids, member_sids, member_types |  | `high` |  |
 | `DELETE /dns` | Remove-PfbDns | context_names |  | `high` |  |
 | `DELETE /file-system-exports` | Remove-PfbFileSystemExport | context_names |  | `high` |  |
-| `DELETE /file-system-replica-links` | Remove-PfbFileSystemReplicaLink | context_names, local_file_system_ids, remote_file_system_ids, remote_ids |  | `high` |  |
-| `DELETE /file-system-replica-links/policies` | Remove-PfbFileSystemReplicaLinkPolicy | context_names, local_file_system_ids, local_file_system_names, remote_ids, remote_names |  | `high` |  |
+| `DELETE /file-system-replica-links` | Remove-PfbFileSystemReplicaLink | context_names, local_file_system_ids, remote_file_system_ids |  | `high` |  |
+| `DELETE /file-system-replica-links/policies` | Remove-PfbFileSystemReplicaLinkPolicy | context_names, local_file_system_ids, local_file_system_names |  | `high` |  |
 | `DELETE /file-system-snapshots` | Remove-PfbFileSystemSnapshot | context_names |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `DELETE /file-system-snapshots/policies` | Remove-PfbFileSystemSnapshotPolicy | context_names |  | `high` |  |
-| `DELETE /file-system-snapshots/transfer` | Remove-PfbFileSystemSnapshotTransfer | context_names, remote_ids, remote_names |  | `high` |  |
+| `DELETE /file-system-snapshots/transfer` | Remove-PfbFileSystemSnapshotTransfer | context_names |  | `high` |  |
 | `DELETE /file-systems` | Remove-PfbFileSystem | context_names |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `DELETE /file-systems/audit-policies` | Remove-PfbFileSystemAuditPolicy | context_names |  | `high` |  |
 | `DELETE /file-systems/locks` | Remove-PfbFileLock | client_names, context_names, file_system_ids, file_system_names, inodes, paths, recursive |  | `high` |  |
@@ -136,7 +136,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `DELETE /object-store-users/object-store-access-policies` | Remove-PfbObjectStoreUserAccessPolicy | context_names, member_ids, policy_ids |  | `high` |  |
 | `DELETE /object-store-virtual-hosts` | Remove-PfbObjectStoreVirtualHost | context_names |  | `high` |  |
 | `DELETE /policies` | Remove-PfbPolicy | context_names |  | `high` |  |
-| `DELETE /policies/file-system-replica-links` | Remove-PfbPolicyFileSystemReplicaLink | context_names, local_file_system_ids, local_file_system_names, remote_ids, remote_names |  | `high` |  |
+| `DELETE /policies/file-system-replica-links` | Remove-PfbPolicyFileSystemReplicaLink | context_names, local_file_system_ids, local_file_system_names |  | `high` |  |
 | `DELETE /policies/file-systems` | Remove-PfbPolicyFileSystem | context_names |  | `high` |  |
 | `DELETE /presets/workload` | Remove-PfbPresetWorkload | context_names |  | `high` |  |
 | `DELETE /qos-policies` | Remove-PfbQosPolicy | context_names |  | `high` |  |
@@ -166,10 +166,10 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /admins/management-access-policies` | Get-PfbAdminManagementAccessPolicy | allow_errors, context_names, sort |  | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
 | `GET /admins/ssh-certificate-authority-policies` | Get-PfbAdminSshCaPolicy | allow_errors, context_names, sort |  | `high` |  |
 | `GET /alert-watchers/test` | Test-PfbAlertWatcher | filter, sort |  | `high` |  |
-| `GET /array-connections` | Get-PfbArrayConnection | allow_errors, context_names, remote_ids |  | `high` |  |
+| `GET /array-connections` | Get-PfbArrayConnection | allow_errors, context_names |  | `high` |  |
 | `GET /array-connections/connection-key` | Get-PfbArrayConnectionKey | ids |  | `high` |  |
-| `GET /array-connections/path` | Get-PfbArrayConnectionPath | allow_errors, context_names, ids, remote_ids |  | `high` |  |
-| `GET /array-connections/performance/replication` | Get-PfbArrayConnectionPerformanceReplication | ids, remote_ids, total_only |  | `high` |  |
+| `GET /array-connections/path` | Get-PfbArrayConnectionPath | allow_errors, context_names |  | `high` |  |
+| `GET /array-connections/performance/replication` | Get-PfbArrayConnectionPerformanceReplication | total_only |  | `high` |  |
 | `GET /arrays` | Get-PfbArray, Test-PfbConnection | allow_errors, context_names |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `GET /arrays/clients/performance` | Get-PfbArrayClientPerformance | names, protocol, total_only |  | `high` |  |
 | `GET /arrays/clients/s3-specific-performance` | Get-PfbArrayClientS3Performance | names, total_only |  | `high` |  |
@@ -190,7 +190,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /audits` | Get-PfbAudit | allow_errors, context_names |  | `high` |  |
 | `GET /blades` | Get-PfbBlade, Get-PfbNode | total_only |  | `high` |  |
 | `GET /bucket-audit-filter-actions` | Get-PfbBucketAuditFilterAction | allow_errors, context_names, names |  | `high` |  |
-| `GET /bucket-replica-links` | Get-PfbBucketReplicaLink | allow_errors, context_names, ids, local_bucket_ids, remote_ids, remote_names, total_only |  | `high` |  |
+| `GET /bucket-replica-links` | Get-PfbBucketReplicaLink | allow_errors, context_names, local_bucket_ids, total_only |  | `high` |  |
 | `GET /buckets` | Get-PfbBucket | allow_errors, context_names |  | `high` |  |
 | `GET /buckets/audit-filters` | Get-PfbBucketAuditFilter | allow_errors, bucket_ids, bucket_names, context_names, names |  | `high` |  |
 | `GET /buckets/bucket-access-policies` | Get-PfbBucketAccessPolicy | allow_errors, bucket_ids, bucket_names, context_names |  | `high` |  |
@@ -215,9 +215,9 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /drives` | Get-PfbDrive | total_only |  | `high` |  |
 | `GET /file-system-exports` | Get-PfbFileSystemExport | allow_errors, context_names, workload_ids, workload_names |  | `high` |  |
 | `GET /file-system-group-quotas` | Get-PfbFileSystemGroupQuota | allow_errors, context_names |  | `high` |  |
-| `GET /file-system-replica-links` | Get-PfbFileSystemReplicaLink | allow_errors, context_names, ids, local_file_system_ids, remote_file_system_ids, remote_ids, remote_names |  | `high` |  |
-| `GET /file-system-replica-links/policies` | Get-PfbFileSystemReplicaLinkPolicy | allow_errors, context_names, local_file_system_ids, local_file_system_names, remote_file_system_ids, remote_file_system_names, remote_ids, remote_names |  | `high` |  |
-| `GET /file-system-replica-links/transfer` | Get-PfbFileSystemReplicaLinkTransfer | allow_errors, context_names, remote_ids, remote_names |  | `high` |  |
+| `GET /file-system-replica-links` | Get-PfbFileSystemReplicaLink | allow_errors, context_names, local_file_system_ids, remote_file_system_ids |  | `high` |  |
+| `GET /file-system-replica-links/policies` | Get-PfbFileSystemReplicaLinkPolicy | allow_errors, context_names, local_file_system_ids, local_file_system_names, remote_file_system_ids, remote_file_system_names |  | `high` |  |
+| `GET /file-system-replica-links/transfer` | Get-PfbFileSystemReplicaLinkTransfer | allow_errors, context_names |  | `high` |  |
 | `GET /file-system-snapshots` | Get-PfbFileSystemSnapshot | allow_errors, context_names, names_or_owner_names, owner_ids |  | `high` |  |
 | `GET /file-system-snapshots/policies` | Get-PfbFileSystemSnapshotPolicy | allow_errors, context_names |  | `high` |  |
 | `GET /file-system-snapshots/transfer` | Get-PfbFileSystemSnapshotTransfer | allow_errors, context_names, names_or_owner_names |  | `high` |  |
@@ -280,8 +280,8 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /password-policies` | Get-PfbPasswordPolicy | ids, names |  | `high` |  |
 | `GET /policies` | Get-PfbPolicy | allow_errors, context_names, workload_ids, workload_names |  | `high` |  |
 | `GET /policies-all` | Get-PfbPolicyAll | allow_errors, context_names |  | `high` |  |
-| `GET /policies-all/members` | Get-PfbPolicyAllMember | allow_errors, context_names, local_file_system_ids, local_file_system_names, remote_file_system_ids, remote_file_system_names, remote_ids, remote_names, sort |  | `high` |  |
-| `GET /policies/file-system-replica-links` | Get-PfbPolicyFileSystemReplicaLink | allow_errors, context_names, local_file_system_ids, local_file_system_names, remote_file_system_ids, remote_file_system_names, remote_ids, remote_names, sort |  | `high` |  |
+| `GET /policies-all/members` | Get-PfbPolicyAllMember | allow_errors, context_names, local_file_system_ids, local_file_system_names, remote_file_system_ids, remote_file_system_names, sort |  | `high` |  |
+| `GET /policies/file-system-replica-links` | Get-PfbPolicyFileSystemReplicaLink | allow_errors, context_names, local_file_system_ids, local_file_system_names, remote_file_system_ids, remote_file_system_names, sort |  | `high` |  |
 | `GET /policies/file-system-snapshots` | Get-PfbPolicyFileSystemSnapshot | allow_errors, context_names |  | `high` |  |
 | `GET /policies/file-systems` | Get-PfbPolicyFileSystem | allow_errors, context_names |  | `high` |  |
 | `GET /presets/workload` | Get-PfbPresetWorkload | context_names |  | `high` |  |
@@ -438,10 +438,10 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `POST /directory-services/roles` | New-PfbDirectoryServiceRole |  | group, group_base, management_access_policies, role | `high` |  |
 | `POST /dns` | New-PfbDns | context_names, names | ca_certificate, ca_certificate_group, domain, nameservers, services, sources | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `POST /file-system-exports` | New-PfbFileSystemExport | context_names, member_ids, policy_ids |  | `high` |  |
-| `POST /file-system-replica-links` | New-PfbFileSystemReplicaLink | context_names, ids, local_file_system_ids, remote_ids | direction, link_type, local_file_system, policies, remote, remote_file_system | `high` |  |
+| `POST /file-system-replica-links` | New-PfbFileSystemReplicaLink | context_names, local_file_system_ids | direction, link_type, local_file_system, policies, remote, remote_file_system | `high` |  |
 | `POST /file-system-replica-links/policies` | New-PfbFileSystemReplicaLinkPolicy | context_names |  | `high` |  |
 | `POST /file-system-snapshots` | New-PfbFileSystemSnapshot | context_names, source_ids, source_names |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
-| `POST /file-systems` | New-PfbFileSystem | context_names, default_exports, discard_non_snapshotted_data, include_snapshot, overwrite, policy_ids, policy_names | fast_remove_directory_enabled, hard_limit_enabled, http, multi_protocol, nfs, node_group, smb, snapshot_directory_enabled, workload, writable | `partial` -- /!\ 15 unresolved params (see Partial-confidence detail below) |  |
+| `POST /file-systems` | New-PfbFileSystem | context_names, default_exports, discard_non_snapshotted_data, include_snapshot, overwrite, policy_ids, policy_names | eradication_config, fast_remove_directory_enabled, hard_limit_enabled, http, multi_protocol, nfs, node_group, smb, snapshot_directory_enabled, workload, writable | `partial` -- /!\ 17 unresolved params (see Partial-confidence detail below) |  |
 | `POST /file-systems/audit-policies` | New-PfbFileSystemAuditPolicy | context_names |  | `high` |  |
 | `POST /file-systems/locks/nlm-reclamations` | New-PfbNlmReclamation | context_names |  | `high` |  |
 | `POST /file-systems/policies` | New-PfbFileSystemPolicy | context_names |  | `high` |  |
@@ -532,8 +532,8 @@ Per the decision-6 procedure above: open each parameter at its `file:line` and f
 | `DELETE /quotas/users` | `-UserName` | TypedUnresolved | `Public/Quota/Remove-PfbQuotaUser.ps1:26` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
 | `DELETE /servers` | `-Eradicate` | TypedUnresolved | `Public/Server/Remove-PfbServer.ps1:35` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
 | `GET /arrays` | `-Endpoint` | TypedUnresolved | `Public/Connection/Test-PfbConnection.ps1:31` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
-| `GET /user-group-quota-policies` | `-Id` | TypedUnresolved | `Public/Policy/Get-PfbUserGroupQuotaPolicy.ps1:38` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
-| `GET /user-group-quota-policies` | `-Name` | TypedUnresolved | `Public/Policy/Get-PfbUserGroupQuotaPolicy.ps1:35` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
+| `GET /user-group-quota-policies` | `-Id` | TypedUnresolved | `Public/Policy/Get-PfbUserGroupQuotaPolicy.ps1:36` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
+| `GET /user-group-quota-policies` | `-Name` | TypedUnresolved | `Public/Policy/Get-PfbUserGroupQuotaPolicy.ps1:33` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
 | `PATCH /alert-watchers` | `-Enabled` | AttributesOnly | `Public/Alert/Update-PfbAlertWatcher.ps1:32` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `PATCH /alerts` | `-Flagged` | AttributesOnly | `Public/Alert/Update-PfbAlert.ps1:26` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `PATCH /audit-file-systems-policies` | `-Enabled` | AttributesOnly | `Public/Policy/Update-PfbAuditFileSystemPolicy.ps1:40` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
@@ -576,21 +576,23 @@ Per the decision-6 procedure above: open each parameter at its `file:line` and f
 | `POST /directory-services/local/groups/members` | `-Member` | TypedUnresolved | `Public/DirectoryService/New-PfbLocalGroupMember.ps1:35` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
 | `POST /dns` | `-Name` | AttributesOnly | `Public/Network/New-PfbDns.ps1:29` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /file-system-snapshots` | `-SourceName` | TypedUnresolved | `Public/FileSystemSnapshot/New-PfbFileSystemSnapshot.ps1:36` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
-| `POST /file-systems` | `-FastRemoveDirectoryEnabled` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:139` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `POST /file-systems` | `-HardLimit` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:93` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `POST /file-systems` | `-Http` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:126` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `POST /file-systems` | `-MultiProtocolAccessControlStyle` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:129` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `POST /file-systems` | `-Nfs` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:102` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `POST /file-systems` | `-NfsExportPolicy` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:114` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `POST /file-systems` | `-NfsRules` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:111` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `POST /file-systems` | `-NfsV3` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:105` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `POST /file-systems` | `-NfsV41` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:108` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `POST /file-systems` | `-SafeguardAcls` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:133` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `POST /file-systems` | `-Smb` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:117` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `POST /file-systems` | `-SmbClientPolicy` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:123` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `POST /file-systems` | `-SmbSharePolicy` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:120` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `POST /file-systems` | `-SnapshotDirectoryEnabled` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:136` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `POST /file-systems` | `-Writable` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:150` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /file-systems` | `-DefaultExports` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:205` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /file-systems` | `-FastRemoveDirectoryEnabled` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:185` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /file-systems` | `-HardLimit` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:136` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /file-systems` | `-Http` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:172` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /file-systems` | `-MultiProtocolAccessControlStyle` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:175` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /file-systems` | `-Nfs` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:145` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /file-systems` | `-NfsExportPolicy` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:157` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /file-systems` | `-NfsRules` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:154` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /file-systems` | `-NfsV3` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:148` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /file-systems` | `-NfsV41` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:151` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /file-systems` | `-SafeguardAcls` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:179` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /file-systems` | `-Smb` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:160` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /file-systems` | `-SmbClientPolicy` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:166` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /file-systems` | `-SmbContinuousAvailabilityEnabled` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:169` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /file-systems` | `-SmbSharePolicy` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:163` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /file-systems` | `-SnapshotDirectoryEnabled` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:182` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /file-systems` | `-Writable` | AttributesOnly | `Public/FileSystem/New-PfbFileSystem.ps1:192` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /fleets` | `-Name` | AttributesOnly | `Public/Replication/New-PfbFleet.ps1:30` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /link-aggregation-groups` | `-Name` | AttributesOnly | `Public/Misc/New-PfbLag.ps1:29` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /nfs-export-policies` | `-Enabled` | AttributesOnly | `Public/Policy/New-PfbNfsExportPolicy.ps1:36` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |

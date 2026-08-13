@@ -192,7 +192,7 @@ $handWritten = @(
     [PSCustomObject]@{ File = 'Public/FileSystem/New-PfbFileSystem.ps1'; Line = 176; Parameter = '-MultiProtocolAccessControlStyle'; Name = 'access_control_style'; ResourceHint = @('FileSystem', '_multiProtocol'); Values = @('nfs', 'smb', 'shared', 'independent', 'mode-bits') }
     [PSCustomObject]@{ File = 'Public/FileSystem/New-PfbFileSystem.ps1'; Line = 189; Parameter = '-GroupOwnership'; Name = 'group_ownership'; ResourceHint = 'FileSystem'; Values = @('creator', 'parent-directory') }
     [PSCustomObject]@{ File = 'Public/FileSystem/Update-PfbFileSystem.ps1'; Line = 97; Parameter = '-RequestedPromotionState'; Name = 'requested_promotion_state'; ResourceHint = 'FileSystem'; Values = @('promoted', 'demoted') }
-    [PSCustomObject]@{ File = 'Public/Array/Get-PfbArrayPerformance.ps1'; Line = 29; Parameter = '-Protocol'; Name = 'protocol'; ResourceHint = $null; Values = @('nfs', 'smb', 'http', 's3') }
+    [PSCustomObject]@{ File = 'Public/Array/Get-PfbArrayPerformance.ps1'; Line = 37; Parameter = '-Protocol'; Name = 'protocol'; ResourceHint = $null; Values = @('nfs', 'smb', 'http', 's3') }
     [PSCustomObject]@{ File = 'Public/Network/New-PfbNetworkInterface.ps1'; Line = 52; Parameter = '-Services'; Name = 'services'; ResourceHint = 'NetworkInterface'; Values = @('data', 'egress-only', 'management', 'replication', 'support') }
     [PSCustomObject]@{ File = 'Public/Network/New-PfbNetworkInterface.ps1'; Line = 59; Parameter = '-Type'; Name = 'type'; ResourceHint = 'NetworkInterface'; Values = @('vip') }
 )
