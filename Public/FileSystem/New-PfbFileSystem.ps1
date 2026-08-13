@@ -19,6 +19,10 @@ function New-PfbFileSystem {
         default_exports was introduced in REST 2.16, every invocation of this cmdlet now
         requires an array running REST 2.16 or newer.
 
+        Snapshot directory: on the typed path this cmdlet always sends an explicit
+        snapshot_directory_enabled, and sends false when -SnapshotDirectoryEnabled is
+        omitted, so the hidden .snapshot directory is not exposed unless you ask for it.
+
         SMB security note: enabling SMB without -SmbSharePolicy uses the FB's pre-defined
         full-access share policy. For production shares, pass -SmbSharePolicy with the
         name of a policy that grants the access you intend.
@@ -58,7 +62,10 @@ function New-PfbFileSystem {
         Prevents NFS clients from erasing a configured ACL when setting NFS mode bits.
         Only meaningful with multi-protocol.
     .PARAMETER SnapshotDirectoryEnabled
-        Expose the hidden .snapshot directory inside the FS mount.
+        Expose the hidden .snapshot directory inside the FS mount. Defaults to false: the
+        cmdlet always sends an explicit value, so omitting this parameter hides .snapshot
+        rather than letting the array apply its own default of true. Pass $true to expose
+        it. On the -Attributes path the body is caller-owned and no value is added.
     .PARAMETER FastRemoveDirectoryEnabled
         Enable the fast-remove directory feature.
     .PARAMETER GroupOwnership
@@ -210,7 +217,16 @@ function New-PfbFileSystem {
         if ($HardLimit)                      { $body['hard_limit_enabled'] = $true }
         if ($PSBoundParameters.ContainsKey('DefaultUserQuota'))  { $body['default_user_quota']  = $DefaultUserQuota }
         if ($PSBoundParameters.ContainsKey('DefaultGroupQuota')) { $body['default_group_quota'] = $DefaultGroupQuota }
-        if ($PSBoundParameters.ContainsKey('SnapshotDirectoryEnabled')) { $body['snapshot_directory_enabled'] = [bool]$SnapshotDirectoryEnabled }
+        # Always explicit: the array's own default for this field is true, which silently
+        # exposes .snapshot inside every new mount. Sending false unless the caller asked
+        # for visibility replaces that surprising default. Assigned from an if/else
+        # expression so the omitted case still yields a real [bool], never $null.
+        $body['snapshot_directory_enabled'] = if ($PSBoundParameters.ContainsKey('SnapshotDirectoryEnabled')) {
+            [bool]$SnapshotDirectoryEnabled
+        }
+        else {
+            $false
+        }
         if ($PSBoundParameters.ContainsKey('FastRemoveDirectoryEnabled')) { $body['fast_remove_directory_enabled'] = [bool]$FastRemoveDirectoryEnabled }
         if ($GroupOwnership)                 { $body['group_ownership'] = $GroupOwnership }
         if ($PSBoundParameters.ContainsKey('Writable')) { $body['writable'] = [bool]$Writable }

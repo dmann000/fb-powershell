@@ -138,11 +138,55 @@ Describe 'New-PfbFileSystem - request construction baseline' {
         }
     }
 
-    Context 'snapshot directory passthrough' {
+    Context 'snapshot directory default' {
 
         BeforeEach {
             Mock -ModuleName PureStorageFlashBladePowerShell Assert-PfbConnection { }
             Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { }
+        }
+
+        It 'sends snapshot_directory_enabled=false when -SnapshotDirectoryEnabled is omitted' {
+            New-PfbFileSystem -Name 'fs01' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey('snapshot_directory_enabled') -and
+                $Body['snapshot_directory_enabled'] -eq $false
+            }
+        }
+
+        It 'sends a real [bool] rather than a nullable or string value when omitted' {
+            New-PfbFileSystem -Name 'fs01' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body['snapshot_directory_enabled'] -is [bool]
+            }
+        }
+
+        It 'sends a real [bool] when -SnapshotDirectoryEnabled is explicit' {
+            New-PfbFileSystem -Name 'fs01' -SnapshotDirectoryEnabled $true -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body['snapshot_directory_enabled'] -is [bool]
+            }
+        }
+
+        It 'leaves an -Attributes body without a synthetic snapshot_directory_enabled key' {
+            New-PfbFileSystem -Name 'fs01' -Attributes @{ provisioned = 42 } -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.Count -eq 1 -and
+                -not $Body.ContainsKey('snapshot_directory_enabled')
+            }
+        }
+
+        It 'passes an -Attributes snapshot_directory_enabled value through untouched' {
+            New-PfbFileSystem -Name 'fs01' -Attributes @{ snapshot_directory_enabled = $true } `
+                -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.Count -eq 1 -and
+                $Body['snapshot_directory_enabled'] -eq $true
+            }
         }
 
         It 'sends snapshot_directory_enabled=true when -SnapshotDirectoryEnabled $true' {
