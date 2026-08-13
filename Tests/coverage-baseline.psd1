@@ -39,6 +39,12 @@
             'Real committed capability map (skips gracefully if not yet generated)'
             'Real committed value-enum map (skips gracefully if not yet generated)'
             'Task 6 real-data invariants (systemic gaps + convention strength, skips gracefully if the real capability map is absent)'
+            # Issue #102 -- ungated capability guards over the committed map. They read
+            # Data/PfbCapabilityMap.json (tracked, not the gitignored spec cache) and have no
+            # skip path by design, so they must contribute executed tests on every leg.
+            '-TotalOnly is exposed only where the published spec declares total_only (#102)'
+            'the 26 cmdlets corrected by #102 no longer expose -TotalOnly'
+            'the 12 cmdlets whose endpoints do declare total_only keep the switch (#102 is not a blanket removal)'
         )
     }
     winps51 = @{
@@ -66,6 +72,11 @@
             'Committed drift report (REGRESSION guard, no spec cache required)'
             'Committed drift report: annotations and summary fields survived generation'
             'ConvertTo-PfbRepoRelativePath (REGRESSION guard for issue #63: runs with no spec cache, on every edition)'
+            # Issue #102 -- ungated on both editions for the same reason as above: committed
+            # capability data only, no PS7 gate, no graceful-skip path.
+            '-TotalOnly is exposed only where the published spec declares total_only (#102)'
+            'the 26 cmdlets corrected by #102 no longer expose -TotalOnly'
+            'the 12 cmdlets whose endpoints do declare total_only keep the switch (#102 is not a blanket removal)'
         )
     }
 }
