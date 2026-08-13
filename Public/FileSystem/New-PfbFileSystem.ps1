@@ -13,12 +13,12 @@ function New-PfbFileSystem {
         export records in a disabled state — this is API behavior, not a module bug. Only
         the protocol switches you pass are flipped to enabled.
 
-        Default exports: this cmdlet always sends the API's default_exports query parameter,
-        and sends the documented empty value — a quoted empty string as the single array
-        item — when -DefaultExports is omitted, so no default NFS or SMB export to the
-        default server is created unless you ask for one. Because
-        default_exports was introduced in REST 2.16, every invocation of this cmdlet now
-        requires an array running REST 2.16 or newer.
+        Default exports: on REST 2.16 and newer, this cmdlet sends the API's documented
+        empty value — a quoted empty string as the single default_exports array item — when
+        -DefaultExports is omitted, so no default NFS or SMB export is created unless you
+        ask for one. On REST 2.0 through 2.15, omission sends no unsupported query key and
+        preserves that API era's filesystem access semantics. Explicit -DefaultExports
+        requires REST 2.16 or newer.
 
         Snapshot directory: on the typed path this cmdlet always sends an explicit
         snapshot_directory_enabled, and sends false when -SnapshotDirectoryEnabled is
@@ -85,9 +85,11 @@ function New-PfbFileSystem {
         Name of a QoS policy to attach.
     .PARAMETER DefaultExports
         Protocols for which the FlashBlade should create a default export with default
-        access. Valid: nfs, smb. Omit it and no default exports are created — the cmdlet
-        sends the API's explicit empty value, a quoted empty string as the single array
-        item, rather than letting the array apply its own default of 'nfs,smb'.
+        access. Valid: nfs, smb. On REST 2.16 and newer, omission creates no default exports:
+        the cmdlet sends the API's explicit empty value, a quoted empty string as the single
+        array item, rather than letting the array apply its own default of 'nfs,smb'. On REST
+        2.0 through 2.15, omission sends no default_exports key and preserves that API era's
+        filesystem access semantics. Explicit use requires REST 2.16 or newer.
 
         Per the published API rule, an explicit protocol policy always creates that
         protocol's default export regardless of this parameter: -NfsRules or
@@ -121,8 +123,9 @@ function New-PfbFileSystem {
     .EXAMPLE
         New-PfbFileSystem -Name "legacy-nfs" -Nfs -DefaultExports nfs
 
-        Opt back in to the array's default NFS export. Without -DefaultExports, no default
-        export is created.
+        On REST 2.16 and newer, opt in to a default NFS export. Without -DefaultExports, no
+        default export is created on REST 2.16 and newer; older versions preserve their
+        existing filesystem access semantics.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium', DefaultParameterSetName = 'Individual')]
     param(
@@ -297,22 +300,32 @@ function New-PfbFileSystem {
     # matches a parameter IS that parameter in PowerShell (case-insensitive), so assigning to
     # $DefaultExports here would re-run its ValidateSet against the empty value and throw.
     #
-    # The omitted case is a single-element array whose one item is a QUOTED empty string — two
-    # literal single-quote characters. The API's documented "empty string" value for "create no
-    # default exports" is that quoted empty string as the array item: a bare `default_exports=`
-    # is rejected by the array with HTTP 400 "Missing or invalid parameter", while the quoted
-    # form (`default_exports=%27%27` on the wire) is accepted and creates no default export.
+    # On REST 2.16 and newer, the omitted case is a single-element array whose one item is a
+    # QUOTED empty string — two literal single-quote characters. The API's documented "empty
+    # string" value for "create no default exports" is that quoted empty string as the array
+    # item: a bare `default_exports=` is rejected by the array with HTTP 400 "Missing or invalid
+    # parameter", while the quoted form (`default_exports=%27%27` on the wire) is accepted and
+    # creates no default export. Older or unknown versions omit this unsupported query key.
     #
     # It must also be an array rather than a scalar: ConvertTo-PfbQueryString joins arrays with
     # commas, and the array form is what the parameter is specified to take. It is assigned in
     # two statements rather than from an if/else expression because an if/else yields pipeline
     # output, where a single-element array collapses back to its element — direct assignment of
     # an array literal does not.
-    $defaultExportsValue = @("''")
-    if ($PSBoundParameters.ContainsKey('DefaultExports')) {
-        $defaultExportsValue = @($DefaultExports)
+    $defaultExportsSupported = $false
+    if ($Array.ApiVersion) {
+        $defaultExportsSupported = Test-PfbVersionAtLeast -Have $Array.ApiVersion -Need '2.16'
     }
-    $queryParams['default_exports'] = $defaultExportsValue
+    $defaultExportsRequested = $PSBoundParameters.ContainsKey('DefaultExports')
+    $defaultExportsValue = $null
+
+    if ($defaultExportsSupported -or $defaultExportsRequested) {
+        $defaultExportsValue = @("''")
+        if ($defaultExportsRequested) {
+            $defaultExportsValue = @($DefaultExports)
+        }
+        $queryParams['default_exports'] = $defaultExportsValue
+    }
 
     # Requesting a default SMB export without naming a share policy makes the array attach its
     # built-in full-access share policy. Reject that here, before any request is issued, so the
@@ -322,7 +335,7 @@ function New-PfbFileSystem {
     # this only inspects it. The nested smb value can be any shape the caller supplied: absent,
     # $null, a hashtable, another IDictionary, a ConvertFrom-Json PSCustomObject, or a scalar.
     # Each of those has to reach the same message rather than an indexing or property error.
-    if ($defaultExportsValue -contains 'smb') {
+    if ($defaultExportsRequested -and $defaultExportsValue -contains 'smb') {
         $smbSharePolicySupplied = $false
         if ($PSCmdlet.ParameterSetName -eq 'Attributes') {
             $smbValue = $null

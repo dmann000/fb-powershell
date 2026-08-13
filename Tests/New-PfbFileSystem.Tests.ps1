@@ -602,11 +602,11 @@ Describe 'New-PfbFileSystem - request construction baseline' {
     }
 }
 
-Describe 'New-PfbFileSystem - default_exports REST 2.16 floor (mock-only)' {
+Describe 'New-PfbFileSystem - default_exports REST 2.16 boundary (mock-only)' {
     # Mock-only by necessity: the lab arrays run REST 2.26 and can never exercise the
-    # pre-2.16 branch. Invoke-PfbApiRequest is deliberately NOT mocked -- the point is that
-    # the real Assert-PfbApiCapability inside it fires against the real
-    # Data/PfbCapabilityMap.json, which records default_exports on POST /file-systems at 2.16.
+    # pre-2.16 branch. Explicit use reaches the real Assert-PfbApiCapability inside
+    # Invoke-PfbApiRequest; omission is captured before HTTP to prove the unsupported key
+    # is absent while the request remains otherwise valid.
 
     BeforeAll {
         $script:oldArray = [PSCustomObject]@{
@@ -625,11 +625,53 @@ Describe 'New-PfbFileSystem - default_exports REST 2.16 floor (mock-only)' {
         Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod { throw 'should never be called' }
     }
 
-    It 'throws naming default_exports below REST 2.16 even when -DefaultExports is omitted' {
-        { New-PfbFileSystem -Name 'fs01' -Confirm:$false -Array $oldArray } |
-            Should -Throw -ExpectedMessage "*parameter 'default_exports' on POST /file-systems requires REST 2.16*Upgrade the array or omit the unsupported option(s).*"
+    It 'omits default_exports below REST 2.16 when -DefaultExports is omitted' {
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { }
 
-        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod -Times 0 -Exactly
+        New-PfbFileSystem -Name 'fs01' -Confirm:$false -Array $oldArray
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            -not $QueryParams.ContainsKey('default_exports') -and
+            $Body.ContainsKey('snapshot_directory_enabled') -and
+            $Body['snapshot_directory_enabled'] -eq $false -and
+            $Body['snapshot_directory_enabled'] -is [bool]
+        }
+    }
+
+    It 'emits no compatibility warning below REST 2.16 when -DefaultExports is omitted' {
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { }
+
+        New-PfbFileSystem -Name 'fs01' -Confirm:$false -Array $oldArray `
+            -WarningAction SilentlyContinue -WarningVariable compatibilityWarning
+
+        $compatibilityWarning | Should -BeNullOrEmpty
+    }
+
+    It 'preserves a caller-owned Attributes body below REST 2.16 while omitting default_exports' {
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { }
+        $attributes = @{ provisioned = 42; nfs = @{ v3_enabled = $true } }
+
+        New-PfbFileSystem -Name 'fs01' -Attributes $attributes -Confirm:$false -Array $oldArray
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            [object]::ReferenceEquals($Body, $attributes) -and
+            $Body.Count -eq 2 -and
+            -not $QueryParams.ContainsKey('default_exports')
+        }
+    }
+
+    It 'omits default_exports when the connection does not report an API version' {
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { }
+        $unknownVersionArray = [PSCustomObject]@{
+            Endpoint  = 'fb.example.test'
+            AuthToken = 'session-token'
+        }
+
+        New-PfbFileSystem -Name 'fs01' -Confirm:$false -Array $unknownVersionArray
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            -not $QueryParams.ContainsKey('default_exports')
+        }
     }
 
     It 'throws naming default_exports below REST 2.16 when -DefaultExports is explicit' {
@@ -642,8 +684,8 @@ Describe 'New-PfbFileSystem - default_exports REST 2.16 floor (mock-only)' {
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod -Times 0 -Exactly
     }
 
-    It 'does not gate on default_exports for an array at REST 2.16 or later' {
-        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod { [PSCustomObject]@{ items = @() } }
+    It 'sends quoted-empty default_exports and snapshot false at REST 2.16' {
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { }
 
         $newArray = [PSCustomObject]@{
             Endpoint             = 'fb.example.test'
@@ -655,7 +697,17 @@ Describe 'New-PfbFileSystem - default_exports REST 2.16 floor (mock-only)' {
             SkipCertificateCheck = $false
         }
 
-        { New-PfbFileSystem -Name 'fs01' -Confirm:$false -Array $newArray } | Should -Not -Throw
+        New-PfbFileSystem -Name 'fs01' -Confirm:$false -Array $newArray
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams.ContainsKey('default_exports') -and
+            $QueryParams['default_exports'] -is [array] -and
+            @($QueryParams['default_exports']).Count -eq 1 -and
+            @($QueryParams['default_exports'])[0] -eq "''" -and
+            $Body.ContainsKey('snapshot_directory_enabled') -and
+            $Body['snapshot_directory_enabled'] -eq $false -and
+            $Body['snapshot_directory_enabled'] -is [bool]
+        }
     }
 }
 
