@@ -219,7 +219,7 @@ Describe 'New-PfbFileSystem - request construction baseline' {
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $QueryParams['default_exports'].Count -eq 1 -and
-                $QueryParams['default_exports'][0] -eq ''
+                $QueryParams['default_exports'][0] -eq "''"
             }
         }
 
@@ -334,14 +334,18 @@ Describe 'New-PfbFileSystem - request construction baseline' {
             Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { }
         }
 
-        It 'sends a single empty-string element when -DefaultExports is omitted' {
+        It 'sends a single quoted-empty element when -DefaultExports is omitted' {
+            # The API's "empty string" value for this parameter is a QUOTED empty string as the
+            # single array item -- two literal single-quote characters. A bare empty value
+            # (`default_exports=`) is rejected by the array with HTTP 400.
             New-PfbFileSystem -Name 'fs01' -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $QueryParams.ContainsKey('default_exports') -and
                 $QueryParams['default_exports'] -is [array] -and
                 @($QueryParams['default_exports']).Count -eq 1 -and
-                @($QueryParams['default_exports'])[0] -eq ''
+                @($QueryParams['default_exports'])[0] -eq "''" -and
+                @($QueryParams['default_exports'])[0].Length -eq 2
             }
         }
 
@@ -407,14 +411,21 @@ Describe 'New-PfbFileSystem - request construction baseline' {
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $Body.Count -eq 1 -and
                 -not $Body.ContainsKey('default_exports') -and
-                @($QueryParams['default_exports'])[0] -eq ''
+                @($QueryParams['default_exports'])[0] -eq "''"
             }
         }
 
-        It 'serializes the omitted value to the exact wire form default_exports=' {
+        It 'serializes the omitted value to the quoted-empty wire form' {
             # The value is taken from the cmdlet and handed to the real serializer, so this
             # covers the whole path rather than a believed-equivalent literal. A scalar empty
-            # string would be dropped by ConvertTo-PfbQueryString and never reach the wire.
+            # string would be dropped by ConvertTo-PfbQueryString and never reach the wire, and
+            # a bare `default_exports=` is rejected by the array with HTTP 400.
+            #
+            # The two single quotes are percent-encoded by [System.Uri]::EscapeDataString on
+            # .NET (PowerShell 7) but left literal on .NET Framework (Windows PowerShell 5.1);
+            # both forms decode to the same two-character value, so the assertion pins the
+            # decoded form and accepts either encoding.
+            #
             # The mock returns $QueryParams so the cmdlet's own value can be read in the test
             # scope; the hashtable is then passed into the module by -Parameters, because a
             # variable set inside a mock body is not visible from InModuleScope.
@@ -424,8 +435,9 @@ Describe 'New-PfbFileSystem - request construction baseline' {
 
             InModuleScope PureStorageFlashBladePowerShell -Parameters @{ Captured = $captured } {
                 param($Captured)
-                ConvertTo-PfbQueryString -Parameters @{ default_exports = $Captured['default_exports'] } |
-                    Should -Be '?default_exports='
+                $query = ConvertTo-PfbQueryString -Parameters @{ default_exports = $Captured['default_exports'] }
+                $query | Should -BeIn @('?default_exports=%27%27', "?default_exports=''")
+                [System.Uri]::UnescapeDataString($query) | Should -Be "?default_exports=''"
             }
         }
 
@@ -578,13 +590,13 @@ Describe 'New-PfbFileSystem - request construction baseline' {
                 Should -Throw -ExpectedMessage "*-DefaultExports includes 'smb' but no SMB share policy was supplied*"
         }
 
-        It 'leaves the default call with no SMB body and an empty default_exports value' {
+        It 'leaves the default call with no SMB body and a quoted-empty default_exports value' {
             New-PfbFileSystem -Name 'fs01' -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 -not $Body.ContainsKey('smb') -and
                 @($QueryParams['default_exports']).Count -eq 1 -and
-                @($QueryParams['default_exports'])[0] -eq ''
+                @($QueryParams['default_exports'])[0] -eq "''"
             }
         }
     }

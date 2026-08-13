@@ -14,8 +14,9 @@ function New-PfbFileSystem {
         the protocol switches you pass are flipped to enabled.
 
         Default exports: this cmdlet always sends the API's default_exports query parameter,
-        and sends the documented empty value when -DefaultExports is omitted, so no default
-        NFS or SMB export to the default server is created unless you ask for one. Because
+        and sends the documented empty value — a quoted empty string as the single array
+        item — when -DefaultExports is omitted, so no default NFS or SMB export to the
+        default server is created unless you ask for one. Because
         default_exports was introduced in REST 2.16, every invocation of this cmdlet now
         requires an array running REST 2.16 or newer.
 
@@ -85,8 +86,8 @@ function New-PfbFileSystem {
     .PARAMETER DefaultExports
         Protocols for which the FlashBlade should create a default export with default
         access. Valid: nfs, smb. Omit it and no default exports are created — the cmdlet
-        sends the API's explicit empty value rather than letting the array apply its own
-        default of 'nfs,smb'.
+        sends the API's explicit empty value, a quoted empty string as the single array
+        item, rather than letting the array apply its own default of 'nfs,smb'.
 
         Per the published API rule, an explicit protocol policy always creates that
         protocol's default export regardless of this parameter: -NfsRules or
@@ -294,15 +295,20 @@ function New-PfbFileSystem {
     #
     # The local is deliberately named differently from the parameter: a local whose name
     # matches a parameter IS that parameter in PowerShell (case-insensitive), so assigning to
-    # $DefaultExports here would re-run its ValidateSet against '' and throw.
+    # $DefaultExports here would re-run its ValidateSet against the empty value and throw.
     #
-    # The omitted case is a single-element array containing the empty string, not a bare empty
-    # string: ConvertTo-PfbQueryString drops scalar empty strings but joins arrays with commas,
-    # so @('') is what actually reaches the wire as `default_exports=` — the documented value
-    # for "create no default exports". It is assigned in two statements rather than from an
-    # if/else expression because an if/else yields pipeline output, where a single-element array
-    # collapses back to its element — direct assignment of an array literal does not.
-    $defaultExportsValue = @('')
+    # The omitted case is a single-element array whose one item is a QUOTED empty string — two
+    # literal single-quote characters. The API's documented "empty string" value for "create no
+    # default exports" is that quoted empty string as the array item: a bare `default_exports=`
+    # is rejected by the array with HTTP 400 "Missing or invalid parameter", while the quoted
+    # form (`default_exports=%27%27` on the wire) is accepted and creates no default export.
+    #
+    # It must also be an array rather than a scalar: ConvertTo-PfbQueryString joins arrays with
+    # commas, and the array form is what the parameter is specified to take. It is assigned in
+    # two statements rather than from an if/else expression because an if/else yields pipeline
+    # output, where a single-element array collapses back to its element — direct assignment of
+    # an array literal does not.
+    $defaultExportsValue = @("''")
     if ($PSBoundParameters.ContainsKey('DefaultExports')) {
         $defaultExportsValue = @($DefaultExports)
     }
