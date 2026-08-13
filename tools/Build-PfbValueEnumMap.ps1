@@ -189,10 +189,10 @@ $handWritten = @(
     [PSCustomObject]@{ File = 'Public/Bucket/Update-PfbBucket.ps1'; Line = 31; Parameter = '-Versioning'; Name = 'versioning'; ResourceHint = 'Bucket'; Values = @('enabled', 'suspended', 'none') }
     # '_multiProtocol' is the actual nested body-object schema name for this field (confirmed
     # by direct spec inspection) — a literal alias, not a fuzzy resource-name guess.
-    [PSCustomObject]@{ File = 'Public/FileSystem/New-PfbFileSystem.ps1'; Line = 175; Parameter = '-MultiProtocolAccessControlStyle'; Name = 'access_control_style'; ResourceHint = @('FileSystem', '_multiProtocol'); Values = @('nfs', 'smb', 'shared', 'independent', 'mode-bits') }
-    [PSCustomObject]@{ File = 'Public/FileSystem/New-PfbFileSystem.ps1'; Line = 188; Parameter = '-GroupOwnership'; Name = 'group_ownership'; ResourceHint = 'FileSystem'; Values = @('creator', 'parent-directory') }
+    [PSCustomObject]@{ File = 'Public/FileSystem/New-PfbFileSystem.ps1'; Line = 176; Parameter = '-MultiProtocolAccessControlStyle'; Name = 'access_control_style'; ResourceHint = @('FileSystem', '_multiProtocol'); Values = @('nfs', 'smb', 'shared', 'independent', 'mode-bits') }
+    [PSCustomObject]@{ File = 'Public/FileSystem/New-PfbFileSystem.ps1'; Line = 189; Parameter = '-GroupOwnership'; Name = 'group_ownership'; ResourceHint = 'FileSystem'; Values = @('creator', 'parent-directory') }
     [PSCustomObject]@{ File = 'Public/FileSystem/Update-PfbFileSystem.ps1'; Line = 97; Parameter = '-RequestedPromotionState'; Name = 'requested_promotion_state'; ResourceHint = 'FileSystem'; Values = @('promoted', 'demoted') }
-    [PSCustomObject]@{ File = 'Public/Array/Get-PfbArrayPerformance.ps1'; Line = 28; Parameter = '-Protocol'; Name = 'protocol'; ResourceHint = $null; Values = @('nfs', 'smb', 'http', 's3') }
+    [PSCustomObject]@{ File = 'Public/Array/Get-PfbArrayPerformance.ps1'; Line = 29; Parameter = '-Protocol'; Name = 'protocol'; ResourceHint = $null; Values = @('nfs', 'smb', 'http', 's3') }
     [PSCustomObject]@{ File = 'Public/Network/New-PfbNetworkInterface.ps1'; Line = 52; Parameter = '-Services'; Name = 'services'; ResourceHint = 'NetworkInterface'; Values = @('data', 'egress-only', 'management', 'replication', 'support') }
     [PSCustomObject]@{ File = 'Public/Network/New-PfbNetworkInterface.ps1'; Line = 59; Parameter = '-Type'; Name = 'type'; ResourceHint = 'NetworkInterface'; Values = @('vip') }
 )
