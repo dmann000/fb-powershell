@@ -10,9 +10,8 @@ Compares every hand-written `ValidateSet` in `Public/` that encodes a spec-docum
 | `Public/Alert/Update-PfbAlertWatcher.ps1:29` | `-MinimumSeverity` | info, warning, critical | info, warning, critical | **exact-match** |  |
 | `Public/Bucket/New-PfbBucket.ps1:29` | `-Versioning` | enabled, suspended, none | none, enabled, suspended | **exact-match** |  |
 | `Public/Bucket/Update-PfbBucket.ps1:31` | `-Versioning` | enabled, suspended, none | none, enabled, suspended | **exact-match** |  |
-| `Public/FileSystem/New-PfbFileSystem.ps1:130` | `-MultiProtocolAccessControlStyle` | nfs, smb, shared, independent, mode-bits | nfs, smb, shared, independent, mode-bits | **exact-match** |  |
-| `Public/FileSystem/New-PfbFileSystem.ps1:143` | `-GroupOwnership` | creator, parent-directory | creator, parent-directory | **exact-match** |  |
-| `Public/FileSystem/New-PfbFileSystem.ps1:147` | `-EradicationMode` | permission-based, retention-based | permission-based, retention-based | **exact-match** |  |
+| `Public/FileSystem/New-PfbFileSystem.ps1:175` | `-MultiProtocolAccessControlStyle` | nfs, smb, shared, independent, mode-bits | nfs, smb, shared, independent, mode-bits | **exact-match** |  |
+| `Public/FileSystem/New-PfbFileSystem.ps1:188` | `-GroupOwnership` | creator, parent-directory | creator, parent-directory | **exact-match** |  |
 | `Public/FileSystem/Update-PfbFileSystem.ps1:97` | `-RequestedPromotionState` | promoted, demoted | promoted, demoted | **exact-match** |  |
 | `Public/Array/Get-PfbArrayPerformance.ps1:28` | `-Protocol` | nfs, smb, http, s3 |  | **collision** | matches 5 distinct (schema, property) entries with different value sets: GET arrays/performance#protocol; GET file-systems/performance#protocol; FileSession.protocol; Protocol; Protocol_clients |
 | `Public/Network/New-PfbNetworkInterface.ps1:52` | `-Services` | data, egress-only, management, replication, support |  | **not-found-in-resource** | field 'services' not found under any of [NetworkInterface]-hinted schemas; found elsewhere: SyslogServer.services; SyslogServerPatch.services; SyslogServerContext.services; SyslogServerPost.services |
