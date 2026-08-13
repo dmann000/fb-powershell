@@ -5,13 +5,24 @@ function New-PfbFileSystem {
     .DESCRIPTION
         Creates a file system with the specified configuration. Typed parameters cover the
         common fields: size + hard-limit, NFS/SMB/HTTP enablement with associated export and
-        share policies, multi-protocol access control, default user/group quotas, eradication
-        mode, snapshot directory visibility, and source snapshot cloning.
+        share policies, multi-protocol access control, default user/group quotas, snapshot
+        directory visibility, and source snapshot cloning.
 
         Note: when neither -Nfs nor -Smb nor -Http is passed, the file system is created
         with all protocols disabled. The FlashBlade may still expose internal NFS/SMB
         export records in a disabled state — this is API behavior, not a module bug. Only
         the protocol switches you pass are flipped to enabled.
+
+        Default exports: this cmdlet always sends the API's default_exports query parameter,
+        and sends the documented empty value — a quoted empty string as the single array
+        item — when -DefaultExports is omitted, so no default NFS or SMB export to the
+        default server is created unless you ask for one. Because
+        default_exports was introduced in REST 2.16, every invocation of this cmdlet now
+        requires an array running REST 2.16 or newer.
+
+        Snapshot directory: on the typed path this cmdlet always sends an explicit
+        snapshot_directory_enabled, and sends false when -SnapshotDirectoryEnabled is
+        omitted, so the hidden .snapshot directory is not exposed unless you ask for it.
 
         SMB security note: enabling SMB without -SmbSharePolicy uses the FB's pre-defined
         full-access share policy. For production shares, pass -SmbSharePolicy with the
@@ -43,6 +54,12 @@ function New-PfbFileSystem {
         full access — set this for any non-lab share.
     .PARAMETER SmbClientPolicy
         Name of a pre-existing SMB Client Policy to attach.
+    .PARAMETER SmbContinuousAvailabilityEnabled
+        Whether SMB continuous availability (transparent failover) is enabled. Omit it and
+        no value is sent, leaving the array's own default in place. Supplying it does not
+        enable SMB: the smb body is built so the exact boolean reaches
+        smb.continuous_availability_enabled, but smb.enabled is set only when -Smb,
+        -SmbSharePolicy or -SmbClientPolicy asks for SMB.
     .PARAMETER Http
         Enable HTTP.
     .PARAMETER MultiProtocolAccessControlStyle
@@ -52,22 +69,43 @@ function New-PfbFileSystem {
         Prevents NFS clients from erasing a configured ACL when setting NFS mode bits.
         Only meaningful with multi-protocol.
     .PARAMETER SnapshotDirectoryEnabled
-        Expose the hidden .snapshot directory inside the FS mount.
+        Expose the hidden .snapshot directory inside the FS mount. Defaults to false: the
+        cmdlet always sends an explicit value, so omitting this parameter hides .snapshot
+        rather than letting the array apply its own default of true. Pass $true to expose
+        it. On the -Attributes path the body is caller-owned and no value is added.
     .PARAMETER FastRemoveDirectoryEnabled
         Enable the fast-remove directory feature.
     .PARAMETER GroupOwnership
         Group ownership semantics for new files. Valid: creator, parent-directory.
-    .PARAMETER EradicationMode
-        File system eradication policy. Valid: permission-based, retention-based.
     .PARAMETER Writable
         Whether the file system is writable. Defaults to $true.
     .PARAMETER SourceSnapshot
         Source snapshot to clone the file system from.
     .PARAMETER QosPolicy
         Name of a QoS policy to attach.
+    .PARAMETER DefaultExports
+        Protocols for which the FlashBlade should create a default export with default
+        access. Valid: nfs, smb. Omit it and no default exports are created — the cmdlet
+        sends the API's explicit empty value, a quoted empty string as the single array
+        item, rather than letting the array apply its own default of 'nfs,smb'.
+
+        Per the published API rule, an explicit protocol policy always creates that
+        protocol's default export regardless of this parameter: -NfsRules or
+        -NfsExportPolicy always creates the NFS export, and -SmbSharePolicy or
+        -SmbClientPolicy always creates the SMB export.
+
+        Passing 'nfs' with no -NfsRules and no -NfsExportPolicy sets nfs.rules to
+        "*(rw,no_root_squash)".
+
+        Passing 'smb' requires a share policy: supply -SmbSharePolicy, or on the
+        -Attributes path an smb.share_policy in the body you provide. Without one the
+        cmdlet throws before issuing the request, because the array would otherwise
+        attach its built-in full-access share policy to the default SMB export.
     .PARAMETER Attributes
         Full request body as a hashtable. Mutually exclusive with the typed parameters
         above — use only when the typed params don't expose a field you need.
+        -DefaultExports still applies: it is a query parameter and never enters the body,
+        so the hashtable you supply is passed through untouched.
     .PARAMETER Array
         FlashBlade connection. Defaults to the current Connect-PfbArray session.
     .EXAMPLE
@@ -80,6 +118,11 @@ function New-PfbFileSystem {
         New-PfbFileSystem -Name "shared-fs" -Nfs -Smb `
             -SmbSharePolicy "smb-readwrite" -NfsExportPolicy "nfs-rw" `
             -MultiProtocolAccessControlStyle shared -SafeguardAcls $true
+    .EXAMPLE
+        New-PfbFileSystem -Name "legacy-nfs" -Nfs -DefaultExports nfs
+
+        Opt back in to the array's default NFS export. Without -DefaultExports, no default
+        export is created.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium', DefaultParameterSetName = 'Individual')]
     param(
@@ -124,6 +167,9 @@ function New-PfbFileSystem {
         [string]$SmbClientPolicy,
 
         [Parameter(ParameterSetName = 'Individual')]
+        [Nullable[bool]]$SmbContinuousAvailabilityEnabled,
+
+        [Parameter(ParameterSetName = 'Individual')]
         [switch]$Http,
 
         [Parameter(ParameterSetName = 'Individual')]
@@ -144,10 +190,6 @@ function New-PfbFileSystem {
         [string]$GroupOwnership,
 
         [Parameter(ParameterSetName = 'Individual')]
-        [ValidateSet('permission-based', 'retention-based')]
-        [string]$EradicationMode,
-
-        [Parameter(ParameterSetName = 'Individual')]
         [Nullable[bool]]$Writable,
 
         [Parameter(ParameterSetName = 'Individual')]
@@ -158,6 +200,11 @@ function New-PfbFileSystem {
 
         [Parameter(Mandatory, ParameterSetName = 'Attributes')]
         [hashtable]$Attributes,
+
+        # No ParameterSetName: this belongs to both 'Individual' and 'Attributes'.
+        [Parameter()]
+        [ValidateSet('nfs', 'smb')]
+        [string[]]$DefaultExports,
 
         [Parameter()]
         [PSCustomObject]$Array
@@ -174,13 +221,21 @@ function New-PfbFileSystem {
         if ($HardLimit)                      { $body['hard_limit_enabled'] = $true }
         if ($PSBoundParameters.ContainsKey('DefaultUserQuota'))  { $body['default_user_quota']  = $DefaultUserQuota }
         if ($PSBoundParameters.ContainsKey('DefaultGroupQuota')) { $body['default_group_quota'] = $DefaultGroupQuota }
-        if ($PSBoundParameters.ContainsKey('SnapshotDirectoryEnabled')) { $body['snapshot_directory_enabled'] = [bool]$SnapshotDirectoryEnabled }
+        # Always explicit: the array's own default for this field is true, which silently
+        # exposes .snapshot inside every new mount. Sending false unless the caller asked
+        # for visibility replaces that surprising default. Assigned from an if/else
+        # expression so the omitted case still yields a real [bool], never $null.
+        $body['snapshot_directory_enabled'] = if ($PSBoundParameters.ContainsKey('SnapshotDirectoryEnabled')) {
+            [bool]$SnapshotDirectoryEnabled
+        }
+        else {
+            $false
+        }
         if ($PSBoundParameters.ContainsKey('FastRemoveDirectoryEnabled')) { $body['fast_remove_directory_enabled'] = [bool]$FastRemoveDirectoryEnabled }
         if ($GroupOwnership)                 { $body['group_ownership'] = $GroupOwnership }
         if ($PSBoundParameters.ContainsKey('Writable')) { $body['writable'] = [bool]$Writable }
         if ($SourceSnapshot)                 { $body['source'] = @{ name = $SourceSnapshot } }
         if ($QosPolicy)                      { $body['qos_policy'] = @{ name = $QosPolicy } }
-        if ($EradicationMode)                { $body['eradication_config'] = @{ eradication_mode = $EradicationMode } }
 
         # NFS — note: local hashtable name avoids collision with [switch]$Nfs (PowerShell vars are case-insensitive)
         $nfsBody = @{}
@@ -194,13 +249,28 @@ function New-PfbFileSystem {
         if ($nfsBody.Count -gt 0) { $body['nfs'] = $nfsBody }
 
         # SMB — local name avoids collision with [switch]$Smb
-        if ($Smb -or $SmbSharePolicy -or $SmbClientPolicy) {
-            $smbBody = @{ enabled = $true }
+        #
+        # Two independent triggers build the smb body, and only one of them turns SMB on.
+        # -SmbContinuousAvailabilityEnabled configures how SMB behaves if it is serving, so
+        # supplying it must never flip smb.enabled — that would silently expose the file
+        # system over a protocol the caller never asked for, and (without a share policy)
+        # under the array's built-in full-access policy.
+        $smbEnablementRequested = [bool]($Smb -or $SmbSharePolicy -or $SmbClientPolicy)
+        $continuousAvailabilitySupplied = $PSBoundParameters.ContainsKey('SmbContinuousAvailabilityEnabled')
+
+        if ($smbEnablementRequested -or $continuousAvailabilitySupplied) {
+            $smbBody = @{}
+            if ($smbEnablementRequested) { $smbBody['enabled'] = $true }
             if ($SmbSharePolicy)  { $smbBody['share_policy']  = @{ name = $SmbSharePolicy } }
             if ($SmbClientPolicy) { $smbBody['client_policy'] = @{ name = $SmbClientPolicy } }
+            if ($continuousAvailabilitySupplied) {
+                $smbBody['continuous_availability_enabled'] = [bool]$SmbContinuousAvailabilityEnabled
+            }
             $body['smb'] = $smbBody
 
-            if (-not $SmbSharePolicy) {
+            # Scoped to actual SMB enablement: continuous availability on its own attaches no
+            # share policy, so the full-access warning would be noise.
+            if ($smbEnablementRequested -and -not $SmbSharePolicy) {
                 Write-Warning "SMB enabled without -SmbSharePolicy. The FlashBlade will attach its built-in full-access share policy. Pass -SmbSharePolicy with a named policy for production shares."
             }
         }
@@ -219,6 +289,65 @@ function New-PfbFileSystem {
     }
 
     $queryParams = @{ 'names' = $Name }
+
+    # default_exports is a QUERY parameter only — it must never enter $body, including on the
+    # -Attributes path, where the caller owns the body outright.
+    #
+    # The local is deliberately named differently from the parameter: a local whose name
+    # matches a parameter IS that parameter in PowerShell (case-insensitive), so assigning to
+    # $DefaultExports here would re-run its ValidateSet against the empty value and throw.
+    #
+    # The omitted case is a single-element array whose one item is a QUOTED empty string — two
+    # literal single-quote characters. The API's documented "empty string" value for "create no
+    # default exports" is that quoted empty string as the array item: a bare `default_exports=`
+    # is rejected by the array with HTTP 400 "Missing or invalid parameter", while the quoted
+    # form (`default_exports=%27%27` on the wire) is accepted and creates no default export.
+    #
+    # It must also be an array rather than a scalar: ConvertTo-PfbQueryString joins arrays with
+    # commas, and the array form is what the parameter is specified to take. It is assigned in
+    # two statements rather than from an if/else expression because an if/else yields pipeline
+    # output, where a single-element array collapses back to its element — direct assignment of
+    # an array literal does not.
+    $defaultExportsValue = @("''")
+    if ($PSBoundParameters.ContainsKey('DefaultExports')) {
+        $defaultExportsValue = @($DefaultExports)
+    }
+    $queryParams['default_exports'] = $defaultExportsValue
+
+    # Requesting a default SMB export without naming a share policy makes the array attach its
+    # built-in full-access share policy. Reject that here, before any request is issued, so the
+    # broad policy can never be attached implicitly.
+    #
+    # On the -Attributes path the body is caller-owned and must not be mutated or reshaped, so
+    # this only inspects it. The nested smb value can be any shape the caller supplied: absent,
+    # $null, a hashtable, another IDictionary, a ConvertFrom-Json PSCustomObject, or a scalar.
+    # Each of those has to reach the same message rather than an indexing or property error.
+    if ($defaultExportsValue -contains 'smb') {
+        $smbSharePolicySupplied = $false
+        if ($PSCmdlet.ParameterSetName -eq 'Attributes') {
+            $smbValue = $null
+            if ($null -ne $Attributes) { $smbValue = $Attributes['smb'] }
+
+            if ($smbValue -is [System.Collections.IDictionary]) {
+                # The cast pins the lookup to the non-generic IDictionary indexer explicitly,
+                # so the same indexer is used for whatever concrete dictionary type the caller
+                # supplied rather than leaving the choice implicit.
+                $smbSharePolicySupplied = $null -ne ([System.Collections.IDictionary]$smbValue)['share_policy']
+            }
+            elseif ($null -ne $smbValue) {
+                $smbSharePolicySupplied =
+                    ($null -ne $smbValue.psobject.Properties['share_policy']) -and
+                    ($null -ne $smbValue.share_policy)
+            }
+        }
+        else {
+            $smbSharePolicySupplied = [bool]$SmbSharePolicy
+        }
+
+        if (-not $smbSharePolicySupplied) {
+            throw "-DefaultExports includes 'smb' but no SMB share policy was supplied. Pass -SmbSharePolicy or omit 'smb' from -DefaultExports."
+        }
+    }
 
     if ($PSCmdlet.ShouldProcess($Name, 'Create file system')) {
         Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'file-systems' -Body $body -QueryParams $queryParams
