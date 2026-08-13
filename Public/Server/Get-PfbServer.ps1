@@ -16,8 +16,6 @@ function Get-PfbServer {
         Sort field and direction (e.g., "name", "created-" for descending).
     .PARAMETER Limit
         Maximum number of items to return.
-    .PARAMETER TotalOnly
-        Return only the total count, not the items.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, uses the default connection.
     .EXAMPLE
@@ -52,9 +50,6 @@ function Get-PfbServer {
         [Parameter()]
         [ValidateRange(1, 10000)]
         [int]$Limit,
-
-        [Parameter()]
-        [switch]$TotalOnly,
 
         [Parameter()]
         [PSCustomObject]$Array
