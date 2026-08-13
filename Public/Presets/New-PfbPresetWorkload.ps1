@@ -30,6 +30,13 @@ function New-PfbPresetWorkload {
             platform_features        = @(@{ name = 'file' })
         }
         New-PfbPresetWorkload -Name 'analytics-template' -Attributes $preset
+    .NOTES
+        <!-- PfbContext (generated; do not edit) -->
+        Context requirement (POST /presets/workload): this cmdlet targets a fleet-scoped resource
+        and requires a bare fleet context. Set one with
+        Set-PfbContext -Context <fleet> -Kind Fleet, or scope a single call with
+        Invoke-PfbInContext. Get the fleet name from Get-PfbFleet.
+        <!-- /PfbContext -->
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(

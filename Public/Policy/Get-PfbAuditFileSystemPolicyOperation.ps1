@@ -26,6 +26,14 @@ function Get-PfbAuditFileSystemPolicyOperation {
         Get-PfbAuditFileSystemPolicyOperation -Filter "name='read'" -Sort "name"
 
         Retrieves operations matching the filter, sorted by name.
+    .NOTES
+        <!-- PfbContext (generated; do not edit) -->
+        Context requirement (GET /audit-file-systems-policy-operations): the context scope for this endpoint is not
+        recorded in the capability map, so the module will not pre-validate a context
+        for it. A fleet or array context may still be required by the array itself; if
+        a call fails with a context error, set one with Set-PfbContext or scope the
+        call with Invoke-PfbInContext.
+        <!-- /PfbContext -->
     #>
     [CmdletBinding()]
     param(

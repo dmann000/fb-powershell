@@ -17,6 +17,13 @@ function Set-PfbPresetWorkload {
         FlashBlade connection.
     .EXAMPLE
         Set-PfbPresetWorkload -Name 'analytics-template' -Attributes $newBody
+    .NOTES
+        <!-- PfbContext (generated; do not edit) -->
+        Context requirement (PUT /presets/workload): this cmdlet targets a fleet-scoped resource
+        and requires a bare fleet context. Set one with
+        Set-PfbContext -Context <fleet> -Kind Fleet, or scope a single call with
+        Invoke-PfbInContext. Get the fleet name from Get-PfbFleet.
+        <!-- /PfbContext -->
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(

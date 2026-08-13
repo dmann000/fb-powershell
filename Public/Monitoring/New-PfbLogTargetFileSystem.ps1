@@ -24,6 +24,14 @@ function New-PfbLogTargetFileSystem {
         New-PfbLogTargetFileSystem -Name "log-fs-target1" -Attributes @{ path = '/audit-logs' }
 
         Creates a log-target file system with a specific path.
+    .NOTES
+        <!-- PfbContext (generated; do not edit) -->
+        Context requirement (POST /log-targets/file-systems): the context scope for this endpoint is not
+        recorded in the capability map, so the module will not pre-validate a context
+        for it. A fleet or array context may still be required by the array itself; if
+        a call fails with a context error, set one with Set-PfbContext or scope the
+        call with Invoke-PfbInContext.
+        <!-- /PfbContext -->
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(

@@ -16,6 +16,16 @@ function Get-PfbPresetWorkload {
         Get-PfbPresetWorkload
     .EXAMPLE
         Get-PfbPresetWorkload -Name 'analytics-template'
+    .NOTES
+        <!-- PfbContext (generated; do not edit) -->
+        Context requirement (GET /presets/workload): this cmdlet targets a
+        fleet-scoped resource, but reads on it are narrower than the
+        requirement. An unfiltered list works with NO context, served from
+        the array's locally replicated copy. Filtering by name or id needs a
+        bare fleet context, because that local copy is list-only: set one
+        with Set-PfbContext -Context <fleet> -Kind Fleet, or scope a single
+        call with Invoke-PfbInContext. Get the fleet name from Get-PfbFleet.
+        <!-- /PfbContext -->
     #>
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param(

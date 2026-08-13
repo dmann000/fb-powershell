@@ -27,6 +27,14 @@ function New-PfbArraySshCaPolicy {
         New-PfbArraySshCaPolicy -PolicyName "ssh-ca-dev" -MemberName "dev-array"
 
         Associates "dev-array" with the SSH CA policy "ssh-ca-dev".
+    .NOTES
+        <!-- PfbContext (generated; do not edit) -->
+        Context requirement (POST /arrays/ssh-certificate-authority-policies): the context scope for this endpoint is not
+        recorded in the capability map, so the module will not pre-validate a context
+        for it. A fleet or array context may still be required by the array itself; if
+        a call fails with a context error, set one with Set-PfbContext or scope the
+        call with Invoke-PfbInContext.
+        <!-- /PfbContext -->
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(

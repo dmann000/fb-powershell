@@ -226,9 +226,9 @@ foreach ($entry in $specFiles) {
         $scopeValue = 'array'
         $scopeProvenance = 'default'
         if ($scopeRecord -and @($scopeRecord.DomainsOverride).Count -gt 0) {
-            # Declared domains are authoritative. FLEET-only means fleet-scoped; anything
-            # that also accepts ARRAY is usable array-scoped, which is what Phase 1 needs
-            # to know.
+            # Declared domains are authoritative for WHICH scope, but FLEET takes precedence
+            # when both are declared -- see the branch comment below for why the ARRAY half of
+            # an ARRAY|FLEET declaration carries no scope information.
             #
             # An unrecognised domain token falls to unknown/unknown rather than to 'fleet'.
             # Only ARRAY and FLEET occur across all 29 cached specs today (measured), so this
@@ -237,12 +237,21 @@ foreach ($entry in $specFiles) {
             # reads as "upstream told us" to Phase 1. Recording ignorance is the honest
             # failure mode, and it is the same one the flagged-but-uncurated case uses.
             $declaredDomains = @($scopeRecord.DomainsOverride | ForEach-Object { "$_".ToUpperInvariant() })
-            if ($declaredDomains -contains 'ARRAY') {
-                $scopeValue = 'array'
+            # FLEET wins over an accompanying ARRAY. `ARRAY|FLEET` occurs on exactly one
+            # operation (GET /presets/workload) and its ARRAY half is satisfied only by the
+            # middleware short-circuit that resolves a LOCAL context before any scope
+            # validation -- which every endpoint in the API does, so it carries no scope
+            # information. Measured: a remote array name on that operation returns
+            # `code 13 "Invalid context."` while a bare fleet name returns 200
+            # (rev 4 Appendix A). Recording 'array' would make Phase 1's kind-vs-scope gate
+            # throw on the only context that works AND permit a local-array context that
+            # quietly reads the local replica instead of the fleet object.
+            if ($declaredDomains -contains 'FLEET') {
+                $scopeValue = 'fleet'
                 $scopeProvenance = 'declared'
             }
-            elseif ($declaredDomains -contains 'FLEET') {
-                $scopeValue = 'fleet'
+            elseif ($declaredDomains -contains 'ARRAY') {
+                $scopeValue = 'array'
                 $scopeProvenance = 'declared'
             }
             else {

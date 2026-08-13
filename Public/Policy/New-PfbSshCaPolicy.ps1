@@ -24,6 +24,14 @@ function New-PfbSshCaPolicy {
         New-PfbSshCaPolicy -Name "ssh-ca-dev" -Attributes @{ public_key = "ssh-ed25519 AAAA..." }
 
         Creates a new SSH CA policy with an Ed25519 public key.
+    .NOTES
+        <!-- PfbContext (generated; do not edit) -->
+        Context requirement (POST /ssh-certificate-authority-policies): the context scope for this endpoint is not
+        recorded in the capability map, so the module will not pre-validate a context
+        for it. A fleet or array context may still be required by the array itself; if
+        a call fails with a context error, set one with Set-PfbContext or scope the
+        call with Invoke-PfbInContext.
+        <!-- /PfbContext -->
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(

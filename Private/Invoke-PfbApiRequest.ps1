@@ -40,10 +40,105 @@ function Invoke-PfbApiRequest {
         [string]$ApiVersionOverride
     )
 
+    # Resolve and inject the Fusion context BEFORE Assert-PfbApiCapability, never after.
+    # Assert is the version gate this design leans on; if context_names lands in $QueryParams
+    # after Assert has run, Assert never sees the parameter and the check never fires. Do NOT
+    # move this to query-string construction below -- that is after Assert.
+    #
+    # Tri-state: $null means unset (inject nothing). A context that EXISTS but has no entries
+    # means "run this one call locally" -- also inject nothing, and specifically do not fall
+    # through to any lower-precedence context. Hence -ne $null plus an explicit count, never
+    # truthiness on the context object.
+    $resolvedContext = Resolve-PfbRequestContext -Array $Array -QueryParams $QueryParams
+
+    # ONE home for the tri-state predicate. Both branches need it and they are no longer
+    # adjacent (the required-context gate moved below Assert-PfbApiCapability -- see there), so a
+    # second copy would have to stay in exact negated agreement forever. $hasContext is a plain
+    # [bool], so "-not $hasContext" is legitimate: the truthiness ban is on the context OBJECT,
+    # which is a PSCustomObject and therefore unconditionally truthy.
+    $hasContext = ($null -ne $resolvedContext -and @($resolvedContext.Entries).Count -gt 0)
+
+    # Loaded once, above the branch, because BOTH branches gate on it. Get-PfbCapabilityMap
+    # memoizes, but hoisting it also guarantees the two branches rule on the same object.
+    $capabilityMap = Get-PfbCapabilityMap
+    if ($hasContext) {
+        # Gate before injecting: an endpoint with no recorded context_names support silently
+        # accepts the parameter on the wire, so the array will never tell the caller.
+        Assert-PfbContextCapability -Array $Array -Method $Method -Endpoint $Endpoint -Context $resolvedContext -CapabilityMap $capabilityMap
+
+        # Second gate: a multi-value context on an endpoint that accepts exactly one returns
+        # 400 code 15 with no hint about the fix, so translate it client-side.
+        Assert-PfbContextCardinality -Method $Method -Endpoint $Endpoint -Context $resolvedContext -CapabilityMap $capabilityMap
+
+        # Third gate: the context's KIND must be able to address the endpoint's scope. Runs AFTER
+        # the two above on purpose -- a wrong-kind context aimed at an endpoint that takes no
+        # context at all should hear about that first.
+        Assert-PfbContextKindMatchesScope -Method $Method -Endpoint $Endpoint -Context $resolvedContext -CapabilityMap $capabilityMap
+
+        # Clone first: $QueryParams is a reference to the CALLER's hashtable, and a targeting
+        # parameter must not leak back into a hashtable the caller may reuse for another call.
+        # Assigning the clone to the local also means the -AutoPaginate loop below rebuilds
+        # the query from the clone, so the context survives page 2+.
+        $QueryParams = if ($null -ne $QueryParams) { $QueryParams.Clone() } else { @{} }
+        $QueryParams[$script:PfbContextParameterName] =
+            @($resolvedContext.Entries | ForEach-Object { ConvertTo-PfbContextWireValue -Entry $_ }) -join ','
+    }
+
     # Fail fast if the connected array's REST version doesn't support this endpoint/param/
     # field, before any network call is made. Never sent if incompatible: see
     # Assert-PfbApiCapability's header for why an unrecognized endpoint is a silent no-op.
     Assert-PfbApiCapability -Array $Array -Method $Method -Endpoint $Endpoint -Body $Body -QueryParams $QueryParams -ApiVersion $ApiVersionOverride
+
+    # A symmetric pair, and BOTH halves sit below Assert-PfbApiCapability for the same measured
+    # reason. Neither injects anything and neither consults the endpoint, so neither has an
+    # ordering requirement against the version gate -- and a version failure is the more
+    # fundamental fact, so it must win. See the else branch for the 2.20 measurement that
+    # established this.
+    if ($hasContext) {
+        # Fourth shape gate: a LOCALLY authenticated admin cannot use a context at all, on any
+        # endpoint -- there is no local-array exemption, so every context is rejected once the
+        # admin is local.
+        #
+        # DEFENCE IN DEPTH -- this call is not expected to fire in production. Both sites that
+        # resolve AdminLocality run this same gate BEFORE they return a connection
+        # (Connect-PfbArray.ps1 resolves then gates; Set-PfbContext.ps1 resolves then gates, and
+        # discards its copy on the throw), so no connection object the module hands back to a
+        # caller can be resting on AdminLocality = 'local'. What this call covers is a future
+        # THIRD resolution site that forgets to gate, or a hand-constructed connection object.
+        # Deliberately NOT a per-call resolution site: probing locality here would mean one probe
+        # per request, so a thousand-iteration loop would mean a thousand probes.
+        #
+        # The gap this does NOT close: a session that only ever supplies a context through
+        # Invoke-PfbInContext never resolves locality at all, so a local admin there is caught
+        # REACTIVELY by the code-20 annotation in Add-PfbContextErrorAnnotation (see its header),
+        # not proactively here.
+        #
+        # Placement: it sits BELOW the injection and below Assert-PfbApiCapability. Above the
+        # injection it reintroduced exactly the failure Task 10 measured -- a local admin on a
+        # REST 2.20 array calling a context-capable endpoint that needs 2.23 was told to go
+        # obtain an LDAP admin, and only after doing so learned the real blocker was firmware.
+        # Assert-PfbContextCapability defers "recorded but array too old" to
+        # Assert-PfbApiCapability by design, so gates 1-3 all pass in that scenario and this one
+        # got the last word. Fails open on an indeterminate locality.
+        Assert-PfbContextAdminLocality -Array $Array -Context $resolvedContext
+    }
+    else {
+        # A fleet-scoped endpoint has no usable no-context default for a mutation or a
+        # name-scoped read. An explicit @() is still the caller saying "locally", so it reaches
+        # here too -- and for those calls that is exactly as broken as omitting the context.
+        # An unfiltered fleet-scoped read is exempt; the gate handles that distinction.
+        #
+        # Deliberately AFTER Assert-PfbApiCapability. Do NOT move this back above the version
+        # gate. Unlike the three shape gates, this one injects nothing, so it has no ordering
+        # requirement against Assert-PfbApiCapability -- and a version failure is the more
+        # fundamental fact, so it must win. Measured on an array at REST 2.20 calling
+        # Remove-PfbPresetWorkload -Name p1 with this call placed FIRST: the caller was told
+        # "requires a fleet context ... Set one with Set-PfbContext" instead of
+        # "DELETE /presets/workload requires REST 2.23 ... but the connected array is running
+        # REST 2.20". The first message cannot be acted on -- an array too old for the endpoint
+        # has no fleets to name.
+        Assert-PfbContextRequired -Method $Method -Endpoint $Endpoint -QueryParams $QueryParams -CapabilityMap $capabilityMap
+    }
 
     # Certificate/OAuth2 sessions: proactively refresh the access token before it expires,
     # rather than waiting for a 401. A proactive refresh generates no failed-authentication
@@ -148,6 +243,24 @@ function Invoke-PfbApiRequest {
                 $statusCode = [int]$_.Exception.Response.StatusCode
             }
 
+            # One site, both throws. Built here rather than at each throw so the two paths cannot
+            # drift, and so $_ is unambiguously the OUTER catch's error record -- at the
+            # reconnect-failed throw below we sit after an inner try/catch, where which error $_
+            # names is a question nobody should have to answer.
+            #
+            # $resolvedContext and $capabilityMap are the function-scoped locals resolved once at
+            # the top of the request path. Do NOT re-resolve or re-fetch either here: a second
+            # resolution could disagree with the one that was actually sent on the wire, which
+            # would make the annotation name a context the failing call never used.
+            #
+            # Cost-only consequence, accepted deliberately: this also runs when the reconnect below
+            # goes on to SUCCEED, so a recovering request pays two side-effect-free helper calls it
+            # does not use. Both helpers must therefore stay non-throwing -- a throw in either would
+            # convert a request that was about to recover into a hard failure.
+            $apiError = ConvertTo-PfbApiError -Method $Method -Endpoint $Endpoint -ErrorRecord $_
+            $apiError = Add-PfbContextErrorAnnotation -Message $apiError -Context $resolvedContext `
+                -Method $Method -Endpoint $Endpoint -CapabilityMap $capabilityMap
+
             # Auto-reconnect on an auth failure: ApiToken/Credential/PSCredential sessions
             # have a cached long-lived API token to re-login with; Certificate sessions
             # refresh the OAuth2 access token instead (fallback for what the proactive check
@@ -200,11 +313,11 @@ function Invoke-PfbApiRequest {
                 }
 
                 if (-not $reconnectSucceeded) {
-                    throw (ConvertTo-PfbApiError -Method $Method -Endpoint $Endpoint -ErrorRecord $_)
+                    throw $apiError
                 }
             }
             else {
-                throw (ConvertTo-PfbApiError -Method $Method -Endpoint $Endpoint -ErrorRecord $_)
+                throw $apiError
             }
         }
 
@@ -215,7 +328,17 @@ function Invoke-PfbApiRequest {
             return $response
         }
 
-        # Collect items
+        # Collect items. Items are added AS RECEIVED -- never project or rebuild them into a
+        # new PSCustomObject. A fanned-out (multi-array context) response carries a per-item
+        # `context` field naming the source array, and that is the caller's only way to tell
+        # which array an item came from. A "tidy up the response shape" refactor that rebuilt
+        # each item would silently destroy that attribution; the response layer deliberately
+        # reads only items / total_item_count / continuation_token off the body and leaves the
+        # items themselves alone. The per-item-context test in
+        # Tests/Invoke-PfbApiRequest.ContextInjection.Tests.ps1 fails if the per-item `context`
+        # field is dropped. That guard is deliberately narrower than the rule above: a rebuild
+        # that happened to forward `context` would still pass it. Treat the no-rebuild rule as
+        # the standard and the test as the backstop, not the definition.
         if ($null -ne $response.items) {
             foreach ($item in $response.items) {
                 $allItems.Add($item)
@@ -303,6 +426,14 @@ function Connect-PfbArrayInternal {
     $authToken = $loginResponse.Headers['x-auth-token']
     if ($authToken -is [array]) { $authToken = $authToken[0] }
 
+    # The response BODY is deliberately not parsed here, unlike the two /api/login sites in
+    # Connect-PfbArray, which take the admin's name from it (see Get-PfbLoginResponseUsername).
+    # This is a RECONNECT: the caller mutates the existing connection object in place, assigning
+    # only AuthToken and ConnectedAt, so Username and AdminLocality survive untouched and there is
+    # nothing here to refresh. The divergence is intentional -- do not read it as an oversight.
+    # Known marginal gap: an ApiToken session whose FIRST login body was malformed carries
+    # Username = $null forever, because a later well-formed reconnect body is never read. Fixing
+    # that means refreshing Username on the reconnect path, which is its own decision.
     return [PSCustomObject]@{
         AuthToken   = $authToken
         ConnectedAt = [datetime]::UtcNow

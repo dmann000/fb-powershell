@@ -22,6 +22,14 @@ function Update-PfbArray {
         Update-PfbArray -Attributes @{ time_zone = "America/New_York" } -WhatIf
 
         Shows what would happen without actually updating the array.
+    .NOTES
+        <!-- PfbContext (generated; do not edit) -->
+        Context requirement (PATCH /arrays): the context scope for this endpoint is not
+        recorded in the capability map, so the module will not pre-validate a context
+        for it. A fleet or array context may still be required by the array itself; if
+        a call fails with a context error, set one with Set-PfbContext or scope the
+        call with Invoke-PfbInContext.
+        <!-- /PfbContext -->
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(

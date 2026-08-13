@@ -9,6 +9,7 @@
     PowerShellVersion = '5.1'
 
     FunctionsToExport = @(
+        'Clear-PfbContext',
         'Clear-PfbCredential',
         'Connect-PfbArray',
         'Disconnect-PfbArray',
@@ -207,6 +208,7 @@
         'Get-PfbUsageUser',
         'Get-PfbWormPolicy',
         'Get-PfbWormPolicyMember',
+        'Invoke-PfbInContext',
         'Invoke-PfbNetworkPing',
         'Invoke-PfbNetworkTrace',
         'New-PfbActiveDirectory',
@@ -413,6 +415,7 @@
         'Remove-PfbTarget',
         'Remove-PfbTlsPolicy',
         'Remove-PfbWormPolicy',
+        'Set-PfbContext',
         'Set-PfbCredential',
         'Test-PfbActiveDirectory',
         'Test-PfbAlertWatcher',

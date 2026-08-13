@@ -70,6 +70,15 @@ function Connect-PfbArray {
         Bypass SSL certificate validation. Common for lab environments with self-signed certs.
     .PARAMETER HttpTimeout
         HTTP request timeout in milliseconds. Default is 30000 (30 seconds).
+    .PARAMETER Context
+        One or more Fusion context names to use as the durable session default for this
+        connection. Names are not resolved at connect time; an invalid name is rejected by
+        the array, verbatim, on first use.
+    .PARAMETER Kind
+        What the -Context names refer to: 'Array' (default), 'Fleet', or 'TopologyGroup'.
+    .PARAMETER AllArrays
+        Target every array that is a member of the -Context names rather than the named
+        objects themselves. Not valid with -Kind Array, which has no members.
     .NOTES
         Certificate/OAuth2 sessions retain -ClientId, -Issuer, -KeyId, -PrivateKeyFile,
         and -PrivateKeyPassword (as a SecureString) on the connection object for the
@@ -144,12 +153,44 @@ function Connect-PfbArray {
         [switch]$IgnoreCertificateError,
 
         [Parameter()]
-        [int]$HttpTimeout = 30000
+        [int]$HttpTimeout = 30000,
+
+        # ValidateNotNull, not ValidateNotNullOrEmpty: @() must stay bindable so an explicit
+        # empty context remains distinguishable from an unset one. The guard exists for error
+        # ATTRIBUTION, not to prevent a hang: measured, an explicitly-supplied $null binds and
+        # is then rejected downstream by ConvertTo-PfbContextEntryList blaming -Name, a
+        # parameter the caller never typed. (PowerShell prompts for a mandatory parameter only
+        # when the argument is ABSENT, never when $null was passed.) Validating here fails at
+        # the binder naming -Context, the parameter they did type.
+        [Parameter()]
+        [ValidateNotNull()]
+        [string[]]$Context,
+
+        [Parameter()]
+        [ValidateSet('Array', 'Fleet', 'TopologyGroup')]
+        [string]$Kind = 'Array',
+
+        [Parameter()]
+        [switch]$AllArrays
     )
 
     # Force TLS 1.2 on PowerShell 5.1 unconditionally -- independent of certificate
     # validation bypass, which is a separate concern.
     Set-PfbTlsProtocol
+
+    # Context composition is a pure parameter check -- no network, no $connection. Validated
+    # here so a bad -Kind/-AllArrays pair fails before a login is attempted and before any
+    # cache is repointed. The name itself is NOT resolved locally: the wire rejects a bad one
+    # loudly and verbatim on first use (spec section 9).
+    $contextRequested = $PSBoundParameters.ContainsKey('Context')
+    $contextEntries = @()
+    if ($contextRequested) {
+        $form = Resolve-PfbContextForm -AllArrays:$AllArrays
+        # The @(...) wrapper is load-bearing: without it a call emitting nothing assigns $null
+        # instead of an empty array, collapsing explicit-empty into unset.
+        $contextEntries = @(ConvertTo-PfbContextEntryList -Name $Context -Kind $Kind -Form $form)
+        foreach ($entry in $contextEntries) { Assert-PfbContextEntryComposition -Entry $entry }
+    }
 
     # Handle SSL bypass
     if ($IgnoreCertificateError) {
@@ -210,6 +251,20 @@ function Connect-PfbArray {
         $negotiatedVersion = $v2Versions[0].Version
     }
 
+    # The username that will land on the connection object. A SEPARATE LOCAL, deliberately not
+    # $Username itself: that parameter carries [ValidateNotNullOrEmpty()] on its PSVariable, which
+    # re-validates on ANY assignment regardless of which parameter set was bound -- so writing a
+    # $null back into it would throw on the ApiToken set, exactly the already-shipped crash
+    # documented at the $ApiToken note in the Certificate branch below. Seeded with the caller's
+    # value (which is $null on the ApiToken set, and Mandatory on Certificate) and then OVERWRITTEN
+    # by the login response wherever one supplies a name -- see the precedence note at each site.
+    #
+    # NORMALIZED TO $null, not left as ''. Measured, not assumed: an UNBOUND [string] parameter is
+    # the empty string rather than $null, so before this the ApiToken set shipped Username = '' on
+    # every connection. One value means "no username known" on every path, which is what makes the
+    # $null -ne guards below the whole story rather than half of it.
+    $resolvedUsername = if ([string]::IsNullOrEmpty($Username)) { $null } else { $Username }
+
     # Authenticate based on method
     $authToken = $null
     $bearerToken = $null
@@ -218,7 +273,12 @@ function Connect-PfbArray {
 
     if ($PSCmdlet.ParameterSetName -eq 'ApiToken') {
         # Direct API token login
-        $authToken = Invoke-PfbApiTokenLogin -Endpoint $Endpoint -ApiToken $ApiToken -SkipCertificateCheck:$IgnoreCertificateError -TimeoutSec $timeoutSec
+        $tokenLogin = Invoke-PfbApiTokenLogin -Endpoint $Endpoint -ApiToken $ApiToken -SkipCertificateCheck:$IgnoreCertificateError -TimeoutSec $timeoutSec
+        $authToken = $tokenLogin.AuthToken
+        # THE point of this set: it has no -Username parameter at all, so the login body is the
+        # only possible source. $null -ne, never truthiness -- and guarded rather than assigned
+        # unconditionally so a malformed body cannot erase a name from another source.
+        if ($null -ne $tokenLogin.Username) { $resolvedUsername = $tokenLogin.Username }
     }
     elseif ($PSCmdlet.ParameterSetName -eq 'Certificate') {
         # OAuth2 JWT certificate-based authentication
@@ -297,13 +357,37 @@ function Connect-PfbArray {
             $authToken = $loginResponse.Headers['x-auth-token']
             if ($authToken -is [array]) { $authToken = $authToken[0] }
 
+            # The RESPONSE WINS over the value the caller typed. This is the point, not a side
+            # effect: GET /admins?names= is matched by the array's own spelling, and case
+            # sensitivity has already bitten this project once (.arrays). A caller who typed
+            # PUREUSER against an array that calls the account pureuser must end up with
+            # pureuser on the connection. Guarded on $null so a malformed body falls back to the
+            # caller's value rather than destroying it.
+            $responseUsername = Get-PfbLoginResponseUsername -Response $loginResponse
+            if ($null -ne $responseUsername) { $resolvedUsername = $responseUsername }
+
             # Try to retrieve (or mint) a long-lived API token for auto-reconnect.
             # Best-effort: succeeds for users with admin privileges; falls through silently otherwise.
             # Use a local variable since the $ApiToken parameter retains its [ValidateNotNullOrEmpty]
             # constraint and would reject a $null reassignment.
+            #
+            # Keys on $resolvedUsername -- the ARRAY's own spelling from the login body -- not on
+            # $Username, what the caller typed. Maintainer's call, 2026-08-06. The client-side
+            # match below is against $item.admin.name, which comes from the same array, so the
+            # array's spelling is by definition the one that can match it.
+            #
+            # Be precise about the failure mode this closes, because the first description of it
+            # was wrong: PowerShell's -eq is CASE-INSENSITIVE, so 'pureuser' vs 'PUREUSER' always
+            # matched and case was never the problem. What did miss is a name differing beyond
+            # case -- a directory-service admin who logs in as 'jdoe' while the array records
+            # 'jdoe@corp.example'. Then the match failed, no token was cached, and the session
+            # silently lost auto-reconnect with only a -Verbose line to say so.
             $cachedApiToken  = $null
             $tokenHeaders    = @{ 'x-auth-token' = $authToken }
-            $encodedName     = [System.Uri]::EscapeDataString($Username)
+            # EscapeDataString is safe if this is still $null (measured: PowerShell binds $null to
+            # the [string] overload as '', it does not throw). Moot on the wire regardless --
+            # /admins/api-tokens ignores ?names= and acts on the authenticated admin.
+            $encodedName     = [System.Uri]::EscapeDataString($resolvedUsername)
             $tokenBaseUri    = "https://${Endpoint}/api/${negotiatedVersion}/admins/api-tokens"
             $tokenInvokeArgs = @{}
             if ($IgnoreCertificateError -and $PSVersionTable.PSVersion.Major -ge 6) {
@@ -314,7 +398,7 @@ function Connect-PfbArray {
             # silently ignores the names= / ids= filters and returns all admins, with the
             # caller's own token unmasked and other admins' tokens redacted to '****'. We must
             # filter client-side to avoid grabbing a peer admin's masked entry.
-            $isOurAdmin = { param($item) $item.admin -and $item.admin.name -eq $Username }
+            $isOurAdmin = { param($item) $item.admin -and $item.admin.name -eq $resolvedUsername }
             $isRealToken = { param($t) $t -and $t -ne '****' -and -not ($t -match '^\*+$') }
 
             try {
@@ -326,7 +410,7 @@ function Connect-PfbArray {
                 }
             }
             catch {
-                Write-Verbose "Could not read existing API token for '$Username': $($_.Exception.Message)"
+                Write-Verbose "Could not read existing API token for '$resolvedUsername': $($_.Exception.Message)"
             }
             if (-not $cachedApiToken) {
                 try {
@@ -338,7 +422,7 @@ function Connect-PfbArray {
                     }
                 }
                 catch {
-                    Write-Verbose "Could not mint API token for '$Username': $($_.Exception.Message)"
+                    Write-Verbose "Could not mint API token for '$resolvedUsername': $($_.Exception.Message)"
                 }
             }
             if ($cachedApiToken) {
@@ -361,7 +445,10 @@ function Connect-PfbArray {
             }
 
             $ApiToken = $mintedToken
-            $authToken = Invoke-PfbApiTokenLogin -Endpoint $Endpoint -ApiToken $ApiToken -SkipCertificateCheck:$IgnoreCertificateError -TimeoutSec $timeoutSec
+            $sshTokenLogin = Invoke-PfbApiTokenLogin -Endpoint $Endpoint -ApiToken $ApiToken -SkipCertificateCheck:$IgnoreCertificateError -TimeoutSec $timeoutSec
+            $authToken = $sshTokenLogin.AuthToken
+            # Same precedence as the native path above: the array's spelling wins.
+            if ($null -ne $sshTokenLogin.Username) { $resolvedUsername = $sshTokenLogin.Username }
         }
     }
 
@@ -403,7 +490,10 @@ function Connect-PfbArray {
         PSTypeName           = 'PureStorage.FlashBlade.Connection'
         # Pfa2-aligned properties
         HttpEndpoint         = "https://${Endpoint}"
-        Username             = $Username
+        # ARRAY-AUTHORITATIVE where a login response supplied a name (ApiToken, Credential,
+        # PSCredential), the parameter value on Certificate, which has no /api/login response to
+        # read. Never $Username directly -- see the $resolvedUsername note above.
+        Username             = $resolvedUsername
         ApiToken             = $ApiToken
         RestApiVersion       = $negotiatedVersion
         # Internal properties used by Invoke-PfbApiRequest / Disconnect-PfbArray
@@ -426,6 +516,17 @@ function Connect-PfbArray {
         PrivateKeyPassword   = $PrivateKeyPassword
         TokenExpiresAt       = $tokenExpiresAt
         TokenTtlSeconds      = $tokenTtlSeconds
+        # Fusion context state. $null means "unset"; an empty entry list means "explicitly no
+        # context" -- two distinct states, so never test these with if ($x). DefaultContext is
+        # durable for the session; ContextOverride is block-scoped (Invoke-PfbInContext).
+        DefaultContext       = $null
+        ContextOverride      = $null
+        # Initialised unset. Locality is only probed when a context is actually requested, so a
+        # context-less connection keeps $null here -- and $null means "indeterminate", which the
+        # gates fail open on. Populated further down this same function (the -Context branch,
+        # via Resolve-PfbAdminLocality) and re-read by Set-PfbContext. Declared here so every
+        # connection object has a uniform shape whether or not a context was asked for.
+        AdminLocality        = $null
     }
 
     # Hide secrets from default display. Sensitive fields (ApiToken, AuthToken,
@@ -441,7 +542,107 @@ function Connect-PfbArray {
     )
     Add-Member -InputObject $connection -MemberType MemberSet -Name PSStandardMembers -Value $psStandardMembers
 
-    # Cache the connection
+    # A context supplied at connect is the durable session default. Already validated above,
+    # before authentication. The gate is $contextRequested -- never a truthiness or $null test
+    # on $contextEntries, which is what keeps $null (unset) distinct from @() (explicit
+    # no-context).
+    #
+    # DELIBERATELY BEFORE THE CACHE ASSIGNMENT BELOW. This block can throw (the gate), and the
+    # caches used to be repointed above it -- so a rejected context left a connection this cmdlet
+    # never returned installed as $script:PfbDefaultArray, with the offending context attached: a
+    # "failed" connect that is nonetheless the default array. Validating first and installing
+    # afterwards is what NARROWS that, and it is why the two were reordered rather than an
+    # unwind-on-throw being bolted on.
+    #
+    # It narrows rather than eliminates, and the difference matters. Nothing between here and the
+    # install READS the caches -- the resolver is passed $connection explicitly -- but the
+    # reconnect and proactive-refresh paths inside Invoke-PfbApiRequest WRITE them
+    # (Invoke-PfbApiRequest.ps1:147-152 and :266-271), and their guards are ENDPOINT-KEYED:
+    # ContainsKey($Array.Endpoint) / PfbDefaultArray.Endpoint -eq. Those guards are false only when
+    # the endpoint is not already cached, i.e. on a FIRST connect. On a re-connect to an endpoint
+    # already in $script:PfbArrays -- routine -- a 401/403-then-success on the resolver's probe
+    # fires those writes and repoints both caches at the object the resolver handed them, which
+    # since the context strip is the resolver's PROBE COPY, not $connection. So a subsequent gate
+    # throw still leaves the caches pointing at an object this cmdlet never returned. Narrow (needs
+    # an already-cached endpoint plus a transient auth failure on the probe) and fail-safe in the
+    # common case -- see the strip site in Resolve-PfbAdminLocality for why the probe copy
+    # landing there is benign, and on what that depends. Closing it properly means capturing and
+    # restoring both cache slots in a catch -- the very unwind the reordering was chosen to avoid --
+    # so it is recorded here rather than fixed. Do not delete this paragraph believing the
+    # reordering is airtight.
+    if ($contextRequested) {
+        # BOTH halves of the predicate, deliberately mirroring Invoke-PfbApiRequest's $hasContext
+        # ($null -ne $resolvedContext -and @(...Entries).Count -gt 0). $contextRequested alone is
+        # TRUE for -Context @(), which in this codebase is the first-class "explicitly no context"
+        # state, NOT "a context is being set". Gating only on the flag made
+        # `-Credential <local admin> -Context @()` pay a GET /admins probe and then hard-throw with
+        # an empty value interpolated into the message ("the context '' would return..."), failing
+        # a connect that asked for no context at all. Keep this recognisably the same predicate as
+        # the request path's -- a different shape here is how the two drift apart.
+        if (@($contextEntries).Count -gt 0) {
+            # Resolved HERE, not unconditionally at connect: a session that never touches Fusion
+            # must not pay for a GET /admins round trip (maintainer ruling 2026-08-05). The other
+            # site is Set-PfbContext's end{}. Exactly two sites, both one-shot session setup --
+            # which is why no cache is needed and AdminLocality stays two-state-plus-null
+            # ('local'/'remote' known, $null indeterminate -> fail open). Do NOT add a per-call
+            # site such as Invoke-PfbInContext: it mutates ContextOverride in place on the shared
+            # connection and a thousand-iteration loop would mean a thousand probes. Do NOT
+            # memoize, and do NOT introduce a third "not yet asked" state to make memoizing safe.
+            #
+            # Best-effort and non-fatal: see Resolve-PfbAdminLocality, which also documents that it
+            # costs ~3 round trips rather than 1 on a management-access-policy 403, and strips the
+            # context from its own probe so the identity question is never routed to another array.
+            #
+            # This is LIVE FOR ALL FOUR PARAMETER SETS, including the default -ApiToken one. It used
+            # to be inert there -- Username was only ever the caller's typed value, and ApiToken has
+            # no -Username parameter, so the resolver early-returned and the gate below could never
+            # fire on the most common way people connect. Task 12b closed that by taking Username
+            # from the /api/login response body on every path that has one. Do not re-add a claim
+            # that this is ApiToken-inert.
+            $connection.AdminLocality = Resolve-PfbAdminLocality -Array $connection
+
+            # Closes what the Task 11 review parked as a gap: the connect-time context path is now
+            # exactly where resolution happens, so it is also where the gate can rule.
+            #
+            # This is the cmdlet's first throw AFTER a successful login, so the session it just
+            # minted would otherwise be abandoned with no logout -- a script retrying a rejected
+            # -Context in a loop would fill the array's session log. Released best-effort here.
+            # The original error is captured first and re-thrown explicitly so a failure inside the
+            # logout can never replace or mask it.
+            try {
+                Assert-PfbContextAdminLocality -Array $connection -Context (New-PfbContext -Entries $contextEntries)
+            }
+            catch {
+                $gateError = $_
+                try {
+                    # TimeoutSec matters MORE here than on a normal call: the caller is already
+                    # waiting on an error, so an endpoint that accepts TCP and never answers would
+                    # stall a cmdlet that has already decided to fail.
+                    $logoutParams = @{
+                        Method     = 'POST'
+                        Uri        = "https://${Endpoint}/api/logout"
+                        Headers    = @{ 'x-auth-token' = $authToken }
+                        TimeoutSec = $timeoutSec
+                    }
+                    if ($IgnoreCertificateError -and $PSVersionTable.PSVersion.Major -ge 6) {
+                        $logoutParams['SkipCertificateCheck'] = $true
+                    }
+                    Invoke-RestMethod @logoutParams -ErrorAction Stop | Out-Null
+                }
+                catch {
+                    Write-Verbose "Could not release the session minted for the rejected connect to '${Endpoint}': $($_.Exception.Message)"
+                }
+                # Deliberately NOT Disconnect-PfbArray: that also evicts $Endpoint from the module
+                # caches, which on a re-connect would destroy the caller's still-valid PREVIOUS
+                # connection to the same array as a side effect of this one being rejected.
+                throw $gateError
+            }
+        }
+
+        $connection.DefaultContext = New-PfbContext -Entries $contextEntries
+    }
+
+    # Cache the connection. Last, so only a fully validated connection is ever installed.
     $script:PfbDefaultArray = $connection
     $script:PfbArrays[$Endpoint] = $connection
 

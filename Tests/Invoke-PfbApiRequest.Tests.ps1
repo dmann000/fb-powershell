@@ -74,6 +74,11 @@ Describe 'Invoke-PfbApiRequest - PUT support' {
             $array = [PSCustomObject]@{
                 Endpoint = 'fb.test'; ApiVersion = '2.26'; AuthToken = 'tok'
                 ApiToken = $null; AuthMethod = 'ApiToken'; SkipCertificateCheck = $false
+                # /presets/workload is fleet-scoped, so a context-free PUT to it is now rejected
+                # before the wire by Assert-PfbContextRequired -- correctly: that call cannot
+                # work. This It is about body serialisation, so give it the fleet context the
+                # endpoint requires rather than weakening the gate.
+                DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'cc-test-fleet' -Kind 'Fleet')))
             }
             Invoke-PfbApiRequest -Array $array -Method PUT -Endpoint 'presets/workload' -Body @{ name = 'p1' } | Out-Null
         }
@@ -92,6 +97,8 @@ Describe 'Invoke-PfbApiRequest - PUT support' {
             $array = [PSCustomObject]@{
                 Endpoint = 'fb.test'; ApiVersion = '2.26'; AuthToken = 'tok'
                 ApiToken = $null; AuthMethod = 'ApiToken'; SkipCertificateCheck = $false
+                # Fleet-scoped endpoint: see the note in the previous It.
+                DefaultContext = (New-PfbContext -Entries @((New-PfbContextEntry -Name 'cc-test-fleet' -Kind 'Fleet')))
             }
             Invoke-PfbApiRequest -Array $array -Method PUT -Endpoint 'presets/workload' | Out-Null
         }
