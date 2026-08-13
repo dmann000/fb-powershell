@@ -178,6 +178,76 @@ Describe 'Update-PfbContextHelp' {
         (Get-Content $arrayScoped -Raw).Contains('<!-- PfbContext') | Should -BeFalse
     }
 
+    Context 'line endings' {
+        # THE BUG THESE EXIST FOR. The block was assembled with hardcoded CRLF and spliced
+        # into whatever the target file already had. The repo commits LF blobs, so a Windows
+        # checkout is CRLF (matches, green) while a Linux/macOS checkout is LF (mismatches on
+        # EVERY file). The generator then reported all 24 files as changed and the idempotency
+        # test above failed with "Expected 0, but got 24" -- on ubuntu and macos only, while
+        # both Windows legs passed.
+        #
+        # That test cannot catch this on any single runner, because it only ever sees the
+        # local platform's convention. These two build BOTH conventions explicitly, so they
+        # fail everywhere when the splice stops adopting the target file's line ending.
+        BeforeAll {
+            function New-NewlineFixture {
+                param([string]$Root, [string]$Newline)
+
+                $publicRoot = Join-Path $Root 'Public'
+                New-Item -ItemType Directory -Path $publicRoot -Force | Out-Null
+
+                $utf8 = New-Object System.Text.UTF8Encoding($false)
+                $mapPath = Join-Path $Root 'map.json'
+                $map = @{ endpoints = @{ 'GET /zzz-gadgets' = @{ contextScope = @{ scope = 'fleet' } } } } |
+                    ConvertTo-Json -Depth 6
+                [System.IO.File]::WriteAllText($mapPath, $map, $utf8)
+
+                # WriteAllText with an explicit join, NOT Set-Content: Set-Content would
+                # impose the platform's newline and defeat the entire point of the fixture.
+                $file = Join-Path $publicRoot 'Get-ZzzGadget.ps1'
+                $lines = @(
+                    '<#'
+                    '.SYNOPSIS'
+                    '    Synthetic fixture for Get-ZzzGadget.'
+                    '#>'
+                    'function Get-ZzzGadget {'
+                    "    Invoke-PfbApiRequest -Method GET -Endpoint 'zzz-gadgets'"
+                    '}'
+                )
+                [System.IO.File]::WriteAllText($file, ($lines -join $Newline) + $Newline, $utf8)
+
+                return [PSCustomObject]@{ MapPath = $mapPath; PublicRoot = $publicRoot; File = $file }
+            }
+        }
+
+        It 'adopts LF and is idempotent against an LF-only file' {
+            $fx = New-NewlineFixture -Root (Join-Path $TestDrive 'lf') -Newline "`n"
+            & $script:generator -CapabilityMapPath $fx.MapPath -PublicRoot $fx.PublicRoot -Confirm:$false | Out-Null
+
+            $written = [System.IO.File]::ReadAllText($fx.File)
+            $written.Contains('<!-- PfbContext') | Should -BeTrue
+            # The block went in without dragging CRLF along with it.
+            $written.Contains("`r`n") | Should -BeFalse
+
+            $again = & $script:generator -WhatIf -CapabilityMapPath $fx.MapPath -PublicRoot $fx.PublicRoot
+            $again.Changed.Count | Should -Be 0
+        }
+
+        It 'adopts CRLF and is idempotent against a CRLF file' {
+            $fx = New-NewlineFixture -Root (Join-Path $TestDrive 'crlf') -Newline "`r`n"
+            & $script:generator -CapabilityMapPath $fx.MapPath -PublicRoot $fx.PublicRoot -Confirm:$false | Out-Null
+
+            $written = [System.IO.File]::ReadAllText($fx.File)
+            $written.Contains('<!-- PfbContext') | Should -BeTrue
+            # No BARE LF anywhere -- a lookbehind, because a plain -notmatch "`n" would also
+            # reject the LF half of every legitimate CRLF pair.
+            [regex]::IsMatch($written, "(?<!`r)`n") | Should -BeFalse
+
+            $again = & $script:generator -WhatIf -CapabilityMapPath $fx.MapPath -PublicRoot $fx.PublicRoot
+            $again.Changed.Count | Should -Be 0
+        }
+    }
+
     Context 'a scope value the generator has no render arm for' {
         BeforeAll {
             function New-ScopeFixture {

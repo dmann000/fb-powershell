@@ -269,6 +269,21 @@ function Set-PfbContextHelpBlock {
         [string]$Block
     )
 
+    # Phase 0: adopt the TARGET FILE's line ending. Everything upstream assembles the block
+    # with CRLF, which is correct on Windows and wrong everywhere else: the repo commits LF
+    # blobs, so a Windows checkout has CRLF and a Linux/macOS checkout has LF. Splicing a CRLF
+    # block into LF content makes $updated differ from $original on EVERY file, so the
+    # generator reports all 24 as changed, rewrites them, and the idempotency test fails with
+    # "Expected 0, but got 24" -- on Linux and macOS only. Windows CI passed throughout.
+    #
+    # Detect from $Content rather than [Environment]::NewLine: the platform does not decide
+    # this, the checked-out file does. A file with no newline at all falls to "`n", which is
+    # inert because there is then nothing to be consistent with.
+    $nl = if ($Content -match "`r`n") { "`r`n" } else { "`n" }
+    # Normalise via LF so a block that is already mixed cannot survive as mixed.
+    $Block = $Block -replace "`r`n", "`n"
+    if ($nl -eq "`r`n") { $Block = $Block -replace "`n", "`r`n" }
+
     # Phase 1: strip the previous generated block, if any. Keyed on the OPEN PREFIX, not the
     # full opening literal: the rest of that line is prose that Get-Help renders to the user
     # and may be reworded. Matching the whole literal would make a reword strip nothing and
@@ -285,7 +300,7 @@ function Set-PfbContextHelpBlock {
     $notesMatch = [regex]::Match($stripped, '(?m)^([ \t]*)\.NOTES[ \t]*\r?\n')
     if ($notesMatch.Success) {
         $insertAt = $notesMatch.Index + $notesMatch.Length
-        return $stripped.Substring(0, $insertAt) + $Block + "`r`n" + $stripped.Substring($insertAt)
+        return $stripped.Substring(0, $insertAt) + $Block + $nl + $stripped.Substring($insertAt)
     }
 
     $endMatch = [regex]::Match($stripped, '(?m)^([ \t]*)#>[ \t]*\r?\n')
@@ -293,8 +308,8 @@ function Set-PfbContextHelpBlock {
         throw 'Could not locate the end of the comment-based help block (a line consisting of "#>").'
     }
     $indent = $endMatch.Groups[1].Value
-    $header = $indent + '.NOTES' + "`r`n"
-    return $stripped.Substring(0, $endMatch.Index) + $header + $Block + "`r`n" + $stripped.Substring($endMatch.Index)
+    $header = $indent + '.NOTES' + $nl
+    return $stripped.Substring(0, $endMatch.Index) + $header + $Block + $nl + $stripped.Substring($endMatch.Index)
 }
 
 $changed = @()
