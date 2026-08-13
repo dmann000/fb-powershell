@@ -6,31 +6,32 @@ function Remove-PfbPolicyFileSystemReplicaLink {
         The Remove-PfbPolicyFileSystemReplicaLink cmdlet removes the association between a
         policy and a file system replica link on the connected Pure Storage FlashBlade.
 
-        `DELETE /policies/file-system-replica-links` declares no `member_names` query
-        parameter. The former -MemberName was therefore dropped on the wire, turning a
-        call that looked like a single removal into a removal of the policy from EVERY
-        replica link. It has been removed so such a call now fails at parameter binding
-        instead. -MemberId is the spec-declared member selector and is required here for
-        the same reason: this cmdlet will not issue a policy-wide removal.
+        This endpoint selects members by ID only: `member_ids` is a declared query
+        parameter and `member_names` is not. A removal must identify both a policy and a
+        member, so -MemberId is required; this cmdlet issues no removal scoped to a policy
+        alone.
 
-        The composite selector rules are enforced at runtime rather than by parameter sets,
-        which would multiply the published syntax without adding reachable combinations.
+        The selector rules are enforced at runtime rather than by parameter sets, which
+        would multiply the published syntax without adding reachable combinations.
     .PARAMETER PolicyName
-        The policy name. Mutually exclusive with -PolicyId; one of the two is required.
+        The policy name, sent as `policy_names`. Mutually exclusive with -PolicyId; one of
+        the two is required.
     .PARAMETER PolicyId
-        The policy ID. Mutually exclusive with -PolicyName; one of the two is required.
+        The policy ID, sent as `policy_ids`. Mutually exclusive with -PolicyName; one of
+        the two is required.
     .PARAMETER MemberId
-        The file system replica link ID. Required: it is the only member identity this
-        endpoint accepts, and without it the request would remove the policy from every
-        member.
+        The file system replica link ID, sent as the declared `member_ids` query parameter.
+        Required: it is the only member selector this endpoint declares.
     .PARAMETER RemoteName
-        One or more REMOTE ARRAY names, further narrowing the removal to replica links whose
-        remote side is one of those arrays. A qualifier on -MemberId, never an identity of
-        its own. Mutually exclusive with -RemoteId: the API declares remote_names and
-        remote_ids as alternative ways to name the same remote dimension.
+        One or more REMOTE ARRAY names, sent as the endpoint's declared `remote_names`
+        query parameter. It qualifies a request that -PolicyName/-PolicyId and -MemberId
+        have already identified; it is never an identity of its own. Mutually exclusive
+        with -RemoteId: the API declares remote_names and remote_ids as alternative ways to
+        name the same remote dimension.
     .PARAMETER RemoteId
-        One or more REMOTE ARRAY IDs, narrowing the removal the same way -RemoteName does.
-        Mutually exclusive with -RemoteName.
+        One or more REMOTE ARRAY IDs, sent as the declared `remote_ids` query parameter and
+        qualifying the request the same way -RemoteName does. Mutually exclusive with
+        -RemoteName.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
@@ -44,7 +45,8 @@ function Remove-PfbPolicyFileSystemReplicaLink {
     .EXAMPLE
         Remove-PfbPolicyFileSystemReplicaLink -PolicyId "pol-9" -MemberId "fsrl-2" -RemoteName "remote-fb"
 
-        Removes the policy from that replica link only if its remote side is 'remote-fb'.
+        Removes the policy from that replica link, additionally sending
+        remote_names=remote-fb.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
     param(

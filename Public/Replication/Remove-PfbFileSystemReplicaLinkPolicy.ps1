@@ -6,33 +6,33 @@ function Remove-PfbFileSystemReplicaLinkPolicy {
         Removes the association between a policy and a file system replica link by
         specifying the policy (by name or ID) and the replica link member ID.
 
-        `DELETE /file-system-replica-links/policies` declares no `member_names` query
-        parameter. The former -MemberName was therefore dropped on the wire, turning a
-        call that looked like a single detach into a detach of the policy from EVERY
-        replica link. It has been removed so such a call now fails at parameter binding
-        instead. -MemberId is the spec-declared member selector and is required here for
-        the same reason: this cmdlet will not issue a policy-wide detach.
+        This endpoint selects members by ID only: `member_ids` is a declared query
+        parameter and `member_names` is not. A detach must identify both a policy and a
+        member, so -MemberId is required; this cmdlet issues no detach scoped to a policy
+        alone.
 
-        The composite selector rules are enforced at runtime rather than by parameter sets,
-        which would multiply the published syntax without adding reachable combinations.
+        The selector rules are enforced at runtime rather than by parameter sets, which
+        would multiply the published syntax without adding reachable combinations.
     .PARAMETER PolicyName
-        The name of the policy to detach. Mutually exclusive with -PolicyId; one of the two
-        is required.
+        The name of the policy to detach, sent as `policy_names`. Mutually exclusive with
+        -PolicyId; one of the two is required.
     .PARAMETER PolicyId
-        The ID of the policy to detach. Mutually exclusive with -PolicyName; one of the two
-        is required.
+        The ID of the policy to detach, sent as `policy_ids`. Mutually exclusive with
+        -PolicyName; one of the two is required.
     .PARAMETER MemberId
-        The ID of the replica link to detach the policy from. Required: it is the only
-        member identity this endpoint accepts, and without it the request would detach the
-        policy from every member.
+        The ID of the replica link to detach the policy from, sent as the declared
+        `member_ids` query parameter. Required: it is the only member selector this
+        endpoint declares.
     .PARAMETER RemoteName
-        One or more REMOTE ARRAY names, further narrowing the detach to replica links whose
-        remote side is one of those arrays. A qualifier on -MemberId, never an identity of
-        its own. Mutually exclusive with -RemoteId: the API declares remote_names and
-        remote_ids as alternative ways to name the same remote dimension.
+        One or more REMOTE ARRAY names, sent as the endpoint's declared `remote_names`
+        query parameter. It qualifies a request that -PolicyName/-PolicyId and -MemberId
+        have already identified; it is never an identity of its own. Mutually exclusive
+        with -RemoteId: the API declares remote_names and remote_ids as alternative ways to
+        name the same remote dimension.
     .PARAMETER RemoteId
-        One or more REMOTE ARRAY IDs, narrowing the detach the same way -RemoteName does.
-        Mutually exclusive with -RemoteName.
+        One or more REMOTE ARRAY IDs, sent as the declared `remote_ids` query parameter and
+        qualifying the request the same way -RemoteName does. Mutually exclusive with
+        -RemoteName.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, uses the default connection.
     .EXAMPLE

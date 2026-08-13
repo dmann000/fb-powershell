@@ -7,24 +7,22 @@ function Get-PfbFileSystemReplicaLinkPolicy {
         Can be filtered by policy name/ID, member (replica link) ID, or the remote side of
         the link.
 
-        `GET /file-system-replica-links/policies` declares no `member_names` query
-        parameter, so the former -MemberName filter was silently discarded by the array and
-        returned every member of the named policies instead of the one asked for. It has
-        been removed rather than left to widen results without warning; -MemberId is the
-        spec-declared member selector.
+        This endpoint selects members by ID only: `member_ids` is a declared query
+        parameter and `member_names` is not, so -MemberId is its only member filter.
     .PARAMETER PolicyName
-        One or more policy names to filter by.
+        One or more policy names to filter by. Sent as `policy_names`.
     .PARAMETER PolicyId
-        One or more policy IDs to filter by.
+        One or more policy IDs to filter by. Sent as `policy_ids`.
     .PARAMETER MemberId
-        One or more replica link IDs to filter by. Sent as the spec-declared `member_ids`
+        One or more replica link IDs to filter by. Sent as the declared `member_ids`
         query parameter.
     .PARAMETER RemoteName
-        One or more REMOTE ARRAY names, narrowing results to replica links whose remote side
-        is one of those arrays. Mutually exclusive with -RemoteId: the API declares
-        remote_names and remote_ids as alternative ways to name the same remote dimension.
+        One or more REMOTE ARRAY names, sent as the declared `remote_names` query
+        parameter. Mutually exclusive with -RemoteId: the API declares remote_names and
+        remote_ids as alternative ways to name the same remote dimension.
     .PARAMETER RemoteId
-        One or more REMOTE ARRAY IDs. Mutually exclusive with -RemoteName.
+        One or more REMOTE ARRAY IDs, sent as the declared `remote_ids` query parameter.
+        Mutually exclusive with -RemoteName.
     .PARAMETER Filter
         A server-side filter expression to narrow results.
     .PARAMETER Sort
@@ -41,7 +39,7 @@ function Get-PfbFileSystemReplicaLinkPolicy {
         Returns all policies attached to the replica link with that ID.
     .EXAMPLE
         Get-PfbFileSystemReplicaLinkPolicy -PolicyName "repl-daily" -RemoteName "remote-fb"
-        Returns the 'repl-daily' attachments whose replica links target the 'remote-fb' array.
+        Queries the 'repl-daily' attachments with remote_names=remote-fb.
     #>
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param(
