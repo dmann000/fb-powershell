@@ -395,6 +395,11 @@ Describe 'Build-PfbApiDriftReport (real generated artifacts, skips gracefully if
         $script:realCapabilityMapPath = Join-Path $repoRoot 'Data/PfbCapabilityMap.json'
         $script:realFieldCmdletMapPath = Join-Path $repoRoot 'Reports/PfbFieldCmdletMap.json'
         $script:realSpecsDir = Join-Path $repoRoot 'tools/specs'
+        # The annotation tests below read this rather than restating a note's wording. Rewording
+        # an annotation -- or retiring one, or adding one -- is then a docs-only change, instead
+        # of a red build in a test file that has no opinion about the wording. The wiring
+        # (source file -> generated artifact) is what these tests are actually for.
+        $script:annotationSource = Get-Content -Path (Join-Path $repoRoot 'docs/drift-annotations.json') -Raw | ConvertFrom-Json
         $script:hasRealArtifacts = (Test-Path $realCapabilityMapPath) -and (Test-Path $realFieldCmdletMapPath) -and
             (Test-Path $realSpecsDir) -and (Get-ChildItem $realSpecsDir -Filter 'fb*.json' -ErrorAction SilentlyContinue)
 
@@ -522,19 +527,53 @@ Describe 'Build-PfbApiDriftReport (real generated artifacts, skips gracefully if
         ($realManifest.conventionStrength | Where-Object { $_.name -eq 'context_names' }).cmdletCount | Should -Be 0
     }
 
-    It 'Task 7: attaches docs/drift-annotations.json''s designDecision note to the context_names systemic-gap finding' {
+    It 'Task 7: carries every field annotation from docs/drift-annotations.json onto its systemic-gap finding, verbatim' {
         if (-not $hasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
-        $ctx = $realManifest.systemicGaps | Where-Object { $_.name -eq 'context_names' }
-        $ctx.annotations | Should -Not -BeNullOrEmpty
-        ($ctx.annotations | Select-Object -First 1).note | Should -Match 'not yet implemented'
+
+        $fieldNotes = @{}
+        foreach ($a in $annotationSource.annotations) {
+            if ($a.matchType -eq 'field') { $fieldNotes[$a.match] = $a.note }
+        }
+        $fieldNotes.Count | Should -BeGreaterThan 0 -Because 'a source file with no field annotations would make every assertion below vacuously true'
+
+        $checked = 0
+        foreach ($gap in $realManifest.systemicGaps) {
+            if (-not $fieldNotes.ContainsKey($gap.name)) { continue }
+            $checked++
+            @($gap.annotations).Count | Should -BeGreaterThan 0 -Because "$($gap.name) has a field annotation in docs/drift-annotations.json, so the generator must attach it"
+            @($gap.annotations.note) | Should -Contain $fieldNotes[$gap.name] -Because "the note the generator attached to $($gap.name) must be the source note verbatim, not a paraphrase"
+        }
+
+        # A field can legitimately stop being a systemic gap -- that is the whole point of
+        # implementing one -- so this does not pin WHICH annotated fields appear. It only
+        # refuses to pass when NONE of them do, which would mean the annotation wiring broke
+        # rather than that a gap closed. Both want a human to look; neither should pass silently.
+        $checked | Should -BeGreaterThan 0 -Because 'no annotated field reached systemicGaps at all, which is annotation wiring failing rather than gaps closing'
     }
 
-    It 'Task 7: attaches docs/drift-annotations.json''s liveTestingHazard note to a management-access-policies parameter-gap row' {
+    It 'Task 7: carries every endpoint annotation from docs/drift-annotations.json onto its matching parameter-gap rows, verbatim' {
         if (-not $hasRealArtifacts) { Set-ItResult -Skipped -Because 'real artifacts not present locally'; return }
-        $row = $realManifest.parameterGaps | Where-Object { $_.endpoint -match 'management-access-policies' } | Select-Object -First 1
-        if (-not $row) { Set-ItResult -Skipped -Because 'no management-access-policies endpoint currently has a parameter gap'; return }
-        $row.annotations | Should -Not -BeNullOrEmpty
-        ($row.annotations | Select-Object -First 1).note | Should -Match '403'
+
+        $endpointNotes = @{}
+        foreach ($a in $annotationSource.annotations) {
+            if ($a.matchType -eq 'endpoint') { $endpointNotes[$a.match.ToLowerInvariant()] = $a.note }
+        }
+        $endpointNotes.Count | Should -BeGreaterThan 0 -Because 'a source file with no endpoint annotations would make every assertion below vacuously true'
+
+        $checked = 0
+        foreach ($row in $realManifest.parameterGaps) {
+            $endpoint = "$($row.endpoint)".ToLowerInvariant()
+            foreach ($needle in $endpointNotes.Keys) {
+                # .Contains, not -like: a -like pattern treats backtick and [ ] as syntax, so a
+                # match string copied straight out of the JSON would silently never match.
+                if (-not $endpoint.Contains($needle)) { continue }
+                $checked++
+                @($row.annotations).Count | Should -BeGreaterThan 0 -Because "$($row.endpoint) matches endpoint annotation '$needle', so the generator must attach it"
+                @($row.annotations.note) | Should -Contain $endpointNotes[$needle] -Because "the note the generator attached to $($row.endpoint) must be the source note verbatim, not a paraphrase"
+            }
+        }
+
+        $checked | Should -BeGreaterThan 0 -Because 'no annotated endpoint reached parameterGaps at all, which is annotation wiring failing rather than gaps closing'
     }
 
     It 'Task 7: splits generatedFrom into analysedVersions (from the capability map) and availableSpecVersions (from tools/specs/ on disk), warning exactly when they disagree' {
