@@ -646,3 +646,52 @@ Describe 'New-PfbFileSystem - default_exports REST 2.16 floor (mock-only)' {
         { New-PfbFileSystem -Name 'fs01' -Confirm:$false -Array $newArray } | Should -Not -Throw
     }
 }
+
+Describe 'New-PfbFileSystem - no per-filesystem eradication input' {
+    # Remove incorrectly scoped per-filesystem eradication input from New-PfbFileSystem.
+
+    Context 'command metadata' {
+
+        It 'exposes no EradicationMode parameter' {
+            $cmd = Get-Command New-PfbFileSystem
+            $cmd.Parameters.Keys | Should -Not -Contain 'EradicationMode'
+        }
+
+        It 'exposes no ManualEradication parameter' {
+            $cmd = Get-Command New-PfbFileSystem
+            $cmd.Parameters.Keys | Should -Not -Contain 'ManualEradication'
+        }
+
+        It 'does not mention eradication in the cmdlet help text' {
+            $helpText = Get-Help New-PfbFileSystem -Full | Out-String
+            $helpText | Should -Not -Match 'eradication'
+        }
+    }
+
+    Context 'request body construction' {
+
+        BeforeEach {
+            Mock -ModuleName PureStorageFlashBladePowerShell Assert-PfbConnection { }
+            Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { }
+        }
+
+        It 'sends no eradication_config on a minimal typed call' {
+            New-PfbFileSystem -Name 'fs01' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                -not $Body.ContainsKey('eradication_config')
+            }
+        }
+
+        It 'sends no eradication_config on a fully populated typed call' {
+            New-PfbFileSystem -Name 'fs01' -Provisioned 1073741824 -HardLimit -Nfs -Smb `
+                -SmbSharePolicy 'smb-rw' -MultiProtocolAccessControlStyle 'shared' `
+                -GroupOwnership 'creator' -SnapshotDirectoryEnabled $true -Writable $true `
+                -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                -not $Body.ContainsKey('eradication_config')
+            }
+        }
+    }
+}

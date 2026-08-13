@@ -5,8 +5,8 @@ function New-PfbFileSystem {
     .DESCRIPTION
         Creates a file system with the specified configuration. Typed parameters cover the
         common fields: size + hard-limit, NFS/SMB/HTTP enablement with associated export and
-        share policies, multi-protocol access control, default user/group quotas, eradication
-        mode, snapshot directory visibility, and source snapshot cloning.
+        share policies, multi-protocol access control, default user/group quotas, snapshot
+        directory visibility, and source snapshot cloning.
 
         Note: when neither -Nfs nor -Smb nor -Http is passed, the file system is created
         with all protocols disabled. The FlashBlade may still expose internal NFS/SMB
@@ -76,8 +76,6 @@ function New-PfbFileSystem {
         Enable the fast-remove directory feature.
     .PARAMETER GroupOwnership
         Group ownership semantics for new files. Valid: creator, parent-directory.
-    .PARAMETER EradicationMode
-        File system eradication policy. Valid: permission-based, retention-based.
     .PARAMETER Writable
         Whether the file system is writable. Defaults to $true.
     .PARAMETER SourceSnapshot
@@ -191,10 +189,6 @@ function New-PfbFileSystem {
         [string]$GroupOwnership,
 
         [Parameter(ParameterSetName = 'Individual')]
-        [ValidateSet('permission-based', 'retention-based')]
-        [string]$EradicationMode,
-
-        [Parameter(ParameterSetName = 'Individual')]
         [Nullable[bool]]$Writable,
 
         [Parameter(ParameterSetName = 'Individual')]
@@ -241,7 +235,6 @@ function New-PfbFileSystem {
         if ($PSBoundParameters.ContainsKey('Writable')) { $body['writable'] = [bool]$Writable }
         if ($SourceSnapshot)                 { $body['source'] = @{ name = $SourceSnapshot } }
         if ($QosPolicy)                      { $body['qos_policy'] = @{ name = $QosPolicy } }
-        if ($EradicationMode)                { $body['eradication_config'] = @{ eradication_mode = $EradicationMode } }
 
         # NFS — note: local hashtable name avoids collision with [switch]$Nfs (PowerShell vars are case-insensitive)
         $nfsBody = @{}
