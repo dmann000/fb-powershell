@@ -43,8 +43,8 @@ Showing the top 25 of 247 findings by endpoint count -- the full list is in the 
 
 | Field name | Endpoints | Query | Body | Cmdlets already using this name | Annotation |
 |---|---|---|---|---|---|
-| `context_names` | 269 | 269 | 0 | 0 | not yet implemented |
-| `allow_errors` | 118 | 118 | 0 | 0 | not yet implemented |
+| `context_names` | 269 | 269 | 0 | 0 | implemented in Phase 1 via central injection; still listed as a gap because the drift detector does not resolve the variable-keyed injection site (issue #113) |
+| `allow_errors` | 118 | 118 | 0 | 0 | not yet implemented; deferred to Phase 2 |
 | `ids` | 43 | 43 | 0 | 220 |  |
 | `names` | 31 | 31 | 0 | 303 |  |
 | `sort` | 28 | 28 | 0 | 180 |  |

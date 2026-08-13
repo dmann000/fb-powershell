@@ -14462,8 +14462,8 @@
           "matchType": "field",
           "match": "context_names",
           "kind": "designDecision",
-          "note": "not yet implemented",
-          "reference": "docs/design/fusion-context-injection.md"
+          "note": "implemented in Phase 1 via central injection; still listed as a gap because the drift detector does not resolve the variable-keyed injection site (issue #113)",
+          "reference": "docs/design/fusion-context-phase-1-spec.md"
         }
       ]
     },
@@ -14597,8 +14597,8 @@
           "matchType": "field",
           "match": "allow_errors",
           "kind": "designDecision",
-          "note": "not yet implemented",
-          "reference": "docs/design/fusion-context-injection.md"
+          "note": "not yet implemented; deferred to Phase 2",
+          "reference": "docs/design/fusion-context-phase-1-spec.md"
         }
       ]
     },
