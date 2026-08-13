@@ -31,6 +31,10 @@ BeforeAll {
     $script:committedReportJsonPath = Join-Path $repoRoot 'Reports/PfbApiDriftReport.json'
     $script:committedReportMdPath = Join-Path $repoRoot 'Reports/PfbApiDriftReport.md'
     $script:committedReport = Get-Content -Path $committedReportJsonPath -Raw | ConvertFrom-Json
+    # The annotation SOURCE, so the guards below can compare the committed artifact against
+    # the file it was generated from rather than against a hardcoded copy of its prose.
+    $script:annotationSourcePath = Join-Path $repoRoot 'docs/drift-annotations.json'
+    $script:annotationSource = Get-Content -Path $annotationSourcePath -Raw | ConvertFrom-Json
 }
 
 Describe 'Committed drift report (REGRESSION guard, no spec cache required)' {
@@ -97,18 +101,61 @@ Describe 'Committed drift report: annotations and summary fields survived genera
     # "did the artifact we actually shipped keep them" -- and need no cache to do it, so they
     # run on every leg instead of none. Both are kept deliberately; this is not a duplicate.
 
-    It 'carries docs/drift-annotations.json''s designDecision note on the context_names systemic gap' {
-        $ctx = $committedReport.systemicGaps | Where-Object { $_.name -eq 'context_names' }
-        $ctx | Should -Not -BeNullOrEmpty -Because 'context_names is expected to still be a systemic gap in the real API surface'
-        $ctx.annotations | Should -Not -BeNullOrEmpty
-        ($ctx.annotations | Select-Object -First 1).note | Should -Match 'not yet implemented'
+    # WHY THESE TWO COMPARE AGAINST docs/drift-annotations.json RATHER THAN AGAINST LITERALS:
+    # an earlier draft pinned one field name ('context_names') and one note's wording
+    # ('not yet implemented'). Both move for legitimate reasons, and pinning them points the
+    # guard the wrong way:
+    #   - The notes are hand-written prose describing decisions that are still being made. A
+    #     test asserting 'not yet implemented' fails on the very PR that implements the thing
+    #     and reweords the note -- so the guard obstructs the change it should be indifferent to.
+    #   - WHICH fields are annotated moves too. A field stops appearing in systemicGaps once
+    #     the module starts sending it (see Get-PfbNonActionableParameters and
+    #     Get-PfbCentralInjectionSites: continuation_token is already gone for exactly this
+    #     reason). Naming one field makes an unrelated, correct improvement look like a
+    #     regression.
+    # What must never silently break -- and is what issue #63 was actually about -- is the
+    # WIRING: a note in the source file reaching the committed artifact unmodified. That is
+    # invariant under both kinds of movement, so it is what these assert. Each carries its own
+    # non-vacuity floor, because an annotation set that matched nothing would otherwise pass
+    # these by checking nothing at all.
+
+    It 'carries every field annotation from docs/drift-annotations.json into the committed systemic gaps, verbatim' {
+        $fieldNotes = @{}
+        foreach ($a in $annotationSource.annotations) {
+            if ($a.matchType -eq 'field') { $fieldNotes[$a.match] = $a.note }
+        }
+        $fieldNotes.Count | Should -BeGreaterThan 0 -Because 'docs/drift-annotations.json must carry at least one matchType=field annotation, or this test checks nothing'
+
+        $checked = 0
+        foreach ($gap in $committedReport.systemicGaps) {
+            if (-not $fieldNotes.ContainsKey($gap.name)) { continue }
+            $checked++
+            @($gap.annotations).Count | Should -BeGreaterThan 0 -Because "'$($gap.name)' has a field annotation in docs/drift-annotations.json that did not reach the committed report"
+            @($gap.annotations.note) | Should -Contain $fieldNotes[$gap.name] -Because "the committed note on '$($gap.name)' must be the source file's note verbatim, not a drifted copy"
+        }
+        $checked | Should -BeGreaterThan 0 -Because 'no annotated field appeared in systemicGaps at all -- either the annotation loader regressed, or every annotated field stopped being a gap. Both want a human to look; neither should pass silently.'
     }
 
-    It 'carries docs/drift-annotations.json''s liveTestingHazard note on a management-access-policies parameter-gap row' {
-        $row = $committedReport.parameterGaps | Where-Object { $_.endpoint -match 'management-access-policies' } | Select-Object -First 1
-        $row | Should -Not -BeNullOrEmpty -Because 'a management-access-policies endpoint is expected to still have a parameter gap'
-        $row.annotations | Should -Not -BeNullOrEmpty
-        ($row.annotations | Select-Object -First 1).note | Should -Match '403'
+    It 'carries every endpoint annotation from docs/drift-annotations.json into the committed parameter gaps, verbatim' {
+        # matchType 'endpoint' matches as a case-insensitive SUBSTRING of '<METHOD> /<path>'
+        # (docs/drift-annotations.json's own schema field says so). Matched with .Contains on
+        # lowered strings rather than -like: a wildcard pattern treats ` as an escape
+        # character and [ ] as a character class, so an endpoint or match value containing
+        # either would be misread.
+        $endpointAnnotations = @($annotationSource.annotations | Where-Object { $_.matchType -eq 'endpoint' })
+        @($endpointAnnotations).Count | Should -BeGreaterThan 0 -Because 'docs/drift-annotations.json must carry at least one matchType=endpoint annotation, or this test checks nothing'
+
+        $checked = 0
+        foreach ($ann in $endpointAnnotations) {
+            $needle = $ann.match.ToLowerInvariant()
+            foreach ($row in $committedReport.parameterGaps) {
+                if (-not $row.endpoint.ToLowerInvariant().Contains($needle)) { continue }
+                $checked++
+                @($row.annotations).Count | Should -BeGreaterThan 0 -Because "endpoint '$($row.endpoint)' matches the '$($ann.match)' annotation in docs/drift-annotations.json, which did not reach the committed report"
+                @($row.annotations.note) | Should -Contain $ann.note -Because "the committed note on '$($row.endpoint)' must be the source file's note verbatim, not a drifted copy"
+            }
+        }
+        $checked | Should -BeGreaterThan 0 -Because 'no annotated endpoint matched any parameter-gap row -- either the annotation matcher regressed, or every annotated endpoint stopped having a gap. Both want a human to look.'
     }
 
     It 'carries phantomFieldCount as a non-negative integer and a non-empty conventionStrength' {
