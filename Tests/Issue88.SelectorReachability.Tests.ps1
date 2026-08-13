@@ -58,35 +58,53 @@ $standaloneTable = @(
     @{ Cmdlet = 'New-PfbPolicyFileSystemReplicaLink'; Selectors = @('PolicyName', 'PolicyId', 'MemberId', 'LocalFileSystemName', 'LocalFileSystemId', 'RemoteName', 'RemoteId') }
 )
 
+# Parameters that are not selectors: paging/shaping options and request-body fields. Listed
+# literally so the completeness check below can prove that every *other* published parameter
+# on the 18 cmdlets is classified exactly once by the tables.
+$nonSelectorParams = @(
+    'Array', 'Filter', 'Sort', 'Limit', 'TotalOnly'      # common query and shaping options
+    'StartTime', 'EndTime', 'Resolution', 'Type'         # performance-window options
+    'RemoteDefaultExports', 'CancelInProgressTransfers'  # replica-link body/behaviour flags
+    'ManagementAddress', 'ReplicationAddresses', 'CaCertificateGroup'
+    'Encrypted', 'Remote', 'Throttle', 'Attributes'      # array-connection body fields
+)
+
 # The explicit composite exceptions. Each entry names the companion parameters that make
 # the selector usable, and how the incomplete form is refused:
-#   Refusal = 'Guard'     -> the cmdlet throws the given message and issues zero requests
-#   Refusal = 'Mandatory' -> parameter binding itself demands the companion. Such a form is
-#                            NEVER invoked here: an unbound mandatory parameter makes an
-#                            interactive host prompt, which would hang the run.
+#   Refusal = 'Guard'     -> the cmdlet's own guard throws the given message and issues zero
+#                            requests.
+#   Refusal = 'Binder'    -> PowerShell's parameter binder refuses the call before the cmdlet
+#                            body runs. Asserted on the ErrorId, because the engine's message
+#                            text is localizable and version-dependent.
+#   Refusal = 'Mandatory' -> parameter binding demands the companion. Such a form is NEVER
+#                            invoked here: an unbound mandatory parameter makes an interactive
+#                            host prompt, which would hang the run. Asserted on metadata.
 $compositeExceptions = @(
     # Fail-closed removals: a policy alone or a member alone is never enough to delete.
-    @{ Cmdlet = 'Remove-PfbFileSystemReplicaLinkPolicy'; Selector = 'PolicyName'; With = @{ MemberId = 'm1' }; Refusal = 'Guard'; Message = '*-MemberId*' }
-    @{ Cmdlet = 'Remove-PfbFileSystemReplicaLinkPolicy'; Selector = 'PolicyId'; With = @{ MemberId = 'm1' }; Refusal = 'Guard'; Message = '*-MemberId*' }
-    @{ Cmdlet = 'Remove-PfbFileSystemReplicaLinkPolicy'; Selector = 'MemberId'; With = @{ PolicyName = 'p1' }; Refusal = 'Guard'; Message = '*-PolicyName or -PolicyId*' }
-    @{ Cmdlet = 'Remove-PfbFileSystemReplicaLinkPolicy'; Selector = 'RemoteName'; With = @{ PolicyName = 'p1'; MemberId = 'm1' }; Refusal = 'Guard'; Message = '*-PolicyName or -PolicyId*' }
-    @{ Cmdlet = 'Remove-PfbFileSystemReplicaLinkPolicy'; Selector = 'RemoteId'; With = @{ PolicyName = 'p1'; MemberId = 'm1' }; Refusal = 'Guard'; Message = '*-PolicyName or -PolicyId*' }
+    @{ Cmdlet = 'Remove-PfbFileSystemReplicaLinkPolicy'; Selector = 'PolicyName'; With = @{ MemberId = 'm1' }; Refusal = 'Guard'; Message = '*A replica link member must be identified: supply -MemberId*' }
+    @{ Cmdlet = 'Remove-PfbFileSystemReplicaLinkPolicy'; Selector = 'PolicyId'; With = @{ MemberId = 'm1' }; Refusal = 'Guard'; Message = '*A replica link member must be identified: supply -MemberId*' }
+    @{ Cmdlet = 'Remove-PfbFileSystemReplicaLinkPolicy'; Selector = 'MemberId'; With = @{ PolicyName = 'p1' }; Refusal = 'Guard'; Message = '*A policy must be identified: supply -PolicyName or -PolicyId.*' }
+    @{ Cmdlet = 'Remove-PfbFileSystemReplicaLinkPolicy'; Selector = 'RemoteName'; With = @{ PolicyName = 'p1'; MemberId = 'm1' }; Refusal = 'Guard'; Message = '*A policy must be identified: supply -PolicyName or -PolicyId.*' }
+    @{ Cmdlet = 'Remove-PfbFileSystemReplicaLinkPolicy'; Selector = 'RemoteId'; With = @{ PolicyName = 'p1'; MemberId = 'm1' }; Refusal = 'Guard'; Message = '*A policy must be identified: supply -PolicyName or -PolicyId.*' }
 
-    @{ Cmdlet = 'Remove-PfbPolicyFileSystemReplicaLink'; Selector = 'PolicyName'; With = @{ MemberId = 'm1' }; Refusal = 'Guard'; Message = '*-MemberId*' }
-    @{ Cmdlet = 'Remove-PfbPolicyFileSystemReplicaLink'; Selector = 'PolicyId'; With = @{ MemberId = 'm1' }; Refusal = 'Guard'; Message = '*-MemberId*' }
-    @{ Cmdlet = 'Remove-PfbPolicyFileSystemReplicaLink'; Selector = 'MemberId'; With = @{ PolicyName = 'p1' }; Refusal = 'Guard'; Message = '*-PolicyName or -PolicyId*' }
-    @{ Cmdlet = 'Remove-PfbPolicyFileSystemReplicaLink'; Selector = 'RemoteName'; With = @{ PolicyName = 'p1'; MemberId = 'm1' }; Refusal = 'Guard'; Message = '*-PolicyName or -PolicyId*' }
-    @{ Cmdlet = 'Remove-PfbPolicyFileSystemReplicaLink'; Selector = 'RemoteId'; With = @{ PolicyName = 'p1'; MemberId = 'm1' }; Refusal = 'Guard'; Message = '*-PolicyName or -PolicyId*' }
+    @{ Cmdlet = 'Remove-PfbPolicyFileSystemReplicaLink'; Selector = 'PolicyName'; With = @{ MemberId = 'm1' }; Refusal = 'Guard'; Message = '*A replica link member must be identified: supply -MemberId*' }
+    @{ Cmdlet = 'Remove-PfbPolicyFileSystemReplicaLink'; Selector = 'PolicyId'; With = @{ MemberId = 'm1' }; Refusal = 'Guard'; Message = '*A replica link member must be identified: supply -MemberId*' }
+    @{ Cmdlet = 'Remove-PfbPolicyFileSystemReplicaLink'; Selector = 'MemberId'; With = @{ PolicyName = 'p1' }; Refusal = 'Guard'; Message = '*A policy must be identified: supply -PolicyName or -PolicyId.*' }
+    @{ Cmdlet = 'Remove-PfbPolicyFileSystemReplicaLink'; Selector = 'RemoteName'; With = @{ PolicyName = 'p1'; MemberId = 'm1' }; Refusal = 'Guard'; Message = '*A policy must be identified: supply -PolicyName or -PolicyId.*' }
+    @{ Cmdlet = 'Remove-PfbPolicyFileSystemReplicaLink'; Selector = 'RemoteId'; With = @{ PolicyName = 'p1'; MemberId = 'm1' }; Refusal = 'Guard'; Message = '*A policy must be identified: supply -PolicyName or -PolicyId.*' }
 
     # A remote qualifier narrows a transfer cancellation; it never identifies one on its own.
-    @{ Cmdlet = 'Remove-PfbFileSystemSnapshotTransfer'; Selector = 'RemoteName'; With = @{ Name = 'fs1.suffix' }; Refusal = 'Guard'; Message = '*Parameter set cannot be resolved*' }
-    @{ Cmdlet = 'Remove-PfbFileSystemSnapshotTransfer'; Selector = 'RemoteId'; With = @{ Id = 't1' }; Refusal = 'Guard'; Message = '*Parameter set cannot be resolved*' }
+    # Neither -Name nor -Id is bound in that form, so no parameter set resolves and the
+    # binder - not a cmdlet guard - refuses the call.
+    @{ Cmdlet = 'Remove-PfbFileSystemSnapshotTransfer'; Selector = 'RemoteName'; With = @{ Name = 'fs1.suffix' }; Refusal = 'Binder'; ErrorId = 'AmbiguousParameterSet' }
+    @{ Cmdlet = 'Remove-PfbFileSystemSnapshotTransfer'; Selector = 'RemoteId'; With = @{ Id = 't1' }; Refusal = 'Binder'; ErrorId = 'AmbiguousParameterSet' }
 
     # A replica link is identified by local file system plus remote, so both halves are mandatory.
     @{ Cmdlet = 'New-PfbFileSystemReplicaLink'; Selector = 'LocalFileSystemName'; With = @{ RemoteArrayName = 'FB-B' }; Refusal = 'Mandatory' }
     @{ Cmdlet = 'New-PfbFileSystemReplicaLink'; Selector = 'RemoteArrayName'; With = @{ LocalFileSystemName = 'fs1' }; Refusal = 'Mandatory' }
     @{ Cmdlet = 'New-PfbFileSystemReplicaLink'; Selector = 'RemoteId'; With = @{ LocalFileSystemName = 'fs1' }; Refusal = 'Mandatory' }
     @{ Cmdlet = 'New-PfbFileSystemReplicaLink'; Selector = 'RemoteFileSystemName'; With = @{ LocalFileSystemName = 'fs1'; RemoteArrayName = 'FB-B' }; Refusal = 'Mandatory' }
+    @{ Cmdlet = 'New-PfbFileSystemReplicaLink'; Selector = 'Id'; With = @{ LocalFileSystemName = 'fs1'; RemoteArrayName = 'FB-B' }; Refusal = 'Mandatory' }
 
     @{ Cmdlet = 'Remove-PfbFileSystemReplicaLink'; Selector = 'LocalFileSystemName'; With = @{ RemoteArrayName = 'FB-B' }; Refusal = 'Mandatory' }
     @{ Cmdlet = 'Remove-PfbFileSystemReplicaLink'; Selector = 'RemoteArrayName'; With = @{ LocalFileSystemName = 'fs1' }; Refusal = 'Mandatory' }
@@ -123,12 +141,31 @@ $compositeCases = foreach ($row in $compositeExceptions) {
         With        = $row.With
         Refusal     = $row.Refusal
         Message     = $(if ($row.ContainsKey('Message')) { $row.Message } else { '' })
+        ErrorId     = $(if ($row.ContainsKey('ErrorId')) { $row.ErrorId } else { '' })
         Destructive = ($row.Cmdlet -notlike 'Get-*')
     }
 }
 
 $guardedCompositeCases = @($compositeCases | Where-Object { $_.Refusal -eq 'Guard' })
+$binderCompositeCases = @($compositeCases | Where-Object { $_.Refusal -eq 'Binder' })
 $mandatoryCompositeCases = @($compositeCases | Where-Object { $_.Refusal -eq 'Mandatory' })
+
+# Every parameter published by an in-scope cmdlet is either a declared non-selector or is
+# classified by exactly one table row. Built at discovery from the literal tables; compared
+# against Get-Command at run time.
+$classificationCases = foreach ($name in $issue88Cmdlets) {
+    $selectors = @(
+        foreach ($row in $standaloneTable) { if ($row.Cmdlet -eq $name) { $row.Selectors } }
+        foreach ($row in $compositeExceptions) { if ($row.Cmdlet -eq $name) { $row.Selector } }
+    )
+
+    @{
+        Cmdlet       = $name
+        Classified   = @($selectors | Sort-Object -Unique)
+        Duplicates   = @($selectors | Group-Object | Where-Object { $_.Count -gt 1 } | ForEach-Object { $_.Name })
+        NonSelectors = $nonSelectorParams
+    }
+}
 
 # Pester 5 does not carry script-level discovery variables into the run phase, so the
 # whole-table assertions travel as -ForEach data.
@@ -171,6 +208,21 @@ Describe 'Issue 88 - the reachability table covers the whole issue scope' {
     It 'exports <_> from the module' -ForEach $issue88Cmdlets {
         (Get-Command -Module PureStorageFlashBladePowerShell -Name $_ -ErrorAction SilentlyContinue) |
             Should -Not -BeNullOrEmpty
+    }
+
+    It '<Cmdlet> classifies every published selector exactly once' -ForEach $classificationCases {
+        $published = @((Get-Command $Cmdlet).Parameters.Keys |
+                Where-Object {
+                    $_ -notin [System.Management.Automation.PSCmdlet]::CommonParameters -and
+                    $_ -notin [System.Management.Automation.PSCmdlet]::OptionalCommonParameters -and
+                    $_ -notin $NonSelectors
+                } | Sort-Object)
+
+        # A parameter that is neither a declared non-selector nor a table row is an
+        # unclassified selector: reachability for it was never asserted.
+        $published | Should -Be $Classified
+
+        $Duplicates | Should -BeNullOrEmpty -Because 'a selector may hold only one classification'
     }
 }
 
@@ -225,6 +277,53 @@ Describe 'Issue 88 - composite exceptions are refused by a guard, not by a reque
     }
 }
 
+Describe 'Issue 88 - binder composite exceptions are refused by parameter binding' {
+
+    BeforeEach {
+        Mock -ModuleName PureStorageFlashBladePowerShell Assert-PfbConnection { }
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { }
+    }
+
+    # Asserted on the ErrorId rather than the message: the binder's text is localizable and
+    # has changed wording between PowerShell versions, but AmbiguousParameterSet is stable.
+    It '<Cmdlet> -<Selector> alone is refused by the binder with no request' -ForEach $binderCompositeCases {
+        $splat = @{ Array = $script:fakeArray }
+        $splat[$Selector] = 'v1'
+        if ($Destructive) { $splat['Confirm'] = $false }
+
+        $caught = $null
+        try { & $Cmdlet @splat -ErrorAction Stop } catch { $caught = $_ }
+
+        $caught | Should -Not -BeNullOrEmpty
+        $caught.Exception | Should -BeOfType [System.Management.Automation.ParameterBindingException]
+        $caught.FullyQualifiedErrorId | Should -BeLike "$ErrorId,*"
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+    }
+
+    It '<Cmdlet> -<Selector> issues exactly one request once its documented companions are supplied' -ForEach $binderCompositeCases {
+        $splat = @{ Array = $script:fakeArray }
+        $splat[$Selector] = 'v1'
+        foreach ($k in $With.Keys) { $splat[$k] = $With[$k] }
+        if ($Destructive) { $splat['Confirm'] = $false }
+
+        { & $Cmdlet @splat -ErrorAction Stop } | Should -Not -Throw
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly
+    }
+
+    It '<Cmdlet> -<Selector> is declared in every parameter set, which is why no set resolves alone' -ForEach $binderCompositeCases {
+        $cmd = Get-Command $Cmdlet
+        $setsWithSelector = @($cmd.ParameterSets | Where-Object { $_.Parameters.Name -contains $Selector })
+        $setsWithSelector.Count | Should -Be $cmd.ParameterSets.Count
+
+        foreach ($set in $setsWithSelector) {
+            @($set.Parameters | Where-Object { $_.IsMandatory -and $_.Name -ne $Selector }) |
+                Should -Not -BeNullOrEmpty -Because "set '$($set.Name)' would otherwise resolve on -$Selector alone"
+        }
+    }
+}
+
 Describe 'Issue 88 - mandatory composite exceptions are declared, not discovered at runtime' {
 
     BeforeEach {
@@ -245,6 +344,30 @@ Describe 'Issue 88 - mandatory composite exceptions are declared, not discovered
                     Where-Object { $_.IsMandatory -and $_.Name -ne $Selector })
             $otherMandatory | Should -Not -BeNullOrEmpty -Because "set '$($set.Name)' would let -$Selector stand alone"
         }
+    }
+
+    # Without this, the table's declared companions are decorative: any hashtable that merely
+    # makes the call succeed would pass. Each declared companion must be the mandatory
+    # parameter that actually forces the composite, in a set that carries the selector.
+    It '<Cmdlet> -<Selector> declares companions that are mandatory in a set carrying the selector' -ForEach $mandatoryCompositeCases {
+        $sets = @((Get-Command $Cmdlet).ParameterSets |
+                Where-Object { $_.Parameters.Name -contains $Selector })
+
+        foreach ($companion in $With.Keys) {
+            $mandatoryIn = @($sets | Where-Object {
+                    $_.Parameters | Where-Object { $_.Name -eq $companion -and $_.IsMandatory }
+                })
+            $mandatoryIn | Should -Not -BeNullOrEmpty -Because "-$companion is listed as a companion of -$Selector but is mandatory in no set that carries it"
+        }
+
+        # And the companions together must satisfy at least one whole set, so the documented
+        # composite form is genuinely complete rather than accidentally sufficient.
+        $satisfied = @($sets | Where-Object {
+                $unmet = @($_.Parameters |
+                        Where-Object { $_.IsMandatory -and $_.Name -ne $Selector -and $_.Name -notin $With.Keys })
+                $unmet.Count -eq 0
+            })
+        $satisfied | Should -Not -BeNullOrEmpty -Because "the declared companions of -$Selector satisfy no complete parameter set"
     }
 
     It '<Cmdlet> -<Selector> issues exactly one request once its documented companions are supplied' -ForEach $mandatoryCompositeCases {

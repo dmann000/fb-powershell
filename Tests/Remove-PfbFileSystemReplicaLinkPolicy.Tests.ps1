@@ -66,21 +66,21 @@ Describe 'Remove-PfbFileSystemReplicaLinkPolicy - fails closed before any destru
 
     It 'refuses a policy-wide removal with no member, and deletes nothing' {
         { Remove-PfbFileSystemReplicaLinkPolicy -PolicyName 'p1' -Confirm:$false -Array $script:fakeArray -ErrorAction Stop } |
-            Should -Throw '*-MemberId*'
+            Should -Throw '*A replica link member must be identified: supply -MemberId*'
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
     }
 
     It 'refuses an unscoped removal with no policy, and deletes nothing' {
         { Remove-PfbFileSystemReplicaLinkPolicy -MemberId 'm1' -Confirm:$false -Array $script:fakeArray -ErrorAction Stop } |
-            Should -Throw '*-PolicyName or -PolicyId*'
+            Should -Throw '*A policy must be identified: supply -PolicyName or -PolicyId.*'
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
     }
 
     It 'refuses a remote-only removal with no policy, and deletes nothing' {
         { Remove-PfbFileSystemReplicaLinkPolicy -RemoteName 'r1' -Confirm:$false -Array $script:fakeArray -ErrorAction Stop } |
-            Should -Throw '*-PolicyName or -PolicyId*'
+            Should -Throw '*A policy must be identified: supply -PolicyName or -PolicyId.*'
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
     }
