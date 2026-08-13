@@ -10749,103 +10749,103 @@
             "parameter": "DefaultExports",
             "surface": "AttributesOnly",
             "file": "Public/FileSystem/New-PfbFileSystem.ps1",
-            "line": 205
+            "line": 208
           },
           {
             "parameter": "FastRemoveDirectoryEnabled",
             "surface": "AttributesOnly",
             "file": "Public/FileSystem/New-PfbFileSystem.ps1",
-            "line": 185
+            "line": 188
           },
           {
             "parameter": "HardLimit",
             "surface": "AttributesOnly",
             "file": "Public/FileSystem/New-PfbFileSystem.ps1",
-            "line": 136
+            "line": 139
           },
           {
             "parameter": "Http",
             "surface": "AttributesOnly",
             "file": "Public/FileSystem/New-PfbFileSystem.ps1",
-            "line": 172
+            "line": 175
           },
           {
             "parameter": "MultiProtocolAccessControlStyle",
             "surface": "AttributesOnly",
             "file": "Public/FileSystem/New-PfbFileSystem.ps1",
-            "line": 175
+            "line": 178
           },
           {
             "parameter": "Nfs",
             "surface": "AttributesOnly",
             "file": "Public/FileSystem/New-PfbFileSystem.ps1",
-            "line": 145
+            "line": 148
           },
           {
             "parameter": "NfsExportPolicy",
             "surface": "AttributesOnly",
             "file": "Public/FileSystem/New-PfbFileSystem.ps1",
-            "line": 157
+            "line": 160
           },
           {
             "parameter": "NfsRules",
             "surface": "AttributesOnly",
             "file": "Public/FileSystem/New-PfbFileSystem.ps1",
-            "line": 154
+            "line": 157
           },
           {
             "parameter": "NfsV3",
             "surface": "AttributesOnly",
             "file": "Public/FileSystem/New-PfbFileSystem.ps1",
-            "line": 148
+            "line": 151
           },
           {
             "parameter": "NfsV41",
             "surface": "AttributesOnly",
             "file": "Public/FileSystem/New-PfbFileSystem.ps1",
-            "line": 151
+            "line": 154
           },
           {
             "parameter": "SafeguardAcls",
             "surface": "AttributesOnly",
             "file": "Public/FileSystem/New-PfbFileSystem.ps1",
-            "line": 179
+            "line": 182
           },
           {
             "parameter": "Smb",
             "surface": "AttributesOnly",
             "file": "Public/FileSystem/New-PfbFileSystem.ps1",
-            "line": 160
+            "line": 163
           },
           {
             "parameter": "SmbClientPolicy",
             "surface": "AttributesOnly",
             "file": "Public/FileSystem/New-PfbFileSystem.ps1",
-            "line": 166
+            "line": 169
           },
           {
             "parameter": "SmbContinuousAvailabilityEnabled",
             "surface": "AttributesOnly",
             "file": "Public/FileSystem/New-PfbFileSystem.ps1",
-            "line": 169
+            "line": 172
           },
           {
             "parameter": "SmbSharePolicy",
             "surface": "AttributesOnly",
             "file": "Public/FileSystem/New-PfbFileSystem.ps1",
-            "line": 163
+            "line": 166
           },
           {
             "parameter": "SnapshotDirectoryEnabled",
             "surface": "AttributesOnly",
             "file": "Public/FileSystem/New-PfbFileSystem.ps1",
-            "line": 182
+            "line": 185
           },
           {
             "parameter": "Writable",
             "surface": "AttributesOnly",
             "file": "Public/FileSystem/New-PfbFileSystem.ps1",
-            "line": 192
+            "line": 195
           }
         ],
         "escapeHatchOnly": [
