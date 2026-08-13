@@ -163,7 +163,12 @@ function Update-PfbArrayConnection {
             if ($PSBoundParameters.ContainsKey('Throttle'))           { $body['throttle'] = $Throttle }
         }
 
-        $target = if ($RemoteName) { $RemoteName } elseif ($RemoteId) { $RemoteId } else { $Id }
+        # ShouldProcess target must name the resource actually being modified. -Id and -RemoteId
+        # are legally combinable, and in that form the connection id is the identity while the
+        # remote id only narrows it -- naming the remote array alone would show the operator a
+        # resource that is not the one being updated. Compose both instead of choosing one.
+        $target = if ($RemoteName) { $RemoteName } elseif ($Id) { $Id } else { $RemoteId }
+        if ($Id -and $RemoteId) { $target = "$Id (remote $RemoteId)" }
         if ($PSCmdlet.ShouldProcess($target, 'Update array connection')) {
             Invoke-PfbApiRequest -Array $Array -Method PATCH -Endpoint 'array-connections' -Body $body -QueryParams $queryParams
         }

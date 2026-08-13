@@ -199,4 +199,13 @@ Describe 'Remove-PfbArrayConnection - selector query keys (#64)' {
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
     }
+
+    It 'makes no API call for the composite -Id + -RemoteId form under -WhatIf' {
+        # The composite form is the one whose ShouldProcess target is composed rather than
+        # chosen (see ArrayConnection.ShouldProcessTarget.Tests.ps1); composing the string
+        # must not change the fact that -WhatIf still short-circuits the DELETE.
+        Remove-PfbArrayConnection -Id 'conn-1' -RemoteId 'r-77' -WhatIf -Array $fakeArray
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+    }
 }

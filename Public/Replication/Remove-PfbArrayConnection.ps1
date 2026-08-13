@@ -69,7 +69,12 @@ function Remove-PfbArrayConnection {
 
     process {
         if ($RemoteName) { Assert-PfbRemoteNameNotCoerced -Value $RemoteName }
-        $target = if ($RemoteName) { $RemoteName } elseif ($RemoteId) { $RemoteId } else { $Id }
+        # ShouldProcess target must name the resource actually being deleted. -Id and -RemoteId
+        # are legally combinable, and in that form the connection id is the identity while the
+        # remote id only narrows it -- naming the remote array alone would show the operator a
+        # resource that is not the one being removed. Compose both instead of choosing one.
+        $target = if ($RemoteName) { $RemoteName } elseif ($Id) { $Id } else { $RemoteId }
+        if ($Id -and $RemoteId) { $target = "$Id (remote $RemoteId)" }
         $queryParams = @{}
         if ($RemoteName) { $queryParams['remote_names'] = $RemoteName }
         if ($Id) { $queryParams['ids'] = $Id }
