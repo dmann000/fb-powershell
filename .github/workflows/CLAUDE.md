@@ -39,6 +39,23 @@ individually. Examples seen in this repo: `actions/checkout@v7` exists, but
 and v7 are both Node 20, so v8 was required to actually clear the Node 20
 deprecation warning, not merely optional.
 
+## A `pull_request` run tests the MERGE commit, not your branch tip
+
+Two consequences that look like flaky CI and are not:
+
+- A green run **goes stale when `main` moves**, with nothing in the branch
+  changing. If the merge would now fail -- a ceiling that no longer holds, a
+  test `main` just added -- the next run reds on a commit nobody touched.
+- **A manual re-run cannot re-measure a moved base.** Re-running replays the
+  recorded `GITHUB_SHA` against that run's workflow definition, so
+  `actions/checkout@v7` with no `ref:` override checks out the same old merge
+  commit. The re-run looks fresh while testing the same stale tree.
+
+To genuinely re-measure against a moved `main`: `gh pr update-branch` (adds a
+merge commit, harmless if the PR is squash-merged), or close and reopen the PR
+(`reopened` is in the default `pull_request` types, at the cost of a close
+event for watchers).
+
 ## Getting GitHub's actual parse error instead of guessing
 
 A workflow file with a syntax/schema problem produces no useful detail in
