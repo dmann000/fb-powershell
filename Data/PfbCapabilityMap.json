@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "generatedFrom": [
     "2.0",
     "2.1",
@@ -224,6 +224,10 @@
         "subject_token": "2.0",
         "subject_token_type": "2.0"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "X-Request-ID": null
       }
@@ -233,7 +237,11 @@
       "parameters": {
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /api/login": {
       "minVersion": "2.0",
@@ -244,6 +252,10 @@
       "bodyProperties": {
         "password": "2.26",
         "username": "2.26"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "POST /api/logout": {
@@ -251,14 +263,22 @@
       "parameters": {
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /api/login-banner": {
       "minVersion": "2.0",
       "parameters": {
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /active-directory": {
       "minVersion": "2.0",
@@ -272,7 +292,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /active-directory": {
       "minVersion": "2.0",
@@ -282,7 +306,11 @@
         "names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /active-directory": {
       "minVersion": "2.0",
@@ -301,6 +329,10 @@
         "global_catalog_servers": "2.12",
         "ca_certificate": "2.27",
         "ca_certificate_group": "2.27"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "POST /active-directory": {
@@ -324,6 +356,10 @@
         "global_catalog_servers": "2.12",
         "ca_certificate": "2.27",
         "ca_certificate_group": "2.27"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "GET /active-directory/test": {
@@ -340,6 +376,10 @@
         "continuation_token": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -360,6 +400,10 @@
         "context_names": "2.22"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -380,6 +424,10 @@
         "role": "2.15",
         "authorization_model": "2.24",
         "management_access_policies": "2.24"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "GET /admins/api-tokens": {
@@ -398,6 +446,10 @@
         "context_names": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -411,7 +463,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /admins/api-tokens": {
       "minVersion": "2.0",
@@ -421,7 +477,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /admins/cache": {
       "minVersion": "2.0",
@@ -439,6 +499,10 @@
         "context_names": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -451,7 +515,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /alerts": {
       "minVersion": "2.0",
@@ -465,7 +533,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /alerts": {
       "minVersion": "2.0",
@@ -512,7 +584,11 @@
         "summary",
         "updated",
         "variables"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /alert-watchers": {
       "minVersion": "2.0",
@@ -526,7 +602,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /alert-watchers": {
       "minVersion": "2.0",
@@ -536,6 +616,10 @@
       },
       "bodyProperties": {
         "minimum_notification_severity": "2.0"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "parameterComponentOverrides": {
         "names": "Names_required"
@@ -557,7 +641,11 @@
       "readOnlyBodyProperties": [
         "id",
         "name"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /alert-watchers": {
       "minVersion": "2.0",
@@ -566,7 +654,11 @@
         "names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /alert-watchers/test": {
       "minVersion": "2.0",
@@ -577,7 +669,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /api-clients": {
       "minVersion": "2.0",
@@ -591,7 +687,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /api-clients": {
       "minVersion": "2.0",
@@ -605,6 +705,10 @@
         "public_key": "2.0",
         "access_token_ttl_in_ms": "2.0",
         "access_policies": "2.19"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "PATCH /api-clients": {
@@ -633,7 +737,11 @@
         "key_id",
         "name",
         "public_key"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /api-clients": {
       "minVersion": "2.0",
@@ -642,7 +750,11 @@
         "names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /arrays": {
       "minVersion": "2.0",
@@ -657,6 +769,10 @@
         "context_names": "2.22"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -697,7 +813,11 @@
         "security_update",
         "smb_mode",
         "version"
-      ]
+      ],
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      }
     },
     "GET /arrays/clients/performance": {
       "minVersion": "2.0",
@@ -711,6 +831,10 @@
         "protocol": "2.18"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      },
       "parameterComponentOverrides": {
         "protocol": "Protocol_clients"
       }
@@ -725,7 +849,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /arrays/eula": {
       "minVersion": "2.0",
@@ -738,7 +866,11 @@
       },
       "readOnlyBodyProperties": [
         "agreement"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /array-connections": {
       "minVersion": "2.0",
@@ -756,6 +888,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -791,6 +927,10 @@
         "type",
         "version"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "remote_ids": "Remote_ids_deprecated",
         "remote_names": "Remote_names_deprecated"
@@ -824,7 +964,11 @@
         "status",
         "type",
         "version"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /array-connections": {
       "minVersion": "2.0",
@@ -836,6 +980,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "remote_ids": "Remote_ids_deprecated",
         "remote_names": "Remote_names_deprecated"
@@ -853,14 +1001,22 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /array-connections/connection-key": {
       "minVersion": "2.0",
       "parameters": {
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /array-connections/path": {
       "minVersion": "2.0",
@@ -878,6 +1034,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -901,6 +1061,10 @@
         "X-Request-ID": "2.14"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "type": "Type_for_performance"
       }
@@ -916,6 +1080,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -931,6 +1099,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -947,6 +1119,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -963,6 +1139,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get",
         "type": "Type_for_performance"
@@ -979,6 +1159,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -995,6 +1179,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -1010,7 +1198,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /audits": {
       "minVersion": "2.0",
@@ -1027,6 +1219,10 @@
         "context_names": "2.28"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -1044,7 +1240,11 @@
         "total_only": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /buckets": {
       "minVersion": "2.0",
@@ -1063,6 +1263,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -1082,6 +1286,10 @@
         "quota_limit": "2.8",
         "retention_lock": "2.8",
         "eradication_config": "2.13"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "parameterComponentOverrides": {
         "names": "Names_required"
@@ -1117,6 +1325,10 @@
         "storage_class": "2.19",
         "qos_policy": "2.20"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "ignore_usage": "Ignore_usage"
       }
@@ -1129,7 +1341,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /buckets/performance": {
       "minVersion": "2.0",
@@ -1147,7 +1363,11 @@
         "total_only": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /buckets/s3-specific-performance": {
       "minVersion": "2.0",
@@ -1165,7 +1385,11 @@
         "total_only": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /bucket-replica-links": {
       "minVersion": "2.0",
@@ -1187,6 +1411,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -1205,6 +1433,10 @@
       "bodyProperties": {
         "paused": "2.0",
         "cascading_enabled": "2.2"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "PATCH /bucket-replica-links": {
@@ -1243,7 +1475,11 @@
         "recovery_point",
         "status",
         "status_details"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /bucket-replica-links": {
       "minVersion": "2.0",
@@ -1257,7 +1493,11 @@
         "X-Request-ID": "2.17",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /certificates": {
       "minVersion": "2.0",
@@ -1271,7 +1511,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /certificates": {
       "minVersion": "2.0",
@@ -1311,7 +1555,11 @@
         "status",
         "valid_from",
         "valid_to"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /certificates": {
       "minVersion": "2.0",
@@ -1354,7 +1602,11 @@
         "status",
         "valid_from",
         "valid_to"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /certificates": {
       "minVersion": "2.0",
@@ -1363,7 +1615,11 @@
         "names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /certificates/certificate-groups": {
       "minVersion": "2.0",
@@ -1379,7 +1635,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /certificates/certificate-groups": {
       "minVersion": "2.0",
@@ -1390,7 +1650,11 @@
         "certificate_names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /certificates/certificate-groups": {
       "minVersion": "2.0",
@@ -1401,7 +1665,11 @@
         "certificate_names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /certificates/uses": {
       "minVersion": "2.0",
@@ -1415,7 +1683,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /certificate-groups": {
       "minVersion": "2.0",
@@ -1429,7 +1701,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /certificate-groups": {
       "minVersion": "2.0",
@@ -1437,7 +1713,11 @@
         "names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /certificate-groups": {
       "minVersion": "2.0",
@@ -1446,7 +1726,11 @@
         "names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /certificate-groups/certificates": {
       "minVersion": "2.0",
@@ -1462,7 +1746,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /certificate-groups/certificates": {
       "minVersion": "2.0",
@@ -1473,7 +1761,11 @@
         "certificate_names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /certificate-groups/certificates": {
       "minVersion": "2.0",
@@ -1484,7 +1776,11 @@
         "certificate_names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /certificate-groups/uses": {
       "minVersion": "2.0",
@@ -1498,7 +1794,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /directory-services": {
       "minVersion": "2.0",
@@ -1512,7 +1812,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /directory-services": {
       "minVersion": "2.0",
@@ -1540,7 +1844,11 @@
         "id",
         "name",
         "services"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /directory-services/roles": {
       "minVersion": "2.0",
@@ -1557,6 +1865,10 @@
         "names": "2.14"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "ids": "Ids_for_directory_service_roles",
         "names": "Names_for_directory_service_roles",
@@ -1580,6 +1892,10 @@
         "group_base": "2.0",
         "name": "2.18",
         "management_access_policies": "2.19"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "readOnlyBodyProperties": [
         "id",
@@ -1607,6 +1923,10 @@
         "continuation_token": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -1643,7 +1963,11 @@
         "id",
         "name",
         "services"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /dns": {
       "minVersion": "2.0",
@@ -1660,6 +1984,10 @@
         "context_names": "2.25"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -1688,7 +2016,11 @@
         "context",
         "id",
         "realms"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /file-systems": {
       "minVersion": "2.0",
@@ -1709,6 +2041,10 @@
         "workload_names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -1746,6 +2082,10 @@
         "node_group": "2.18",
         "workload": "2.23"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "readOnlyBodyProperties": [
         "requested_promotion_state"
       ]
@@ -1758,7 +2098,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /file-systems": {
       "minVersion": "2.0",
@@ -1808,6 +2152,10 @@
         "promotion_status",
         "time_remaining"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "ignore_usage": "Ignore_usage"
       }
@@ -1827,6 +2175,10 @@
         "X-Request-ID": "2.14"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "gids": "Gids_not_strict",
         "group_names": "Group_names_not_strict"
@@ -1849,7 +2201,11 @@
         "total_only": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /file-systems/policies": {
       "minVersion": "2.0",
@@ -1868,6 +2224,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -1882,7 +2242,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /file-systems/policies": {
       "minVersion": "2.0",
@@ -1894,7 +2258,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /file-systems/users/performance": {
       "minVersion": "2.0",
@@ -1911,6 +2279,10 @@
         "X-Request-ID": "2.14"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "uids": "Uids_not_strict",
         "user_names": "User_names_not_strict"
@@ -1936,6 +2308,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -1974,7 +2350,11 @@
         "recovery_point",
         "status",
         "status_details"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /file-system-replica-links/policies": {
       "minVersion": "2.0",
@@ -1998,6 +2378,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -2015,7 +2399,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /file-system-replica-links/policies": {
       "minVersion": "2.0",
@@ -2030,7 +2418,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /file-system-replica-links/transfer": {
       "minVersion": "2.0",
@@ -2050,6 +2442,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -2072,6 +2468,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -2088,6 +2488,10 @@
       },
       "bodyProperties": {
         "suffix": "2.0"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "DELETE /file-system-snapshots": {
@@ -2098,7 +2502,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /file-system-snapshots": {
       "minVersion": "2.0",
@@ -2132,7 +2540,11 @@
         "policies",
         "suffix",
         "time_remaining"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /file-system-snapshots/policies": {
       "minVersion": "2.0",
@@ -2151,6 +2563,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -2165,7 +2581,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /file-system-snapshots/transfer": {
       "minVersion": "2.0",
@@ -2183,6 +2603,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -2197,7 +2621,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /hardware": {
       "minVersion": "2.0",
@@ -2211,7 +2639,11 @@
         "ids": "2.17",
         "names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /hardware": {
       "minVersion": "2.0",
@@ -2254,7 +2686,11 @@
         "status",
         "temperature",
         "type"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /hardware-connectors": {
       "minVersion": "2.0",
@@ -2268,7 +2704,11 @@
         "ids": "2.17",
         "names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /hardware-connectors": {
       "minVersion": "2.0",
@@ -2286,6 +2726,10 @@
         "transceiver_type": "2.0",
         "port_speed": "2.15",
         "lanes_per_port": "2.20"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "readOnlyBodyProperties": [
         "connector_type",
@@ -2306,7 +2750,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /keytabs": {
       "minVersion": "2.0",
@@ -2315,7 +2763,11 @@
         "names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /keytabs": {
       "minVersion": "2.0",
@@ -2325,6 +2777,10 @@
       },
       "bodyProperties": {
         "source": "2.0"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "GET /keytabs/download": {
@@ -2334,7 +2790,11 @@
         "keytab_names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /keytabs/upload": {
       "minVersion": "2.0",
@@ -2344,6 +2804,10 @@
       },
       "bodyProperties": {
         "keytab_file": "2.16"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "GET /lifecycle-rules": {
@@ -2363,6 +2827,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -2382,6 +2850,10 @@
         "abort_incomplete_multipart_uploads_after": "2.1",
         "keep_current_version_for": "2.1",
         "keep_current_version_until": "2.1"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "PATCH /lifecycle-rules": {
@@ -2402,6 +2874,10 @@
         "abort_incomplete_multipart_uploads_after": "2.1",
         "keep_current_version_for": "2.1",
         "keep_current_version_until": "2.1"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "DELETE /lifecycle-rules": {
@@ -2414,7 +2890,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /link-aggregation-groups": {
       "minVersion": "2.0",
@@ -2428,7 +2908,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /link-aggregation-groups": {
       "minVersion": "2.0",
@@ -2453,6 +2937,10 @@
         "port_speed",
         "status"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -2468,6 +2956,10 @@
         "ports": "2.0",
         "add_ports": "2.0",
         "remove_ports": "2.0"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "DELETE /link-aggregation-groups": {
@@ -2477,7 +2969,11 @@
         "names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /logs": {
       "minVersion": "2.0",
@@ -2486,7 +2982,11 @@
         "start_time": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /network-interfaces": {
       "minVersion": "2.0",
@@ -2500,7 +3000,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /network-interfaces": {
       "minVersion": "2.0",
@@ -2530,6 +3034,10 @@
         "name",
         "realms"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -2547,6 +3055,10 @@
         "server": "2.16",
         "attached_servers": "2.20",
         "rdma_enabled": "2.28"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "DELETE /network-interfaces": {
@@ -2556,7 +3068,11 @@
         "names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /object-store-access-keys": {
       "minVersion": "2.0",
@@ -2572,6 +3088,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -2586,6 +3106,10 @@
       "bodyProperties": {
         "user": "2.0",
         "secret_access_key": "2.0"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "parameterComponentOverrides": {
         "names": "Access_key_names"
@@ -2615,6 +3139,10 @@
         "secret_access_key",
         "user"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -2627,6 +3155,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -2647,6 +3179,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -2668,6 +3204,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -2682,7 +3222,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /object-store-access-policies/object-store-users": {
       "minVersion": "2.0",
@@ -2694,7 +3238,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /object-store-accounts": {
       "minVersion": "2.0",
@@ -2712,6 +3260,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -2729,6 +3281,10 @@
         "quota_limit": "2.8",
         "account_exports": "2.20"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -2741,7 +3297,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /object-store-remote-credentials": {
       "minVersion": "2.0",
@@ -2758,6 +3318,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -2772,6 +3336,10 @@
       "bodyProperties": {
         "access_key_id": "2.0",
         "secret_access_key": "2.0"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "parameterComponentOverrides": {
         "names": "Names_required"
@@ -2798,7 +3366,11 @@
         "context",
         "id",
         "realms"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /object-store-remote-credentials": {
       "minVersion": "2.0",
@@ -2808,7 +3380,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /object-store-users": {
       "minVersion": "2.0",
@@ -2825,6 +3401,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -2838,6 +3418,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -2850,7 +3434,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /object-store-users/object-store-access-policies": {
       "minVersion": "2.0",
@@ -2869,6 +3457,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -2883,7 +3475,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /object-store-users/object-store-access-policies": {
       "minVersion": "2.0",
@@ -2895,7 +3491,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /object-store-virtual-hosts": {
       "minVersion": "2.0",
@@ -2912,6 +3512,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -2931,6 +3535,10 @@
         "hostname": "2.20",
         "realms": "2.20"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "readOnlyBodyProperties": [
         "context",
         "id",
@@ -2949,7 +3557,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /policies": {
       "minVersion": "2.0",
@@ -2968,6 +3580,10 @@
         "workload_names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -2998,6 +3614,10 @@
         "realms",
         "retention_lock"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -3010,7 +3630,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /policies": {
       "minVersion": "2.0",
@@ -3042,7 +3666,11 @@
         "policy_type",
         "realms",
         "retention_lock"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /policies/file-systems": {
       "minVersion": "2.0",
@@ -3061,6 +3689,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -3075,7 +3707,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /policies/file-systems": {
       "minVersion": "2.0",
@@ -3087,7 +3723,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /policies/file-system-snapshots": {
       "minVersion": "2.0",
@@ -3106,6 +3746,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -3120,7 +3764,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /policies/members": {
       "minVersion": "2.0",
@@ -3146,6 +3794,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get",
         "member_types": "Member_types"
@@ -3173,6 +3825,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -3190,7 +3846,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /policies/file-system-replica-links": {
       "minVersion": "2.0",
@@ -3205,7 +3865,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /quotas/groups": {
       "minVersion": "2.0",
@@ -3225,6 +3889,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get",
         "gids": "Group_quota_gids"
@@ -3247,6 +3915,10 @@
       "readOnlyBodyProperties": [
         "name"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "gids": "Group_quota_gids"
       }
@@ -3263,6 +3935,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "gids": "Group_quota_gids"
       }
@@ -3285,6 +3961,10 @@
       "readOnlyBodyProperties": [
         "name"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "gids": "Group_quota_gids"
       }
@@ -3296,7 +3976,11 @@
         "names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /quotas/settings": {
       "minVersion": "2.0",
@@ -3312,7 +3996,11 @@
       "readOnlyBodyProperties": [
         "id",
         "name"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /quotas/users": {
       "minVersion": "2.0",
@@ -3332,6 +4020,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get",
         "uids": "User_quota_uids"
@@ -3354,6 +4046,10 @@
       "readOnlyBodyProperties": [
         "name"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "uids": "User_quota_uids"
       }
@@ -3370,6 +4066,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "uids": "User_quota_uids"
       }
@@ -3392,6 +4092,10 @@
       "readOnlyBodyProperties": [
         "name"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "uids": "User_quota_uids"
       }
@@ -3408,7 +4112,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /smtp-servers": {
       "minVersion": "2.0",
@@ -3422,7 +4130,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /smtp-servers": {
       "minVersion": "2.0",
@@ -3439,7 +4151,11 @@
       "readOnlyBodyProperties": [
         "id",
         "name"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /snmp-agents": {
       "minVersion": "2.0",
@@ -3453,7 +4169,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /snmp-agents": {
       "minVersion": "2.0",
@@ -3472,14 +4192,22 @@
         "engine_id",
         "id",
         "name"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /snmp-agents/mib": {
       "minVersion": "2.0",
       "parameters": {
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /snmp-managers": {
       "minVersion": "2.0",
@@ -3493,7 +4221,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /snmp-managers": {
       "minVersion": "2.0",
@@ -3507,6 +4239,10 @@
         "version": "2.0",
         "v2c": "2.0",
         "v3": "2.0"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "parameterComponentOverrides": {
         "names": "Names_required"
@@ -3530,7 +4266,11 @@
       },
       "readOnlyBodyProperties": [
         "id"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /snmp-managers": {
       "minVersion": "2.0",
@@ -3539,7 +4279,11 @@
         "names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /snmp-managers/test": {
       "minVersion": "2.0",
@@ -3553,7 +4297,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /subnets": {
       "minVersion": "2.0",
@@ -3567,7 +4315,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /subnets": {
       "minVersion": "2.0",
@@ -3586,6 +4338,10 @@
         "prefix": "2.18",
         "services": "2.18",
         "vlan": "2.18"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "readOnlyBodyProperties": [
         "enabled",
@@ -3617,6 +4373,10 @@
         "services": "2.18",
         "vlan": "2.18"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "readOnlyBodyProperties": [
         "enabled",
         "id",
@@ -3632,7 +4392,11 @@
         "names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /support": {
       "minVersion": "2.0",
@@ -3641,7 +4405,11 @@
         "names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /support": {
       "minVersion": "2.0",
@@ -3669,7 +4437,11 @@
         "remote_assist_opened",
         "remote_assist_paths",
         "remote_assist_status"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /support/test": {
       "minVersion": "2.0",
@@ -3679,7 +4451,11 @@
         "test_type": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /syslog-servers": {
       "minVersion": "2.0",
@@ -3696,6 +4472,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get",
         "names": "Names_for_syslog"
@@ -3711,6 +4491,10 @@
         "uri": "2.14",
         "services": "2.14",
         "sources": "2.20"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "parameterComponentOverrides": {
         "names": "Names_for_syslog"
@@ -3728,6 +4512,10 @@
         "services": "2.14",
         "sources": "2.20"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_for_syslog"
       }
@@ -3740,6 +4528,10 @@
         "X-Request-ID": "2.14"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_for_syslog"
       }
@@ -3756,7 +4548,11 @@
         "sort": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /syslog-servers/settings": {
       "minVersion": "2.0",
@@ -3774,7 +4570,11 @@
       "readOnlyBodyProperties": [
         "id",
         "name"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /syslog-servers/test": {
       "minVersion": "2.0",
@@ -3782,7 +4582,11 @@
         "continuation_token": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /targets": {
       "minVersion": "2.0",
@@ -3799,6 +4603,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -3811,6 +4619,10 @@
       },
       "bodyProperties": {
         "address": "2.0"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "parameterComponentOverrides": {
         "names": "Names_required"
@@ -3835,7 +4647,11 @@
         "id",
         "status",
         "status_details"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /targets": {
       "minVersion": "2.0",
@@ -3844,7 +4660,11 @@
         "names": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /targets/performance/replication": {
       "minVersion": "2.0",
@@ -3862,7 +4682,11 @@
         "total_only": "2.0",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /usage/groups": {
       "minVersion": "2.0",
@@ -3881,6 +4705,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get",
         "gids": "Group_quota_gids"
@@ -3903,6 +4731,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get",
         "uids": "User_quota_uids"
@@ -3918,21 +4750,33 @@
         "sort": "2.1",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /arrays/factory-reset-token": {
       "minVersion": "2.1",
       "parameters": {
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /arrays/factory-reset-token": {
       "minVersion": "2.1",
       "parameters": {
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /kmip": {
       "minVersion": "2.1",
@@ -3946,7 +4790,11 @@
         "continuation_token": "2.1",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /kmip": {
       "minVersion": "2.1",
@@ -3960,6 +4808,10 @@
         "ca_certificate": "2.18",
         "ca_certificate_group": "2.18",
         "uris": "2.18"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "readOnlyBodyProperties": [
         "id",
@@ -3980,6 +4832,10 @@
         "ca_certificate_group": "2.18",
         "uris": "2.18"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "readOnlyBodyProperties": [
         "id",
         "name"
@@ -3992,7 +4848,11 @@
         "ids": "2.1",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /kmip/test": {
       "minVersion": "2.1",
@@ -4001,14 +4861,22 @@
         "ids": "2.1",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /rapid-data-locking": {
       "minVersion": "2.1",
       "parameters": {
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /rapid-data-locking": {
       "minVersion": "2.1",
@@ -4018,6 +4886,10 @@
       "bodyProperties": {
         "enabled": "2.1",
         "kmip_server": "2.1"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "GET /rapid-data-locking/test": {
@@ -4025,14 +4897,22 @@
       "parameters": {
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /rapid-data-locking/rotate": {
       "minVersion": "2.1",
       "parameters": {
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /object-store-access-policies": {
       "minVersion": "2.2",
@@ -4045,6 +4925,10 @@
       "bodyProperties": {
         "rules": "2.2",
         "description": "2.2"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "parameterComponentOverrides": {
         "names": "Names_required"
@@ -4061,6 +4945,10 @@
       },
       "bodyProperties": {
         "rules": "2.2"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "DELETE /object-store-access-policies": {
@@ -4071,7 +4959,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /object-store-access-policies/rules": {
       "minVersion": "2.2",
@@ -4089,6 +4981,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -4108,6 +5004,10 @@
         "conditions": "2.2",
         "resources": "2.2",
         "effect": "2.18"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "parameterComponentOverrides": {
         "names": "Names_required"
@@ -4130,6 +5030,10 @@
         "effect": "2.2",
         "policy": "2.2",
         "resources": "2.2"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "DELETE /object-store-access-policies/rules": {
@@ -4141,7 +5045,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /object-store-access-policy-actions": {
       "minVersion": "2.2",
@@ -4157,6 +5065,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -4176,6 +5088,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -4204,6 +5120,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get",
         "member_types": "Member_types"
@@ -4219,7 +5139,11 @@
         "sort": "2.3",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /admins/settings": {
       "minVersion": "2.3",
@@ -4230,6 +5154,10 @@
         "lockout_duration": "2.3",
         "max_login_attempts": "2.3",
         "min_password_length": "2.3"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "GET /file-systems/policies-all": {
@@ -4249,6 +5177,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -4268,7 +5200,11 @@
         "total_only": "2.3",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /nfs-export-policies": {
       "minVersion": "2.3",
@@ -4287,6 +5223,10 @@
         "workload_names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -4315,6 +5255,10 @@
         "policy_type",
         "realms"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -4346,7 +5290,11 @@
         "policy_type",
         "realms",
         "version"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /nfs-export-policies": {
       "minVersion": "2.3",
@@ -4357,7 +5305,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /nfs-export-policies/rules": {
       "minVersion": "2.3",
@@ -4376,6 +5328,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -4409,6 +5365,10 @@
         "index": "2.18",
         "context": "2.18"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "readOnlyBodyProperties": [
         "context",
         "id",
@@ -4425,7 +5385,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /nfs-export-policies/rules": {
       "minVersion": "2.3",
@@ -4456,6 +5420,10 @@
         "index": "2.18",
         "context": "2.18"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "readOnlyBodyProperties": [
         "id",
         "name"
@@ -4473,7 +5441,11 @@
         "sort": "2.3",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /drives": {
       "minVersion": "2.4",
@@ -4488,7 +5460,11 @@
         "total_only": "2.4",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /logs-async": {
       "minVersion": "2.4",
@@ -4502,7 +5478,11 @@
         "sort": "2.4",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /logs-async": {
       "minVersion": "2.4",
@@ -4527,7 +5507,11 @@
         "name",
         "processing",
         "progress"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /logs-async/download": {
       "minVersion": "2.4",
@@ -4535,7 +5519,11 @@
         "names": "2.4",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /network-interfaces/ping": {
       "minVersion": "2.6",
@@ -4549,7 +5537,11 @@
         "resolve_hostname": "2.6",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /network-interfaces/trace": {
       "minVersion": "2.6",
@@ -4564,7 +5556,11 @@
         "resolve_hostname": "2.6",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /support/verification-keys": {
       "minVersion": "2.7",
@@ -4576,7 +5572,11 @@
         "sort": "2.7",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /support/verification-keys": {
       "minVersion": "2.7",
@@ -4585,6 +5585,10 @@
       },
       "bodyProperties": {
         "signed_verification_key": "2.7"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "GET /file-systems/locks": {
@@ -4604,6 +5608,10 @@
         "context_names": "2.22"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -4622,6 +5630,10 @@
         "context_names": "2.22"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "recursive": "Recursive"
       }
@@ -4637,6 +5649,10 @@
         "context_names": "2.22"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -4647,7 +5663,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.22"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /object-store-accounts": {
       "minVersion": "2.8",
@@ -4663,6 +5683,10 @@
         "hard_limit_enabled": "2.8",
         "quota_limit": "2.8",
         "public_access_config": "2.12"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "parameterComponentOverrides": {
         "ignore_usage": "Ignore_usage"
@@ -4682,7 +5706,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /file-systems/sessions": {
       "minVersion": "2.10",
@@ -4698,6 +5726,10 @@
         "context_names": "2.22"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get",
         "user_names": "Sessions_user_names"
@@ -4715,6 +5747,10 @@
         "context_names": "2.22"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "user_names": "Sessions_user_names"
       }
@@ -4736,6 +5772,10 @@
         "workload_names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -4764,6 +5804,10 @@
         "policy_type",
         "realms"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -4795,7 +5839,11 @@
         "policy_type",
         "realms",
         "version"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /smb-client-policies": {
       "minVersion": "2.10",
@@ -4805,7 +5853,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /smb-client-policies/rules": {
       "minVersion": "2.10",
@@ -4824,6 +5876,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -4850,7 +5906,11 @@
       "readOnlyBodyProperties": [
         "id",
         "name"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /smb-client-policies/rules": {
       "minVersion": "2.10",
@@ -4879,7 +5939,11 @@
         "id",
         "name",
         "policy_version"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /smb-client-policies/rules": {
       "minVersion": "2.10",
@@ -4890,7 +5954,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /smb-share-policies": {
       "minVersion": "2.10",
@@ -4909,6 +5977,10 @@
         "workload_names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -4936,6 +6008,10 @@
         "policy_type",
         "realms"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -4964,7 +6040,11 @@
         "is_local",
         "policy_type",
         "realms"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /smb-share-policies": {
       "minVersion": "2.10",
@@ -4974,7 +6054,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /smb-share-policies/rules": {
       "minVersion": "2.10",
@@ -4993,6 +6077,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -5016,7 +6104,11 @@
       "readOnlyBodyProperties": [
         "id",
         "name"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /smb-share-policies/rules": {
       "minVersion": "2.10",
@@ -5040,7 +6132,11 @@
       "readOnlyBodyProperties": [
         "id",
         "name"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /smb-share-policies/rules": {
       "minVersion": "2.10",
@@ -5052,7 +6148,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /buckets/cross-origin-resource-sharing-policies": {
       "minVersion": "2.12",
@@ -5070,6 +6170,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -5084,6 +6188,10 @@
       },
       "bodyProperties": {
         "rules": "2.12"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "DELETE /buckets/cross-origin-resource-sharing-policies": {
@@ -5095,7 +6203,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /buckets/cross-origin-resource-sharing-policies/rules": {
       "minVersion": "2.12",
@@ -5114,6 +6226,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -5133,6 +6249,10 @@
         "allowed_methods": "2.12",
         "allowed_origins": "2.12"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -5147,7 +6267,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /buckets/bucket-access-policies": {
       "minVersion": "2.12",
@@ -5165,6 +6289,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -5179,6 +6307,10 @@
       },
       "bodyProperties": {
         "rules": "2.12"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "DELETE /buckets/bucket-access-policies": {
@@ -5190,7 +6322,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /buckets/bucket-access-policies/rules": {
       "minVersion": "2.12",
@@ -5209,6 +6345,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -5232,6 +6372,10 @@
       "readOnlyBodyProperties": [
         "effect"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -5246,7 +6390,11 @@
         "X-Request-ID": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /network-access-policies": {
       "minVersion": "2.13",
@@ -5260,7 +6408,11 @@
         "sort": "2.13",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /network-access-policies": {
       "minVersion": "2.13",
@@ -5287,7 +6439,11 @@
         "policy_type",
         "realms",
         "version"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /network-access-policies/members": {
       "minVersion": "2.13",
@@ -5303,7 +6459,11 @@
         "sort": "2.13",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /network-access-policies/rules": {
       "minVersion": "2.13",
@@ -5319,7 +6479,11 @@
         "sort": "2.13",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /network-access-policies/rules": {
       "minVersion": "2.13",
@@ -5342,7 +6506,11 @@
       "readOnlyBodyProperties": [
         "id",
         "name"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /network-access-policies/rules": {
       "minVersion": "2.13",
@@ -5368,7 +6536,11 @@
         "id",
         "name",
         "policy_version"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /network-access-policies/rules": {
       "minVersion": "2.13",
@@ -5378,7 +6550,11 @@
         "versions": "2.13",
         "X-Request-ID": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /admins/ssh-certificate-authority-policies": {
       "minVersion": "2.14",
@@ -5397,6 +6573,10 @@
         "context_names": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -5411,7 +6591,11 @@
         "policy_names": "2.14",
         "context_names": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /admins/ssh-certificate-authority-policies": {
       "minVersion": "2.14",
@@ -5423,7 +6607,11 @@
         "policy_names": "2.14",
         "context_names": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /arrays/ssh-certificate-authority-policies": {
       "minVersion": "2.14",
@@ -5442,6 +6630,10 @@
         "context_names": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -5456,7 +6648,11 @@
         "policy_names": "2.14",
         "context_names": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      }
     },
     "DELETE /arrays/ssh-certificate-authority-policies": {
       "minVersion": "2.14",
@@ -5468,7 +6664,11 @@
         "policy_names": "2.14",
         "context_names": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      }
     },
     "GET /audit-file-systems-policies": {
       "minVersion": "2.14",
@@ -5485,6 +6685,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -5514,6 +6718,10 @@
         "policy_type",
         "realms"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -5545,7 +6753,11 @@
         "is_local",
         "policy_type",
         "realms"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /audit-file-systems-policies": {
       "minVersion": "2.14",
@@ -5555,7 +6767,11 @@
         "names": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /audit-file-systems-policies/members": {
       "minVersion": "2.14",
@@ -5574,6 +6790,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -5588,7 +6808,11 @@
         "policy_names": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /audit-file-systems-policies/members": {
       "minVersion": "2.14",
@@ -5600,7 +6824,11 @@
         "policy_names": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /directory-services/roles": {
       "minVersion": "2.14",
@@ -5615,6 +6843,10 @@
         "name": "2.18",
         "role": "2.18",
         "management_access_policies": "2.19"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "DELETE /directory-services/roles": {
@@ -5624,7 +6856,11 @@
         "names": "2.14",
         "ids": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /file-systems/audit-policies": {
       "minVersion": "2.14",
@@ -5643,6 +6879,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -5657,7 +6897,11 @@
         "policy_names": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /file-systems/audit-policies": {
       "minVersion": "2.14",
@@ -5669,7 +6913,11 @@
         "policy_names": "2.14",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /public-keys": {
       "minVersion": "2.14",
@@ -5683,7 +6931,11 @@
         "offset": "2.14",
         "sort": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /public-keys": {
       "minVersion": "2.14",
@@ -5693,6 +6945,10 @@
       },
       "bodyProperties": {
         "public_key": "2.14"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "parameterComponentOverrides": {
         "names": "Names_required"
@@ -5705,7 +6961,11 @@
         "ids": "2.14",
         "names": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /public-keys/uses": {
       "minVersion": "2.14",
@@ -5719,7 +6979,11 @@
         "offset": "2.14",
         "sort": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /ssh-certificate-authority-policies": {
       "minVersion": "2.14",
@@ -5736,6 +7000,10 @@
         "context_names": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -5763,6 +7031,10 @@
         "policy_type",
         "realms"
       ],
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -5774,7 +7046,11 @@
         "ids": "2.14",
         "names": "2.14"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /ssh-certificate-authority-policies": {
       "minVersion": "2.14",
@@ -5784,14 +7060,14 @@
         "names": "2.14"
       },
       "bodyProperties": {
-        "policy_type": "2.14",
         "name": "2.14",
         "id": "2.14",
-        "signing_authority": "2.14",
-        "static_authorized_principals": "2.14",
         "enabled": "2.14",
         "is_local": "2.14",
         "location": "2.14",
+        "policy_type": "2.14",
+        "signing_authority": "2.14",
+        "static_authorized_principals": "2.14",
         "realms": "2.19",
         "context": "2.24"
       },
@@ -5801,7 +7077,11 @@
         "is_local",
         "policy_type",
         "realms"
-      ]
+      ],
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      }
     },
     "GET /ssh-certificate-authority-policies/admins": {
       "minVersion": "2.14",
@@ -5820,6 +7100,10 @@
         "context_names": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -5834,7 +7118,11 @@
         "policy_names": "2.14",
         "context_names": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /ssh-certificate-authority-policies/admins": {
       "minVersion": "2.14",
@@ -5846,7 +7134,11 @@
         "policy_names": "2.14",
         "context_names": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /ssh-certificate-authority-policies/arrays": {
       "minVersion": "2.14",
@@ -5865,6 +7157,10 @@
         "context_names": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -5879,7 +7175,11 @@
         "policy_names": "2.14",
         "context_names": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /ssh-certificate-authority-policies/arrays": {
       "minVersion": "2.14",
@@ -5891,7 +7191,11 @@
         "policy_names": "2.14",
         "context_names": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /ssh-certificate-authority-policies/members": {
       "minVersion": "2.14",
@@ -5910,6 +7214,10 @@
         "context_names": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -5927,6 +7235,10 @@
         "role": "2.15",
         "management_access_policies": "2.19",
         "admin_type": "2.26"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "DELETE /admins": {
@@ -5937,7 +7249,11 @@
         "names": "2.15",
         "context_names": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /file-systems/worm-data-policies": {
       "minVersion": "2.15",
@@ -5956,6 +7272,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -5972,7 +7292,11 @@
         "offset": "2.15",
         "sort": "2.15"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /sso/saml2/idps": {
       "minVersion": "2.15",
@@ -5995,6 +7319,10 @@
       "readOnlyBodyProperties": [
         "prn"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -6006,7 +7334,11 @@
         "ids": "2.15",
         "names": "2.15"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /sso/saml2/idps": {
       "minVersion": "2.15",
@@ -6026,6 +7358,10 @@
         "prn": "2.18",
         "services": "2.18",
         "management": "2.24"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "readOnlyBodyProperties": [
         "id",
@@ -6047,6 +7383,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -6072,6 +7412,10 @@
         "retention_lock": "2.18",
         "context": "2.18",
         "realms": "2.19"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "readOnlyBodyProperties": [
         "context",
@@ -6108,6 +7452,10 @@
         "context": "2.18",
         "realms": "2.19"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "readOnlyBodyProperties": [
         "context",
         "id",
@@ -6125,7 +7473,11 @@
         "names": "2.15",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /worm-data-policies/members": {
       "minVersion": "2.15",
@@ -6144,6 +7496,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -6163,7 +7519,11 @@
         "storage_class_names": "2.16",
         "total_only": "2.16"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /dns": {
       "minVersion": "2.16",
@@ -6182,6 +7542,10 @@
         "ca_certificate": "2.25",
         "ca_certificate_group": "2.25"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -6194,7 +7558,11 @@
         "names": "2.16",
         "context_names": "2.25"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /file-system-exports": {
       "minVersion": "2.16",
@@ -6213,6 +7581,10 @@
         "workload_names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -6231,6 +7603,10 @@
         "export_name": "2.16",
         "server": "2.16",
         "share_policy": "2.16"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "PATCH /file-system-exports": {
@@ -6261,7 +7637,11 @@
         "name",
         "policy_type",
         "status"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /file-system-exports": {
       "minVersion": "2.16",
@@ -6271,7 +7651,11 @@
         "names": "2.16",
         "context_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /maintenance-windows": {
       "minVersion": "2.16",
@@ -6285,7 +7669,11 @@
         "offset": "2.16",
         "sort": "2.16"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /maintenance-windows": {
       "minVersion": "2.16",
@@ -6295,6 +7683,10 @@
       },
       "bodyProperties": {
         "timeout": "2.16"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "parameterComponentOverrides": {
         "names": "Names_required"
@@ -6307,7 +7699,11 @@
         "ids": "2.16",
         "names": "2.16"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /password-policies": {
       "minVersion": "2.16",
@@ -6321,7 +7717,11 @@
         "offset": "2.16",
         "sort": "2.16"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /password-policies": {
       "minVersion": "2.16",
@@ -6331,6 +7731,11 @@
         "names": "2.16"
       },
       "bodyProperties": {
+        "name": "2.16",
+        "id": "2.16",
+        "enabled": "2.16",
+        "is_local": "2.16",
+        "location": "2.16",
         "policy_type": "2.16",
         "lockout_duration": "2.16",
         "max_login_attempts": "2.16",
@@ -6341,11 +7746,6 @@
         "min_characters_per_group": "2.16",
         "enforce_username_check": "2.16",
         "enforce_dictionary_check": "2.16",
-        "name": "2.17",
-        "id": "2.17",
-        "location": "2.17",
-        "is_local": "2.17",
-        "enabled": "2.17",
         "max_password_age": "2.18",
         "realms": "2.19"
       },
@@ -6354,7 +7754,11 @@
         "is_local",
         "policy_type",
         "realms"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /sso/saml2/idps/test": {
       "minVersion": "2.16",
@@ -6366,7 +7770,11 @@
         "names": "2.16",
         "sort": "2.16"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /sso/saml2/idps/test": {
       "minVersion": "2.16",
@@ -6386,6 +7794,10 @@
         "services": "2.18",
         "sp": "2.18",
         "management": "2.24"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "readOnlyBodyProperties": [
         "id",
@@ -6407,6 +7819,10 @@
         "context_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -6424,6 +7840,10 @@
         "dns": "2.18",
         "local_directory_service": "2.24"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -6439,6 +7859,10 @@
         "directory_services": "2.18",
         "dns": "2.18",
         "local_directory_service": "2.24"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "DELETE /servers": {
@@ -6449,7 +7873,11 @@
         "ids": "2.16",
         "names": "2.16"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /support-diagnostics": {
       "minVersion": "2.16",
@@ -6463,7 +7891,11 @@
         "offset": "2.16",
         "sort": "2.16"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /support-diagnostics": {
       "minVersion": "2.16",
@@ -6472,7 +7904,11 @@
         "analysis_period_start_time": "2.16",
         "analysis_period_end_time": "2.16"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /support-diagnostics/details": {
       "minVersion": "2.16",
@@ -6486,7 +7922,11 @@
         "offset": "2.16",
         "sort": "2.16"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /software-check": {
       "minVersion": "2.16",
@@ -6501,7 +7941,11 @@
         "sort": "2.16",
         "total_item_count": "2.16"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /software-check": {
       "minVersion": "2.16",
@@ -6510,7 +7954,11 @@
         "software_versions": "2.16",
         "software_names": "2.16"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /qos-policies/file-systems": {
       "minVersion": "2.17",
@@ -6529,6 +7977,10 @@
         "context_names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -6547,7 +7999,11 @@
         "policy_names": "2.17",
         "sort": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /tls-policies/network-interfaces": {
       "minVersion": "2.17",
@@ -6558,7 +8014,11 @@
         "policy_ids": "2.17",
         "policy_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /tls-policies/network-interfaces": {
       "minVersion": "2.17",
@@ -6569,7 +8029,11 @@
         "policy_ids": "2.17",
         "policy_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /legal-holds": {
       "minVersion": "2.17",
@@ -6583,7 +8047,11 @@
         "offset": "2.17",
         "sort": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /legal-holds": {
       "minVersion": "2.17",
@@ -6596,6 +8064,10 @@
         "name": "2.18",
         "description": "2.18",
         "realms": "2.19"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "readOnlyBodyProperties": [
         "id",
@@ -6613,7 +8085,11 @@
         "ids": "2.17",
         "names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /legal-holds": {
       "minVersion": "2.17",
@@ -6627,6 +8103,10 @@
         "name": "2.18",
         "description": "2.18",
         "realms": "2.19"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "readOnlyBodyProperties": [
         "id",
@@ -6649,7 +8129,11 @@
         "sort": "2.17",
         "total_only": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /fleets/members": {
       "minVersion": "2.17",
@@ -6660,6 +8144,10 @@
       },
       "bodyProperties": {
         "members": "2.17"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "DELETE /fleets/members": {
@@ -6670,7 +8158,11 @@
         "member_names": "2.17",
         "unreachable": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /tls-policies": {
       "minVersion": "2.17",
@@ -6686,7 +8178,11 @@
         "purity_defined": "2.17",
         "sort": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /tls-policies": {
       "minVersion": "2.17",
@@ -6716,6 +8212,10 @@
         "policy_type",
         "realms"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -6727,7 +8227,11 @@
         "ids": "2.17",
         "names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /tls-policies": {
       "minVersion": "2.17",
@@ -6757,7 +8261,11 @@
         "is_local",
         "policy_type",
         "realms"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /qos-policies": {
       "minVersion": "2.17",
@@ -6774,6 +8282,10 @@
         "context_names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -6804,6 +8316,10 @@
         "policy_type",
         "realms"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -6816,7 +8332,11 @@
         "names": "2.17",
         "context_names": "2.23"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /qos-policies": {
       "minVersion": "2.17",
@@ -6844,7 +8364,11 @@
         "is_local",
         "policy_type",
         "realms"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /fleets/fleet-key": {
       "minVersion": "2.17",
@@ -6857,14 +8381,22 @@
         "sort": "2.17",
         "total_only": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /fleets/fleet-key": {
       "minVersion": "2.17",
       "parameters": {
         "X-Request-ID": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /tls-policies/members": {
       "minVersion": "2.17",
@@ -6880,7 +8412,11 @@
         "policy_names": "2.17",
         "sort": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /object-store-roles": {
       "minVersion": "2.17",
@@ -6897,6 +8433,10 @@
         "sort": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -6911,6 +8451,10 @@
       "bodyProperties": {
         "max_session_duration": "2.17"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -6923,7 +8467,11 @@
         "ids": "2.17",
         "names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /object-store-roles": {
       "minVersion": "2.17",
@@ -6950,7 +8498,11 @@
         "name",
         "prn",
         "trusted_entities"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /object-store-access-policies/object-store-roles": {
       "minVersion": "2.17",
@@ -6969,6 +8521,10 @@
         "sort": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -6983,7 +8539,11 @@
         "policy_ids": "2.17",
         "policy_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /object-store-access-policies/object-store-roles": {
       "minVersion": "2.17",
@@ -6995,7 +8555,11 @@
         "policy_ids": "2.17",
         "policy_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /file-systems/open-files": {
       "minVersion": "2.17",
@@ -7013,6 +8577,10 @@
         "user_names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "paths": "Open_files_paths",
         "protocols": "Protocols_required",
@@ -7025,7 +8593,11 @@
         "X-Request-ID": "2.17",
         "ids": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /remote-arrays": {
       "minVersion": "2.17",
@@ -7041,7 +8613,11 @@
         "sort": "2.17",
         "total_only": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /file-system-replica-links": {
       "minVersion": "2.17",
@@ -7055,7 +8631,11 @@
         "remote_names": "2.17",
         "replicate_now": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /network-interfaces/connectors/performance": {
       "minVersion": "2.17",
@@ -7072,7 +8652,11 @@
         "start_time": "2.17",
         "total_only": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /fleets": {
       "minVersion": "2.17",
@@ -7088,6 +8672,10 @@
         "total_only": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "ids": "Ids_single",
         "names": "Names_single"
@@ -7100,6 +8688,10 @@
         "names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_single"
       }
@@ -7112,6 +8704,10 @@
         "names": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "ids": "Ids_single",
         "names": "Names_single"
@@ -7126,6 +8722,10 @@
       },
       "bodyProperties": {
         "name": "2.17"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "parameterComponentOverrides": {
         "ids": "Ids_single",
@@ -7150,6 +8750,10 @@
         "context_names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get",
         "member_types": "Member_types_qos"
@@ -7167,7 +8771,11 @@
         "offset": "2.17",
         "sort": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /network-interfaces/connectors": {
       "minVersion": "2.17",
@@ -7185,6 +8793,10 @@
         "port_speed": "2.18",
         "transceiver_type": "2.18",
         "lanes_per_port": "2.20"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "readOnlyBodyProperties": [
         "connector_type",
@@ -7205,7 +8817,11 @@
         "offset": "2.17",
         "sort": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /sso/oidc/idps": {
       "minVersion": "2.17",
@@ -7221,7 +8837,11 @@
       },
       "readOnlyBodyProperties": [
         "prn"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /sso/oidc/idps": {
       "minVersion": "2.17",
@@ -7230,7 +8850,11 @@
         "ids": "2.17",
         "names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /sso/oidc/idps": {
       "minVersion": "2.17",
@@ -7248,7 +8872,11 @@
       },
       "readOnlyBodyProperties": [
         "prn"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /object-store-roles/object-store-access-policies": {
       "minVersion": "2.17",
@@ -7267,6 +8895,10 @@
         "sort": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -7281,7 +8913,11 @@
         "policy_ids": "2.17",
         "policy_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /object-store-roles/object-store-access-policies": {
       "minVersion": "2.17",
@@ -7293,7 +8929,11 @@
         "policy_ids": "2.17",
         "policy_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /object-store-roles/object-store-trust-policies/rules": {
       "minVersion": "2.17",
@@ -7313,6 +8953,10 @@
         "sort": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -7334,6 +8978,10 @@
         "policy": "2.18",
         "principals": "2.18"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "readOnlyBodyProperties": [
         "effect"
       ]
@@ -7349,7 +8997,11 @@
         "role_ids": "2.17",
         "role_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /object-store-roles/object-store-trust-policies/rules": {
       "minVersion": "2.17",
@@ -7369,6 +9021,10 @@
         "policy": "2.18",
         "principals": "2.18"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "readOnlyBodyProperties": [
         "effect"
       ]
@@ -7382,7 +9038,11 @@
         "role_ids": "2.17",
         "role_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /object-store-roles/object-store-trust-policies": {
       "minVersion": "2.17",
@@ -7400,6 +9060,10 @@
         "sort": "2.17"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -7418,7 +9082,11 @@
         "policy_names": "2.17",
         "sort": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /network-interfaces/tls-policies": {
       "minVersion": "2.17",
@@ -7429,7 +9097,11 @@
         "policy_ids": "2.17",
         "policy_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /network-interfaces/tls-policies": {
       "minVersion": "2.17",
@@ -7440,7 +9112,11 @@
         "policy_ids": "2.17",
         "policy_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /object-store-roles/object-store-trust-policies/download": {
       "minVersion": "2.17",
@@ -7450,7 +9126,11 @@
         "role_ids": "2.17",
         "role_names": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /network-interfaces/connectors/settings": {
       "minVersion": "2.17",
@@ -7464,7 +9144,11 @@
         "offset": "2.17",
         "sort": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /legal-holds/held-entities": {
       "minVersion": "2.17",
@@ -7478,7 +9162,11 @@
         "names": "2.17",
         "paths": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /legal-holds/held-entities": {
       "minVersion": "2.17",
@@ -7491,7 +9179,11 @@
         "paths": "2.17",
         "recursive": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /legal-holds/held-entities": {
       "minVersion": "2.17",
@@ -7505,7 +9197,11 @@
         "recursive": "2.17",
         "released": "2.17"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /arrays/clients/s3-specific-performance": {
       "minVersion": "2.18",
@@ -7517,7 +9213,11 @@
         "sort": "2.18",
         "total_only": "2.18"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /arrays/erasures": {
       "minVersion": "2.18",
@@ -7527,7 +9227,11 @@
         "preserve_configuration_data": "2.18",
         "skip_phonehome_check": "2.18"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /arrays/erasures": {
       "minVersion": "2.18",
@@ -7537,21 +9241,33 @@
         "eradicate_all_data": "2.18",
         "finalize": "2.18"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /arrays/erasures": {
       "minVersion": "2.18",
       "parameters": {
         "X-Request-ID": "2.18"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /arrays/erasures": {
       "minVersion": "2.18",
       "parameters": {
         "X-Request-ID": "2.18"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /audit-file-systems-policy-operations": {
       "minVersion": "2.18",
@@ -7567,6 +9283,10 @@
         "sort": "2.18"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -7585,7 +9305,11 @@
         "storage_class_names": "2.18",
         "total_only": "2.18"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /network-interfaces/network-connection-statistics": {
       "minVersion": "2.18",
@@ -7601,7 +9325,11 @@
         "remote_port": "2.18",
         "sort": "2.18"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /nodes": {
       "minVersion": "2.18",
@@ -7616,7 +9344,11 @@
         "sort": "2.18",
         "total_only": "2.18"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /nodes": {
       "minVersion": "2.18",
@@ -7648,7 +9380,11 @@
         "raw_capacity",
         "status",
         "unique"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /nodes/batch": {
       "minVersion": "2.18",
@@ -7656,7 +9392,34 @@
         "X-Request-ID": "2.18",
         "add_to_groups": "2.23"
       },
-      "bodyProperties": {}
+      "bodyProperties": {
+        "id": "2.18",
+        "name": "2.18",
+        "capacity": "2.18",
+        "data_addresses": "2.18",
+        "details": "2.18",
+        "management_address": "2.18",
+        "raw_capacity": "2.18",
+        "serial_number": "2.18",
+        "status": "2.18",
+        "unique": "2.18",
+        "chassis_serial_number": "2.23",
+        "node_key": "2.27"
+      },
+      "readOnlyBodyProperties": [
+        "capacity",
+        "chassis_serial_number",
+        "data_addresses",
+        "details",
+        "id",
+        "raw_capacity",
+        "status",
+        "unique"
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /node-groups": {
       "minVersion": "2.18",
@@ -7670,7 +9433,11 @@
         "offset": "2.18",
         "sort": "2.18"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /node-groups": {
       "minVersion": "2.18",
@@ -7678,7 +9445,11 @@
         "X-Request-ID": "2.18",
         "names": "2.18"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /node-groups": {
       "minVersion": "2.18",
@@ -7689,6 +9460,10 @@
       },
       "bodyProperties": {
         "name": "2.18"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "DELETE /node-groups": {
@@ -7698,7 +9473,11 @@
         "ids": "2.18",
         "names": "2.18"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /node-groups/nodes": {
       "minVersion": "2.18",
@@ -7714,7 +9493,11 @@
         "offset": "2.18",
         "sort": "2.18"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /node-groups/nodes": {
       "minVersion": "2.18",
@@ -7725,7 +9508,11 @@
         "node_ids": "2.18",
         "node_names": "2.18"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /node-groups/nodes": {
       "minVersion": "2.18",
@@ -7736,7 +9523,11 @@
         "node_ids": "2.18",
         "node_names": "2.18"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /node-groups/uses": {
       "minVersion": "2.18",
@@ -7750,7 +9541,11 @@
         "offset": "2.18",
         "sort": "2.18"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /storage-class-tiering-policies": {
       "minVersion": "2.18",
@@ -7764,7 +9559,11 @@
         "offset": "2.18",
         "sort": "2.18"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /storage-class-tiering-policies": {
       "minVersion": "2.18",
@@ -7789,6 +9588,10 @@
         "policy_type",
         "realms"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -7800,7 +9603,11 @@
         "ids": "2.18",
         "names": "2.18"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /storage-class-tiering-policies": {
       "minVersion": "2.18",
@@ -7825,7 +9632,11 @@
         "is_local",
         "policy_type",
         "realms"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /storage-class-tiering-policies/members": {
       "minVersion": "2.18",
@@ -7844,6 +9655,10 @@
         "sort": "2.18"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -7865,6 +9680,10 @@
         "context_names": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -7879,7 +9698,11 @@
         "policy_names": "2.19",
         "context_names": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /admins/management-access-policies": {
       "minVersion": "2.19",
@@ -7891,7 +9714,11 @@
         "policy_names": "2.19",
         "context_names": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /directory-services/roles/management-access-policies": {
       "minVersion": "2.19",
@@ -7907,7 +9734,11 @@
         "policy_names": "2.19",
         "sort": "2.19"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /directory-services/roles/management-access-policies": {
       "minVersion": "2.19",
@@ -7918,7 +9749,11 @@
         "policy_ids": "2.19",
         "policy_names": "2.19"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /directory-services/roles/management-access-policies": {
       "minVersion": "2.19",
@@ -7929,7 +9764,11 @@
         "policy_ids": "2.19",
         "policy_names": "2.19"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /management-access-policies": {
       "minVersion": "2.19",
@@ -7946,6 +9785,10 @@
         "context_names": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -7974,6 +9817,10 @@
         "policy_type",
         "realms"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -7986,7 +9833,11 @@
         "names": "2.19",
         "context_names": "2.26"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /management-access-policies": {
       "minVersion": "2.19",
@@ -8016,7 +9867,11 @@
         "policy_type",
         "realms",
         "version"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /management-access-policies/admins": {
       "minVersion": "2.19",
@@ -8035,6 +9890,10 @@
         "context_names": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -8049,7 +9908,11 @@
         "policy_names": "2.19",
         "context_names": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /management-access-policies/admins": {
       "minVersion": "2.19",
@@ -8061,7 +9924,11 @@
         "policy_names": "2.19",
         "context_names": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /management-access-policies/directory-services/roles": {
       "minVersion": "2.19",
@@ -8077,7 +9944,11 @@
         "policy_names": "2.19",
         "sort": "2.19"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /management-access-policies/directory-services/roles": {
       "minVersion": "2.19",
@@ -8088,7 +9959,11 @@
         "policy_ids": "2.19",
         "policy_names": "2.19"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /management-access-policies/directory-services/roles": {
       "minVersion": "2.19",
@@ -8099,7 +9974,11 @@
         "policy_ids": "2.19",
         "policy_names": "2.19"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /management-access-policies/members": {
       "minVersion": "2.19",
@@ -8118,6 +9997,10 @@
         "context_names": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -8139,6 +10022,10 @@
         "context_names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -8160,6 +10047,10 @@
         "context_names": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -8172,6 +10063,10 @@
         "without_default_access_list": "2.19"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -8183,7 +10078,11 @@
         "ids": "2.19",
         "names": "2.19"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /realms": {
       "minVersion": "2.19",
@@ -8200,7 +10099,11 @@
       },
       "readOnlyBodyProperties": [
         "id"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /realms/space": {
       "minVersion": "2.19",
@@ -8218,7 +10121,11 @@
         "total_only": "2.19",
         "type": "2.19"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /realms/space/storage-classes": {
       "minVersion": "2.19",
@@ -8237,7 +10144,11 @@
         "storage_class_names": "2.19",
         "total_only": "2.19"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /resource-accesses": {
       "minVersion": "2.19",
@@ -8251,6 +10162,10 @@
         "sort": "2.19"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "limit": "Limit_scale"
       }
@@ -8261,14 +10176,25 @@
         "X-Request-ID": "2.19",
         "ids": "2.19"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /resource-accesses/batch": {
       "minVersion": "2.19",
       "parameters": {
         "X-Request-ID": "2.19"
       },
-      "bodyProperties": {}
+      "bodyProperties": {
+        "resource": "2.19",
+        "scope": "2.19"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /audit-object-store-policies": {
       "minVersion": "2.20",
@@ -8285,6 +10211,10 @@
         "sort": "2.20"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -8312,6 +10242,10 @@
         "policy_type",
         "realms"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -8324,7 +10258,11 @@
         "ids": "2.20",
         "names": "2.20"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /audit-object-store-policies": {
       "minVersion": "2.20",
@@ -8351,7 +10289,11 @@
         "is_local",
         "policy_type",
         "realms"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /audit-object-store-policies/members": {
       "minVersion": "2.20",
@@ -8370,6 +10312,10 @@
         "sort": "2.20"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -8384,7 +10330,11 @@
         "policy_ids": "2.20",
         "policy_names": "2.20"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /audit-object-store-policies/members": {
       "minVersion": "2.20",
@@ -8396,7 +10346,11 @@
         "policy_ids": "2.20",
         "policy_names": "2.20"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /bucket-audit-filter-actions": {
       "minVersion": "2.20",
@@ -8412,6 +10366,10 @@
         "sort": "2.20"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -8432,6 +10390,10 @@
         "sort": "2.20"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -8449,6 +10411,10 @@
         "actions": "2.20",
         "s3_prefixes": "2.20"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -8462,7 +10428,11 @@
         "context_names": "2.20",
         "names": "2.20"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /buckets/audit-filters": {
       "minVersion": "2.20",
@@ -8476,6 +10446,10 @@
       "bodyProperties": {
         "actions": "2.20",
         "s3_prefixes": "2.20"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "parameterComponentOverrides": {
         "names": "Names_required"
@@ -8496,6 +10470,10 @@
         "organizational_unit": "2.20",
         "state": "2.20",
         "subject_alternative_names": "2.20"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "GET /log-targets/file-systems": {
@@ -8513,6 +10491,10 @@
         "sort": "2.20"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -8534,6 +10516,10 @@
       "readOnlyBodyProperties": [
         "id"
       ],
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -8546,7 +10532,11 @@
         "ids": "2.20",
         "names": "2.20"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /log-targets/file-systems": {
       "minVersion": "2.20",
@@ -8565,7 +10555,11 @@
       },
       "readOnlyBodyProperties": [
         "id"
-      ]
+      ],
+      "contextScope": {
+        "scope": "unknown",
+        "provenance": "unknown"
+      }
     },
     "GET /log-targets/object-store": {
       "minVersion": "2.20",
@@ -8582,6 +10576,10 @@
         "sort": "2.20"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -8603,6 +10601,10 @@
       "readOnlyBodyProperties": [
         "id"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -8615,7 +10617,11 @@
         "ids": "2.20",
         "names": "2.20"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /log-targets/object-store": {
       "minVersion": "2.20",
@@ -8634,7 +10640,11 @@
       },
       "readOnlyBodyProperties": [
         "id"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /network-interfaces/neighbors": {
       "minVersion": "2.20",
@@ -8648,7 +10658,11 @@
         "sort": "2.20",
         "total_item_count": "2.20"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /object-store-account-exports": {
       "minVersion": "2.20",
@@ -8665,6 +10679,10 @@
         "sort": "2.20"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -8682,6 +10700,10 @@
       "bodyProperties": {
         "export_enabled": "2.20",
         "server": "2.20"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "DELETE /object-store-account-exports": {
@@ -8692,7 +10714,11 @@
         "ids": "2.20",
         "names": "2.20"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /object-store-account-exports": {
       "minVersion": "2.20",
@@ -8705,6 +10731,10 @@
       "bodyProperties": {
         "export_enabled": "2.20",
         "policy": "2.20"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "PATCH /object-store-virtual-hosts": {
@@ -8725,7 +10755,11 @@
       },
       "readOnlyBodyProperties": [
         "id"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /qos-policies/members": {
       "minVersion": "2.20",
@@ -8739,6 +10773,10 @@
         "context_names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "member_types": "Member_types_qos_no_buckets"
       }
@@ -8755,6 +10793,10 @@
         "context_names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "member_types": "Member_types_qos_no_buckets"
       }
@@ -8774,6 +10816,10 @@
         "sort": "2.20"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -8794,7 +10840,11 @@
       "readOnlyBodyProperties": [
         "context",
         "realm"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /s3-export-policies": {
       "minVersion": "2.20",
@@ -8811,6 +10861,10 @@
         "sort": "2.20"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -8826,6 +10880,10 @@
         "enabled": "2.20",
         "rules": "2.20"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -8838,7 +10896,11 @@
         "ids": "2.20",
         "names": "2.20"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /s3-export-policies": {
       "minVersion": "2.20",
@@ -8852,6 +10914,10 @@
         "enabled": "2.20",
         "name": "2.20",
         "rules": "2.20"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "GET /s3-export-policies/rules": {
@@ -8870,6 +10936,10 @@
         "sort": "2.20"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -8888,6 +10958,10 @@
         "effect": "2.20",
         "resources": "2.20"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -8902,6 +10976,10 @@
         "policy_names": "2.20"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -8919,6 +10997,10 @@
         "actions": "2.20",
         "effect": "2.20",
         "resources": "2.20"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "parameterComponentOverrides": {
         "names": "Names_required"
@@ -8939,6 +11021,10 @@
         "sort": "2.21"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -8966,6 +11052,10 @@
         "policy_type",
         "realms"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -8978,7 +11068,11 @@
         "ids": "2.21",
         "names": "2.21"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /data-eviction-policies": {
       "minVersion": "2.21",
@@ -9005,7 +11099,11 @@
         "is_local",
         "policy_type",
         "realms"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /data-eviction-policies/file-systems": {
       "minVersion": "2.21",
@@ -9024,6 +11122,10 @@
         "sort": "2.21"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -9038,7 +11140,11 @@
         "policy_ids": "2.21",
         "policy_names": "2.21"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /data-eviction-policies/file-systems": {
       "minVersion": "2.21",
@@ -9050,7 +11156,11 @@
         "policy_ids": "2.21",
         "policy_names": "2.21"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /data-eviction-policies/members": {
       "minVersion": "2.21",
@@ -9069,6 +11179,10 @@
         "sort": "2.21"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -9090,6 +11204,10 @@
         "sort": "2.21"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -9104,7 +11222,11 @@
         "policy_ids": "2.21",
         "policy_names": "2.21"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /file-systems/data-eviction-policies": {
       "minVersion": "2.21",
@@ -9116,7 +11238,11 @@
         "policy_ids": "2.21",
         "policy_names": "2.21"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /admins/management-authentication-policies": {
       "minVersion": "2.22",
@@ -9135,6 +11261,10 @@
         "sort": "2.22"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -9149,7 +11279,11 @@
         "policy_ids": "2.22",
         "policy_names": "2.22"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /admins/management-authentication-policies": {
       "minVersion": "2.22",
@@ -9161,7 +11295,11 @@
         "policy_ids": "2.22",
         "policy_names": "2.22"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /arrays/management-authentication-policies": {
       "minVersion": "2.22",
@@ -9180,6 +11318,10 @@
         "sort": "2.22"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -9194,7 +11336,11 @@
         "policy_ids": "2.22",
         "policy_names": "2.22"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /arrays/management-authentication-policies": {
       "minVersion": "2.22",
@@ -9206,7 +11352,11 @@
         "policy_ids": "2.22",
         "policy_names": "2.22"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /management-authentication-policies": {
       "minVersion": "2.22",
@@ -9223,6 +11373,10 @@
         "sort": "2.22"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -9250,6 +11404,10 @@
         "policy_type",
         "realms"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -9262,7 +11420,11 @@
         "ids": "2.22",
         "names": "2.22"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /management-authentication-policies": {
       "minVersion": "2.22",
@@ -9289,7 +11451,11 @@
         "is_local",
         "policy_type",
         "realms"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /management-authentication-policies/members": {
       "minVersion": "2.22",
@@ -9309,6 +11475,10 @@
         "sort": "2.22"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get",
         "member_types": "Management_access_policies_member_types"
@@ -9326,6 +11496,10 @@
         "policy_names": "2.22"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "member_types": "Management_access_policies_member_types"
       }
@@ -9342,6 +11516,10 @@
         "policy_names": "2.22"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "member_types": "Management_access_policies_member_types"
       }
@@ -9355,6 +11533,10 @@
         "names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "declared"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -9392,6 +11574,10 @@
         "id",
         "revision"
       ],
+      "contextScope": {
+        "scope": "fleet",
+        "provenance": "declared"
+      },
       "parameterComponentOverrides": {
         "ids": "Ids_single",
         "names": "Names_single"
@@ -9424,6 +11610,10 @@
       "readOnlyBodyProperties": [
         "revision"
       ],
+      "contextScope": {
+        "scope": "fleet",
+        "provenance": "declared"
+      },
       "parameterComponentOverrides": {
         "names": "Names_single_required"
       }
@@ -9437,6 +11627,10 @@
         "names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "fleet",
+        "provenance": "declared"
+      },
       "parameterComponentOverrides": {
         "ids": "Ids_single",
         "names": "Names_single"
@@ -9452,6 +11646,10 @@
       },
       "bodyProperties": {
         "name": "2.23"
+      },
+      "contextScope": {
+        "scope": "fleet",
+        "provenance": "declared"
       },
       "parameterComponentOverrides": {
         "ids": "Ids_single",
@@ -9470,7 +11668,11 @@
         "offset": "2.23",
         "sort": "2.23"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /resiliency-groups/members": {
       "minVersion": "2.23",
@@ -9486,7 +11688,11 @@
         "resiliency_group_names": "2.23",
         "sort": "2.23"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /workloads": {
       "minVersion": "2.23",
@@ -9501,6 +11707,10 @@
         "names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -9517,6 +11727,10 @@
       "bodyProperties": {
         "parameters": "2.23"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_single_required"
       }
@@ -9530,6 +11744,10 @@
         "names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "ids": "Ids_single",
         "names": "Names_single"
@@ -9546,6 +11764,10 @@
       "bodyProperties": {
         "destroyed": "2.23",
         "name": "2.23"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "parameterComponentOverrides": {
         "ids": "Ids_single",
@@ -9564,6 +11786,10 @@
         "names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -9607,6 +11833,10 @@
         "results",
         "status"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "preset_ids": null,
         "preset_names": null
@@ -9623,6 +11853,10 @@
         "resource_names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "live-tested"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -9638,6 +11872,10 @@
         "resource_names": "2.23"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "namespaces": "Namespaces_delete"
       }
@@ -9650,7 +11888,17 @@
         "resource_ids": "2.23",
         "resource_names": "2.23"
       },
-      "bodyProperties": {}
+      "bodyProperties": {
+        "copyable": "2.23",
+        "key": "2.23",
+        "namespace": "2.23",
+        "resource": "2.23",
+        "value": "2.23"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /directory-services/local/directory-services": {
       "minVersion": "2.24",
@@ -9669,6 +11917,10 @@
         "total_item_count": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get",
         "ids": "IdsSemiRequired",
@@ -9685,6 +11937,10 @@
       "bodyProperties": {
         "domain": "2.24"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -9698,6 +11954,10 @@
         "names": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "ids": "IdsSemiRequired",
         "names": "NamesSemiRequired"
@@ -9729,6 +11989,10 @@
         "server",
         "time_remaining"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "ids": "IdsSemiRequired",
         "names": "NamesSemiRequired"
@@ -9752,6 +12016,10 @@
         "total_item_count": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get",
         "ids": "IdsSemiRequired",
@@ -9771,6 +12039,10 @@
         "email": "2.24",
         "gid": "2.24"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -9787,6 +12059,10 @@
         "sids": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "NamesGeneral"
       }
@@ -9815,6 +12091,10 @@
         "context",
         "sid"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "NamesGeneral"
       }
@@ -9840,6 +12120,10 @@
         "total_item_count": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get",
         "group_names": "Local_group_names",
@@ -9859,6 +12143,10 @@
       },
       "bodyProperties": {
         "members": "2.24"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "parameterComponentOverrides": {
         "group_names": "Local_group_names"
@@ -9880,6 +12168,10 @@
         "member_types": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "group_names": "Local_group_names",
         "member_ids": "Local_member_ids"
@@ -9903,6 +12195,10 @@
         "uids": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get",
         "ids": "IdsSemiRequired",
@@ -9925,6 +12221,10 @@
         "primary_group": "2.24",
         "uid": "2.24"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -9941,6 +12241,10 @@
         "uids": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "NamesGeneral"
       }
@@ -9963,6 +12267,10 @@
         "password": "2.24",
         "primary_group": "2.24",
         "uid": "2.24"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       },
       "parameterComponentOverrides": {
         "names": "NamesGeneral"
@@ -9988,6 +12296,10 @@
         "total_item_count": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get",
         "group_names": "Local_group_names",
@@ -10009,6 +12321,10 @@
         "groups": "2.24",
         "is_primary": "2.24"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "member_ids": "Local_member_ids"
       }
@@ -10029,6 +12345,10 @@
         "member_types": "2.24"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "group_names": "Local_group_names",
         "member_ids": "Local_member_ids"
@@ -10045,14 +12365,22 @@
         "sort": "2.24",
         "total_item_count": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /support-diagnostics/settings": {
       "minVersion": "2.24",
       "parameters": {
         "X-Request-ID": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /software-bundle": {
       "minVersion": "2.24",
@@ -10066,7 +12394,11 @@
         "sort": "2.24",
         "total_item_count": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /software-bundle": {
       "minVersion": "2.24",
@@ -10075,6 +12407,10 @@
       },
       "bodyProperties": {
         "source": "2.24"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "GET /software-patches": {
@@ -10090,7 +12426,11 @@
         "sort": "2.24",
         "total_item_count": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /software-patches": {
       "minVersion": "2.24",
@@ -10099,7 +12439,11 @@
         "allow_ha_reduction": "2.24",
         "name": "2.24"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /file-systems/user-group-quota-policies": {
       "minVersion": "2.25",
@@ -10118,6 +12462,10 @@
         "sort": "2.25"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -10134,7 +12482,11 @@
         "policy_ids": "2.25",
         "policy_names": "2.25"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /file-systems/user-group-quota-policies": {
       "minVersion": "2.25",
@@ -10146,7 +12498,11 @@
         "policy_ids": "2.25",
         "policy_names": "2.25"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /file-system-junctions": {
       "minVersion": "2.25",
@@ -10167,6 +12523,10 @@
         "sort": "2.25"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -10197,6 +12557,10 @@
         "origin_file_system",
         "status"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_single_required",
         "origin_file_system_ids": "Origin_file_system_ids_single",
@@ -10211,7 +12575,11 @@
         "ids": "2.25",
         "names": "2.25"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /file-system-group-quotas": {
       "minVersion": "2.25",
@@ -10230,6 +12598,10 @@
         "sort": "2.25"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -10251,6 +12623,10 @@
         "sort": "2.25"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -10273,6 +12649,10 @@
         "user_sids": "2.25"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -10295,6 +12675,10 @@
         "user_sids": "2.25"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -10314,7 +12698,11 @@
         "remote_realm_names": "2.25",
         "sort": "2.25"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /realm-connections": {
       "minVersion": "2.25",
@@ -10337,7 +12725,11 @@
         "local_realm",
         "remote_realm",
         "status"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /realm-connections": {
       "minVersion": "2.25",
@@ -10348,7 +12740,11 @@
         "remote_realm_ids": "2.25",
         "remote_realm_names": "2.25"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /realm-connections/connection-key": {
       "minVersion": "2.25",
@@ -10362,7 +12758,11 @@
         "realm_names": "2.25",
         "sort": "2.25"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "POST /realm-connections/connection-key": {
       "minVersion": "2.25",
@@ -10371,7 +12771,11 @@
         "realm_ids": "2.25",
         "realm_names": "2.25"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /realm-connections/connection-key": {
       "minVersion": "2.25",
@@ -10380,7 +12784,11 @@
         "realm_ids": "2.25",
         "realm_names": "2.25"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /remote-realms": {
       "minVersion": "2.25",
@@ -10397,7 +12805,11 @@
         "sort": "2.25",
         "total_only": "2.25"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /user-group-quota-policies": {
       "minVersion": "2.25",
@@ -10414,6 +12826,10 @@
         "sort": "2.25"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -10443,6 +12859,10 @@
         "policy_type",
         "realms"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -10476,7 +12896,11 @@
         "policy_type",
         "realms",
         "version"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /user-group-quota-policies": {
       "minVersion": "2.25",
@@ -10487,7 +12911,11 @@
         "names": "2.25",
         "versions": "2.25"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /user-group-quota-policies/rules": {
       "minVersion": "2.25",
@@ -10504,6 +12932,10 @@
         "sort": "2.25"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -10523,6 +12955,10 @@
         "quota_limit": "2.25",
         "quota_type": "2.25",
         "subject": "2.25"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "DELETE /user-group-quota-policies/rules": {
@@ -10535,7 +12971,11 @@
         "policy_ids": "2.25",
         "policy_names": "2.25"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /user-group-quota-policies/rules": {
       "minVersion": "2.25",
@@ -10554,7 +12994,11 @@
       "readOnlyBodyProperties": [
         "id",
         "name"
-      ]
+      ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /user-group-quota-policies/file-systems": {
       "minVersion": "2.25",
@@ -10573,6 +13017,10 @@
         "sort": "2.25"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -10589,7 +13037,11 @@
         "policy_ids": "2.25",
         "policy_names": "2.25"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "DELETE /user-group-quota-policies/file-systems": {
       "minVersion": "2.25",
@@ -10601,7 +13053,11 @@
         "policy_ids": "2.25",
         "policy_names": "2.25"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /user-group-quota-policies/members": {
       "minVersion": "2.25",
@@ -10620,6 +13076,10 @@
         "sort": "2.25"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -10639,6 +13099,10 @@
         "sort": "2.26"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -10653,6 +13117,10 @@
       "bodyProperties": {
         "description": "2.26"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "names": "Names_required"
       }
@@ -10665,7 +13133,11 @@
         "ids": "2.26",
         "names": "2.26"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /management-access-policies/roles/permissions": {
       "minVersion": "2.26",
@@ -10684,6 +13156,10 @@
         "sort": "2.26"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get",
         "role_ids": "Management_access_role_ids",
@@ -10702,6 +13178,10 @@
         "actions": "2.26",
         "resource": "2.26"
       },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "role_ids": "Management_access_role_ids",
         "role_names": "Management_access_role_names"
@@ -10715,7 +13195,11 @@
         "ids": "2.26",
         "names": "2.26"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /management-access-policies/roles/permissions": {
       "minVersion": "2.26",
@@ -10727,6 +13211,10 @@
       },
       "bodyProperties": {
         "actions": "2.26"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "GET /management-access-policies/roles/permissions/supported-resources": {
@@ -10743,6 +13231,10 @@
         "sort": "2.26"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -10764,6 +13256,10 @@
         "sort": "2.26"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -10796,6 +13292,10 @@
         "policy",
         "policy_version"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "versions": "Concurrency_versions"
       }
@@ -10810,6 +13310,10 @@
         "versions": "2.26"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "versions": "Concurrency_versions"
       }
@@ -10842,6 +13346,10 @@
         "policy",
         "policy_version"
       ],
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "versions": "Concurrency_versions"
       }
@@ -10855,7 +13363,11 @@
         "to_topology_group_ids": "2.26",
         "to_topology_group_names": "2.26"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /support/system-manifest": {
       "minVersion": "2.26",
@@ -10871,6 +13383,10 @@
         "total_only": "2.26"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -10891,6 +13407,10 @@
         "total_item_count": "2.26"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "fleet",
+        "provenance": "live-tested"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -10904,7 +13424,11 @@
         "parent_topology_group_ids": "2.26",
         "parent_topology_group_names": "2.26"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /topology-groups": {
       "minVersion": "2.26",
@@ -10918,6 +13442,10 @@
       },
       "bodyProperties": {
         "topology_group": "2.26"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "DELETE /topology-groups": {
@@ -10928,7 +13456,11 @@
         "ids": "2.26",
         "names": "2.26"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /topology-groups/arrays": {
       "minVersion": "2.26",
@@ -10947,6 +13479,10 @@
         "total_item_count": "2.26"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "fleet",
+        "provenance": "live-tested"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get"
       }
@@ -10969,6 +13505,10 @@
         "total_item_count": "2.26"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "fleet",
+        "provenance": "live-tested"
+      },
       "parameterComponentOverrides": {
         "context_names": "Context_names_get",
         "recursive": "Topology_group_members_recursive"
@@ -10984,6 +13524,10 @@
       },
       "bodyProperties": {
         "members": "2.26"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "DELETE /topology-groups/members": {
@@ -10996,7 +13540,11 @@
         "topology_group_ids": "2.26",
         "topology_group_names": "2.26"
       },
-      "bodyProperties": {}
+      "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "PATCH /active-directory/test": {
       "minVersion": "2.27",
@@ -11009,6 +13557,10 @@
       "bodyProperties": {
         "ca_certificate": "2.27",
         "ca_certificate_group": "2.27"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
       }
     },
     "POST /fleets/members/batch": {
@@ -11019,7 +13571,16 @@
         "fleet_names": "2.27",
         "validate_target_certificates": "2.27"
       },
-      "bodyProperties": {}
+      "bodyProperties": {
+        "authentication_credentials": "2.27",
+        "ca_certificate": "2.27",
+        "ca_certificate_group": "2.27",
+        "management_address": "2.27"
+      },
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      }
     },
     "GET /storage-classes/members": {
       "minVersion": "2.27",
@@ -11035,6 +13596,10 @@
         "storage_class_names": "2.27"
       },
       "bodyProperties": {},
+      "contextScope": {
+        "scope": "array",
+        "provenance": "default"
+      },
       "parameterComponentOverrides": {
         "storage_class_names": "Storage_class_names"
       }

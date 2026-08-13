@@ -14155,7 +14155,13 @@
       "missingQueryParameters": [
         "context_names"
       ],
-      "missingBodyProperties": [],
+      "missingBodyProperties": [
+        "copyable",
+        "key",
+        "namespace",
+        "resource",
+        "value"
+      ],
       "readOnlyFields": [],
       "confidence": {
         "level": "partial",

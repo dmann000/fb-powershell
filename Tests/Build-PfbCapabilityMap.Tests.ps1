@@ -634,3 +634,194 @@ Describe 'Real committed capability map (skips gracefully if not yet generated)'
         $missing | Should -BeNullOrEmpty -Because "these endpoints exist in the newest spec but are missing from the manifest: $($missing -join ', ')"
     }
 }
+
+Describe 'Build-PfbCapabilityMap: contextScope' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+
+    BeforeAll {
+        $script:csRepoRoot = Split-Path -Parent $PSScriptRoot
+        $script:csSpecDir = Join-Path $TestDrive 'cs-specs'
+        New-Item -ItemType Directory -Path $script:csSpecDir -Force | Out-Null
+
+        # TWO spec versions, deliberately. contextScope is assigned UNCONDITIONALLY
+        # (last-seen-wins), unlike minVersion/parameters/bodyProperties in the same generator
+        # loop, which use a first-sight guard. A ONE-version fixture cannot tell those apart:
+        # every endpoint is first-sighted in the only file present, so a wrongly-guarded
+        # implementation passes everything. In the real specs the annotations exist ONLY in
+        # fb2.28 while every endpoint is first sighted in 2.0-2.27, so a first-sight guard
+        # would silently erase every spec-derived scope and leave only the curated entries.
+        #
+        # So: 2.27 declares the same endpoints with NO annotations, 2.28 adds them. The
+        # newest annotation must win. Mirrors the sibling readOnly/deprecated Describe's
+        # two-version fixture.
+        @'
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/2.27/presets/workload": {
+      "get":  { "responses": { "200": { "description": "ok" } } },
+      "put":  { "responses": { "200": { "description": "ok" } } }
+    },
+    "/api/2.27/topology-groups": {
+      "get": { "responses": { "200": { "description": "ok" } } }
+    },
+    "/api/2.27/workloads/tags": {
+      "get": { "responses": { "200": { "description": "ok" } } }
+    },
+    "/api/2.27/some-uncurated-thing": {
+      "get": { "responses": { "200": { "description": "ok" } } }
+    },
+    "/api/2.27/file-systems": {
+      "get": { "responses": { "200": { "description": "ok" } } }
+    }
+  }
+}
+'@ | Set-Content -Path (Join-Path $script:csSpecDir 'fb2.27.json') -Encoding UTF8
+
+        # fb2.28: same endpoints, now annotated. Note both /presets/workload operations carry
+        # x-pure-incomplete-gre ALONGSIDE their override -- that is what the real fb2.28 does
+        # (all 5 override-bearing operations are also flagged incomplete), and it is the only
+        # place where ladder step 1 (declared) and step 3 (flagged->unknown) actually compete.
+        # Without the flag here, reordering those two branches passes every test.
+        @'
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/2.28/presets/workload": {
+      "get": {
+        "x-pure-remote-execution-context-domains-override": ["ARRAY", "FLEET"],
+        "x-pure-incomplete-gre": true,
+        "responses": { "200": { "description": "ok" } }
+      },
+      "put": {
+        "x-pure-remote-execution-context-domains-override": ["FLEET"],
+        "x-pure-incomplete-gre": true,
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/api/2.28/topology-groups": {
+      "get": { "x-pure-incomplete-gre": true, "responses": { "200": { "description": "ok" } } }
+    },
+    "/api/2.28/workloads/tags": {
+      "get": { "x-pure-incomplete-gre": true, "responses": { "200": { "description": "ok" } } }
+    },
+    "/api/2.28/some-uncurated-thing": {
+      "get": { "x-pure-incomplete-gre": true, "responses": { "200": { "description": "ok" } } }
+    },
+    "/api/2.28/file-systems": {
+      "get": { "responses": { "200": { "description": "ok" } } }
+    }
+  }
+}
+'@ | Set-Content -Path (Join-Path $script:csSpecDir 'fb2.28.json') -Encoding UTF8
+
+        $script:csOut = Join-Path $TestDrive 'cs-map.json'
+        & (Join-Path $script:csRepoRoot 'tools/Build-PfbCapabilityMap.ps1') `
+            -SpecsDirectory $script:csSpecDir -OutputPath $script:csOut | Out-Null
+        $script:csMap = Get-Content -Path $script:csOut -Raw | ConvertFrom-Json -Depth 20
+    }
+
+    It 'bumps schemaVersion to 2' {
+        $script:csMap.schemaVersion | Should -Be 2
+    }
+
+    It 'gives EVERY endpoint a contextScope with both scope and provenance' {
+        foreach ($key in $script:csMap.endpoints.PSObject.Properties.Name) {
+            $cs = $script:csMap.endpoints.$key.contextScope
+            $cs | Should -Not -BeNullOrEmpty -Because "$key must carry contextScope"
+            $cs.scope      | Should -BeIn @('fleet', 'array', 'unknown') -Because "$key scope"
+            $cs.provenance | Should -BeIn @('declared', 'live-tested', 'unknown', 'default') -Because "$key provenance"
+        }
+    }
+
+    It 'LAST-SEEN-WINS: an annotation added in a NEWER spec beats first sight in an older one' {
+        # The property the whole design rests on, and the one a one-version fixture cannot
+        # see. Every endpoint here is FIRST SIGHTED in 2.27 with no annotations; 2.28 adds
+        # them. If contextScope were assigned under a first-sight guard -- the way minVersion
+        # and parameters are, three lines away in the same loop -- these would all be
+        # array/default, and against the real specs every declared and unknown record would
+        # vanish, leaving only the curated 4.
+        $script:csMap.endpoints.'GET /presets/workload'.contextScope.provenance | Should -Be 'declared' -Because 'the 2.28 override must win over the 2.27 first sight'
+        $script:csMap.endpoints.'PUT /presets/workload'.contextScope.provenance | Should -Be 'declared'
+        $script:csMap.endpoints.'GET /some-uncurated-thing'.contextScope.provenance | Should -Be 'unknown' -Because 'the 2.28 incomplete-gre flag must win over the 2.27 first sight'
+
+        # And confirm minVersion still reflects FIRST sight, proving the two policies coexist
+        # rather than one having been changed into the other.
+        $script:csMap.endpoints.'GET /presets/workload'.minVersion | Should -Be '2.27'
+    }
+
+    It 'a declared override beats the incomplete-gre flag on the SAME operation' {
+        # Both /presets/workload operations carry an override AND x-pure-incomplete-gre, which
+        # is what the real fb2.28 does. Step 1 must win: a declaration is evidence, whereas
+        # the flag only says "absence of a declaration proves nothing" -- and there is no
+        # absence here. Reordering the ladder's branches fails this and nothing else.
+        $get = $script:csMap.endpoints.'GET /presets/workload'.contextScope
+        $get.provenance | Should -Be 'declared' -Because 'the override is present, so the flag is irrelevant'
+        $get.scope      | Should -Be 'array'
+    }
+
+    It 'trusts a declared override: ARRAY+FLEET is array-scoped, FLEET-only is fleet-scoped' {
+        $get = $script:csMap.endpoints.'GET /presets/workload'.contextScope
+        $get.scope      | Should -Be 'array'
+        $get.provenance | Should -Be 'declared'
+
+        $put = $script:csMap.endpoints.'PUT /presets/workload'.contextScope
+        $put.scope      | Should -Be 'fleet'
+        $put.provenance | Should -Be 'declared'
+    }
+
+    It 'applies the curated value for a flagged, curated endpoint' {
+        $tg = $script:csMap.endpoints.'GET /topology-groups'.contextScope
+        $tg.scope      | Should -Be 'fleet'
+        $tg.provenance | Should -Be 'live-tested'
+
+        $wt = $script:csMap.endpoints.'GET /workloads/tags'.contextScope
+        $wt.scope      | Should -Be 'array'
+        $wt.provenance | Should -Be 'live-tested'
+    }
+
+    It 'records unknown for a flagged endpoint with no curated entry -- NOT the array default' {
+        # This is the fail-safe half: a flagged endpoint's ABSENT override carries no
+        # information, so defaulting it to array would assert something unevidenced.
+        $cs = $script:csMap.endpoints.'GET /some-uncurated-thing'.contextScope
+        $cs.scope      | Should -Be 'unknown'
+        $cs.provenance | Should -Be 'unknown'
+    }
+
+    It 'defaults an unflagged, unannotated endpoint to array' {
+        $cs = $script:csMap.endpoints.'GET /file-systems'.contextScope
+        $cs.scope      | Should -Be 'array'
+        $cs.provenance | Should -Be 'default'
+    }
+
+    It 'records unknown, NOT fleet, for an override declaring an unrecognised domain' {
+        # Unreachable against today's specs -- only ARRAY and FLEET occur across all 29 --
+        # so this is the one case that needs its own fixture. Treating an uninterpretable
+        # token as 'fleet' would assert a scope on no evidence and label it
+        # provenance='declared', which tells Phase 1 upstream said so. Recording ignorance
+        # is the honest answer.
+        $oddDir = Join-Path $TestDrive 'odd-domain-specs'
+        New-Item -ItemType Directory -Path $oddDir -Force | Out-Null
+        @'
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/2.28/future-thing": {
+      "get": {
+        "x-pure-remote-execution-context-domains-override": ["REALM"],
+        "responses": { "200": { "description": "ok" } }
+      }
+    }
+  }
+}
+'@ | Set-Content -Path (Join-Path $oddDir 'fb2.28.json') -Encoding UTF8
+
+        $oddOut = Join-Path $TestDrive 'odd-map.json'
+        & (Join-Path $script:csRepoRoot 'tools/Build-PfbCapabilityMap.ps1') `
+            -SpecsDirectory $oddDir -OutputPath $oddOut | Out-Null
+        $oddMap = Get-Content -Path $oddOut -Raw | ConvertFrom-Json -Depth 20
+
+        $cs = $oddMap.endpoints.'GET /future-thing'.contextScope
+        $cs.scope      | Should -Be 'unknown'
+        $cs.provenance | Should -Be 'unknown' -Because 'an uninterpretable token is not a declaration we can act on'
+    }
+}

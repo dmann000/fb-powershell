@@ -42,9 +42,6 @@ tools/specs/
 # into a workspace-relative path so every OS/edition shares one cache location).
 .psmodules/
 
-# Not yet decided whether this should be tracked -- excluded for now
-tools/
-
 # OS
 Thumbs.db
 Desktop.ini

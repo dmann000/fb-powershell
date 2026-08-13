@@ -22,7 +22,7 @@ This report accepts **false positives in order to eliminate false negatives**. A
 
 - Uncovered endpoints: 95
 - Endpoints with parameter gaps: 439
-- Missing body properties (addable): 420
+- Missing body properties (addable): 425
 - Missing query parameters (addable): 942
 - Read-only body fields (not addable -- see the Read-only fields section below): 384
 - Phantom fields silently excluded (accumulated in the capability map, absent from the newest analysed spec): 40
@@ -513,7 +513,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `POST /workloads/placement-recommendations` | New-PfbWorkloadPlacementRecommendation | context_names | additional_constraints, parameters, preset, projection_months, recommendation_engine, results_limit | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `POST /worm-data-policies` | New-PfbWormPolicy | context_names, names | default_retention, enabled, location, max_retention, min_retention, mode, retention_lock | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PUT /presets/workload` | Set-PfbPresetWorkload | context_names | description, directory_configurations, export_configurations, name, parameters, periodic_replication_configurations, placement_configurations, platform_features, qos_configurations, quota_configurations, snapshot_configurations, volume_configurations, workload_tags, workload_type | `high` |  |
-| `PUT /workloads/tags/batch` | Set-PfbWorkloadTag | context_names |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
+| `PUT /workloads/tags/batch` | Set-PfbWorkloadTag | context_names | copyable, key, namespace, resource, value | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 
 ### Partial-confidence detail
 
