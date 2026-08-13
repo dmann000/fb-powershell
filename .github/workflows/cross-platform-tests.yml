@@ -25,9 +25,63 @@ on:
   workflow_call: {}
 
 jobs:
+  # Issue #63: tools/specs/ is a ~50MB cache of raw OpenAPI specs, gitignored because it is a
+  # build input rather than source, so on a bare runner it does not exist. Every tooling test
+  # gated on its presence skipped gracefully while the job reported success -- roughly 23% of
+  # the suite, including the absolute-path regression guards from PR #62, invisible in the run
+  # summary. This job materialises the cache once per run and hands it to every test leg.
+  #
+  # The cache key prefix is deliberately shared with update-api-capability-map.yml, so a warm
+  # cache written by either workflow serves both. Update-PfbApiSpecs.ps1 skips any version
+  # already on disk, so a cache hit means only newly-published versions get fetched instead of
+  # the full ~29-version history.
+  #
+  # An artifact rather than a per-leg cache restore: it fetches from the published spec index
+  # at most once per run instead of up to four times, and it is immune to cache key/branch
+  # scoping differences across the matrix. 29 JSON files, ~50MB raw, which compress well.
+  prepare-specs:
+    name: Prepare API spec cache
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Restore cached spec files
+        uses: actions/cache/restore@v6
+        with:
+          path: tools/specs
+          key: pfb-specs-${{ github.run_id }}
+          restore-keys: |
+            pfb-specs-
+
+      - name: Fetch any missing REST API spec versions
+        shell: pwsh
+        run: ./tools/Update-PfbApiSpecs.ps1
+
+      # The whole point of this job. A silent no-op here would put us straight back to the
+      # green-but-empty runs issue #63 is about, so an empty result is a hard failure.
+      - name: Assert the spec set is non-empty
+        shell: pwsh
+        run: ./scripts/Assert-PfbSpecCache.ps1
+
+      - name: Save spec cache
+        uses: actions/cache/save@v6
+        if: always()
+        with:
+          path: tools/specs
+          key: pfb-specs-${{ github.run_id }}
+
+      - name: Publish specs to the test jobs
+        uses: actions/upload-artifact@v5
+        with:
+          name: pfb-specs
+          path: tools/specs
+          retention-days: 1
+
   test-pwsh:
     name: Test (${{ matrix.os }}, pwsh)
     runs-on: ${{ matrix.os }}
+    needs: prepare-specs
     strategy:
       fail-fast: false
       matrix:
@@ -36,6 +90,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Issue #63: without this, every tools/specs-gated test skips and the job still passes.
+      - name: Download API spec cache
+        uses: actions/download-artifact@v5
+        with:
+          name: pfb-specs
+          path: tools/specs
+
       # Pinned + cached; see .github/actions/install-test-modules/action.yml for why
       # (including why Posh-SSH is needed at all).
       - name: Install test dependencies
@@ -43,23 +104,30 @@ jobs:
         with:
           shell: pwsh
 
+      # Suite invocation + the issue-#63 coverage gate live in scripts/Invoke-PfbCiPester.ps1
+      # rather than inline here: this same block was copy-pasted in three places across two
+      # workflows, and all three needed the same change. A script is also lintable, diffable
+      # and runnable outside Actions, which YAML-embedded PowerShell is not.
       - name: Run Pester tests
         shell: pwsh
-        run: |
-          Import-Module Pester -MinimumVersion 5.0 -Force
-          Import-Module Posh-SSH -Force
-          $cfg = New-PesterConfiguration
-          $cfg.Run.Path = 'Tests'
-          $cfg.Run.Exit = $true
-          $cfg.Output.Verbosity = 'Detailed'
-          Invoke-Pester -Configuration $cfg
+        run: ./scripts/Invoke-PfbCiPester.ps1 -Edition pwsh7
 
   test-windows-powershell-5-1:
     name: Test (windows-latest, Windows PowerShell 5.1)
     runs-on: windows-latest
+    needs: prepare-specs
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      # Wired here too, for symmetry with the pwsh job. The tools/specs-gated Describes are
+      # additionally PS7-gated so they still skip on this leg, but a future spec-dependent
+      # test that does NOT carry the PS7 guard then works with no workflow change.
+      - name: Download API spec cache
+        uses: actions/download-artifact@v5
+        with:
+          name: pfb-specs
+          path: tools/specs
 
       # Same pinned modules and same cache entry as the pwsh job on this OS -- the saved
       # files are edition-independent (Pester 6.0.1 declares PowerShellVersion = '5.1').
@@ -70,13 +138,10 @@ jobs:
         with:
           shell: powershell
 
+      # `shell:` stays per-leg and must remain a literal (see the header note about the
+      # matrix context) -- it selects the interpreter. -Edition selects only which
+      # Tests/coverage-baseline.psd1 block applies, since the two editions legitimately
+      # differ by ~200 skips.
       - name: Run Pester tests
         shell: powershell
-        run: |
-          Import-Module Pester -MinimumVersion 5.0 -Force
-          Import-Module Posh-SSH -Force
-          $cfg = New-PesterConfiguration
-          $cfg.Run.Path = 'Tests'
-          $cfg.Run.Exit = $true
-          $cfg.Output.Verbosity = 'Detailed'
-          Invoke-Pester -Configuration $cfg
+        run: ./scripts/Invoke-PfbCiPester.ps1 -Edition winps51

@@ -32,6 +32,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Issue #63 follow-up: no CI job has ever compared a regenerated artifact against the
+      # committed one, so a generator change committed without regenerating passes silently.
+      # This had to be done by hand for #96 and #97. Hash before the build steps overwrite them.
+      - name: Capture committed artifact hashes
+        id: committed_hashes
+        shell: pwsh
+        run: |
+          foreach ($pair in @(@('capmap', 'Data/PfbCapabilityMap.json'), @('shapemap', 'Data/PfbResponseShapeMap.json'))) {
+              $hash = ''
+              if (Test-Path $pair[1]) { $hash = (Get-FileHash -Path $pair[1] -Algorithm SHA256).Hash }
+              "$($pair[0])=$hash" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+              Write-Host "$($pair[1]): $hash"
+          }
+
       - name: Capture previously-known REST versions
         id: previous
         shell: pwsh
@@ -90,6 +104,28 @@ jobs:
         shell: pwsh
         run: ./tools/Build-PfbResponseShapeMap.ps1
 
+      # Reports the outcome; does NOT fail the run. A legitimate diff is this workflow's whole
+      # purpose -- a new REST version changes both maps -- so a hard failure here would break
+      # the scheduled run every time a version is published. The value is that the drift is
+      # now NAMED in the run summary instead of being inferred from the PR body, which is how
+      # a stale committed artifact went unnoticed (issue #63's follow-up).
+      - name: Report regeneration diff
+        shell: pwsh
+        run: |
+          $rows = @()
+          foreach ($pair in @(
+              @('Data/PfbCapabilityMap.json', '${{ steps.committed_hashes.outputs.capmap }}'),
+              @('Data/PfbResponseShapeMap.json', '${{ steps.committed_hashes.outputs.shapemap }}')
+          )) {
+              $now = (Get-FileHash -Path $pair[0] -Algorithm SHA256).Hash
+              $state = 'byte-identical'
+              if ($pair[1] -ne $now) { $state = 'CHANGED -- committed copy was stale, or the inputs moved' }
+              $rows += "| ``$($pair[0])`` | $state |"
+              Write-Host "$($pair[0]): $state"
+          }
+          $lines = @('### Regeneration check', '', '| Artifact | Result |', '|---|---|') + $rows
+          ($lines -join [Environment]::NewLine) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+
       - name: Build API drift report
         shell: pwsh
         run: ./tools/Build-PfbApiDriftReport.ps1
@@ -102,16 +138,14 @@ jobs:
         with:
           shell: pwsh
 
+      # The third copy of this block, now retired. It could not be replaced by a workflow_call
+      # to cross-platform-tests.yml: a reusable workflow runs on a FRESH runner with a FRESH
+      # checkout, so it would test the COMMITTED Data/ and Reports/ rather than the ones this
+      # job just regenerated -- which is the entire reason the step is inline here. A script
+      # runs in this job's workspace and has no such problem.
       - name: Run tests
         shell: pwsh
-        run: |
-          Import-Module Pester -MinimumVersion 5.0 -Force
-          Import-Module Posh-SSH -Force
-          $cfg = New-PesterConfiguration
-          $cfg.Run.Path = 'Tests'
-          $cfg.Run.Exit = $true
-          $cfg.Output.Verbosity = 'Detailed'
-          Invoke-Pester -Configuration $cfg
+        run: ./scripts/Invoke-PfbCiPester.ps1 -Edition pwsh7
 
       - name: Check for changes
         id: diff
