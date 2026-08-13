@@ -42,10 +42,24 @@
         )
     }
     winps51 = @{
-        # Measured 169 on the same run (windows-latest, Windows PowerShell 5.1): 1675 passed /
-        # 0 failed / 169 skipped. The gap versus pwsh7's 2 is the PS7-gated tooling Describes,
-        # skipping exactly as designed -- not a defect.
-        MaxSkipped        = 185
+        # Re-measured 190 on run 31670025630 (windows-latest, Windows PowerShell 5.1): 1818
+        # passed / 0 failed / 190 skipped. The gap versus pwsh7's 2 is the PS7-gated tooling
+        # Describes, skipping exactly as designed -- not a defect.
+        #
+        # RAISED 185 -> 206, deliberately, for the reason this file says to raise it for. The
+        # original 185 was measured against a main that predated PR #98 (Fusion context Phase
+        # 0). #98 added 21 PS7-gated It blocks -- 8 in
+        # Build-PfbCapabilityMap.ContextScopeDrift.Tests.ps1, 9 in Build-PfbCapabilityMap.Tests.ps1,
+        # 4 in PfbSpecTools.ContextScope.Tests.ps1 -- and the observed 5.1 skip count moved
+        # 169 -> 190, exactly +21. They RUN on 7 (pwsh7 stayed at 2 skipped, 2006 passed), so
+        # this is the PS7 gate working, not lost coverage.
+        #
+        # This is also the gate catching a real hazard rather than misfiring: a pull_request
+        # run tests the MERGE commit, so a ceiling measured before an unrelated merge to main
+        # goes stale without anything in this branch changing. That is worth a red build.
+        #
+        # 206 keeps the same +16 headroom over measured that 185 had over 169.
+        MaxSkipped        = 206
         # Only the ungated blocks are required here. The six spec-cache blocks above are
         # PS7-gated by design, so requiring them on 5.1 would be a permanent false red.
         RequiredDescribes = @(
