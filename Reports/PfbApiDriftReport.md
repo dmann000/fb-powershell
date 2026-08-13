@@ -160,7 +160,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `DELETE /worm-data-policies` | Remove-PfbWormPolicy | context_names |  | `high` |  |
 | `GET /active-directory` | Get-PfbActiveDirectory | ids, limit, sort |  | `high` |  |
 | `GET /active-directory/test` | Test-PfbActiveDirectory | allow_errors, context_names, filter, limit, sort |  | `high` |  |
-| `GET /admins` | Get-PfbAdmin | allow_errors, context_names, expose_api_token |  | `high` |  |
+| `GET /admins` | Get-PfbAdmin, Resolve-PfbAdminLocality | allow_errors, context_names, expose_api_token |  | `high` |  |
 | `GET /admins/api-tokens` | Get-PfbApiToken | allow_errors, context_names |  | `high` |  |
 | `GET /admins/cache` | Get-PfbAdminCache | allow_errors, context_names, refresh |  | `high` |  |
 | `GET /admins/management-access-policies` | Get-PfbAdminManagementAccessPolicy | allow_errors, context_names, sort |  | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
@@ -607,7 +607,7 @@ Per the decision-6 procedure above: open each parameter at its `file:line` and f
 | `POST /smb-client-policies` | `-Enabled` | AttributesOnly | `Public/Policy/New-PfbSmbClientPolicy.ps1:36` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /smb-share-policies` | `-Enabled` | AttributesOnly | `Public/Policy/New-PfbSmbSharePolicy.ps1:36` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /snmp-managers` | `-Name` | AttributesOnly | `Public/Monitoring/New-PfbSnmpManager.ps1:33` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
-| `POST /ssh-certificate-authority-policies` | `-Name` | AttributesOnly | `Public/Policy/New-PfbSshCaPolicy.ps1:30` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /ssh-certificate-authority-policies` | `-Name` | AttributesOnly | `Public/Policy/New-PfbSshCaPolicy.ps1:38` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /storage-class-tiering-policies` | `-Name` | AttributesOnly | `Public/Policy/New-PfbStorageClassTieringPolicy.ps1:30` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /syslog-servers` | `-Name` | AttributesOnly | `Public/Monitoring/New-PfbSyslogServer.ps1:32` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /targets` | `-Name` | AttributesOnly | `Public/Replication/New-PfbTarget.ps1:31` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |

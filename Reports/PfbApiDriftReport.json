@@ -2166,7 +2166,8 @@
     {
       "endpoint": "GET /admins",
       "cmdlets": [
-        "Get-PfbAdmin"
+        "Get-PfbAdmin",
+        "Resolve-PfbAdminLocality"
       ],
       "missingQueryParameters": [
         "allow_errors",
@@ -5982,7 +5983,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Array/Update-PfbArray.ps1",
-            "paramBlockLine": 29,
+            "paramBlockLine": 37,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -5999,7 +6000,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Array/Update-PfbArray.ps1",
-            "paramBlockLine": 29,
+            "paramBlockLine": 37,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -6016,7 +6017,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Array/Update-PfbArray.ps1",
-            "paramBlockLine": 29,
+            "paramBlockLine": 37,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -6033,7 +6034,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Array/Update-PfbArray.ps1",
-            "paramBlockLine": 29,
+            "paramBlockLine": 37,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -6050,7 +6051,7 @@
           "enumStatus": "not-found-in-resource",
           "target": {
             "file": "Public/Array/Update-PfbArray.ps1",
-            "paramBlockLine": 29,
+            "paramBlockLine": 37,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -6067,7 +6068,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Array/Update-PfbArray.ps1",
-            "paramBlockLine": 29,
+            "paramBlockLine": 37,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -6084,7 +6085,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Array/Update-PfbArray.ps1",
-            "paramBlockLine": 29,
+            "paramBlockLine": 37,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -6101,7 +6102,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Array/Update-PfbArray.ps1",
-            "paramBlockLine": 29,
+            "paramBlockLine": 37,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -11271,7 +11272,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Monitoring/New-PfbLogTargetFileSystem.ps1",
-            "paramBlockLine": 36,
+            "paramBlockLine": 44,
             "payloadVariable": "body",
             "assignmentStyle": "unknown",
             "hasAttributes": true
@@ -11288,7 +11289,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Monitoring/New-PfbLogTargetFileSystem.ps1",
-            "paramBlockLine": 36,
+            "paramBlockLine": 44,
             "payloadVariable": "body",
             "assignmentStyle": "unknown",
             "hasAttributes": true
@@ -11305,7 +11306,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Monitoring/New-PfbLogTargetFileSystem.ps1",
-            "paramBlockLine": 36,
+            "paramBlockLine": 44,
             "payloadVariable": "body",
             "assignmentStyle": "unknown",
             "hasAttributes": true
@@ -11322,7 +11323,7 @@
           "enumStatus": "not-found-in-resource",
           "target": {
             "file": "Public/Monitoring/New-PfbLogTargetFileSystem.ps1",
-            "paramBlockLine": 36,
+            "paramBlockLine": 44,
             "payloadVariable": "body",
             "assignmentStyle": "unknown",
             "hasAttributes": true
@@ -12456,7 +12457,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/New-PfbPresetWorkload.ps1",
-            "paramBlockLine": 44,
+            "paramBlockLine": 51,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -12473,7 +12474,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/New-PfbPresetWorkload.ps1",
-            "paramBlockLine": 44,
+            "paramBlockLine": 51,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -12490,7 +12491,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/New-PfbPresetWorkload.ps1",
-            "paramBlockLine": 44,
+            "paramBlockLine": 51,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -12507,7 +12508,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/New-PfbPresetWorkload.ps1",
-            "paramBlockLine": 44,
+            "paramBlockLine": 51,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -12524,7 +12525,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/New-PfbPresetWorkload.ps1",
-            "paramBlockLine": 44,
+            "paramBlockLine": 51,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -12541,7 +12542,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/New-PfbPresetWorkload.ps1",
-            "paramBlockLine": 44,
+            "paramBlockLine": 51,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -12562,7 +12563,7 @@
           "enumStatus": "matched",
           "target": {
             "file": "Public/Presets/New-PfbPresetWorkload.ps1",
-            "paramBlockLine": 44,
+            "paramBlockLine": 51,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -12579,7 +12580,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/New-PfbPresetWorkload.ps1",
-            "paramBlockLine": 44,
+            "paramBlockLine": 51,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -12596,7 +12597,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/New-PfbPresetWorkload.ps1",
-            "paramBlockLine": 44,
+            "paramBlockLine": 51,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -12613,7 +12614,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/New-PfbPresetWorkload.ps1",
-            "paramBlockLine": 44,
+            "paramBlockLine": 51,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -12630,7 +12631,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/New-PfbPresetWorkload.ps1",
-            "paramBlockLine": 44,
+            "paramBlockLine": 51,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -12647,7 +12648,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/New-PfbPresetWorkload.ps1",
-            "paramBlockLine": 44,
+            "paramBlockLine": 51,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -12680,7 +12681,7 @@
           "enumStatus": "matched",
           "target": {
             "file": "Public/Presets/New-PfbPresetWorkload.ps1",
-            "paramBlockLine": 44,
+            "paramBlockLine": 51,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -13245,7 +13246,7 @@
             "parameter": "Name",
             "surface": "AttributesOnly",
             "file": "Public/Policy/New-PfbSshCaPolicy.ps1",
-            "line": 30
+            "line": 38
           }
         ],
         "escapeHatchOnly": [
@@ -13886,7 +13887,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
-            "paramBlockLine": 35,
+            "paramBlockLine": 42,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -13903,7 +13904,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
-            "paramBlockLine": 35,
+            "paramBlockLine": 42,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -13920,7 +13921,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
-            "paramBlockLine": 35,
+            "paramBlockLine": 42,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -13937,7 +13938,7 @@
           "enumStatus": "not-found-in-resource",
           "target": {
             "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
-            "paramBlockLine": 35,
+            "paramBlockLine": 42,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -13954,7 +13955,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
-            "paramBlockLine": 35,
+            "paramBlockLine": 42,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -13971,7 +13972,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
-            "paramBlockLine": 35,
+            "paramBlockLine": 42,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -13988,7 +13989,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
-            "paramBlockLine": 35,
+            "paramBlockLine": 42,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -14009,7 +14010,7 @@
           "enumStatus": "matched",
           "target": {
             "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
-            "paramBlockLine": 35,
+            "paramBlockLine": 42,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -14026,7 +14027,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
-            "paramBlockLine": 35,
+            "paramBlockLine": 42,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -14043,7 +14044,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
-            "paramBlockLine": 35,
+            "paramBlockLine": 42,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -14060,7 +14061,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
-            "paramBlockLine": 35,
+            "paramBlockLine": 42,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -14077,7 +14078,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
-            "paramBlockLine": 35,
+            "paramBlockLine": 42,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -14094,7 +14095,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
-            "paramBlockLine": 35,
+            "paramBlockLine": 42,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -14127,7 +14128,7 @@
           "enumStatus": "matched",
           "target": {
             "file": "Public/Presets/Set-PfbPresetWorkload.ps1",
-            "paramBlockLine": 35,
+            "paramBlockLine": 42,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true

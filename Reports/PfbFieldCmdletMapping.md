@@ -121,17 +121,20 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `Update-PfbSmbSharePolicy -Enabled`
 - `Update-PfbUserGroupQuotaPolicy -Enabled`
 
-## Typed but unresolved wire name (needs manual inspection): 40
+## Typed but unresolved wire name (needs manual inspection): 51
 
+- `Connect-PfbArray -AllArrays`
 - `Connect-PfbArray -ApiToken`
 - `Connect-PfbArray -ApiVersion`
 - `Connect-PfbArray -ClientId`
+- `Connect-PfbArray -Context`
 - `Connect-PfbArray -Credential`
 - `Connect-PfbArray -Endpoint`
 - `Connect-PfbArray -HttpTimeout`
 - `Connect-PfbArray -IgnoreCertificateError`
 - `Connect-PfbArray -Issuer`
 - `Connect-PfbArray -KeyId`
+- `Connect-PfbArray -Kind`
 - `Connect-PfbArray -Password`
 - `Connect-PfbArray -PrivateKeyFile`
 - `Connect-PfbArray -PrivateKeyPassword`
@@ -143,6 +146,10 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `Get-PfbHardwareTemperature -Limit`
 - `Get-PfbUserGroupQuotaPolicy -Id`
 - `Get-PfbUserGroupQuotaPolicy -Name`
+- `Invoke-PfbInContext -AllArrays`
+- `Invoke-PfbInContext -Context`
+- `Invoke-PfbInContext -Kind`
+- `Invoke-PfbInContext -ScriptBlock`
 - `New-PfbDataEvictionPolicy -Disabled`
 - `New-PfbFileSystemSnapshot -SourceName`
 - `New-PfbLocalGroupMember -Member`
@@ -158,6 +165,10 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `Remove-PfbQuotaUser -UserName`
 - `Remove-PfbRealm -Eradicate`
 - `Remove-PfbServer -Eradicate`
+- `Set-PfbContext -AllArrays`
+- `Set-PfbContext -AllowErrors`
+- `Set-PfbContext -Context`
+- `Set-PfbContext -Kind`
 - `Set-PfbCredential -Credential`
 - `Set-PfbWorkloadTag -Tags`
 - `Test-PfbConnection -Endpoint`

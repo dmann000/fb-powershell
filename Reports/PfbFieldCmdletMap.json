@@ -20483,6 +20483,10 @@
   "typedUnresolved": [
     {
       "cmdlet": "Connect-PfbArray",
+      "parameter": "AllArrays"
+    },
+    {
+      "cmdlet": "Connect-PfbArray",
       "parameter": "ApiToken"
     },
     {
@@ -20492,6 +20496,10 @@
     {
       "cmdlet": "Connect-PfbArray",
       "parameter": "ClientId"
+    },
+    {
+      "cmdlet": "Connect-PfbArray",
+      "parameter": "Context"
     },
     {
       "cmdlet": "Connect-PfbArray",
@@ -20516,6 +20524,10 @@
     {
       "cmdlet": "Connect-PfbArray",
       "parameter": "KeyId"
+    },
+    {
+      "cmdlet": "Connect-PfbArray",
+      "parameter": "Kind"
     },
     {
       "cmdlet": "Connect-PfbArray",
@@ -20560,6 +20572,22 @@
     {
       "cmdlet": "Get-PfbUserGroupQuotaPolicy",
       "parameter": "Name"
+    },
+    {
+      "cmdlet": "Invoke-PfbInContext",
+      "parameter": "AllArrays"
+    },
+    {
+      "cmdlet": "Invoke-PfbInContext",
+      "parameter": "Context"
+    },
+    {
+      "cmdlet": "Invoke-PfbInContext",
+      "parameter": "Kind"
+    },
+    {
+      "cmdlet": "Invoke-PfbInContext",
+      "parameter": "ScriptBlock"
     },
     {
       "cmdlet": "New-PfbDataEvictionPolicy",
@@ -20620,6 +20648,22 @@
     {
       "cmdlet": "Remove-PfbServer",
       "parameter": "Eradicate"
+    },
+    {
+      "cmdlet": "Set-PfbContext",
+      "parameter": "AllArrays"
+    },
+    {
+      "cmdlet": "Set-PfbContext",
+      "parameter": "AllowErrors"
+    },
+    {
+      "cmdlet": "Set-PfbContext",
+      "parameter": "Context"
+    },
+    {
+      "cmdlet": "Set-PfbContext",
+      "parameter": "Kind"
     },
     {
       "cmdlet": "Set-PfbCredential",
