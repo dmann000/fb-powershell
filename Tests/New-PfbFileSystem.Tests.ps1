@@ -138,6 +138,100 @@ Describe 'New-PfbFileSystem - request construction baseline' {
         }
     }
 
+    Context 'SMB continuous availability' {
+
+        BeforeEach {
+            Mock -ModuleName PureStorageFlashBladePowerShell Assert-PfbConnection { }
+            Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { }
+        }
+
+        It 'exposes -SmbContinuousAvailabilityEnabled as a nullable bool, not a switch' {
+            $p = (Get-Command New-PfbFileSystem).Parameters['SmbContinuousAvailabilityEnabled']
+            $p.ParameterType | Should -Be ([Nullable[bool]])
+            $p.SwitchParameter | Should -BeFalse
+        }
+
+        It 'omits continuous_availability_enabled entirely when the parameter is not supplied' {
+            New-PfbFileSystem -Name 'fs01' -Smb -SmbSharePolicy 'smb-rw' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                -not $Body['smb'].ContainsKey('continuous_availability_enabled')
+            }
+        }
+
+        It 'omits the smb key entirely when neither SMB nor continuous availability is supplied' {
+            New-PfbFileSystem -Name 'fs01' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                -not $Body.ContainsKey('smb')
+            }
+        }
+
+        It 'sends continuous_availability_enabled=true alongside an SMB enablement request' {
+            New-PfbFileSystem -Name 'fs01' -Smb -SmbSharePolicy 'smb-rw' -SmbContinuousAvailabilityEnabled $true `
+                -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body['smb']['enabled'] -eq $true -and
+                $Body['smb']['continuous_availability_enabled'] -eq $true -and
+                $Body['smb']['continuous_availability_enabled'] -is [bool]
+            }
+        }
+
+        It 'sends continuous_availability_enabled=false when explicitly disabled' {
+            New-PfbFileSystem -Name 'fs01' -Smb -SmbSharePolicy 'smb-rw' -SmbContinuousAvailabilityEnabled $false `
+                -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body['smb'].ContainsKey('continuous_availability_enabled') -and
+                $Body['smb']['continuous_availability_enabled'] -eq $false -and
+                $Body['smb']['continuous_availability_enabled'] -is [bool]
+            }
+        }
+
+        It 'does not set smb.enabled when only continuous availability is supplied' {
+            New-PfbFileSystem -Name 'fs01' -SmbContinuousAvailabilityEnabled $true -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body.ContainsKey('smb') -and
+                -not $Body['smb'].ContainsKey('enabled') -and
+                $Body['smb']['continuous_availability_enabled'] -eq $true -and
+                $Body['smb'].Count -eq 1
+            }
+        }
+
+        It 'does not warn about a missing share policy when only continuous availability is supplied' {
+            New-PfbFileSystem -Name 'fs01' -SmbContinuousAvailabilityEnabled $false -Confirm:$false -Array $fakeArray `
+                -WarningAction SilentlyContinue -WarningVariable caWarning
+
+            $caWarning | Should -BeNullOrEmpty
+        }
+
+        It 'still warns when SMB is enabled without a share policy even with continuous availability supplied' {
+            New-PfbFileSystem -Name 'fs01' -Smb -SmbContinuousAvailabilityEnabled $true -Confirm:$false -Array $fakeArray `
+                -WarningAction SilentlyContinue -WarningVariable smbWarning
+
+            $smbWarning | Should -Not -BeNullOrEmpty
+        }
+
+        It 'does not create default exports merely because continuous availability is supplied' {
+            New-PfbFileSystem -Name 'fs01' -SmbContinuousAvailabilityEnabled $true -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $QueryParams['default_exports'].Count -eq 1 -and
+                $QueryParams['default_exports'][0] -eq ''
+            }
+        }
+
+        It 'leaves an -Attributes body untouched and rejects the typed continuous-availability parameter' {
+            { New-PfbFileSystem -Name 'fs01' -Attributes @{ smb = @{ enabled = $true } } `
+                    -SmbContinuousAvailabilityEnabled $true -Confirm:$false -Array $fakeArray } |
+                Should -Throw
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+        }
+    }
+
     Context 'snapshot directory default' {
 
         BeforeEach {

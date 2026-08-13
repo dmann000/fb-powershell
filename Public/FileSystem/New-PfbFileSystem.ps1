@@ -53,6 +53,12 @@ function New-PfbFileSystem {
         full access — set this for any non-lab share.
     .PARAMETER SmbClientPolicy
         Name of a pre-existing SMB Client Policy to attach.
+    .PARAMETER SmbContinuousAvailabilityEnabled
+        Whether SMB continuous availability (transparent failover) is enabled. Omit it and
+        no value is sent, leaving the array's own default in place. Supplying it does not
+        enable SMB: the smb body is built so the exact boolean reaches
+        smb.continuous_availability_enabled, but smb.enabled is set only when -Smb,
+        -SmbSharePolicy or -SmbClientPolicy asks for SMB.
     .PARAMETER Http
         Enable HTTP.
     .PARAMETER MultiProtocolAccessControlStyle
@@ -162,6 +168,9 @@ function New-PfbFileSystem {
         [string]$SmbClientPolicy,
 
         [Parameter(ParameterSetName = 'Individual')]
+        [Nullable[bool]]$SmbContinuousAvailabilityEnabled,
+
+        [Parameter(ParameterSetName = 'Individual')]
         [switch]$Http,
 
         [Parameter(ParameterSetName = 'Individual')]
@@ -246,13 +255,28 @@ function New-PfbFileSystem {
         if ($nfsBody.Count -gt 0) { $body['nfs'] = $nfsBody }
 
         # SMB — local name avoids collision with [switch]$Smb
-        if ($Smb -or $SmbSharePolicy -or $SmbClientPolicy) {
-            $smbBody = @{ enabled = $true }
+        #
+        # Two independent triggers build the smb body, and only one of them turns SMB on.
+        # -SmbContinuousAvailabilityEnabled configures how SMB behaves if it is serving, so
+        # supplying it must never flip smb.enabled — that would silently expose the file
+        # system over a protocol the caller never asked for, and (without a share policy)
+        # under the array's built-in full-access policy.
+        $smbEnablementRequested = [bool]($Smb -or $SmbSharePolicy -or $SmbClientPolicy)
+        $continuousAvailabilitySupplied = $PSBoundParameters.ContainsKey('SmbContinuousAvailabilityEnabled')
+
+        if ($smbEnablementRequested -or $continuousAvailabilitySupplied) {
+            $smbBody = @{}
+            if ($smbEnablementRequested) { $smbBody['enabled'] = $true }
             if ($SmbSharePolicy)  { $smbBody['share_policy']  = @{ name = $SmbSharePolicy } }
             if ($SmbClientPolicy) { $smbBody['client_policy'] = @{ name = $SmbClientPolicy } }
+            if ($continuousAvailabilitySupplied) {
+                $smbBody['continuous_availability_enabled'] = [bool]$SmbContinuousAvailabilityEnabled
+            }
             $body['smb'] = $smbBody
 
-            if (-not $SmbSharePolicy) {
+            # Scoped to actual SMB enablement: continuous availability on its own attaches no
+            # share policy, so the full-access warning would be noise.
+            if ($smbEnablementRequested -and -not $SmbSharePolicy) {
                 Write-Warning "SMB enabled without -SmbSharePolicy. The FlashBlade will attach its built-in full-access share policy. Pass -SmbSharePolicy with a named policy for production shares."
             }
         }
