@@ -177,6 +177,92 @@ Describe 'Build-PfbValueEnumMap: manifest shape' -Skip:($PSVersionTable.PSVersio
     }
 }
 
+Describe 'Build-PfbValueEnumMap: hand-written ValidateSet citations' {
+    # The $handWritten table in the generator is the ONLY source of the File:Line values the
+    # reconciliation report publishes, and nothing else in the suite asserted them -- so a
+    # record could cite the line of the preceding [Parameter()] attribute (or any other line)
+    # and stay green. This block pins every record's Line to the first line of the
+    # ValidateSet attribute actually attached to that record's Parameter, resolved from the
+    # source file's AST rather than by text search. Runs on both editions: it only parses
+    # committed .ps1 files and needs neither the spec cache nor the generated manifest.
+    BeforeAll {
+        $repoRoot = Split-Path -Parent $PSScriptRoot
+        $script:enumRepoRoot = $repoRoot
+        $builderPath = Join-Path $repoRoot 'tools/Build-PfbValueEnumMap.ps1'
+
+        $tokens = $null
+        $errors = $null
+        $builderAst = [System.Management.Automation.Language.Parser]::ParseFile($builderPath, [ref]$tokens, [ref]$errors)
+        if ($errors -and $errors.Count -gt 0) {
+            throw "Failed to parse '$builderPath': $($errors[0].Message)"
+        }
+
+        $assignment = $builderAst.Find({
+                param($node)
+                $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+                $node.Left -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                $node.Left.VariablePath.UserPath -eq 'handWritten'
+            }, $true)
+
+        if (-not $assignment) {
+            throw "Could not locate the `$handWritten assignment in '$builderPath'."
+        }
+
+        # The right-hand side is a literal array of [PSCustomObject]@{...} entries (no commands),
+        # so evaluating just that extent is the faithful way to read the table without running
+        # the generator (which requires PS 7 and a spec cache).
+        $script:handWrittenRecords = @([scriptblock]::Create($assignment.Right.Extent.Text).Invoke())
+    }
+
+    It 'has at least one hand-written record to check' {
+        $handWrittenRecords.Count | Should -BeGreaterThan 0
+    }
+
+    It 'cites the line of the ValidateSet attribute attached to each recorded Parameter' {
+        $problems = [System.Collections.Generic.List[string]]::new()
+
+        foreach ($record in $handWrittenRecords) {
+            $sourcePath = Join-Path $enumRepoRoot $record.File
+            if (-not (Test-Path $sourcePath)) {
+                $problems.Add("$($record.File):$($record.Line) $($record.Parameter): source file does not exist")
+                continue
+            }
+
+            $srcTokens = $null
+            $srcErrors = $null
+            $srcAst = [System.Management.Automation.Language.Parser]::ParseFile($sourcePath, [ref]$srcTokens, [ref]$srcErrors)
+            if ($srcErrors -and $srcErrors.Count -gt 0) {
+                $problems.Add("$($record.File): failed to parse ($($srcErrors[0].Message))")
+                continue
+            }
+
+            $paramName = $record.Parameter.TrimStart('-')
+            $paramAsts = @($srcAst.FindAll({
+                        param($node)
+                        $node -is [System.Management.Automation.Language.ParameterAst]
+                    }, $true) | Where-Object { $_.Name.VariablePath.UserPath -eq $paramName })
+
+            if ($paramAsts.Count -ne 1) {
+                $problems.Add("$($record.File): expected exactly 1 parameter named '$paramName', found $($paramAsts.Count)")
+                continue
+            }
+
+            $validateSets = @($paramAsts[0].Attributes | Where-Object { $_.TypeName.Name -eq 'ValidateSet' })
+            if ($validateSets.Count -ne 1) {
+                $problems.Add("$($record.File): parameter '$paramName' has $($validateSets.Count) ValidateSet attributes, expected 1")
+                continue
+            }
+
+            $actualLine = $validateSets[0].Extent.StartLineNumber
+            if ($record.Line -ne $actualLine) {
+                $problems.Add("$($record.File): $($record.Parameter) cites line $($record.Line) but its ValidateSet is on line $actualLine")
+            }
+        }
+
+        $problems -join ' | ' | Should -BeNullOrEmpty -Because 'every published File:Line must land on the ValidateSet being reconciled'
+    }
+}
+
 Describe 'Real committed value-enum map (skips gracefully if not yet generated)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
     BeforeAll {
         $repoRoot = Split-Path -Parent $PSScriptRoot

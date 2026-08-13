@@ -45,6 +45,9 @@
             '-TotalOnly is exposed only where the published spec declares total_only (#102)'
             'the 26 cmdlets corrected by #102 no longer expose -TotalOnly'
             'the 12 cmdlets whose endpoints do declare total_only keep the switch (#102 is not a blanket removal)'
+            # Ungated for the same reason: it parses tracked .ps1 files via the AST, so it needs
+            # neither the spec cache nor the generated manifest and has no skip path.
+            'Build-PfbValueEnumMap: hand-written ValidateSet citations'
         )
     }
     winps51 = @{
@@ -77,6 +80,9 @@
             '-TotalOnly is exposed only where the published spec declares total_only (#102)'
             'the 26 cmdlets corrected by #102 no longer expose -TotalOnly'
             'the 12 cmdlets whose endpoints do declare total_only keep the switch (#102 is not a blanket removal)'
+            # Ungated for the same reason: it parses tracked .ps1 files via the AST, so it needs
+            # neither the spec cache nor the generated manifest and has no skip path.
+            'Build-PfbValueEnumMap: hand-written ValidateSet citations'
         )
     }
 }

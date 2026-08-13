@@ -135,6 +135,22 @@ Describe 'coverage-baseline.psd1 (the real one)' {
         }
     }
 
+    It 'registers the ungated value-enum citation guard in BOTH editions' {
+        # The reverse direction of the check below, for one block that needs it. The
+        # citation guard in Build-PfbValueEnumMap.Tests.ps1 carries no -Skip and reads only
+        # committed .ps1 files, so it must contribute executed tests on every leg. If it is
+        # filtered out, renamed, or its BeforeAll starts throwing silently, it contributes
+        # neither a pass nor a skip -- MaxSkipped cannot see that, and the build stays green
+        # with the guard gone. Only RequiredDescribes catches it, so the entry is part of the
+        # guard, not bookkeeping.
+        $real = Import-PowerShellDataFile -Path (Join-Path $repoRoot 'Tests/coverage-baseline.psd1')
+        $name = 'Build-PfbValueEnumMap: hand-written ValidateSet citations'
+        foreach ($edition in @('pwsh7', 'winps51')) {
+            @($real[$edition].RequiredDescribes) -contains $name |
+                Should -BeTrue -Because "the $edition allowlist must require the ungated Describe '$name'"
+        }
+    }
+
     It 'names only Describe blocks that actually exist in Tests/' {
         # A typo in an allowlist entry, or a Describe someone renamed, would red the build
         # forever for the wrong reason. Catch both here rather than in CI.
