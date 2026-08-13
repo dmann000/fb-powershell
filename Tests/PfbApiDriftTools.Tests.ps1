@@ -1330,12 +1330,17 @@ Describe 'Task 6 real-data invariants (systemic gaps + convention strength, skip
         # Upper bound widened 0.55 -> 0.60 for issue #88. Closing a real parameter gap removes
         # its (endpoint, name) pairs from the DENOMINATOR, and gaps closed by hand are mostly
         # long-tail names rather than top-10 ones, so the top-10 SHARE rises mechanically with
-        # every genuine fix. The #88 replica-link selector work took it from 54.84% (567/1034)
-        # to 55.24% (564/1021). Widening here does not weaken a real invariant -- per the note
-        # above these bounds are institutional memory, not a pin -- and narrowing the exposed
-        # selector set to stay under 0.55 would be exactly backwards. If a future task pushes
-        # past 0.60, re-examine whether the top-10 aggregation is still the right summary
-        # rather than reflexively widening again.
+        # every genuine fix. First measured against the pre-#98 capability map, the #88
+        # replica-link selector work took it from 54.84% (567/1034) to 55.24% (564/1021).
+        # RE-MEASURED after rebasing #88 onto a main carrying PR #98 (regenerated
+        # Data/PfbCapabilityMap.json) and PR #107: that main measures 54.81% (570/1040) and
+        # #88 on top of it measures 55.79% (564/1011). Same story, slightly larger step -- the
+        # 0.55 ceiling is still genuinely exceeded and 0.60 is still the bound that holds.
+        # Widening here does not weaken a real invariant -- per the note above these bounds
+        # are institutional memory, not a pin -- and narrowing the exposed selector set to
+        # stay under 0.55 would be exactly backwards. If a future task pushes past 0.60,
+        # re-examine whether the top-10 aggregation is still the right summary rather than
+        # reflexively widening again.
         $ratio | Should -BeGreaterThan 0.30
         $ratio | Should -BeLessThan 0.60
     }
