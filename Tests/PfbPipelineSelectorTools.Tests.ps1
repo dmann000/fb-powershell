@@ -44,6 +44,64 @@ BeforeAll {
     }
 }
 
+Describe 'Ordinal sort helpers' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+
+    # These had NO tests, which is how Sort-PfbSelectorRecord shipped as a silent no-op:
+    # [array]::Sort($keys, $items, $comparer) sorts the keys in place and leaves the items
+    # untouched, so the function returned its input in original order while its help claimed
+    # otherwise. Nothing threw. Every artifact it ordered was simply unsorted.
+
+    It 'actually reorders records, rather than returning them untouched' {
+        $records = @(
+            [PSCustomObject]@{ Cmdlet = 'A'; Parameter = 'RemoteName'; Producer = 'GET /x' }
+            [PSCustomObject]@{ Cmdlet = 'A'; Parameter = 'Id'; Producer = 'GET /x' }
+            [PSCustomObject]@{ Cmdlet = 'A'; Parameter = 'Name'; Producer = 'GET /a' }
+        )
+        $sorted = Sort-PfbSelectorRecord -Record $records -Property 'Cmdlet', 'Parameter', 'Producer'
+
+        @($sorted | ForEach-Object { $_.Parameter }) -join ',' | Should -Be 'Id,Name,RemoteName'
+    }
+
+    It 'sorts by every named property in order, not just the first' {
+        $records = @(
+            [PSCustomObject]@{ Cmdlet = 'A'; Parameter = 'Name'; Producer = 'GET /z' }
+            [PSCustomObject]@{ Cmdlet = 'A'; Parameter = 'Name'; Producer = 'GET /a' }
+        )
+        $sorted = Sort-PfbSelectorRecord -Record $records -Property 'Cmdlet', 'Parameter', 'Producer'
+
+        @($sorted | ForEach-Object { $_.Producer }) -join ',' | Should -Be 'GET /a,GET /z'
+    }
+
+    It 'is ORDINAL, not linguistic: a hyphen sorts before a letter' {
+        # The whole reason these helpers exist. 5.1 collation ignores the hyphen and orders
+        # 'file-systems' first; ordinal comparison does not, and agrees on both editions.
+        $records = @(
+            [PSCustomObject]@{ Key = 'GET /policies/file-systems' }
+            [PSCustomObject]@{ Key = 'GET /policies/file-system-snapshots' }
+        )
+        $sorted = Sort-PfbSelectorRecord -Record $records -Property 'Key'
+
+        @($sorted | ForEach-Object { $_.Key })[0] | Should -Be 'GET /policies/file-system-snapshots'
+    }
+
+    It 'breaks ties by original position, because List<T>.Sort is unstable' {
+        $records = @(
+            [PSCustomObject]@{ Key = 'same'; Tag = 'first' }
+            [PSCustomObject]@{ Key = 'same'; Tag = 'second' }
+            [PSCustomObject]@{ Key = 'same'; Tag = 'third' }
+        )
+        $sorted = Sort-PfbSelectorRecord -Record $records -Property 'Key'
+
+        @($sorted | ForEach-Object { $_.Tag }) -join ',' | Should -Be 'first,second,third'
+    }
+
+    It 'sorts strings ordinally and de-duplicates on request' {
+        $sorted = Sort-PfbSelectorString -Value @('b', 'a', 'b', 'A') -Unique
+
+        $sorted -join ',' | Should -Be 'A,a,b'
+    }
+}
+
 Describe 'Get-PfbPipelineBoundParameter' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
 
     It 'finds pipeline-bound parameters that the bare attribute form declares' {

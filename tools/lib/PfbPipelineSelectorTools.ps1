@@ -42,15 +42,34 @@ function Sort-PfbSelectorRecord {
 
     if ($Record.Count -le 1) { return @($Record) }
 
+    # DO NOT reach for [array]::Sort($keys, $items, $comparer) here. Measured under PowerShell 7:
+    # it sorts the KEYS array in place and leaves the ITEMS array in its original order, so the
+    # function silently returned its input unsorted while claiming to have ordered it. Nothing
+    # threw and nothing was obviously wrong -- it was caught only when a generated artifact was
+    # asserted against an independently computed ordinal ordering. Sort the records themselves.
+    #
     # A vertical tab cannot occur in a cmdlet name, parameter name or endpoint path, so it
     # cannot let one field's tail masquerade as the next field's head.
-    $keys = [string[]]@($Record | ForEach-Object {
-            $row = $_
-            (@($Property | ForEach-Object { [string]$row.$_ }) -join "`v")
+    $wrapped = [System.Collections.Generic.List[object]]::new()
+    for ($i = 0; $i -lt $Record.Count; $i++) {
+        $row = $Record[$i]
+        $wrapped.Add([PSCustomObject]@{
+                SortKey = (@($Property | ForEach-Object { [string]$row.$_ }) -join "`v")
+                Ordinal = $i
+                Record  = $row
+            })
+    }
+
+    # List<T>.Sort is UNSTABLE, so equal keys would otherwise land in an arbitrary order and the
+    # artifact would churn between runs. The original index breaks every tie deterministically.
+    $wrapped.Sort([System.Comparison[object]] {
+            param($a, $b)
+            $comparison = [string]::CompareOrdinal($a.SortKey, $b.SortKey)
+            if ($comparison -ne 0) { return $comparison }
+            return $a.Ordinal.CompareTo($b.Ordinal)
         })
-    $items = [object[]]@($Record)
-    [array]::Sort($keys, $items, [System.StringComparer]::Ordinal)
-    return @($items)
+
+    return @($wrapped | ForEach-Object { $_.Record })
 }
 
 function Sort-PfbSelectorString {
