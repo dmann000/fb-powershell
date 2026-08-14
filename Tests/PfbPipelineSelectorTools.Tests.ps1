@@ -132,3 +132,39 @@ Describe 'Candidate predicate' {
         $rate | Should -BeLessThan 0.75
     }
 }
+
+Describe 'Probe construction' {
+    BeforeAll {
+        . (Join-Path $script:repoRoot 'tools/lib/PfbSpecTools.ps1')
+        $script:newestSpec = Join-Path $script:repoRoot 'tools/specs/fb2.28.json'
+        $script:itemType = Get-PfbResponseItemType -SpecPath $script:newestSpec -Endpoint 'GET /array-connections'
+    }
+
+    It 'requires the spec cache to be populated' {
+        @(Get-ChildItem (Join-Path $script:repoRoot 'tools/specs') -File).Count | Should -Be 29
+    }
+
+    It 'reads an object-typed response field as object, not string' {
+        $script:itemType['remote'] | Should -Be 'object'
+    }
+
+    It 'reads a scalar response field as string' {
+        $script:itemType['id'] | Should -Be 'string'
+    }
+
+    It 'gives each property a distinct sentinel so the bound property is identifiable' {
+        $probe = New-PfbSelectorProbeObject -ItemProperty @('id', 'status') -ItemType @{ id = 'string'; status = 'string' }
+        $probe.id     | Should -Be 'PROBE-id'
+        $probe.status | Should -Be 'PROBE-status'
+    }
+
+    It 'materialises an object-typed field as a nested object, not a string' {
+        $probe = New-PfbSelectorProbeObject -ItemProperty @('remote') -ItemType @{ remote = 'object' }
+        $probe.remote | Should -BeOfType [System.Management.Automation.PSCustomObject]
+    }
+
+    It 'materialises an array-typed field as an array' {
+        $probe = New-PfbSelectorProbeObject -ItemProperty @('replication_addresses') -ItemType @{ replication_addresses = 'array' }
+        , $probe.replication_addresses | Should -BeOfType [System.Object[]]
+    }
+}

@@ -280,3 +280,123 @@ function Get-PfbSelectorCandidate {
 
     return @($results | Sort-Object -Property Cmdlet, Parameter, Producer -Culture '')
 }
+
+function Get-PfbResponseItemType {
+    <#
+    .SYNOPSIS
+        Declared type of each items[] element property for one endpoint in one spec.
+    .DESCRIPTION
+        Reuses the existing PfbSpecTools walkers rather than introducing a second one, per the
+        toolchain's standing one-walker decision. MaxDepth is left at
+        Get-PfbSchemaPropertyDetails' own default; this reads the ITEM element schema, not the
+        deeply-nested allOf chains that forced the depth-32 rule in Get-PfbSpecResponseShapes.
+
+        Returns an EMPTY hashtable rather than throwing when the endpoint or its items[] schema
+        is absent. The caller degrades to all-string probes and MUST state that caveat in the
+        report -- never a silent downgrade.
+
+        Requires tools/lib/PfbSpecTools.ps1 to be dot-sourced by the caller.
+    .OUTPUTS
+        [hashtable] property name -> declared type string ('string', 'object', 'array', ...)
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$SpecPath,
+        [Parameter(Mandatory)][string]$Endpoint
+    )
+
+    # ConvertFrom-Json only gained -Depth in PowerShell 6.2; under Windows PowerShell 5.1 it
+    # fails with "A parameter cannot be found that matches parameter name 'Depth'". Measured:
+    # 5.1 parses the 2.04 MB fb2.28.json correctly without it. Same guard as
+    # Get-PfbDriftAnnotationFile in tools/lib/PfbApiDriftTools.ps1.
+    $json = Get-Content -Path $SpecPath -Raw
+    $spec = if ($PSVersionTable.PSVersion.Major -ge 6) { $json | ConvertFrom-Json -Depth 64 } else { $json | ConvertFrom-Json }
+
+    $method, $path = ($Endpoint -split ' ', 2)
+    $normalized = ConvertTo-PfbNormalizedPath -Path $path
+
+    $pathNode = $spec.paths.PSObject.Properties |
+        Where-Object { (ConvertTo-PfbNormalizedPath -Path $_.Name) -eq $normalized } |
+        Select-Object -First 1
+    if (-not $pathNode) { return @{} }
+
+    $operation = $pathNode.Value.($method.ToLowerInvariant())
+    $responseSchema = Get-PfbResponseSchema -Operation $operation -Spec $spec
+    if (-not $responseSchema) { return @{} }
+
+    # Get-PfbSchemaPropertyDetails returns { Name; ReadOnly; Deprecated; Type; Format; Required;
+    # OwnerSchema } -- it does NOT surface the raw schema node, so it cannot reach items[]'s
+    # element schema. Get-PfbSchemaPropertyWalkAccumulators does, via PropertyNodesByName.
+    # Its help calls it internal; using it here is still correct, because the alternative is a
+    # second allOf/$ref walker and the toolchain has a standing one-walker decision.
+    $walk = Get-PfbSchemaPropertyWalkAccumulators -Schema (Resolve-PfbRef -Node $responseSchema -Spec $spec) -Spec $spec
+    if (-not $walk.PropertyNodesByName.ContainsKey('items')) { return @{} }
+
+    $itemsNode = @($walk.PropertyNodesByName['items'])[0]
+    if (-not $itemsNode -or -not $itemsNode.items) { return @{} }
+
+    $itemSchema = Resolve-PfbRef -Node $itemsNode.items -Spec $spec
+    if (-not $itemSchema) { return @{} }
+
+    # Read the raw property NODES, not Get-PfbSchemaPropertyDetails' records. That function
+    # deliberately refuses to follow a property's own $ref (its PIN rule, which exists so a
+    # referenced schema's readOnly flag cannot leak onto the referring property), so an
+    # object-valued field declared as `remote: { $ref: '#/components/schemas/...' }` reports
+    # no Type at all. Defaulting that to 'string' would build exactly the all-string probe
+    # this function exists to avoid: a string `remote` binds cleanly by property name and
+    # hides the stringification. Resolving one level FOR TYPE ONLY is safe -- no readOnly,
+    # deprecated or required semantics are read here -- and reuses the same walker.
+    $itemWalk = Get-PfbSchemaPropertyWalkAccumulators -Schema $itemSchema -Spec $spec
+
+    $types = @{}
+    foreach ($name in $itemWalk.PropertyNodesByName.Keys) {
+        $node = @($itemWalk.PropertyNodesByName[$name])[0]
+        $type = $null
+        if ($node) {
+            if ($node.type) { $type = $node.type }
+            elseif ($node.'$ref') {
+                $resolved = Resolve-PfbRef -Node $node -Spec $spec
+                if ($resolved -and $resolved.type) { $type = $resolved.type }
+                elseif ($resolved -and ($resolved.properties -or $resolved.allOf)) { $type = 'object' }
+            }
+            elseif ($node.properties -or $node.allOf) { $type = 'object' }
+            elseif ($node.items) { $type = 'array' }
+        }
+        $types[$name] = if ($type) { $type } else { 'string' }
+    }
+    return $types
+}
+
+function New-PfbSelectorProbeObject {
+    <#
+    .SYNOPSIS
+        Builds the object that gets piped into a cmdlet under probe.
+    .DESCRIPTION
+        Property NAMES are exactly the producer's responseItemProperties -- that is what a real
+        piped item carries, because Invoke-PfbApiRequest unwraps the items envelope itself
+        (Private/Invoke-PfbApiRequest.ps1:342) and emits the item objects.
+
+        Each scalar property gets a distinct sentinel derived from its own name, so an emitted
+        wire value identifies WHICH property bound. Object- and array-typed fields are
+        materialised as objects and arrays: an all-string probe would bind cleanly to a field
+        like `remote` that is really an object and hide the stringification.
+    .OUTPUTS
+        [PSCustomObject]
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$ItemProperty,
+        [Parameter(Mandatory)][hashtable]$ItemType
+    )
+
+    $ordered = [ordered]@{}
+    foreach ($name in ($ItemProperty | Sort-Object -Culture '')) {
+        $type = if ($ItemType.ContainsKey($name)) { $ItemType[$name] } else { 'string' }
+        $ordered[$name] = switch ($type) {
+            'object' { [PSCustomObject]@{ id = "PROBE-$name-id"; name = "PROBE-$name-name" } }
+            'array' { , @("PROBE-$name-0") }
+            default { "PROBE-$name" }
+        }
+    }
+    return [PSCustomObject]$ordered
+}
