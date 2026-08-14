@@ -48,6 +48,12 @@
             # Ungated for the same reason: it parses tracked .ps1 files via the AST, so it needs
             # neither the spec cache nor the generated manifest and has no skip path.
             'Build-PfbValueEnumMap: hand-written ValidateSet citations'
+            # Issue #90 pipeline-selector rails. Both are PS7-gated, so they belong to this
+            # block and not to winps51. Rail B is the one this list exists for: it skips
+            # GRACEFULLY when tools/specs is absent, the exact #63 shape a skip ceiling cannot
+            # see, since a cacheless runner leaves it contributing neither a pass nor a skip.
+            'Rail A - no unwaived selector coercion'
+            'Rail B - committed map matches regeneration'
         )
     }
     winps51 = @{
@@ -68,7 +74,19 @@
         # goes stale without anything in this branch changing. That is worth a red build.
         #
         # 206 keeps the same +16 headroom over measured that 185 had over 169.
-        MaxSkipped        = 206
+        #
+        # RAISED 206 -> 268 for the issue #90 selector audit branch. Measured 252 on run
+        # 31830362870 (windows-latest, Windows PowerShell 5.1): 2601 passed / 0 failed / 252
+        # skipped, against 192 on the main run it branched from (31755862501). The +60 is
+        # exactly the three PS7-gated files this branch adds -- 33 in
+        # PfbPipelineSelectorTools.Tests.ps1, 16 in PfbSelectorProbeHarness.Tests.ps1, 11 in
+        # PfbPipelineSelectorRail.Tests.ps1. They RUN on 7 (that leg still skips 2), so this is
+        # the PS7 gate working, not lost coverage. The fourth new file,
+        # Build-PfbPipelineSelectorMap.Tests.ps1, reads the committed report rather than the
+        # spec cache and so runs on both editions -- it adds no skips.
+        #
+        # 268 keeps the same +16 headroom over measured.
+        MaxSkipped        = 268
         # Only the ungated blocks are required here. The six spec-cache blocks above are
         # PS7-gated by design, so requiring them on 5.1 would be a permanent false red.
         RequiredDescribes = @(
