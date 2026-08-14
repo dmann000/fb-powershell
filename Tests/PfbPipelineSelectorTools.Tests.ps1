@@ -22,6 +22,17 @@ BeforeAll {
     $script:producerIndex = Get-PfbSelectorProducerIndex -ResponseShapeMap $script:shapeMap
     $script:endpointLiteral = Get-PfbCmdletEndpointLiteral -PublicDirectory (Join-Path $script:repoRoot 'Public')
     $script:exampleChain = Get-PfbHelpExampleChain -PublicDirectory (Join-Path $script:repoRoot 'Public')
+
+    $script:inventory = Get-PfbCmdletParameterInventory -PublicDirectory (Join-Path $script:repoRoot 'Public')
+    $script:producerSet = @{}
+    foreach ($cmd in ($script:bound.Cmdlet | Sort-Object -Unique)) {
+        $script:producerSet[$cmd] = Get-PfbSelectorProducerSet -Cmdlet $cmd `
+            -EndpointLiteral $script:endpointLiteral -ProducerIndex $script:producerIndex `
+            -ExampleChain $script:exampleChain
+    }
+    $script:candidates = Get-PfbSelectorCandidate -PipelineParameter $script:bound `
+        -Inventory $script:inventory -ProducerSet $script:producerSet `
+        -ResponseShapeMap $script:shapeMap
 }
 
 Describe 'Get-PfbPipelineBoundParameter' {
@@ -84,5 +95,40 @@ Describe 'Producer resolution' {
         $set.Primary   | Should -Be @('GET /array-connections/path')
         $set.Producers | Should -Contain 'GET /array-connections'
         @($set.Producers).Count | Should -BeGreaterThan 1
+    }
+}
+
+Describe 'Candidate predicate' {
+
+    It 'flags the known #64 case as a candidate' {
+        $rec = $script:candidates | Where-Object {
+            $_.Cmdlet -eq 'Get-PfbArrayConnectionPath' -and $_.Parameter -eq 'RemoteName' -and
+            $_.Producer -eq 'GET /array-connections'
+        }
+        $rec.IsCandidate  | Should -BeTrue
+        $rec.Gate         | Should -Be 'Candidate'
+        $rec.MatchedField | Should -BeNullOrEmpty
+    }
+
+    It 'does not flag a selector that matches a real response field' {
+        # array-connections items carry `id`, so -Id binds by property name.
+        $rec = $script:candidates | Where-Object {
+            $_.Cmdlet -eq 'Get-PfbArrayConnectionPath' -and $_.Parameter -eq 'Id' -and
+            $_.Producer -eq 'GET /array-connections'
+        }
+        $rec.IsCandidate  | Should -BeFalse
+        $rec.Gate         | Should -Be 'Matched'
+        $rec.MatchedField | Should -Be 'id'
+    }
+
+    It 'excludes body properties via the selector-hood gate' {
+        @($script:candidates | Where-Object { $_.WireSurface -eq 'Body' -and $_.IsCandidate }).Count |
+            Should -Be 0
+    }
+
+    It 'keeps the predicate discriminating rather than vacuous' {
+        $evaluated = @($script:candidates | Where-Object { $_.Gate -in @('Candidate', 'Matched') })
+        $rate = @($evaluated | Where-Object IsCandidate).Count / $evaluated.Count
+        $rate | Should -BeLessThan 0.75
     }
 }

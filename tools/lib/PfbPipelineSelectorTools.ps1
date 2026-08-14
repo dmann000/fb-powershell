@@ -203,3 +203,80 @@ function Get-PfbSelectorProducerSet {
         FromExample = @($fromExample | Sort-Object -Unique -Culture '')
     }
 }
+
+function Get-PfbSelectorCandidate {
+    <#
+    .SYNOPSIS
+        Applies the candidate predicate to every (cmdlet, parameter, producer) triple.
+    .DESCRIPTION
+        A triple is a candidate when the parameter is pipeline-bound, IS A SELECTOR (its wire
+        key targets queryParams, not the request body), is scalar-shaped, and neither its name
+        nor any alias matches a field the producer actually returns.
+
+        The selector-hood gate is load-bearing. Measured across the module the type filter
+        alone takes 303 pipeline-bound pairs to 302 -- it discriminates essentially nothing,
+        because nearly every pipeline-bound parameter here is already string-shaped. Without
+        the gate the predicate admits request-body properties and the candidate rate inflates
+        into the vacuous range that made #89's 37-cmdlet list worthless.
+
+        This function DECIDES NOTHING about defects. It selects what the harness puts on
+        trial.
+    .OUTPUTS
+        [PSCustomObject]@{ Cmdlet; Verb; Parameter; Aliases; ValueFromPipeline; Producer;
+        WireName; WireSurface; MatchedField; MatchedVersion; IsCandidate; Gate }
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object[]]$PipelineParameter,
+        [Parameter(Mandatory)][object[]]$Inventory,
+        [Parameter(Mandatory)][hashtable]$ProducerSet,
+        [Parameter(Mandatory)]$ResponseShapeMap
+    )
+
+    $inventoryIndex = @{}
+    foreach ($record in $Inventory) { $inventoryIndex["$($record.Cmdlet)/$($record.Parameter)"] = $record }
+
+    $results = [System.Collections.Generic.List[object]]::new()
+
+    foreach ($parameter in $PipelineParameter) {
+        $set = $ProducerSet[$parameter.Cmdlet]
+        if (-not $set -or -not $set.Producers) { continue }
+
+        $inventoryRecord = $inventoryIndex["$($parameter.Cmdlet)/$($parameter.Parameter)"]
+        $wireName = if ($inventoryRecord) { $inventoryRecord.WireName } else { $null }
+        $wireSurface = if ($inventoryRecord) { $inventoryRecord.WireSurface } else { 'Unresolved' }
+
+        $names = @($parameter.Parameter) + @($parameter.Aliases)
+
+        foreach ($producer in $set.Producers) {
+            $itemProperties = @($ResponseShapeMap.endpoints.$producer.responseItemProperties.PSObject.Properties)
+            # -in on strings is case-insensitive, which is the comparison PowerShell itself
+            # uses for property-name binding.
+            $match = @($itemProperties | Where-Object { $_.Name -in $names }) | Select-Object -First 1
+
+            $gate =
+            if ($wireSurface -eq 'Body') { 'NotSelector' }
+            elseif ($wireSurface -eq 'Unresolved') { 'SelectorUnresolved' }
+            elseif ($parameter.ParameterType -notin 'String', 'String[]') { 'NotScalar' }
+            elseif ($match) { 'Matched' }
+            else { 'Candidate' }
+
+            $results.Add([PSCustomObject]@{
+                    Cmdlet            = $parameter.Cmdlet
+                    Verb              = $parameter.Verb
+                    Parameter         = $parameter.Parameter
+                    Aliases           = $parameter.Aliases
+                    ValueFromPipeline = $parameter.ValueFromPipeline
+                    Producer          = $producer
+                    WireName          = $wireName
+                    WireSurface       = $wireSurface
+                    MatchedField      = if ($match) { $match.Name } else { $null }
+                    MatchedVersion    = if ($match) { $match.Value } else { $null }
+                    IsCandidate       = ($gate -eq 'Candidate')
+                    Gate              = $gate
+                })
+        }
+    }
+
+    return @($results | Sort-Object -Property Cmdlet, Parameter, Producer -Culture '')
+}
