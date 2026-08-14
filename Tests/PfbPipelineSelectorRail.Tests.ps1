@@ -41,6 +41,40 @@ BeforeAll {
     $script:reportPath = Join-Path $script:repoRoot 'Reports/PfbPipelineSelectorMap.json'
     $script:waiverPath = Join-Path $script:repoRoot 'Tests/Fixtures/PfbSelectorWaivers.psd1'
 
+    # Defined in BeforeAll, not at file scope: file-scope code runs during DISCOVERY, and a
+    # function left behind there is not in scope when the run phase executes an It. Verified --
+    # the file-scope form failed with "the term ... is not recognized".
+    function Get-PfbSelectorArtifactHash {
+        <#
+        .SYNOPSIS
+            Hashes a generated report with its line endings normalised, so Rail B measures drift
+            in the report rather than the checkout's newline policy.
+        .DESCRIPTION
+            Git checks these artifacts out with the platform's endings -- core.autocrlf is true
+            on the GitHub Windows runners -- while the generator joins the Markdown with a hard
+            "`n". A raw byte hash therefore compares a CRLF working copy against LF regenerated
+            output and fails on Windows while Linux and macOS pass on an identical report, which
+            is what run 31830362870 did. The JSON leg only passed there by accident:
+            ConvertTo-Json emits CRLF on Windows, so it happened to match the CRLF checkout, and
+            it would have failed the other way round for anyone with core.autocrlf=false.
+            Normalise both, not the one that happened to break.
+
+            Reading through ReadAllText also drops a byte-order mark, so a BOM difference between
+            editions is likewise not treated as drift. Content is what this rail asserts.
+        #>
+        [CmdletBinding()]
+        param([Parameter(Mandatory)][string]$Path)
+
+        $text = [System.IO.File]::ReadAllText($Path) -replace "`r`n", "`n"
+        $stream = [System.IO.MemoryStream]::new([System.Text.Encoding]::UTF8.GetBytes($text))
+        try {
+            (Get-FileHash -InputStream $stream -Algorithm SHA256).Hash
+        }
+        finally {
+            $stream.Dispose()
+        }
+    }
+
     if ($PSVersionTable.PSVersion.Major -ge 7) {
         . (Join-Path $script:repoRoot 'tools/lib/PfbPipelineSelectorTools.ps1')
         . (Join-Path $script:repoRoot 'tools/lib/PfbSelectorProbeHarness.ps1')
@@ -239,16 +273,17 @@ Describe 'Rail B - committed map matches regeneration' -Skip:($PSVersionTable.PS
         $script:specCount | Should -Be 29
     }
 
-    It 'regenerates the report byte for byte, JSON and Markdown alike' -Skip:($specCountAtDiscovery -eq 0) {
+    It 'regenerates the report identically, JSON and Markdown alike' -Skip:($specCountAtDiscovery -eq 0) {
         $temp = Join-Path $TestDrive 'regen.json'
         & (Join-Path $script:repoRoot 'tools/Build-PfbPipelineSelectorMap.ps1') -OutputPath $temp
 
-        (Get-FileHash $temp).Hash |
-            Should -Be (Get-FileHash (Join-Path $script:repoRoot 'Reports/PfbPipelineSelectorMap.json')).Hash
+        # Line-ending-normalised, not byte-for-byte -- see Get-PfbSelectorArtifactHash.
+        Get-PfbSelectorArtifactHash $temp |
+            Should -Be (Get-PfbSelectorArtifactHash (Join-Path $script:repoRoot 'Reports/PfbPipelineSelectorMap.json'))
 
         # The .md is written alongside the JSON with the same base name, and it is the artifact a
         # human reads -- drift there is just as much drift.
-        (Get-FileHash ([System.IO.Path]::ChangeExtension($temp, '.md'))).Hash |
-            Should -Be (Get-FileHash (Join-Path $script:repoRoot 'Reports/PfbPipelineSelectorMap.md')).Hash
+        Get-PfbSelectorArtifactHash ([System.IO.Path]::ChangeExtension($temp, '.md')) |
+            Should -Be (Get-PfbSelectorArtifactHash (Join-Path $script:repoRoot 'Reports/PfbPipelineSelectorMap.md'))
     }
 }
