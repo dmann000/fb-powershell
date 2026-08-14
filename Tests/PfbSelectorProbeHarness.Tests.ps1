@@ -40,6 +40,47 @@ Describe 'Harness isolation (fail-closed)' {
     }
 }
 
+Describe 'Harness never prompts' {
+
+    It 'refuses to invoke a cmdlet whose mandatory parameters a probe cannot supply' {
+        # Update-PfbSmbShareRule declares one parameter set whose mandatory parameters are
+        # Name and Attributes. A probe object can never supply -Attributes, so invoking it
+        # blocked the sweep on "Supply values for the following parameters:" -- a prompt
+        # rendered on the user's desktop that the sweep can neither see nor answer.
+        $probe = [PSCustomObject]@{ id = 'PROBE-id'; name = 'PROBE-name' }
+        $result = Invoke-PfbSelectorProbe -Module $script:module -Cmdlet 'Update-PfbSmbShareRule' -ProbeObject $probe
+
+        $result.Error | Should -Match 'would prompt for an unbound mandatory parameter'
+        $result.Error | Should -Match 'Attributes'
+        @($result.Calls).Count | Should -Be 0
+    }
+
+    It 'still invokes a cmdlet whose mandatory parameters the probe does supply' {
+        $probe = [PSCustomObject]@{ id = 'PROBE-id'; name = 'PROBE-name' }
+        $result = Invoke-PfbSelectorProbe -Module $script:module -Cmdlet 'Get-PfbFileSystem' -ProbeObject $probe
+
+        $result.Error | Should -BeNullOrEmpty
+        @($result.Calls).Count | Should -Be 1
+    }
+
+    It 'reports every pipeline-bound cmdlet as either bindable or explicitly refused' {
+        # A sweep-wide guarantee: no cmdlet reaches invocation with an unsatisfiable mandatory
+        # parameter, so no probe can ever block on a console prompt.
+        . (Join-Path $script:repoRoot 'tools/lib/PfbPipelineSelectorTools.ps1')
+        $bound = Get-PfbPipelineBoundParameter -Module $script:module
+        $probe = [PSCustomObject]@{ id = 'PROBE-id'; name = 'PROBE-name' }
+
+        $unclassified = @(foreach ($cmdlet in ($bound.Cmdlet | Sort-Object -Unique)) {
+                $command = Get-Command -Name $cmdlet -Module $script:module.Name
+                $verdict = Test-PfbSelectorProbeBindable -Command $command -ProbeObject $probe `
+                    -SuppliedArgument @('Array', 'Confirm')
+                if ($null -eq $verdict.Bindable) { $cmdlet }
+            })
+
+        $unclassified | Should -BeNullOrEmpty
+    }
+}
+
 Describe 'Harness behavioural self-test' {
 
     It 'reproduces the documented #64 result: a connection object binds -Id and emits ids' {

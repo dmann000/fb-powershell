@@ -226,6 +226,21 @@ Describe 'Outcome classification' {
         $outcome.Outcome | Should -Be 'WrongScalar'
     }
 
+    It 'does not attribute another parameter''s correct binding to this row' {
+        # Measured false positive: Get-PfbArrayConnectionPath's -RemoteName row was reported
+        # WrongScalar on evidence "ids=PROBE-id" -- which is -Id binding exactly as it should,
+        # while remote_names was never emitted at all. The verdict must come from this
+        # parameter's OWN wire key.
+        $probe = [PSCustomObject]@{ id = 'PROBE-id'; status = 'PROBE-status' }
+        $result = [PSCustomObject]@{
+            Calls = @([PSCustomObject]@{ Method = 'GET'; Endpoint = 'x'; QueryParams = @{ ids = 'PROBE-id' } })
+            Error = $null
+        }
+        $outcome = Get-PfbSelectorOutcome -ProbeResult $result -Parameter 'RemoteName' -WireName 'remote_names' `
+            -ProbeObject $probe -Alias @('Name')
+        $outcome.Outcome | Should -Be 'NoSelector'
+    }
+
     It 'classifies a guard throw as Guarded, not a defect' {
         $result = [PSCustomObject]@{ Calls = @(); Error = 'Refusing to send a stringified object as remote_names.' }
         $outcome = Get-PfbSelectorOutcome -ProbeResult $result -Parameter 'RemoteName' -WireName 'remote_names' `

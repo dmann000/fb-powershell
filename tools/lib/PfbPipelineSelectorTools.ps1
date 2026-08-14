@@ -9,6 +9,69 @@
     own file so the function-table mutation it performs stays small and auditable.
 #>
 
+function Sort-PfbSelectorRecord {
+    <#
+    .SYNOPSIS
+        Sorts records ORDINALLY by the given properties, joined with a separator no field
+        can contain.
+    .DESCRIPTION
+        Sort-Object -Culture '' is invariant LINGUISTIC comparison, and the two editions this
+        repo gates on do not agree on it: measured, Windows PowerShell 5.1 (.NET Framework)
+        orders 'GET /policies/file-systems' before 'GET /policies/file-system-snapshots'
+        because its collation ignores the hyphen, while PowerShell 7 (.NET Core / ICU) orders
+        them the other way. StringComparer.Ordinal returns the same -70 on both.
+
+        That difference is invisible until an artifact is regenerated on the other edition,
+        at which point every row moves with zero semantic change -- the same class of churn
+        that issue #85 fixed. So anything this file emits is ordered ordinally.
+    .OUTPUTS
+        The input records, ordered.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Record,
+        [Parameter(Mandatory)][string[]]$Property
+    )
+
+    if ($Record.Count -le 1) { return @($Record) }
+
+    # A vertical tab cannot occur in a cmdlet name, parameter name or endpoint path, so it
+    # cannot let one field's tail masquerade as the next field's head.
+    $keys = [string[]]@($Record | ForEach-Object {
+            $row = $_
+            (@($Property | ForEach-Object { [string]$row.$_ }) -join "`v")
+        })
+    $items = [object[]]@($Record)
+    [array]::Sort($keys, $items, [System.StringComparer]::Ordinal)
+    return @($items)
+}
+
+function Sort-PfbSelectorString {
+    <#
+    .SYNOPSIS
+        Ordinal, de-duplicated sort of a string list. See Sort-PfbSelectorRecord for why
+        Sort-Object -Culture '' is not edition-stable and is therefore not used here.
+    .OUTPUTS
+        [string[]]
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][AllowNull()][string[]]$Value,
+        [switch]$Unique
+    )
+
+    $items = @($Value | Where-Object { $null -ne $_ })
+    if ($Unique) {
+        $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+        $items = @($items | Where-Object { $seen.Add($_) })
+    }
+    if ($items.Count -le 1) { return [string[]]@($items) }
+
+    $array = [string[]]@($items)
+    [array]::Sort($array, [System.StringComparer]::Ordinal)
+    return $array
+}
+
 function Get-PfbPipelineBoundParameter {
     <#
     .SYNOPSIS
@@ -54,9 +117,9 @@ function Get-PfbPipelineBoundParameter {
         }
     }
 
-    # Sorted at emit, invariant culture -- the same determinism rule the rest of tools/lib
-    # follows (issue #85), so a Linux runner and a Windows workstation agree byte for byte.
-    return @($results | Sort-Object -Property Cmdlet, Parameter -Culture '')
+    # Sorted at emit -- the same determinism rule the rest of tools/lib follows (issue #85),
+    # but ordinally, because the two gated editions disagree on invariant LINGUISTIC order.
+    return Sort-PfbSelectorRecord -Record $results -Property 'Cmdlet', 'Parameter'
 }
 
 function Get-PfbSelectorProducerIndex {
@@ -84,7 +147,7 @@ function Get-PfbSelectorProducerIndex {
     }
 
     $sorted = @{}
-    foreach ($family in $index.Keys) { $sorted[$family] = @($index[$family] | Sort-Object -Culture '') }
+    foreach ($family in $index.Keys) { $sorted[$family] = Sort-PfbSelectorString -Value $index[$family] }
     return $sorted
 }
 
@@ -110,7 +173,8 @@ function Get-PfbCmdletEndpointLiteral {
     foreach ($file in (Get-ChildItem -Path $PublicDirectory -Filter '*.ps1' -Recurse -File)) {
         $text = Get-Content -Path $file.FullName -Raw
         $endpoints = @([regex]::Matches($text, "-Endpoint\s+'([^']+)'") |
-                ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique -Culture '')
+                ForEach-Object { $_.Groups[1].Value })
+        $endpoints = Sort-PfbSelectorString -Value $endpoints -Unique
         foreach ($name in ([regex]::Matches($text, '(?m)^function\s+([\w-]+)') |
                 ForEach-Object { $_.Groups[1].Value })) {
             $map[$name] = $endpoints
@@ -151,7 +215,7 @@ function Get-PfbHelpExampleChain {
                 })
         }
     }
-    return @($chains | Sort-Object -Property File, Producer, Consumer -Culture '')
+    return Sort-PfbSelectorRecord -Record $chains -Property 'File', 'Producer', 'Consumer'
 }
 
 function Get-PfbSelectorProducerSet {
@@ -176,7 +240,7 @@ function Get-PfbSelectorProducerSet {
     )
 
     $own = @($EndpointLiteral[$Cmdlet])
-    $families = @($own | ForEach-Object { ($_.TrimStart('/') -split '/')[0] } | Sort-Object -Unique -Culture '')
+    $families = Sort-PfbSelectorString -Value @($own | ForEach-Object { ($_.TrimStart('/') -split '/')[0] }) -Unique
 
     $producers = [System.Collections.Generic.List[string]]::new()
     foreach ($family in $families) {
@@ -198,9 +262,9 @@ function Get-PfbSelectorProducerSet {
     }
 
     return [PSCustomObject]@{
-        Producers   = @($producers | Sort-Object -Unique -Culture '')
-        Primary     = @($primary | Sort-Object -Unique -Culture '')
-        FromExample = @($fromExample | Sort-Object -Unique -Culture '')
+        Producers   = Sort-PfbSelectorString -Value $producers -Unique
+        Primary     = Sort-PfbSelectorString -Value $primary -Unique
+        FromExample = Sort-PfbSelectorString -Value $fromExample -Unique
     }
 }
 
@@ -278,7 +342,7 @@ function Get-PfbSelectorCandidate {
         }
     }
 
-    return @($results | Sort-Object -Property Cmdlet, Parameter, Producer -Culture '')
+    return Sort-PfbSelectorRecord -Record $results -Property 'Cmdlet', 'Parameter', 'Producer'
 }
 
 function Get-PfbResponseItemType {
@@ -390,7 +454,7 @@ function New-PfbSelectorProbeObject {
     )
 
     $ordered = [ordered]@{}
-    foreach ($name in ($ItemProperty | Sort-Object -Culture '')) {
+    foreach ($name in (Sort-PfbSelectorString -Value $ItemProperty)) {
         $type = if ($ItemType.ContainsKey($name)) { $ItemType[$name] } else { 'string' }
         $ordered[$name] = switch ($type) {
             'object' { [PSCustomObject]@{ id = "PROBE-$name-id"; name = "PROBE-$name-name" } }
@@ -451,34 +515,60 @@ function Get-PfbSelectorOutcome {
     $sentinels = @{}
     foreach ($property in $ProbeObject.PSObject.Properties) { $sentinels["PROBE-$($property.Name)"] = $property.Name }
 
+    if ([string]::IsNullOrEmpty($WireName)) {
+        return [PSCustomObject]@{
+            Outcome      = 'NoSelector'
+            Evidence     = 'the parameter resolves to no wire key, so nothing can be attributed to it'
+            BoundWireKey = $null
+            BoundValue   = $null
+        }
+    }
+
+    # The verdict is read from THIS parameter's OWN wire key, never from whichever key happens
+    # to be enumerated first. Scanning every key made a row claim another parameter's correct
+    # binding as its own defect -- measured: Get-PfbArrayConnectionPath's -RemoteName row was
+    # reported WrongScalar on evidence "ids=PROBE-id", which is -Id binding exactly as it
+    # should while remote_names was never emitted at all. It also re-counted one coercion once
+    # per pipeline-bound parameter on the cmdlet, inflating the finding count with no
+    # additional defect, and it depended on hashtable enumeration order, so the verdict was
+    # not even stable between runs.
     foreach ($call in $ProbeResult.Calls) {
-        if (-not $call.QueryParams) { continue }
-        foreach ($key in @($call.QueryParams.Keys)) {
-            $value = [string]$call.QueryParams[$key]
-            if ([string]::IsNullOrEmpty($value)) { continue }
+        if (-not $call.QueryParams -or -not $call.QueryParams.ContainsKey($WireName)) { continue }
 
-            # A stringified PSCustomObject renders as @{a=1; b=2}.
-            if ($value.Contains('@{')) {
-                return [PSCustomObject]@{
-                    Outcome = 'Coerced'; Evidence = $value; BoundWireKey = $key; BoundValue = $value
-                }
-            }
+        $value = [string]$call.QueryParams[$WireName]
+        if ([string]::IsNullOrEmpty($value)) { continue }
 
-            foreach ($piece in ($value -split ',')) {
-                if (-not $sentinels.ContainsKey($piece)) { continue }
-                $sourceProperty = $sentinels[$piece]
-                $expected = ($sourceProperty -eq $Parameter) -or ($sourceProperty -in $Alias)
-                return [PSCustomObject]@{
-                    Outcome      = if ($expected) { 'Bound' } else { 'WrongScalar' }
-                    Evidence     = "$key=$value (from property '$sourceProperty')"
-                    BoundWireKey = $key
-                    BoundValue   = $value
-                }
+        # A stringified PSCustomObject renders as @{a=1; b=2}.
+        if ($value.Contains('@{')) {
+            return [PSCustomObject]@{
+                Outcome = 'Coerced'; Evidence = "$WireName=$value"; BoundWireKey = $WireName; BoundValue = $value
             }
+        }
+
+        foreach ($piece in ($value -split ',')) {
+            if (-not $sentinels.ContainsKey($piece)) { continue }
+            $sourceProperty = $sentinels[$piece]
+            $expected = ($sourceProperty -eq $Parameter) -or ($sourceProperty -in $Alias)
+            return [PSCustomObject]@{
+                Outcome      = if ($expected) { 'Bound' } else { 'WrongScalar' }
+                Evidence     = "$WireName=$value (from property '$sourceProperty')"
+                BoundWireKey = $WireName
+                BoundValue   = $value
+            }
+        }
+
+        return [PSCustomObject]@{
+            Outcome      = 'NoSelector'
+            Evidence     = "$WireName=$value carries no probe sentinel, so it did not come from the piped object"
+            BoundWireKey = $WireName
+            BoundValue   = $value
         }
     }
 
     return [PSCustomObject]@{
-        Outcome = 'NoSelector'; Evidence = 'request carried no selector key'; BoundWireKey = $null; BoundValue = $null
+        Outcome      = 'NoSelector'
+        Evidence     = "the request carried no '$WireName' key, so this parameter did not bind"
+        BoundWireKey = $null
+        BoundValue   = $null
     }
 }

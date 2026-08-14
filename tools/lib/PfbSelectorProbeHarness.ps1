@@ -91,6 +91,63 @@ function Get-PfbSelectorCapture {
     return @(& $Module { $script:PfbSelectorProbeCapture.ToArray() })
 }
 
+function Test-PfbSelectorProbeBindable {
+    <#
+    .SYNOPSIS
+        Can -Command run to completion without PROMPTING for a mandatory parameter?
+    .DESCRIPTION
+        SAFETY, not tidiness. A [Parameter(Mandatory)] parameter that goes unbound throws a
+        ParameterBindingException in a non-interactive host but PROMPTS AND BLOCKS in a real
+        console -- and the prompt renders on the user's desktop while the agent driving the
+        sweep sees nothing at all. Measured: Update-PfbSmbShareRule declares one parameter set
+        whose mandatory parameters are Name and Attributes; a probe object can never supply
+        -Attributes, so the sweep stopped dead on "cmdlet Update-PfbSmbShareRule at command
+        pipeline position 1 / Supply values for the following parameters:".
+
+        A parameter set is satisfiable when every one of its mandatory parameters is either
+        passed explicitly by the harness, or bindable from the probe object -- by property
+        name (name or alias matching a probe property) or by taking the whole object by value.
+        If NO set is satisfiable the cmdlet is never invoked at all.
+    .OUTPUTS
+        [PSCustomObject]@{ Bindable (bool); Reason (string) }
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][System.Management.Automation.CommandInfo]$Command,
+        [Parameter(Mandatory)][PSCustomObject]$ProbeObject,
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$SuppliedArgument
+    )
+
+    $probeProperty = @($ProbeObject.PSObject.Properties.Name)
+    $unsatisfied = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($set in $Command.ParameterSets) {
+        $missing = [System.Collections.Generic.List[string]]::new()
+
+        foreach ($parameter in @($set.Parameters | Where-Object { $_.IsMandatory })) {
+            if ($parameter.Name -in $SuppliedArgument) { continue }
+            if ($parameter.ValueFromPipeline) { continue }
+
+            if ($parameter.ValueFromPipelineByPropertyName) {
+                $names = @($parameter.Name) + @($parameter.Aliases)
+                if (@($names | Where-Object { $_ -in $probeProperty }).Count) { continue }
+            }
+
+            $missing.Add($parameter.Name)
+        }
+
+        if (-not $missing.Count) {
+            return [PSCustomObject]@{ Bindable = $true; Reason = $null }
+        }
+        $unsatisfied.Add("$($set.Name): $($missing -join ', ')")
+    }
+
+    return [PSCustomObject]@{
+        Bindable = $false
+        Reason   = "would prompt for an unbound mandatory parameter -- $($unsatisfied -join ' | ')"
+    }
+}
+
 function Invoke-PfbSelectorProbe {
     <#
     .SYNOPSIS
@@ -117,6 +174,15 @@ function Invoke-PfbSelectorProbe {
     $arguments = @{ Array = $script:PfbHarnessFakeArray } + $ExtraArgument
     $command = Get-Command -Name $Cmdlet -Module $Module.Name -ErrorAction Stop
     if ($command.Parameters.ContainsKey('Confirm')) { $arguments['Confirm'] = $false }
+
+    # Refuse to invoke anything that would prompt. In a real console an unbound mandatory
+    # parameter blocks on a prompt rendered to the user's desktop, which the sweep cannot see
+    # and cannot answer. Reported as a BindError, which is a triage outcome, not a finding.
+    $bindable = Test-PfbSelectorProbeBindable -Command $command -ProbeObject $ProbeObject `
+        -SuppliedArgument @($arguments.Keys)
+    if (-not $bindable.Bindable) {
+        return [PSCustomObject]@{ Calls = @(); Error = $bindable.Reason }
+    }
 
     $errorText = $null
     try {
