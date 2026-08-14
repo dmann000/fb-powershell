@@ -284,11 +284,25 @@ function Get-PfbSelectorCandidate {
         key targets queryParams, not the request body), is scalar-shaped, and neither its name
         nor any alias matches a field the producer actually returns.
 
-        The selector-hood gate is load-bearing. Measured across the module the type filter
-        alone takes 303 pipeline-bound pairs to 302 -- it discriminates essentially nothing,
-        because nearly every pipeline-bound parameter here is already string-shaped. Without
-        the gate the predicate admits request-body properties and the candidate rate inflates
-        into the vacuous range that made #89's 37-cmdlet list worthless.
+        MEASURED CONTRIBUTION OF EACH GATE, against the real module -- recorded because the
+        design's original justification for the selector-hood gate turned out to be wrong, and
+        a gate nobody has measured is a gate nobody should trust:
+
+          - 'NotSelector' (targets the request body): excluded 0 rows. NO pipeline-bound
+            parameter in this module targets the body -- 291 of 303 pairs resolve to Query and
+            the remaining 12 do not resolve at all. The design predicted this gate would keep
+            body properties out of the candidate set and that omitting it would inflate the
+            rate into #89's vacuous range. That is FALSIFIED: there is nothing for it to
+            exclude. Keep it as a guard against a future body-bound pipeline parameter, not
+            because it is doing work today.
+          - 'SelectorUnresolved' (no wire name resolvable): excluded 34 rows / 11 pairs. This
+            is the surface gate's entire real contribution.
+          - 'NotScalar': excluded 0 rows. 302 of 303 pipeline-bound parameters are already
+            String or String[]; the single PSObject one is caught by SelectorUnresolved first.
+
+        So the discrimination that took 1145 evaluated rows down to 565 candidates comes
+        almost entirely from the name/alias-versus-response-field comparison, not from the
+        shape gates.
 
         This function DECIDES NOTHING about defects. It selects what the harness puts on
         trial.
