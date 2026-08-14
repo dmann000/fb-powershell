@@ -58,3 +58,148 @@ function Get-PfbPipelineBoundParameter {
     # follows (issue #85), so a Linux runner and a Windows workstation agree byte for byte.
     return @($results | Sort-Object -Property Cmdlet, Parameter -Culture '')
 }
+
+function Get-PfbSelectorProducerIndex {
+    <#
+    .SYNOPSIS
+        Indexes every GET endpoint in the response-shape map by its first path segment.
+    .OUTPUTS
+        [hashtable] family -> string[] of 'GET /path' keys, each list sorted.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $ResponseShapeMap
+    )
+
+    $index = @{}
+    foreach ($key in $ResponseShapeMap.endpoints.PSObject.Properties.Name) {
+        if ($key -notlike 'GET *') { continue }
+        $path = ($key -split ' ', 2)[1].TrimStart('/')
+        $family = ($path -split '/')[0]
+        if (-not $index.ContainsKey($family)) {
+            $index[$family] = [System.Collections.Generic.List[string]]::new()
+        }
+        $index[$family].Add($key)
+    }
+
+    $sorted = @{}
+    foreach ($family in $index.Keys) { $sorted[$family] = @($index[$family] | Sort-Object -Culture '') }
+    return $sorted
+}
+
+function Get-PfbCmdletEndpointLiteral {
+    <#
+    .SYNOPSIS
+        Maps each function under -PublicDirectory to the -Endpoint literals it passes to
+        Invoke-PfbApiRequest.
+    .DESCRIPTION
+        Every cmdlet in this repo passes -Endpoint as a literal single-quoted string; this
+        deliberately recognises nothing else, matching Get-PfbEndpointForVariable's
+        "never guess" discipline.
+    .OUTPUTS
+        [hashtable] cmdlet -> string[] of endpoint literals.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$PublicDirectory
+    )
+
+    $map = @{}
+    foreach ($file in (Get-ChildItem -Path $PublicDirectory -Filter '*.ps1' -Recurse -File)) {
+        $text = Get-Content -Path $file.FullName -Raw
+        $endpoints = @([regex]::Matches($text, "-Endpoint\s+'([^']+)'") |
+                ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique -Culture '')
+        foreach ($name in ([regex]::Matches($text, '(?m)^function\s+([\w-]+)') |
+                ForEach-Object { $_.Groups[1].Value })) {
+            $map[$name] = $endpoints
+        }
+    }
+    return $map
+}
+
+function Get-PfbHelpExampleChain {
+    <#
+    .SYNOPSIS
+        Every 'Producer-Pfb... | Consumer-Pfb...' chain written literally in comment-based
+        help under -PublicDirectory.
+    .DESCRIPTION
+        A chain the module advertises in its own help is a chain the module owes, whether or
+        not the two cmdlets share a resource family -- Get-PfbFileSystem |
+        New-PfbFileSystemSnapshot is exactly such a case, and family resolution alone misses
+        it. This is the audit's second, independent producer source.
+    .OUTPUTS
+        [PSCustomObject]@{ File; Producer; Consumer; Line }
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$PublicDirectory
+    )
+
+    $chains = [System.Collections.Generic.List[object]]::new()
+    foreach ($file in (Get-ChildItem -Path $PublicDirectory -Filter '*.ps1' -Recurse -File)) {
+        foreach ($line in (Get-Content -Path $file.FullName)) {
+            $match = [regex]::Match($line, '\b(\w+-Pfb\w+)\b[^|]*\|\s*(\w+-Pfb\w+)\b')
+            if (-not $match.Success) { continue }
+            $chains.Add([PSCustomObject]@{
+                    File     = $file.Name
+                    Producer = $match.Groups[1].Value
+                    Consumer = $match.Groups[2].Value
+                    Line     = $line.Trim()
+                })
+        }
+    }
+    return @($chains | Sort-Object -Property File, Producer, Consumer -Culture '')
+}
+
+function Get-PfbSelectorProducerSet {
+    <#
+    .SYNOPSIS
+        The GET endpoints whose items can plausibly be piped into -Cmdlet.
+    .DESCRIPTION
+        Family members share the consumer's first path segment. Primary is the GET on the
+        consumer's own base path -- the endpoint a user would obviously pipe from. Both are
+        reported: "fails every producer in family" and "fails its primary producer" are
+        different signals (measured at 50 and 67 pairs) and neither is collapsed into the
+        other.
+    .OUTPUTS
+        [PSCustomObject]@{ Producers; Primary; FromExample }
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Cmdlet,
+        [Parameter(Mandatory)][hashtable]$EndpointLiteral,
+        [Parameter(Mandatory)][hashtable]$ProducerIndex,
+        [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$ExampleChain
+    )
+
+    $own = @($EndpointLiteral[$Cmdlet])
+    $families = @($own | ForEach-Object { ($_.TrimStart('/') -split '/')[0] } | Sort-Object -Unique -Culture '')
+
+    $producers = [System.Collections.Generic.List[string]]::new()
+    foreach ($family in $families) {
+        if ($ProducerIndex.ContainsKey($family)) { $producers.AddRange([string[]]$ProducerIndex[$family]) }
+    }
+
+    $primary = @($own | ForEach-Object { "GET /$($_.TrimStart('/'))" } | Where-Object { $_ -in $producers })
+
+    # A help example names a producer CMDLET; translate it to that cmdlet's own GET endpoint.
+    $fromExample = [System.Collections.Generic.List[string]]::new()
+    foreach ($chain in @($ExampleChain | Where-Object { $_.Consumer -eq $Cmdlet })) {
+        foreach ($endpoint in @($EndpointLiteral[$chain.Producer])) {
+            $key = "GET /$($endpoint.TrimStart('/'))"
+            if ($ProducerIndex.Values | ForEach-Object { $_ } | Where-Object { $_ -eq $key }) {
+                $fromExample.Add($key)
+                if ($key -notin $producers) { $producers.Add($key) }
+            }
+        }
+    }
+
+    return [PSCustomObject]@{
+        Producers   = @($producers | Sort-Object -Unique -Culture '')
+        Primary     = @($primary | Sort-Object -Unique -Culture '')
+        FromExample = @($fromExample | Sort-Object -Unique -Culture '')
+    }
+}
