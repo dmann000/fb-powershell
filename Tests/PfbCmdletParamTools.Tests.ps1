@@ -1342,3 +1342,33 @@ function Test-Fixture {
         Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Param' -IsBooleanLikeParameter | Should -BeNullOrEmpty
     }
 }
+
+Describe 'Get-PfbCmdletParameterInventory - wire surface' {
+    BeforeAll {
+        $script:inventoryRoot = Join-Path $TestDrive 'WireSurface/Public'
+        New-Item -ItemType Directory -Path $script:inventoryRoot -Force | Out-Null
+        Set-Content -Path (Join-Path $script:inventoryRoot 'Get-Thing.ps1') -Value @"
+function Get-Thing {
+    param([string[]]`$Name, [string]`$Description)
+    `$queryParams = @{}
+    `$queryParams['names'] = `$Name -join ','
+    `$body = @{}
+    `$body['description'] = `$Description
+    Invoke-PfbApiRequest -Method GET -Endpoint 'things' -QueryParams `$queryParams -Body `$body
+}
+"@
+        $script:wireInventory = Get-PfbCmdletParameterInventory -PublicDirectory $script:inventoryRoot
+    }
+
+    It 'classifies a queryParams-targeted parameter as Query' {
+        $rec = $script:wireInventory | Where-Object { $_.Parameter -eq 'Name' }
+        $rec.TargetVariable | Should -Be 'queryParams'
+        $rec.WireSurface    | Should -Be 'Query'
+    }
+
+    It 'classifies a body-targeted parameter as Body' {
+        $rec = $script:wireInventory | Where-Object { $_.Parameter -eq 'Description' }
+        $rec.TargetVariable | Should -Be 'body'
+        $rec.WireSurface    | Should -Be 'Body'
+    }
+}
