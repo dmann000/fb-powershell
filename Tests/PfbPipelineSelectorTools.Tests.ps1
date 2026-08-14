@@ -168,3 +168,85 @@ Describe 'Probe construction' {
         , $probe.replication_addresses | Should -BeOfType [System.Object[]]
     }
 }
+
+Describe 'Outcome classification' {
+    It 'classifies a whole-object stringification as Coerced' {
+        $probe = [PSCustomObject]@{ id = 'PROBE-id'; status = 'PROBE-status' }
+        $result = [PSCustomObject]@{
+            Calls = @([PSCustomObject]@{ Method = 'GET'; Endpoint = 'x'; QueryParams = @{ remote_names = '@{id=PROBE-id; status=PROBE-status}' } })
+            Error = $null
+        }
+        $outcome = Get-PfbSelectorOutcome -ProbeResult $result -Parameter 'RemoteName' -WireName 'remote_names' -ProbeObject $probe
+        $outcome.Outcome | Should -Be 'Coerced'
+    }
+
+    It 'classifies the matching sentinel as Bound' {
+        $probe = [PSCustomObject]@{ id = 'PROBE-id' }
+        $result = [PSCustomObject]@{
+            Calls = @([PSCustomObject]@{ Method = 'GET'; Endpoint = 'x'; QueryParams = @{ ids = 'PROBE-id' } })
+            Error = $null
+        }
+        $outcome = Get-PfbSelectorOutcome -ProbeResult $result -Parameter 'Id' -WireName 'ids' -ProbeObject $probe
+        $outcome.Outcome | Should -Be 'Bound'
+    }
+
+    It 'classifies a sentinel from the wrong property as WrongScalar' {
+        $probe = [PSCustomObject]@{ id = 'PROBE-id'; status = 'PROBE-status' }
+        $result = [PSCustomObject]@{
+            Calls = @([PSCustomObject]@{ Method = 'GET'; Endpoint = 'x'; QueryParams = @{ names = 'PROBE-status' } })
+            Error = $null
+        }
+        $outcome = Get-PfbSelectorOutcome -ProbeResult $result -Parameter 'Name' -WireName 'names' -ProbeObject $probe
+        $outcome.Outcome | Should -Be 'WrongScalar'
+    }
+
+    It 'treats a sentinel sourced from a declared alias as Bound' {
+        # Get-PfbArrayConnectionPath's -RemoteName carries the alias Name, so a piped `name`
+        # property binds it correctly even though the two names differ.
+        $probe = [PSCustomObject]@{ id = 'PROBE-id'; name = 'PROBE-name' }
+        $result = [PSCustomObject]@{
+            Calls = @([PSCustomObject]@{ Method = 'GET'; Endpoint = 'x'; QueryParams = @{ remote_names = 'PROBE-name' } })
+            Error = $null
+        }
+        $outcome = Get-PfbSelectorOutcome -ProbeResult $result -Parameter 'RemoteName' -WireName 'remote_names' `
+            -ProbeObject $probe -Alias @('Name')
+        $outcome.Outcome | Should -Be 'Bound'
+    }
+
+    It 'does not let a matching wire key excuse a value from the wrong property' {
+        # The expected key carrying an unrelated property's sentinel IS the defect; a key
+        # match must never license a Bound verdict.
+        $probe = [PSCustomObject]@{ id = 'PROBE-id'; status = 'PROBE-status' }
+        $result = [PSCustomObject]@{
+            Calls = @([PSCustomObject]@{ Method = 'GET'; Endpoint = 'x'; QueryParams = @{ remote_names = 'PROBE-status' } })
+            Error = $null
+        }
+        $outcome = Get-PfbSelectorOutcome -ProbeResult $result -Parameter 'RemoteName' -WireName 'remote_names' `
+            -ProbeObject $probe -Alias @('Name')
+        $outcome.Outcome | Should -Be 'WrongScalar'
+    }
+
+    It 'classifies a guard throw as Guarded, not a defect' {
+        $result = [PSCustomObject]@{ Calls = @(); Error = 'Refusing to send a stringified object as remote_names.' }
+        $outcome = Get-PfbSelectorOutcome -ProbeResult $result -Parameter 'RemoteName' -WireName 'remote_names' `
+            -ProbeObject ([PSCustomObject]@{ status = 'PROBE-status' })
+        $outcome.Outcome | Should -Be 'Guarded'
+    }
+
+    It 'classifies a parameter-set failure as BindError' {
+        $result = [PSCustomObject]@{ Calls = @(); Error = 'Parameter set cannot be resolved using the specified named parameters.' }
+        $outcome = Get-PfbSelectorOutcome -ProbeResult $result -Parameter 'Name' -WireName 'names' `
+            -ProbeObject ([PSCustomObject]@{ id = 'PROBE-id' })
+        $outcome.Outcome | Should -Be 'BindError'
+    }
+
+    It 'classifies an emitted call carrying no selector key as NoSelector' {
+        $result = [PSCustomObject]@{
+            Calls = @([PSCustomObject]@{ Method = 'GET'; Endpoint = 'x'; QueryParams = @{ limit = 10 } })
+            Error = $null
+        }
+        $outcome = Get-PfbSelectorOutcome -ProbeResult $result -Parameter 'Name' -WireName 'names' `
+            -ProbeObject ([PSCustomObject]@{ id = 'PROBE-id' })
+        $outcome.Outcome | Should -Be 'NoSelector'
+    }
+}

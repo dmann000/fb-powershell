@@ -400,3 +400,85 @@ function New-PfbSelectorProbeObject {
     }
     return [PSCustomObject]$ordered
 }
+
+function Get-PfbSelectorOutcome {
+    <#
+    .SYNOPSIS
+        Classifies what a probe actually put on the wire.
+    .DESCRIPTION
+        Findings are Coerced and WrongScalar ONLY.
+
+        Guarded is #64's fix working, not a defect. NoSelector is a reported observation, not a
+        finding: if any selector is pipeline-bound then a non-matching object falls through to
+        pass 3 and coerces, so NoSelector can only occur where nothing is pipeline-bound -- in
+        which case the cmdlet never claimed to accept a chain and PowerShell simply runs it once
+        per piped item unfiltered.
+
+        Bound-vs-WrongScalar is decided by WHICH PROPERTY the value came from, never by which
+        wire key it landed on. A sentinel sourced from an unrelated property arriving on the
+        expected key is precisely the WrongScalar defect, so "the key matched" can never
+        license a Bound verdict. -Alias exists because property-name binding is legitimately
+        satisfied by an alias: Get-PfbArrayConnectionPath's -RemoteName carries the alias
+        Name, so a piped `name` property binds it correctly even though the names differ.
+    .PARAMETER Alias
+        The parameter's declared aliases. A sentinel sourced from one of these is Bound.
+    .OUTPUTS
+        [PSCustomObject]@{ Outcome; Evidence; BoundWireKey; BoundValue }
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$ProbeResult,
+        [Parameter(Mandatory)][string]$Parameter,
+        [Parameter(Mandatory)][AllowNull()][AllowEmptyString()][string]$WireName,
+        [Parameter(Mandatory)][PSCustomObject]$ProbeObject,
+        [AllowEmptyCollection()][string[]]$Alias = @()
+    )
+
+    if ($ProbeResult.Error) {
+        # -like would treat a backtick in the message as an escape character; use .Contains().
+        $outcome = if ($ProbeResult.Error.Contains('stringified object')) { 'Guarded' } else { 'BindError' }
+        return [PSCustomObject]@{
+            Outcome = $outcome; Evidence = $ProbeResult.Error; BoundWireKey = $null; BoundValue = $null
+        }
+    }
+
+    if (-not $ProbeResult.Calls) {
+        return [PSCustomObject]@{
+            Outcome = 'NoSelector'; Evidence = 'no request was constructed'; BoundWireKey = $null; BoundValue = $null
+        }
+    }
+
+    $sentinels = @{}
+    foreach ($property in $ProbeObject.PSObject.Properties) { $sentinels["PROBE-$($property.Name)"] = $property.Name }
+
+    foreach ($call in $ProbeResult.Calls) {
+        if (-not $call.QueryParams) { continue }
+        foreach ($key in @($call.QueryParams.Keys)) {
+            $value = [string]$call.QueryParams[$key]
+            if ([string]::IsNullOrEmpty($value)) { continue }
+
+            # A stringified PSCustomObject renders as @{a=1; b=2}.
+            if ($value.Contains('@{')) {
+                return [PSCustomObject]@{
+                    Outcome = 'Coerced'; Evidence = $value; BoundWireKey = $key; BoundValue = $value
+                }
+            }
+
+            foreach ($piece in ($value -split ',')) {
+                if (-not $sentinels.ContainsKey($piece)) { continue }
+                $sourceProperty = $sentinels[$piece]
+                $expected = ($sourceProperty -eq $Parameter) -or ($sourceProperty -in $Alias)
+                return [PSCustomObject]@{
+                    Outcome      = if ($expected) { 'Bound' } else { 'WrongScalar' }
+                    Evidence     = "$key=$value (from property '$sourceProperty')"
+                    BoundWireKey = $key
+                    BoundValue   = $value
+                }
+            }
+        }
+    }
+
+    return [PSCustomObject]@{
+        Outcome = 'NoSelector'; Evidence = 'request carried no selector key'; BoundWireKey = $null; BoundValue = $null
+    }
+}
