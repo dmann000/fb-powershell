@@ -27,6 +27,12 @@
     whole container rather than one test.
 #>
 
+# Discovery-phase, deliberately at file scope: Rail B's -Skip: expressions are evaluated while
+# Pester discovers the tests, so a count computed in any BeforeAll would still be $null by then
+# and the skip would never fire. Rail A is NOT gated on this -- see its Describe.
+$specCountAtDiscovery = @(Get-ChildItem (Join-Path (Split-Path -Parent $PSScriptRoot) 'tools/specs') `
+        -File -ErrorAction SilentlyContinue).Count
+
 BeforeAll {
     $script:repoRoot = Split-Path -Parent $PSScriptRoot
     $script:reportPath = Join-Path $script:repoRoot 'Reports/PfbPipelineSelectorMap.json'
@@ -150,5 +156,33 @@ Describe 'Rail A - no unwaived selector coercion' -Skip:($PSVersionTable.PSVersi
         # BindError is an OUTCOME, not an ErrorKind: Get-PfbSelectorOutcome classifies the
         # refusal, and $result.ErrorKind is null on every row of the committed report.
         @($script:measured | Where-Object { $_.Outcome -eq 'BindError' }).Count | Should -Be 2
+    }
+}
+
+Describe 'Rail B - committed map matches regeneration' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+
+    BeforeAll {
+        $script:specsDirectory = Join-Path $script:repoRoot 'tools/specs'
+        $script:specCount = @(Get-ChildItem $script:specsDirectory -File -ErrorAction SilentlyContinue).Count
+    }
+
+    It 'sees the whole spec cache when it is present' -Skip:($specCountAtDiscovery -eq 0) {
+        # Follows the existing drift-test convention: skip when the gitignored cache is absent,
+        # but never quietly run against a partial one -- a short cache produces a smaller map
+        # that would then be declared drift.
+        $script:specCount | Should -Be 29
+    }
+
+    It 'regenerates the report byte for byte, JSON and Markdown alike' -Skip:($specCountAtDiscovery -eq 0) {
+        $temp = Join-Path $TestDrive 'regen.json'
+        & (Join-Path $script:repoRoot 'tools/Build-PfbPipelineSelectorMap.ps1') -OutputPath $temp
+
+        (Get-FileHash $temp).Hash |
+            Should -Be (Get-FileHash (Join-Path $script:repoRoot 'Reports/PfbPipelineSelectorMap.json')).Hash
+
+        # The .md is written alongside the JSON with the same base name, and it is the artifact a
+        # human reads -- drift there is just as much drift.
+        (Get-FileHash ([System.IO.Path]::ChangeExtension($temp, '.md'))).Hash |
+            Should -Be (Get-FileHash (Join-Path $script:repoRoot 'Reports/PfbPipelineSelectorMap.md')).Hash
     }
 }
