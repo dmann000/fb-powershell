@@ -5,37 +5,46 @@
     issue #90 pipeline-selector audit.
 .DESCRIPTION
     Fixtures shared by more than one Describe live in the FILE-level BeforeAll below.
-    A Describe's own BeforeAll is not reliably visible to another Describe across the two
+    A Describe's own BeforeAll is not reliably visible to another Describe across the
     Pester/StrictMode combinations this repo gates on.
+
+    tools/lib/PfbPipelineSelectorTools.ps1 is #Requires -Version 7.0, so every Describe here
+    carries the same -Skip guard the other tools/ tests use -- and the file-level BeforeAll
+    guards its own body too, because a skipped Describe does not stop a file-level BeforeAll
+    from running and dot-sourcing a 7-only script on 5.1 kills the whole container.
 #>
 
 BeforeAll {
+    $script:isPwsh7 = $PSVersionTable.PSVersion.Major -ge 7
     $script:repoRoot = Split-Path -Parent $PSScriptRoot
-    . (Join-Path $script:repoRoot 'tools/lib/PfbPipelineSelectorTools.ps1')
-    . (Join-Path $script:repoRoot 'tools/lib/PfbCmdletParamTools.ps1')
 
-    $script:module = Import-Module (Join-Path $script:repoRoot 'PureStorageFlashBladePowerShell.psd1') -Force -PassThru
-    $script:bound = Get-PfbPipelineBoundParameter -Module $script:module
+    if ($script:isPwsh7) {
+        . (Join-Path $script:repoRoot 'tools/lib/PfbPipelineSelectorTools.ps1')
+        . (Join-Path $script:repoRoot 'tools/lib/PfbCmdletParamTools.ps1')
 
-    $script:shapeMap = Get-Content (Join-Path $script:repoRoot 'Data/PfbResponseShapeMap.json') -Raw |
-        ConvertFrom-Json
-    $script:producerIndex = Get-PfbSelectorProducerIndex -ResponseShapeMap $script:shapeMap
-    $script:endpointLiteral = Get-PfbCmdletEndpointLiteral -PublicDirectory (Join-Path $script:repoRoot 'Public')
-    $script:exampleChain = Get-PfbHelpExampleChain -PublicDirectory (Join-Path $script:repoRoot 'Public')
+        $script:module = Import-Module (Join-Path $script:repoRoot 'PureStorageFlashBladePowerShell.psd1') -Force -PassThru
+        $script:bound = Get-PfbPipelineBoundParameter -Module $script:module
 
-    $script:inventory = Get-PfbCmdletParameterInventory -PublicDirectory (Join-Path $script:repoRoot 'Public')
-    $script:producerSet = @{}
-    foreach ($cmd in ($script:bound.Cmdlet | Sort-Object -Unique)) {
-        $script:producerSet[$cmd] = Get-PfbSelectorProducerSet -Cmdlet $cmd `
-            -EndpointLiteral $script:endpointLiteral -ProducerIndex $script:producerIndex `
-            -ExampleChain $script:exampleChain
+        $script:shapeMap = Get-Content (Join-Path $script:repoRoot 'Data/PfbResponseShapeMap.json') -Raw |
+            ConvertFrom-Json
+        $script:producerIndex = Get-PfbSelectorProducerIndex -ResponseShapeMap $script:shapeMap
+        $script:endpointLiteral = Get-PfbCmdletEndpointLiteral -PublicDirectory (Join-Path $script:repoRoot 'Public')
+        $script:exampleChain = Get-PfbHelpExampleChain -PublicDirectory (Join-Path $script:repoRoot 'Public')
+
+        $script:inventory = Get-PfbCmdletParameterInventory -PublicDirectory (Join-Path $script:repoRoot 'Public')
+        $script:producerSet = @{}
+        foreach ($cmd in ($script:bound.Cmdlet | Sort-Object -Unique)) {
+            $script:producerSet[$cmd] = Get-PfbSelectorProducerSet -Cmdlet $cmd `
+                -EndpointLiteral $script:endpointLiteral -ProducerIndex $script:producerIndex `
+                -ExampleChain $script:exampleChain
+        }
+        $script:candidates = Get-PfbSelectorCandidate -PipelineParameter $script:bound `
+            -Inventory $script:inventory -ProducerSet $script:producerSet `
+            -ResponseShapeMap $script:shapeMap
     }
-    $script:candidates = Get-PfbSelectorCandidate -PipelineParameter $script:bound `
-        -Inventory $script:inventory -ProducerSet $script:producerSet `
-        -ResponseShapeMap $script:shapeMap
 }
 
-Describe 'Get-PfbPipelineBoundParameter' {
+Describe 'Get-PfbPipelineBoundParameter' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
 
     It 'finds pipeline-bound parameters that the bare attribute form declares' {
         # Get-PfbNode declares: [Parameter(ParameterSetName='ByName', ValueFromPipeline,
@@ -63,7 +72,7 @@ Describe 'Get-PfbPipelineBoundParameter' {
     }
 }
 
-Describe 'Producer resolution' {
+Describe 'Producer resolution' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
 
     It 'indexes GET endpoints by first path segment' {
         $script:producerIndex['array-connections'] | Should -Contain 'GET /array-connections'
@@ -98,7 +107,7 @@ Describe 'Producer resolution' {
     }
 }
 
-Describe 'Candidate predicate' {
+Describe 'Candidate predicate' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
 
     It 'flags the known #64 case as a candidate' {
         $rec = $script:candidates | Where-Object {
@@ -133,7 +142,7 @@ Describe 'Candidate predicate' {
     }
 }
 
-Describe 'Probe construction' {
+Describe 'Probe construction' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
     BeforeAll {
         . (Join-Path $script:repoRoot 'tools/lib/PfbSpecTools.ps1')
         $script:newestSpec = Join-Path $script:repoRoot 'tools/specs/fb2.28.json'
@@ -169,7 +178,7 @@ Describe 'Probe construction' {
     }
 }
 
-Describe 'Outcome classification' {
+Describe 'Outcome classification' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
     It 'classifies a whole-object stringification as Coerced' {
         $probe = [PSCustomObject]@{ id = 'PROBE-id'; status = 'PROBE-status' }
         $result = [PSCustomObject]@{

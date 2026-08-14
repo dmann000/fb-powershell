@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+#Requires -Version 7.0
 <#
 .SYNOPSIS
     Analysis layer for the issue #90 pipeline-selector audit: reflection inventory,
@@ -7,6 +7,13 @@
     Pure functions only. Nothing here imports the shipped module's HTTP path or invokes a
     cmdlet -- that is tools/lib/PfbSelectorProbeHarness.ps1's job, deliberately kept in its
     own file so the function-table mutation it performs stays small and auditable.
+
+    PowerShell 7 only, like the rest of tools/. This is developer- and CI-side tooling: it is
+    run once by a developer or by the CI automation, which is pwsh 7 on ubuntu. The SHIPPED
+    module still supports Windows PowerShell 5.1 and its own tests still gate on both -- only
+    this analysis layer is 7-only. Consumers' Describe blocks therefore carry
+    -Skip:($PSVersionTable.PSVersion.Major -lt 7), matching Build-PfbCapabilityMap.Tests.ps1
+    and the other tools/ tests.
 #>
 
 function Sort-PfbSelectorRecord {
@@ -369,12 +376,9 @@ function Get-PfbResponseItemType {
         [Parameter(Mandatory)][string]$Endpoint
     )
 
-    # ConvertFrom-Json only gained -Depth in PowerShell 6.2; under Windows PowerShell 5.1 it
-    # fails with "A parameter cannot be found that matches parameter name 'Depth'". Measured:
-    # 5.1 parses the 2.04 MB fb2.28.json correctly without it. Same guard as
-    # Get-PfbDriftAnnotationFile in tools/lib/PfbApiDriftTools.ps1.
-    $json = Get-Content -Path $SpecPath -Raw
-    $spec = if ($PSVersionTable.PSVersion.Major -ge 6) { $json | ConvertFrom-Json -Depth 64 } else { $json | ConvertFrom-Json }
+    # -Depth 64 matches the other tools/Build-*.ps1 spec readers. It is also the reason this
+    # file is #Requires -Version 7.0: ConvertFrom-Json only gained -Depth in PowerShell 6.2.
+    $spec = Get-Content -Path $SpecPath -Raw | ConvertFrom-Json -Depth 64
 
     $method, $path = ($Endpoint -split ' ', 2)
     $normalized = ConvertTo-PfbNormalizedPath -Path $path

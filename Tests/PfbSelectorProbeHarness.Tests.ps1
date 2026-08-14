@@ -6,16 +6,24 @@
     The isolation Describe is safety-critical, not hygiene: the harness mutates the shipped
     module's function table, and its silent failure mode is a real network call. On a
     Remove-Pfb* probe with a real array in scope that is a live DELETE.
+
+    The harness is #Requires -Version 7.0 (developer/CI tooling), so the Describes are skipped
+    on 5.1 and the file-level BeforeAll guards its own body -- a skipped Describe does not
+    stop it running, and dot-sourcing a 7-only script on 5.1 kills the whole container. The
+    module being imported here still supports 5.1; only the harness does not.
 #>
 
 BeforeAll {
     $script:repoRoot = Split-Path -Parent $PSScriptRoot
-    . (Join-Path $script:repoRoot 'tools/lib/PfbSelectorProbeHarness.ps1')
     $script:manifest = Join-Path $script:repoRoot 'PureStorageFlashBladePowerShell.psd1'
-    $script:module = Initialize-PfbSelectorHarness -ManifestPath $script:manifest
+
+    if ($PSVersionTable.PSVersion.Major -ge 7) {
+        . (Join-Path $script:repoRoot 'tools/lib/PfbSelectorProbeHarness.ps1')
+        $script:module = Initialize-PfbSelectorHarness -ManifestPath $script:manifest
+    }
 }
 
-Describe 'Harness isolation (fail-closed)' {
+Describe 'Harness isolation (fail-closed)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
 
     It 'returns a module with the shim verified live' {
         $script:module | Should -Not -BeNullOrEmpty
@@ -40,7 +48,7 @@ Describe 'Harness isolation (fail-closed)' {
     }
 }
 
-Describe 'Harness never prompts' {
+Describe 'Harness never prompts' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
 
     It 'refuses to invoke a cmdlet whose mandatory parameters a probe cannot supply' {
         # Update-PfbSmbShareRule declares one parameter set whose mandatory parameters are
@@ -81,7 +89,7 @@ Describe 'Harness never prompts' {
     }
 }
 
-Describe 'Harness behavioural self-test' {
+Describe 'Harness behavioural self-test' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
 
     It 'reproduces the documented #64 result: a connection object binds -Id and emits ids' {
         # Pins Tests/Get-PfbArrayConnectionPath.Tests.ps1:107-119 through the harness.

@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+#Requires -Version 7.0
 <#
 .SYNOPSIS
     Fail-closed binding harness for the issue #90 pipeline-selector audit.
@@ -15,6 +15,10 @@
 
     Therefore: bind with Set-Item function:script:, and VERIFY before returning. A harness that
     cannot prove its own isolation produces no output.
+
+    PowerShell 7 only, like the rest of tools/ -- see tools/lib/PfbPipelineSelectorTools.ps1.
+    The module this harness IMPORTS still supports Windows PowerShell 5.1; the harness itself
+    does not need to.
 #>
 
 $script:PfbHarnessFakeArray = [PSCustomObject]@{
