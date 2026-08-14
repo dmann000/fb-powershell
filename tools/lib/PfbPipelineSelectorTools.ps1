@@ -518,7 +518,23 @@ function Get-PfbSelectorOutcome {
 
     if ($ProbeResult.Error) {
         # -like would treat a backtick in the message as an escape character; use .Contains().
-        $outcome = if ($ProbeResult.Error.Contains('stringified object')) { 'Guarded' } else { 'BindError' }
+        $outcome = if ($ProbeResult.Error.Contains('stringified object')) {
+            'Guarded'
+        }
+        else {
+            # Only a harness refusal is genuinely unmeasured. The other kinds are verdicts.
+            # Unbindable means PowerShell declined to bind the object at all, which for a
+            # ValueFromPipelineByPropertyName-only parameter is structural: pass 3 coerces
+            # ByValue, so that parameter can never receive a stringified object. CmdletError
+            # means the cmdlet's own logic stopped it before any request was built. Collapsing
+            # all three into BindError reported 8 already-measured pairs as blind spots.
+            $kind = if ($ProbeResult.PSObject.Properties['ErrorKind']) { $ProbeResult.ErrorKind } else { $null }
+            switch ($kind) {
+                'InputObjectNotBound' { 'Unbindable' }
+                'CmdletError' { 'CmdletError' }
+                default { 'BindError' }
+            }
+        }
         return [PSCustomObject]@{
             Outcome = $outcome; Evidence = $ProbeResult.Error; BoundWireKey = $null; BoundValue = $null
         }
