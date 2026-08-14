@@ -212,13 +212,18 @@ function Get-PfbCmdletEndpointLiteral {
 function Get-PfbHelpExampleChain {
     <#
     .SYNOPSIS
-        Every 'Producer-Pfb... | Consumer-Pfb...' chain written literally in comment-based
-        help under -PublicDirectory.
+        Every 'Producer-Pfb... | Consumer-Pfb...' chain written literally anywhere in a file
+        under -PublicDirectory.
     .DESCRIPTION
         A chain the module advertises in its own help is a chain the module owes, whether or
         not the two cmdlets share a resource family -- Get-PfbFileSystem |
         New-PfbFileSystemSnapshot is exactly such a case, and family resolution alone misses
         it. This is the audit's second, independent producer source.
+
+        Every line is scanned, not only comment-based help: no `Public/*.ps1` code line
+        currently matches the pattern, and widening the producer set is the conservative
+        direction of error for an audit -- a spurious producer costs a probe, a missed one
+        costs a finding. Read the OUTPUTS as "written literally in the file", not "documented".
     .OUTPUTS
         [PSCustomObject]@{ File; Producer; Consumer; Line }
     #>

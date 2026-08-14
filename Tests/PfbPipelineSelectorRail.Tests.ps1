@@ -30,8 +30,11 @@
 # Discovery-phase, deliberately at file scope: Rail B's -Skip: expressions are evaluated while
 # Pester discovers the tests, so a count computed in any BeforeAll would still be $null by then
 # and the skip would never fire. Rail A is NOT gated on this -- see its Describe.
+# The filter matches the generator's own (Build-PfbPipelineSelectorMap.ps1 reads 'fb*.json'):
+# counting every file would let a stray editor temp file stand in for a missing spec, and would
+# fail the completeness check on a cache that is actually complete.
 $specCountAtDiscovery = @(Get-ChildItem (Join-Path (Split-Path -Parent $PSScriptRoot) 'tools/specs') `
-        -File -ErrorAction SilentlyContinue).Count
+        -Filter 'fb*.json' -File -ErrorAction SilentlyContinue).Count
 
 BeforeAll {
     $script:repoRoot = Split-Path -Parent $PSScriptRoot
@@ -58,6 +61,16 @@ BeforeAll {
             foreach ($property in $row.ProbeTypes.PSObject.Properties) {
                 $probeTypes[$property.Name] = $property.Value
             }
+            # Enforced, not merely documented. A degraded map is the one failure the rest of this
+            # rail cannot see: an all-string probe binds cleanly to an object-typed field, and
+            # forcing every type to string today flips 2 of 389 findings (both
+            # Get-PfbLocalGroupMember/Group) out of Coerced. Pair-level waiving means even that
+            # would leave all 127 pairs looking defective, so no assertion below would catch it.
+            if ($probeTypes.Count -ne @($row.ProbeProperties).Count) {
+                throw ("Report row $($row.Cmdlet)/$($row.Parameter) via $($row.Producer) has " +
+                    "degraded ProbeTypes ($($probeTypes.Count) of $(@($row.ProbeProperties).Count)); " +
+                    'an all-string probe would hide object-field stringification.')
+            }
 
             # Aliases come from the live module, not the report -- Get-PfbSelectorOutcome needs
             # them to tell Bound from WrongScalar (Get-PfbArrayConnectionPath's -RemoteName
@@ -78,6 +91,11 @@ BeforeAll {
                     Cmdlet    = $row.Cmdlet
                     Parameter = $row.Parameter
                     Producer  = $row.Producer
+                    # IsPrimary is a property of the cmdlet/producer relation, not a verdict, so
+                    # reading it from the report costs the rail no independence -- and without it
+                    # a Family-scoped waiver silently absorbs an escalation onto the primary
+                    # producer, which is the chain a user would actually write.
+                    IsPrimary = [bool]$row.IsPrimary
                     Outcome   = $outcome.Outcome
                     Evidence  = $outcome.Evidence
                 })
@@ -133,6 +151,51 @@ Describe 'Rail A - no unwaived selector coercion' -Skip:($PSVersionTable.PSVersi
         $failures -join "`n" | Should -BeNullOrEmpty
     }
 
+    It 'no Family-scoped waiver has escalated onto its primary producer' {
+        # A pair-keyed waiver is blind to WHERE the coercion happens, and 100 of the 127 are
+        # waived precisely because the obvious chain -- the cmdlet's own base-path GET -- is
+        # safe. Without this, a change that breaks property-name binding on, say,
+        # Remove-PfbFileSystem would turn `Get-PfbFileSystem | Remove-PfbFileSystem` into a
+        # DELETE carrying a stringified object, and the existing waiver would wave it through.
+        # 39 of those 100 are Remove-* cmdlets.
+        $declared = @{}
+        foreach ($waiver in $script:waivers) { $declared["$($waiver.Cmdlet)/$($waiver.Parameter)"] = $waiver }
+
+        $escalated = [System.Collections.Generic.List[string]]::new()
+        foreach ($row in $script:measured) {
+            if ($row.Outcome -notin @('Coerced', 'WrongScalar')) { continue }
+            if (-not $row.IsPrimary) { continue }
+            $waiver = $declared["$($row.Cmdlet)/$($row.Parameter)"]
+            if ($waiver -and $waiver.Scope -eq 'Family') {
+                $escalated.Add("$($row.Cmdlet)/$($row.Parameter) now coerces on its PRIMARY producer $($row.Producer): $($row.Evidence)")
+            }
+        }
+
+        $escalated -join "`n" | Should -BeNullOrEmpty
+    }
+
+    It 'each waiver still covers exactly the producer count it was granted for' {
+        # A pair spreading from one producing endpoint to nine is new debt, not the debt that
+        # was reviewed. Producers is the blast radius the waiver was granted against.
+        $counts = @{}
+        foreach ($row in $script:measured) {
+            if ($row.Outcome -notin @('Coerced', 'WrongScalar')) { continue }
+            $key = "$($row.Cmdlet)/$($row.Parameter)"
+            $counts[$key] = 1 + [int]$counts[$key]
+        }
+
+        $mismatched = [System.Collections.Generic.List[string]]::new()
+        foreach ($waiver in $script:waivers) {
+            $key = "$($waiver.Cmdlet)/$($waiver.Parameter)"
+            $actual = [int]$counts[$key]
+            if ($actual -ne $waiver.Producers) {
+                $mismatched.Add("$key waived for $($waiver.Producers) producer(s), measured $actual")
+            }
+        }
+
+        $mismatched -join "`n" | Should -BeNullOrEmpty
+    }
+
     It 'carries no waiver for a pair that no longer coerces' {
         # The other direction of the same contract: once a finding is fixed its waiver must go,
         # or the register stops describing the real debt and the next reintroduction is waved
@@ -153,8 +216,10 @@ Describe 'Rail A - no unwaived selector coercion' -Skip:($PSVersionTable.PSVersi
         # A rise here means the harness has started refusing cmdlets it used to measure, which
         # is precisely the regression that produced the original 33-pair blind spot.
         #
-        # BindError is an OUTCOME, not an ErrorKind: Get-PfbSelectorOutcome classifies the
-        # refusal, and $result.ErrorKind is null on every row of the committed report.
+        # BindError is an OUTCOME, not an ErrorKind. ErrorKind is non-null on 193 rows (160
+        # InputObjectNotBound, 31 CmdletError, 2 ParameterBindingError); only the 2
+        # ParameterBindingError rows classify as the BindError outcome, and only that outcome
+        # means unmeasured. Asserting on ErrorKind -eq 'BindError' matches nothing at all.
         @($script:measured | Where-Object { $_.Outcome -eq 'BindError' }).Count | Should -Be 2
     }
 }
@@ -163,7 +228,8 @@ Describe 'Rail B - committed map matches regeneration' -Skip:($PSVersionTable.PS
 
     BeforeAll {
         $script:specsDirectory = Join-Path $script:repoRoot 'tools/specs'
-        $script:specCount = @(Get-ChildItem $script:specsDirectory -File -ErrorAction SilentlyContinue).Count
+        $script:specCount = @(Get-ChildItem $script:specsDirectory -Filter 'fb*.json' -File `
+                -ErrorAction SilentlyContinue).Count
     }
 
     It 'sees the whole spec cache when it is present' -Skip:($specCountAtDiscovery -eq 0) {

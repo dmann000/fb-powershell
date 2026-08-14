@@ -59,7 +59,13 @@ function Initialize-PfbSelectorHarness {
                 })
         }
 
-        Set-Item -Path 'function:script:Assert-PfbConnection' -Value { param($Array) }
+        # Carries its own marker for the same reason the capture list does: the check below is
+        # positive-match, so a reworded message in the REAL Assert-PfbConnection cannot make it
+        # pass vacuously.
+        Set-Item -Path 'function:script:Assert-PfbConnection' -Value {
+            param($Array)
+            $null = 'PfbSelectorProbeCaptureAssert'
+        }
     }
 
     $definition = & $module { (Get-Command Invoke-PfbApiRequest).Definition }
@@ -68,8 +74,8 @@ function Initialize-PfbSelectorHarness {
     }
 
     $assertDefinition = & $module { (Get-Command Assert-PfbConnection).Definition }
-    if ($assertDefinition -match 'Not connected') {
-        throw 'HARNESS ISOLATION FAILED: Assert-PfbConnection was not shadowed. Refusing to probe.'
+    if ($assertDefinition -notmatch 'PfbSelectorProbeCaptureAssert') {
+        throw 'HARNESS ISOLATION FAILED: Assert-PfbConnection does not resolve to the shim. Refusing to probe.'
     }
 
     return $module

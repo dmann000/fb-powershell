@@ -231,7 +231,13 @@ $lines.Add('Ordered with primary-producer rows first: those are the chains a use
 $lines.Add('')
 $lines.Add('| Cmdlet | Parameter | Producer | Primary | Evidence |')
 $lines.Add('|---|---|---|---|---|')
-foreach ($row in @($findings | Sort-Object -Property @{ Expression = { -not $_.IsPrimary } })) {
+# Sort-Object with a single boolean key and no tiebreaker is UNSTABLE -- it reproduces only while
+# the input sequence and the runtime's introsort both hold, so a .NET change could reshuffle all
+# 389 rows with every verdict identical and red the drift rail as if the map had changed. Order
+# ordinally first, then partition explicitly.
+$orderedFindings = Sort-PfbSelectorRecord -Record @($findings) -Property 'Cmdlet', 'Parameter', 'Producer'
+foreach ($row in (@($orderedFindings | Where-Object IsPrimary) +
+        @($orderedFindings | Where-Object { -not $_.IsPrimary }))) {
     $evidence = ($row.Evidence -replace '\|', '\|')
     $lines.Add("| ``$($row.Cmdlet)`` | ``$($row.Parameter)`` | ``$($row.Producer)`` | $(if ($row.IsPrimary) { 'yes' } else { '' }) | ``$evidence`` |")
 }
