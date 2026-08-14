@@ -9,7 +9,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - matched: 2
 - collision: 1
 - not-found-in-resource: 29
-- no-spec-enum-found: 1983
+- no-spec-enum-found: 1982
 
 | Cmdlet | Parameter | Wire name | Status | Spec values | Recommendation |
 |---|---|---|---|---|---|
@@ -46,13 +46,14 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 | `Update-PfbWorkload` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbWormPolicy` | `-DefaultRetention` | default_retention | not-found-in-resource |  |  |
 
-## Attributes-only parameters (no typed field to attach either mechanism to): 72
+## Attributes-only parameters (no typed field to attach either mechanism to): 74
 
 - `New-PfbActiveDirectory -Name`
 - `New-PfbAuditFileSystemPolicy -Enabled`
 - `New-PfbAuditObjectStorePolicy -Enabled`
 - `New-PfbCertificateSigningRequest -Name`
 - `New-PfbDns -Name`
+- `New-PfbFileSystem -DefaultExports`
 - `New-PfbFileSystem -FastRemoveDirectoryEnabled`
 - `New-PfbFileSystem -HardLimit`
 - `New-PfbFileSystem -Http`
@@ -65,6 +66,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `New-PfbFileSystem -SafeguardAcls`
 - `New-PfbFileSystem -Smb`
 - `New-PfbFileSystem -SmbClientPolicy`
+- `New-PfbFileSystem -SmbContinuousAvailabilityEnabled`
 - `New-PfbFileSystem -SmbSharePolicy`
 - `New-PfbFileSystem -SnapshotDirectoryEnabled`
 - `New-PfbFileSystem -Writable`

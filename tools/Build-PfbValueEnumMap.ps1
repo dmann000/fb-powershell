@@ -189,14 +189,10 @@ $handWritten = @(
     [PSCustomObject]@{ File = 'Public/Bucket/Update-PfbBucket.ps1'; Line = 31; Parameter = '-Versioning'; Name = 'versioning'; ResourceHint = 'Bucket'; Values = @('enabled', 'suspended', 'none') }
     # '_multiProtocol' is the actual nested body-object schema name for this field (confirmed
     # by direct spec inspection) — a literal alias, not a fuzzy resource-name guess.
-    [PSCustomObject]@{ File = 'Public/FileSystem/New-PfbFileSystem.ps1'; Line = 130; Parameter = '-MultiProtocolAccessControlStyle'; Name = 'access_control_style'; ResourceHint = @('FileSystem', '_multiProtocol'); Values = @('nfs', 'smb', 'shared', 'independent', 'mode-bits') }
-    [PSCustomObject]@{ File = 'Public/FileSystem/New-PfbFileSystem.ps1'; Line = 143; Parameter = '-GroupOwnership'; Name = 'group_ownership'; ResourceHint = 'FileSystem'; Values = @('creator', 'parent-directory') }
-    # '_fileSystemEradicationConfig' (as opposed to the sibling '_bucketEradicationConfig',
-    # which shares the same field name with an unrelated value set) — confirmed by direct
-    # spec inspection, not a fuzzy resource-name guess.
-    [PSCustomObject]@{ File = 'Public/FileSystem/New-PfbFileSystem.ps1'; Line = 147; Parameter = '-EradicationMode'; Name = 'eradication_mode'; ResourceHint = @('FileSystem', '_fileSystemEradicationConfig'); Values = @('permission-based', 'retention-based') }
+    [PSCustomObject]@{ File = 'Public/FileSystem/New-PfbFileSystem.ps1'; Line = 179; Parameter = '-MultiProtocolAccessControlStyle'; Name = 'access_control_style'; ResourceHint = @('FileSystem', '_multiProtocol'); Values = @('nfs', 'smb', 'shared', 'independent', 'mode-bits') }
+    [PSCustomObject]@{ File = 'Public/FileSystem/New-PfbFileSystem.ps1'; Line = 192; Parameter = '-GroupOwnership'; Name = 'group_ownership'; ResourceHint = 'FileSystem'; Values = @('creator', 'parent-directory') }
     [PSCustomObject]@{ File = 'Public/FileSystem/Update-PfbFileSystem.ps1'; Line = 97; Parameter = '-RequestedPromotionState'; Name = 'requested_promotion_state'; ResourceHint = 'FileSystem'; Values = @('promoted', 'demoted') }
-    [PSCustomObject]@{ File = 'Public/Array/Get-PfbArrayPerformance.ps1'; Line = 28; Parameter = '-Protocol'; Name = 'protocol'; ResourceHint = $null; Values = @('nfs', 'smb', 'http', 's3') }
+    [PSCustomObject]@{ File = 'Public/Array/Get-PfbArrayPerformance.ps1'; Line = 37; Parameter = '-Protocol'; Name = 'protocol'; ResourceHint = $null; Values = @('nfs', 'smb', 'http', 's3') }
     [PSCustomObject]@{ File = 'Public/Network/New-PfbNetworkInterface.ps1'; Line = 52; Parameter = '-Services'; Name = 'services'; ResourceHint = 'NetworkInterface'; Values = @('data', 'egress-only', 'management', 'replication', 'support') }
     [PSCustomObject]@{ File = 'Public/Network/New-PfbNetworkInterface.ps1'; Line = 59; Parameter = '-Type'; Name = 'type'; ResourceHint = 'NetworkInterface'; Values = @('vip') }
 )
@@ -218,7 +214,7 @@ $reconciliation = foreach ($hw in $handWritten) {
     # live) — those start with an underscore, so a plain prefix check already excludes
     # them without needing a word-boundary check. Known private nested-object schemas
     # that don't share the resource's own name prefix are listed as explicit extra hints
-    # above (e.g. '_multiProtocol', '_fileSystemEradicationConfig'), not matched via a
+    # above (e.g. '_multiProtocol'), not matched via a
     # looser "contains" rule that would just reopen the same false-positive risk.
     $hints = @($hw.ResourceHint) | Where-Object { $_ }
     $candidates = if ($hints.Count -gt 0) {

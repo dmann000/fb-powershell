@@ -108,24 +108,103 @@ Describe 'Update-PfbArrayConnection - typed body parameters (#31)' {
         }
     }
 
-    Context 'new query parameters (constraint 17 -- declared bare, not in the Individual sets)' {
-        It 'sends remote_ids as a bare query parameter alongside -Attributes' {
-            Update-PfbArrayConnection -RemoteName 'remote-fb-dc2' -Attributes @{ management_address = '10.0.2.101' } `
-                -RemoteId 'remote-1' -Confirm:$false -Array $fakeArray
+    Context '-RemoteId is a selector (#88)' {
+        It 'selects by remote_ids alone with a typed body parameter' {
+            Update-PfbArrayConnection -RemoteId 'remote-1' -ManagementAddress '10.0.2.101' `
+                -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
-                $QueryParams['remote_ids'] -eq 'remote-1'
+                $Method -eq 'PATCH' -and $Endpoint -eq 'array-connections' -and
+                $QueryParams['remote_ids'] -eq 'remote-1' -and
+                -not $QueryParams.ContainsKey('remote_names') -and -not $QueryParams.ContainsKey('ids') -and
+                $Body['management_address'] -eq '10.0.2.101'
             }
         }
 
-        It 'still sends remote_ids alongside -RemoteName, which is now the selector' {
-            Update-PfbArrayConnection -RemoteName 'remote-fb-dc2' -ManagementAddress '10.0.2.101' `
-                -RemoteId 'remote-1' -Confirm:$false -Array $fakeArray
+        It 'selects by remote_ids alone with -Attributes' {
+            Update-PfbArrayConnection -RemoteId 'remote-1' -Attributes @{ management_address = '10.0.2.101' } `
+                -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
-                $QueryParams['remote_names'] -eq 'remote-fb-dc2' -and
-                $QueryParams['remote_ids'] -eq 'remote-1'
+                $QueryParams['remote_ids'] -eq 'remote-1' -and
+                -not $QueryParams.ContainsKey('remote_names') -and
+                $Body['management_address'] -eq '10.0.2.101'
             }
+        }
+
+        It 'composes -Id with -RemoteId and emits both plural keys' {
+            Update-PfbArrayConnection -Id 'conn-1' -RemoteId 'remote-1' -ManagementAddress '10.0.2.101' `
+                -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $QueryParams['ids'] -eq 'conn-1' -and $QueryParams['remote_ids'] -eq 'remote-1' -and
+                -not $QueryParams.ContainsKey('remote_names')
+            }
+        }
+
+        It 'rejects -RemoteName together with -RemoteId at bind time, and makes no API call' {
+            # The spec forbids remote_names and remote_ids on the same request. This test
+            # replaces an older pair that asserted the combination succeeded.
+            { Update-PfbArrayConnection -RemoteName 'remote-fb-dc2' -RemoteId 'remote-1' `
+                -ManagementAddress '10.0.2.101' -Confirm:$false -Array $fakeArray -ErrorAction Stop } |
+                Should -Throw -ExpectedMessage '*Parameter set cannot be resolved*'
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+        }
+
+        It 'rejects -RemoteName together with -RemoteId under -Attributes too' {
+            { Update-PfbArrayConnection -RemoteName 'remote-fb-dc2' -RemoteId 'remote-1' `
+                -Attributes @{ management_address = '10.0.2.101' } -Confirm:$false -Array $fakeArray -ErrorAction Stop } |
+                Should -Throw -ExpectedMessage '*Parameter set cannot be resolved*'
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+        }
+
+        It 'keeps -RemoteId, not -Id, as the parameter that spans the ById and ByRemoteId sets' {
+            # Load-bearing shape. -Id + -RemoteId is legal, and the tempting way to express
+            # that is to mirror -Id into the ByRemoteId* sets. That silently breaks
+            # ByPropertyName binding of a piped connection object, which then falls through
+            # to the coercion pass. Mirroring -RemoteId instead keeps both behaviours.
+            $cmd = Get-Command Update-PfbArrayConnection
+            $paramAttrs = {
+                param($p)
+                @($cmd.Parameters[$p].Attributes |
+                    Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] })
+            }
+            $setsOf      = { param($p) @((& $paramAttrs $p).ParameterSetName) | Sort-Object }
+            $mandatoryIn = {
+                param($p, $set)
+                @(& $paramAttrs $p | Where-Object { $_.ParameterSetName -eq $set })[0].Mandatory
+            }
+
+            & $setsOf 'Id' | Should -Be @('ByIdAttributes', 'ByIdIndividual')
+            & $setsOf 'RemoteId' | Should -Be @(
+                'ByIdAttributes', 'ByIdIndividual', 'ByRemoteIdAttributes', 'ByRemoteIdIndividual')
+
+            # The Mandatory flags are the other half of the shape. Every set must carry
+            # exactly one mandatory selector, or a call could resolve with no selector key
+            # at all and PATCH every array connection on the appliance.
+            & $mandatoryIn 'Id'         'ByIdIndividual'         | Should -BeTrue
+            & $mandatoryIn 'Id'         'ByIdAttributes'         | Should -BeTrue
+            & $mandatoryIn 'RemoteId'   'ByRemoteIdIndividual'   | Should -BeTrue
+            & $mandatoryIn 'RemoteId'   'ByRemoteIdAttributes'   | Should -BeTrue
+            & $mandatoryIn 'RemoteName' 'ByRemoteNameIndividual' | Should -BeTrue
+            & $mandatoryIn 'RemoteName' 'ByRemoteNameAttributes' | Should -BeTrue
+
+            # -RemoteId spans into the ById* sets and must stay OPTIONAL there --
+            # mandatory would stop -Id from selecting alone.
+            & $mandatoryIn 'RemoteId' 'ByIdIndividual' | Should -BeFalse
+            & $mandatoryIn 'RemoteId' 'ByIdAttributes' | Should -BeFalse
+        }
+
+        It 'refuses a selector-less call and patches nothing' {
+            # Observable half of the mandatory contract above. The default set is
+            # ByRemoteNameIndividual, whose mandatory -RemoteName is the only thing stopping
+            # a bare call from resolving into a fleet-wide PATCH.
+            { Update-PfbArrayConnection -ManagementAddress '10.0.2.101' `
+                -Confirm:$false -Array $fakeArray -ErrorAction Stop } | Should -Throw
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
         }
 
         It 'omits remote_ids entirely when not supplied' {
@@ -253,6 +332,16 @@ Describe 'Update-PfbArrayConnection - typed body parameters (#31)' {
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $QueryParams['ids'] -eq 'conn-2'
             }
+        }
+
+        It 'makes no API call for the composite -Id + -RemoteId form under -WhatIf' {
+            # The composite form is the one whose ShouldProcess target is composed rather than
+            # chosen (see ArrayConnection.ShouldProcessTarget.Tests.ps1); composing the string
+            # must not change the fact that -WhatIf still short-circuits the PATCH.
+            Update-PfbArrayConnection -Id 'conn-1' -RemoteId 'r-77' `
+                -Attributes @{ management_address = '10.0.2.101' } -WhatIf -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
         }
     }
 }

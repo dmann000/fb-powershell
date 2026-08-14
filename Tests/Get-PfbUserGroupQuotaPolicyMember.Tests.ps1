@@ -60,14 +60,10 @@ Describe 'Get-PfbUserGroupQuotaPolicyMember' {
         }
     }
 
-    It 'sends total_only=true when -TotalOnly is set' {
-        InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
-            param($arr)
-            Get-PfbUserGroupQuotaPolicyMember -TotalOnly -Array $arr
-        }
+    It 'does not expose -TotalOnly (user-group-quota-policies/members does not declare total_only, #102)' {
+        (Get-Command Get-PfbUserGroupQuotaPolicyMember).Parameters.Keys | Should -Not -Contain 'TotalOnly'
 
-        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
-            $QueryParams['total_only'] -eq 'true'
-        }
+        { Get-PfbUserGroupQuotaPolicyMember -TotalOnly -Array $fakeArray } |
+            Should -Throw -ExpectedMessage '*TotalOnly*'
     }
 }

@@ -20,8 +20,6 @@ function Get-PfbObjectStoreAccessPolicyUser {
         Sort field and direction (e.g. 'policy.name' or 'member.name-').
     .PARAMETER Limit
         Maximum number of items to return.
-    .PARAMETER TotalOnly
-        Return only the total count.
     .PARAMETER Array
         The FlashBlade connection object.
     .EXAMPLE
@@ -51,7 +49,6 @@ function Get-PfbObjectStoreAccessPolicyUser {
         [Parameter()] [string]$Filter,
         [Parameter()] [string]$Sort,
         [Parameter()] [int]$Limit,
-        [Parameter()] [switch]$TotalOnly,
         [Parameter()] [PSCustomObject]$Array
     )
 

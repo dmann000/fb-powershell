@@ -60,14 +60,10 @@ Describe 'Get-PfbFileSystemUser' {
         }
     }
 
-    It 'sends total_only=true when -TotalOnly is set' {
-        InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
-            param($arr)
-            Get-PfbFileSystemUser -TotalOnly -Array $arr
-        }
+    It 'does not expose -TotalOnly (file-systems/users does not declare total_only, #102)' {
+        (Get-Command Get-PfbFileSystemUser).Parameters.Keys | Should -Not -Contain 'TotalOnly'
 
-        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
-            $QueryParams['total_only'] -eq 'true'
-        }
+        { Get-PfbFileSystemUser -TotalOnly -Array $fakeArray } |
+            Should -Throw -ExpectedMessage '*TotalOnly*'
     }
 }

@@ -74,14 +74,10 @@ Describe 'Get-PfbFileSystemUserQuota' {
         }
     }
 
-    It 'sends total_only=true when -TotalOnly is set' {
-        InModuleScope PureStorageFlashBladePowerShell -Parameters @{ arr = $fakeArray } {
-            param($arr)
-            Get-PfbFileSystemUserQuota -TotalOnly -Array $arr
-        }
+    It 'does not expose -TotalOnly (file-system-user-quotas does not declare total_only, #102)' {
+        (Get-Command Get-PfbFileSystemUserQuota).Parameters.Keys | Should -Not -Contain 'TotalOnly'
 
-        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
-            $QueryParams['total_only'] -eq 'true'
-        }
+        { Get-PfbFileSystemUserQuota -TotalOnly -Array $fakeArray } |
+            Should -Throw -ExpectedMessage '*TotalOnly*'
     }
 }

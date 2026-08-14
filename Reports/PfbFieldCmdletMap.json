@@ -734,6 +734,16 @@
     },
     {
       "cmdlet": "Get-PfbArrayConnection",
+      "parameter": "RemoteId",
+      "wireName": "remote_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbArrayConnection",
       "parameter": "RemoteName",
       "wireName": "remote_names",
       "status": "no-spec-enum-found",
@@ -804,8 +814,28 @@
     },
     {
       "cmdlet": "Get-PfbArrayConnectionPath",
+      "parameter": "Id",
+      "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbArrayConnectionPath",
       "parameter": "Limit",
       "wireName": "limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbArrayConnectionPath",
+      "parameter": "RemoteId",
+      "wireName": "remote_ids",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -854,8 +884,28 @@
     },
     {
       "cmdlet": "Get-PfbArrayConnectionPerformanceReplication",
+      "parameter": "Id",
+      "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbArrayConnectionPerformanceReplication",
       "parameter": "Limit",
       "wireName": "limit",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbArrayConnectionPerformanceReplication",
+      "parameter": "RemoteId",
+      "wireName": "remote_ids",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -2384,6 +2434,16 @@
     },
     {
       "cmdlet": "Get-PfbBucketReplicaLink",
+      "parameter": "Id",
+      "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbBucketReplicaLink",
       "parameter": "Limit",
       "wireName": "limit",
       "status": "no-spec-enum-found",
@@ -2406,6 +2466,26 @@
       "cmdlet": "Get-PfbBucketReplicaLink",
       "parameter": "RemoteBucketName",
       "wireName": "remote_bucket_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbBucketReplicaLink",
+      "parameter": "RemoteId",
+      "wireName": "remote_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbBucketReplicaLink",
+      "parameter": "RemoteName",
+      "wireName": "remote_names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -3233,16 +3313,6 @@
       "recommendation": null
     },
     {
-      "cmdlet": "Get-PfbFileLock",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
       "cmdlet": "Get-PfbFileLockClient",
       "parameter": "Filter",
       "wireName": "filter",
@@ -3286,16 +3356,6 @@
       "cmdlet": "Get-PfbFileLockClient",
       "parameter": "Sort",
       "wireName": "sort",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Get-PfbFileLockClient",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -3493,16 +3553,6 @@
       "recommendation": null
     },
     {
-      "cmdlet": "Get-PfbFileSystemExport",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
       "cmdlet": "Get-PfbFileSystemGroup",
       "parameter": "FileSystemId",
       "wireName": "file_system_ids",
@@ -3566,16 +3616,6 @@
       "cmdlet": "Get-PfbFileSystemGroup",
       "parameter": "Sort",
       "wireName": "sort",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Get-PfbFileSystemGroup",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -3743,16 +3783,6 @@
       "recommendation": null
     },
     {
-      "cmdlet": "Get-PfbFileSystemGroupQuota",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
       "cmdlet": "Get-PfbFileSystemPolicy",
       "parameter": "Filter",
       "wireName": "filter",
@@ -3826,6 +3856,16 @@
       "cmdlet": "Get-PfbFileSystemReplicaLink",
       "parameter": "Filter",
       "wireName": "filter",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemReplicaLink",
+      "parameter": "Id",
+      "wireName": "ids",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -3864,6 +3904,26 @@
     },
     {
       "cmdlet": "Get-PfbFileSystemReplicaLink",
+      "parameter": "RemoteId",
+      "wireName": "remote_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemReplicaLink",
+      "parameter": "RemoteName",
+      "wireName": "remote_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemReplicaLink",
       "parameter": "Sort",
       "wireName": "sort",
       "status": "no-spec-enum-found",
@@ -3904,16 +3964,6 @@
     },
     {
       "cmdlet": "Get-PfbFileSystemReplicaLinkPolicy",
-      "parameter": "MemberName",
-      "wireName": "member_names",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Get-PfbFileSystemReplicaLinkPolicy",
       "parameter": "PolicyId",
       "wireName": "policy_ids",
       "status": "no-spec-enum-found",
@@ -3926,6 +3976,26 @@
       "cmdlet": "Get-PfbFileSystemReplicaLinkPolicy",
       "parameter": "PolicyName",
       "wireName": "policy_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemReplicaLinkPolicy",
+      "parameter": "RemoteId",
+      "wireName": "remote_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemReplicaLinkPolicy",
+      "parameter": "RemoteName",
+      "wireName": "remote_names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -3976,6 +4046,26 @@
       "cmdlet": "Get-PfbFileSystemReplicaLinkTransfer",
       "parameter": "NameOrOwnerName",
       "wireName": "names_or_owner_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemReplicaLinkTransfer",
+      "parameter": "RemoteId",
+      "wireName": "remote_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbFileSystemReplicaLinkTransfer",
+      "parameter": "RemoteName",
+      "wireName": "remote_names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -4036,16 +4126,6 @@
       "cmdlet": "Get-PfbFileSystemSession",
       "parameter": "Sort",
       "wireName": "sort",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Get-PfbFileSystemSession",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -4374,16 +4454,6 @@
     },
     {
       "cmdlet": "Get-PfbFileSystemUser",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Get-PfbFileSystemUser",
       "parameter": "UserId",
       "wireName": "uids",
       "status": "no-spec-enum-found",
@@ -4476,16 +4546,6 @@
       "cmdlet": "Get-PfbFileSystemUserGroupQuotaPolicy",
       "parameter": "Sort",
       "wireName": "sort",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Get-PfbFileSystemUserGroupQuotaPolicy",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -4626,16 +4686,6 @@
       "cmdlet": "Get-PfbFileSystemUserQuota",
       "parameter": "Sort",
       "wireName": "sort",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Get-PfbFileSystemUserQuota",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -6983,16 +7033,6 @@
       "recommendation": null
     },
     {
-      "cmdlet": "Get-PfbObjectStoreAccessPolicy",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
       "cmdlet": "Get-PfbObjectStoreAccessPolicyAction",
       "parameter": "Filter",
       "wireName": "filter",
@@ -7016,16 +7056,6 @@
       "cmdlet": "Get-PfbObjectStoreAccessPolicyAction",
       "parameter": "Sort",
       "wireName": "sort",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Get-PfbObjectStoreAccessPolicyAction",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -7103,16 +7133,6 @@
       "recommendation": null
     },
     {
-      "cmdlet": "Get-PfbObjectStoreAccessPolicyRole",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
       "cmdlet": "Get-PfbObjectStoreAccessPolicyRule",
       "parameter": "Filter",
       "wireName": "filter",
@@ -7166,16 +7186,6 @@
       "cmdlet": "Get-PfbObjectStoreAccessPolicyRule",
       "parameter": "Sort",
       "wireName": "sort",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Get-PfbObjectStoreAccessPolicyRule",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -7253,16 +7263,6 @@
       "recommendation": null
     },
     {
-      "cmdlet": "Get-PfbObjectStoreAccessPolicyUser",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
       "cmdlet": "Get-PfbObjectStoreAccount",
       "parameter": "Filter",
       "wireName": "filter",
@@ -7423,16 +7423,6 @@
       "recommendation": null
     },
     {
-      "cmdlet": "Get-PfbObjectStoreRemoteCredential",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
       "cmdlet": "Get-PfbObjectStoreRole",
       "parameter": "Filter",
       "wireName": "filter",
@@ -7476,16 +7466,6 @@
       "cmdlet": "Get-PfbObjectStoreRole",
       "parameter": "Sort",
       "wireName": "sort",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Get-PfbObjectStoreRole",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -7563,16 +7543,6 @@
       "recommendation": null
     },
     {
-      "cmdlet": "Get-PfbObjectStoreRoleAccessPolicy",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
       "cmdlet": "Get-PfbObjectStoreTrustPolicy",
       "parameter": "Filter",
       "wireName": "filter",
@@ -7616,16 +7586,6 @@
       "cmdlet": "Get-PfbObjectStoreTrustPolicy",
       "parameter": "Sort",
       "wireName": "sort",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Get-PfbObjectStoreTrustPolicy",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -7686,16 +7646,6 @@
       "cmdlet": "Get-PfbObjectStoreTrustPolicyRule",
       "parameter": "Sort",
       "wireName": "sort",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Get-PfbObjectStoreTrustPolicyRule",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -7823,16 +7773,6 @@
       "recommendation": null
     },
     {
-      "cmdlet": "Get-PfbObjectStoreUserAccessPolicy",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
       "cmdlet": "Get-PfbObjectStoreVirtualHost",
       "parameter": "Filter",
       "wireName": "filter",
@@ -7976,16 +7916,6 @@
       "cmdlet": "Get-PfbOpenFile",
       "parameter": "Sort",
       "wireName": "sort",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Get-PfbOpenFile",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -8198,6 +8128,26 @@
       "recommendation": null
     },
     {
+      "cmdlet": "Get-PfbPolicyAllMember",
+      "parameter": "RemoteId",
+      "wireName": "remote_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbPolicyAllMember",
+      "parameter": "RemoteName",
+      "wireName": "remote_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
       "cmdlet": "Get-PfbPolicyFileSystem",
       "parameter": "Filter",
       "wireName": "filter",
@@ -8299,16 +8249,6 @@
     },
     {
       "cmdlet": "Get-PfbPolicyFileSystemReplicaLink",
-      "parameter": "MemberName",
-      "wireName": "member_names",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Get-PfbPolicyFileSystemReplicaLink",
       "parameter": "PolicyId",
       "wireName": "policy_ids",
       "status": "no-spec-enum-found",
@@ -8321,6 +8261,26 @@
       "cmdlet": "Get-PfbPolicyFileSystemReplicaLink",
       "parameter": "PolicyName",
       "wireName": "policy_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbPolicyFileSystemReplicaLink",
+      "parameter": "RemoteId",
+      "wireName": "remote_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Get-PfbPolicyFileSystemReplicaLink",
+      "parameter": "RemoteName",
+      "wireName": "remote_names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -9431,16 +9391,6 @@
       "cmdlet": "Get-PfbServer",
       "parameter": "Sort",
       "wireName": "sort",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Get-PfbServer",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -10818,16 +10768,6 @@
       "recommendation": null
     },
     {
-      "cmdlet": "Get-PfbUserGroupQuotaPolicy",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
       "cmdlet": "Get-PfbUserGroupQuotaPolicyFileSystem",
       "parameter": "Filter",
       "wireName": "filter",
@@ -10898,16 +10838,6 @@
       "recommendation": null
     },
     {
-      "cmdlet": "Get-PfbUserGroupQuotaPolicyFileSystem",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
       "cmdlet": "Get-PfbUserGroupQuotaPolicyMember",
       "parameter": "Filter",
       "wireName": "filter",
@@ -10971,16 +10901,6 @@
       "cmdlet": "Get-PfbUserGroupQuotaPolicyMember",
       "parameter": "Sort",
       "wireName": "sort",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Get-PfbUserGroupQuotaPolicyMember",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -11051,16 +10971,6 @@
       "cmdlet": "Get-PfbUserGroupQuotaPolicyRule",
       "parameter": "Sort",
       "wireName": "sort",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Get-PfbUserGroupQuotaPolicyRule",
-      "parameter": "TotalOnly",
-      "wireName": "total_only",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -12139,6 +12049,16 @@
     },
     {
       "cmdlet": "New-PfbFileSystemReplicaLink",
+      "parameter": "Id",
+      "wireName": "ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbFileSystemReplicaLink",
       "parameter": "LocalFileSystemName",
       "wireName": "local_file_system_names",
       "status": "no-spec-enum-found",
@@ -12171,6 +12091,16 @@
       "cmdlet": "New-PfbFileSystemReplicaLink",
       "parameter": "RemoteFileSystemName",
       "wireName": "remote_file_system_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbFileSystemReplicaLink",
+      "parameter": "RemoteId",
+      "wireName": "remote_ids",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -14269,6 +14199,16 @@
     },
     {
       "cmdlet": "Remove-PfbArrayConnection",
+      "parameter": "RemoteId",
+      "wireName": "remote_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbArrayConnection",
       "parameter": "RemoteName",
       "wireName": "remote_names",
       "status": "no-spec-enum-found",
@@ -14948,9 +14888,9 @@
       "recommendation": null
     },
     {
-      "cmdlet": "Remove-PfbFileSystemReplicaLinkPolicy",
-      "parameter": "MemberId",
-      "wireName": "member_ids",
+      "cmdlet": "Remove-PfbFileSystemReplicaLink",
+      "parameter": "RemoteId",
+      "wireName": "remote_ids",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -14959,8 +14899,8 @@
     },
     {
       "cmdlet": "Remove-PfbFileSystemReplicaLinkPolicy",
-      "parameter": "MemberName",
-      "wireName": "member_names",
+      "parameter": "MemberId",
+      "wireName": "member_ids",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -14981,6 +14921,26 @@
       "cmdlet": "Remove-PfbFileSystemReplicaLinkPolicy",
       "parameter": "PolicyName",
       "wireName": "policy_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbFileSystemReplicaLinkPolicy",
+      "parameter": "RemoteId",
+      "wireName": "remote_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbFileSystemReplicaLinkPolicy",
+      "parameter": "RemoteName",
+      "wireName": "remote_names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -15071,6 +15031,26 @@
       "cmdlet": "Remove-PfbFileSystemSnapshotTransfer",
       "parameter": "Name",
       "wireName": "names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbFileSystemSnapshotTransfer",
+      "parameter": "RemoteId",
+      "wireName": "remote_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbFileSystemSnapshotTransfer",
+      "parameter": "RemoteName",
+      "wireName": "remote_names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -15989,16 +15969,6 @@
     },
     {
       "cmdlet": "Remove-PfbPolicyFileSystemReplicaLink",
-      "parameter": "MemberName",
-      "wireName": "member_names",
-      "status": "no-spec-enum-found",
-      "matchedKey": null,
-      "specValues": null,
-      "stableSinceOldestVersion": null,
-      "recommendation": null
-    },
-    {
-      "cmdlet": "Remove-PfbPolicyFileSystemReplicaLink",
       "parameter": "PolicyId",
       "wireName": "policy_ids",
       "status": "no-spec-enum-found",
@@ -16011,6 +15981,26 @@
       "cmdlet": "Remove-PfbPolicyFileSystemReplicaLink",
       "parameter": "PolicyName",
       "wireName": "policy_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbPolicyFileSystemReplicaLink",
+      "parameter": "RemoteId",
+      "wireName": "remote_ids",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Remove-PfbPolicyFileSystemReplicaLink",
+      "parameter": "RemoteName",
+      "wireName": "remote_names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -20213,6 +20203,10 @@
     },
     {
       "cmdlet": "New-PfbFileSystem",
+      "parameter": "DefaultExports"
+    },
+    {
+      "cmdlet": "New-PfbFileSystem",
       "parameter": "FastRemoveDirectoryEnabled"
     },
     {
@@ -20258,6 +20252,10 @@
     {
       "cmdlet": "New-PfbFileSystem",
       "parameter": "SmbClientPolicy"
+    },
+    {
+      "cmdlet": "New-PfbFileSystem",
+      "parameter": "SmbContinuousAvailabilityEnabled"
     },
     {
       "cmdlet": "New-PfbFileSystem",

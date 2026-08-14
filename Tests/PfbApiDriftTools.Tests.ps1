@@ -1313,7 +1313,7 @@ Describe 'Task 6 real-data invariants (systemic gaps + convention strength, skip
         ($strength | Where-Object { $_.Name -eq 'context_names' }).CmdletCount | Should -Be 0
     }
 
-    It 'the top-10 most-common field names absorb between 30% and 55% of total missing-field (endpoint, name) pairs' {
+    It 'the top-10 most-common field names absorb between 30% and 60% of total missing-field (endpoint, name) pairs' {
         if (-not $hasRealData) { Set-ItResult -Skipped -Because 'Data/PfbCapabilityMap.json not present locally'; return }
         $pairCounts = $realSystemicGaps2 | ForEach-Object { $_.QueryEndpointCount + $_.BodyEndpointCount }
         $totalPairs = ($pairCounts | Measure-Object -Sum).Sum
@@ -1324,10 +1324,25 @@ Describe 'Task 6 real-data invariants (systemic gaps + convention strength, skip
         # Not bit-for-bit pinned (Task 4/5 changed some list membership per this task's own
         # brief) -- just confirms the aggregation actually matters. Historical note: the
         # independently-measured ratio AT THE TIME these bounds were chosen was ~41.7%
-        # (576/1302 pairs); kept here as institutional memory for why 30%/55% were picked,
-        # not as an expectation this should still measure exactly that today.
+        # (576/1302 pairs); kept here as institutional memory for why 30% and a ~55% ceiling
+        # were picked, not as an expectation this should still measure exactly that today.
+        #
+        # Upper bound widened 0.55 -> 0.60 for issue #88. Closing a real parameter gap removes
+        # its (endpoint, name) pairs from the DENOMINATOR, and gaps closed by hand are mostly
+        # long-tail names rather than top-10 ones, so the top-10 SHARE rises mechanically with
+        # every genuine fix. First measured against the pre-#98 capability map, the #88
+        # replica-link selector work took it from 54.84% (567/1034) to 55.24% (564/1021).
+        # RE-MEASURED after rebasing #88 onto a main carrying PR #98 (regenerated
+        # Data/PfbCapabilityMap.json) and PR #107: that main measures 54.81% (570/1040) and
+        # #88 on top of it measures 55.79% (564/1011). Same story, slightly larger step -- the
+        # 0.55 ceiling is still genuinely exceeded and 0.60 is still the bound that holds.
+        # Widening here does not weaken a real invariant -- per the note above these bounds
+        # are institutional memory, not a pin -- and narrowing the exposed selector set to
+        # stay under 0.55 would be exactly backwards. If a future task pushes past 0.60,
+        # re-examine whether the top-10 aggregation is still the right summary rather than
+        # reflexively widening again.
         $ratio | Should -BeGreaterThan 0.30
-        $ratio | Should -BeLessThan 0.55
+        $ratio | Should -BeLessThan 0.60
     }
 }
 

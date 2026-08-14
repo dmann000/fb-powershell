@@ -16,8 +16,6 @@ function Get-PfbFileLockClient {
         Sort field and direction.
     .PARAMETER Limit
         Maximum number of items to return.
-    .PARAMETER TotalOnly
-        Return only the total count, not the items.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, uses the default connection.
     .EXAMPLE
@@ -49,9 +47,6 @@ function Get-PfbFileLockClient {
         [Parameter()]
         [ValidateRange(1, 10000)]
         [int]$Limit,
-
-        [Parameter()]
-        [switch]$TotalOnly,
 
         [Parameter()]
         [PSCustomObject]$Array
