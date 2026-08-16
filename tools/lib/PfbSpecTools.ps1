@@ -188,6 +188,63 @@ function Resolve-PfbRef {
     return $current
 }
 
+function Get-PfbDeclaredQueryKey {
+    <#
+    .SYNOPSIS
+        Query parameter names an operation declares, resolving $ref'd parameters.
+    .DESCRIPTION
+        Returns a string array of declared query parameter names, or $null when the path or the
+        verb is absent from the spec. $null and @() mean different things and callers depend on
+        the difference: $null is "this endpoint/verb is not in this spec version", @() is "it is
+        here and declares no query parameters". Collapsing them reclassifies an absent endpoint as
+        one where every key is dead -- 29 of 632 operations in fb2.28 declare zero query keys, so
+        this is a live case and not a hypothetical.
+
+        RETURNS WITH A UNARY COMMA on purpose. PowerShell unrolls a returned array: without it a
+        zero-element result arrives as $null (indistinguishable from "verb absent") and a
+        one-element result arrives as a bare [string] (so `-contains` still works but the caller's
+        type assumptions do not). Both were present in the first draft of this function and both
+        were caught only by executing it.
+
+        Endpoint literals in cmdlet source carry no leading slash and no /api/<version> prefix, so
+        both are added here. Getting this wrong makes every lookup miss and every key look dead.
+
+        Verb presence is tested by KEY PRESENCE, not truthiness: an operation node that exists but
+        is empty is a declared verb with no parameters, not an absent verb.
+
+        Null-tolerant by design, matching the rest of this file (see the StrictMode note at the top).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] $Spec,
+        [Parameter(Mandatory)] [string]$Endpoint,
+        [Parameter(Mandatory)] [string]$Method,
+        [Parameter(Mandatory)] [string]$Version
+    )
+
+    $pathKey = "/api/$Version/" + $Endpoint.TrimStart('/')
+    $node = $Spec.paths.$pathKey
+    if (-not $node) { return $null }
+
+    $methodLower = $Method.ToLowerInvariant()
+    if ($node.PSObject.Properties.Name -notcontains $methodLower) { return $null }
+    $op = $node.$methodLower
+
+    $names = [System.Collections.Generic.List[string]]::new()
+    if ($op -and $op.parameters) {
+        foreach ($p in $op.parameters) {
+            $resolved = Resolve-PfbRef -Node $p -Spec $Spec
+            if ($resolved -and
+                $resolved.PSObject.Properties.Name -contains 'name' -and
+                $resolved.name -and
+                $resolved.'in' -eq 'query') {
+                $names.Add([string]$resolved.name)
+            }
+        }
+    }
+    return , $names.ToArray()
+}
+
 function Add-PfbSchemaPropertyNodes {
     <#
     .SYNOPSIS
