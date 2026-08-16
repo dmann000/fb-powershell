@@ -54,6 +54,12 @@
             # see, since a cacheless runner leaves it contributing neither a pass nor a skip.
             'Rail A - no unwaived selector coercion'
             'Rail B - committed map matches regeneration'
+            # Dead-key gate. The COMMITTED guard is ungated and so is listed under winps51
+            # too; the regeneration gate is PS7-only (the generator carries
+            # `#Requires -Version 7.0`), so like the issue-#90 rails above it belongs to this
+            # block alone -- requiring it on 5.1 would be a permanent false red.
+            'Committed dead-key report (REGRESSION guard, no spec cache required)'
+            'Build-PfbDeadKeyReport (regeneration gate, spec cache required, PS7 only)'
         )
     }
     winps51 = @{
@@ -101,6 +107,12 @@
             # Ungated for the same reason: it parses tracked .ps1 files via the AST, so it needs
             # neither the spec cache nor the generated manifest and has no skip path.
             'Build-PfbValueEnumMap: hand-written ValidateSet citations'
+            # Dead-key gate, ungated half. It reads only the committed
+            # Reports/PfbDeadKeyReport.json -- no spec cache, no PowerShell 7, no skip path --
+            # so it must contribute executed tests on BOTH legs. Its PS7-only sibling,
+            # 'Build-PfbDeadKeyReport (regeneration gate, spec cache required, PS7 only)', is
+            # deliberately absent from this list and appears under pwsh7 only.
+            'Committed dead-key report (REGRESSION guard, no spec cache required)'
         )
     }
 }
