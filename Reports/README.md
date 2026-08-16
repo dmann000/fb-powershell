@@ -10,6 +10,7 @@ locally first — see `tools/README.md`'s `Update-PfbApiSpecs.ps1` step):
 ./tools/Build-PfbValueEnumMap.ps1
 ./tools/Build-PfbFieldCmdletMap.ps1
 ./tools/Build-PfbApiDriftReport.ps1
+./tools/Build-PfbDeadKeyReport.ps1
 ./tools/Build-PfbPipelineSelectorMap.ps1
 ```
 
@@ -20,6 +21,7 @@ locally first — see `tools/README.md`'s `Update-PfbApiSpecs.ps1` step):
 | `PfbFieldCmdletMap.json` | "Which typed `Public/` parameters lacking a `ValidateSet` today should get one?" | `tools/Build-PfbFieldCmdletMap.ps1` |
 | `PfbFieldCmdletMapping.md` | Same, as a readable table. | `tools/Build-PfbFieldCmdletMap.ps1` |
 | `PfbApiDriftReport.json` / `.md` | "What's changed in the API that this module hasn't caught up to yet?" — new endpoints with no cmdlet, new parameters on endpoints we already call, drift on existing `ValidateSet`s, and new `ValidateSet` candidates. Pass `-SinceVersion '<prior version>'` to isolate just the newest release's additions (uncovered endpoints + parameter gaps only) instead of the full backlog. | `tools/Build-PfbApiDriftReport.ps1` |
+| `PfbDeadKeyReport.json` | "Which Public/ cmdlet query keys does the endpoint silently discard, and which cmdlet operations have no surviving selector?" | `tools/Build-PfbDeadKeyReport.ps1` |
 
 | `PfbPipelineSelectorMap.json` / `.md` | "Can a piped object bind this cmdlet's selector, or does it stringify into the filter?" — issue #90. Every pipeline-bound selector probed against its resource family's real response shape, by invoking the actual cmdlet with the HTTP layer shadowed. Verdicts are observed, never inferred. | `tools/Build-PfbPipelineSelectorMap.ps1` |
 

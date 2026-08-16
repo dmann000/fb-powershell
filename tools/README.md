@@ -174,6 +174,16 @@ Run in this order:
    ./tools/Build-PfbApiDriftReport.ps1 -SinceVersion '2.26'
    ```
 
+   **`Build-PfbDeadKeyReport.ps1`** builds `Reports/PfbDeadKeyReport.json`, the committed
+   inventory of query keys emitted by `Public/` cmdlets that their endpoint does not declare
+   for that HTTP verb. It pins analysis to the capability map's last `generatedFrom` version,
+   skips body and unresolved parameters, and identifies destructive dead keys plus groups with
+   no surviving selector. This is reporting only -- it does not edit any cmdlet.
+
+   ```powershell
+   ./tools/Build-PfbDeadKeyReport.ps1
+   ```
+
    `parameterGaps` also never reports a small set of non-actionable fields
    (`$script:PfbNonActionableParameters` in `tools/lib/PfbApiDriftTools.ps1`:
    `X-Request-ID`, `continuation_token`, `offset`) -- these are declared on nearly every

@@ -130,6 +130,10 @@ jobs:
         shell: pwsh
         run: ./tools/Build-PfbApiDriftReport.ps1
 
+      - name: Build dead-key report
+        shell: pwsh
+        run: ./tools/Build-PfbDeadKeyReport.ps1
+
       # Pinned + cached, with retry on the gallery path; see
       # .github/actions/install-test-modules/action.yml (including why Posh-SSH is
       # needed at all -- Pester can only mock a resolvable command).
