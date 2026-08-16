@@ -1008,7 +1008,12 @@ function Get-PfbCmdletParameterInventory {
         across every function defined under -PublicDirectory.
     .OUTPUTS
         [PSCustomObject]@{ File; Line; Cmdlet; Parameter; HasValidateSet; ValidateSetValues;
-        WireName; Surface; Endpoint; Method }
+        WireName; TargetVariable; WireSurface; Surface; Endpoint; Method }
+
+        TargetVariable is the resolved assignment target ('queryParams' or 'body'), and
+        WireSurface is its coarse classification ('Query' | 'Body' | 'Unresolved') -- the
+        distinction between a query selector and a request-body property, which name
+        shape alone cannot supply.
 
         Endpoint/Method are $null unless the parameter's wire-name assignment resolved
         to exactly one Invoke-PfbApiRequest call's endpoint (see
@@ -1080,6 +1085,16 @@ function Get-PfbCmdletParameterInventory {
                 elseif ($hasAttributesParam) { 'AttributesOnly' }
                 else { 'TypedUnresolved' }
 
+                # Which request surface the parameter reaches: Get-PfbWireNameForParameter's
+                # TargetVariable is literally 'queryParams' or 'body'. A selector is a query
+                # parameter; a request-body property is not, however selector-shaped its name.
+                $targetVariable = if ($wireInfo) { $wireInfo.TargetVariable } else { $null }
+                $wireSurface = switch ($targetVariable) {
+                    'queryParams' { 'Query' }
+                    'body' { 'Body' }
+                    default { 'Unresolved' }
+                }
+
                 $results.Add([PSCustomObject]@{
                     File              = $file.FullName
                     Line              = $p.Extent.StartLineNumber
@@ -1088,6 +1103,8 @@ function Get-PfbCmdletParameterInventory {
                     HasValidateSet    = [bool]$validateSetValues
                     ValidateSetValues = $validateSetValues
                     WireName          = $wireName
+                    TargetVariable    = $targetVariable
+                    WireSurface       = $wireSurface
                     Surface           = $surface
                     Endpoint          = if ($endpointInfo) { $endpointInfo.Endpoint } else { $null }
                     Method            = if ($endpointInfo) { $endpointInfo.Method } else { $null }
