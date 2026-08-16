@@ -34,12 +34,17 @@
     at the HEAD this file was written against (bde3270, specVersion 2.28): 126 deadKeys
     (22 DESTRUCTIVE / 8 CREATE / 96 WRONG-RESULTS) and 18 noSurvivingSelector groups. The
     DESTRUCTIVE identities and the noSurvivingSelector identities were read out of that file
-    and pinned below as ALLOWLISTS; the counts were pinned as CEILINGS. Therefore:
+    and pinned below as ALLOWLISTS; the dead-key and skip counts were pinned as CEILINGS; and
+    the inventory counts were pinned as FLOORS, which is the one direction the monotone design
+    does NOT leave free -- see the coverage-collapse test for why. Therefore:
       REDS   -- a dead key appearing on a destructive verb that is not already pinned; a new
-                noSurvivingSelector group; any count going UP; a new skip reason; an absolute
-                path in the artifact; the artifact's ordering not matching the generator's
-                ordinal comparer.
-      PASSES -- any entry disappearing, any count going DOWN, all the way to zero.
+                noSurvivingSelector group; any dead-key or skip count going UP; a new skip
+                reason; parametersInventoried or keysEvaluated collapsing; an absolute path in
+                the artifact; the artifact's ordering not matching the generator's ordinal
+                comparer.
+      PASSES -- any entry disappearing, any dead-key or skip count going DOWN, all the way to
+                zero (see the SHRINK-TO-ZERO RELAX POINT note on assertion 1 for the single
+                edit the total-zero case needs).
     Renaming a cmdlet or moving an endpoint changes an identity, so it reads as "new" and
     reds. That is intended: it wants a human to re-confirm the key is still declared, and the
     fix is a one-line edit to the pinned list in the same reviewed diff.
@@ -52,6 +57,15 @@
 BeforeAll {
     $script:repoRoot = Split-Path -Parent $PSScriptRoot
     $script:committedReportPath = Join-Path $repoRoot 'Reports/PfbDeadKeyReport.json'
+    # Existence is checked HERE rather than in an It, because an It could never see it fail:
+    # with the file absent, the Get-Content below errors first and Pester turns that into a
+    # container failure, so no It body runs at all. A `Test-Path | Should -BeTrue` in an It
+    # would therefore be an assertion that cannot fail -- exactly what this file's header
+    # argues against elsewhere. The throw exists to replace the raw Get-Content error, which
+    # names the path but not what the reader should do about it.
+    if (-not (Test-Path -LiteralPath $script:committedReportPath)) {
+        throw "Reports/PfbDeadKeyReport.json is missing at '$($script:committedReportPath)'. It is a TRACKED artifact, not a build cache -- do not regenerate it to satisfy this test. Restore it from git (git checkout -- Reports/PfbDeadKeyReport.json); if it was deliberately deleted, this whole gate went with it."
+    }
     $script:committedReport = Get-Content -Path $committedReportPath -Raw | ConvertFrom-Json
 
     # --- Pinned baseline, read out of the committed artifact at HEAD bde3270 -------------
@@ -119,15 +133,31 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
         # ANTI-VACUITY, first in the file. If this fails every scan below is meaningless, so
         # it fails first and loudly rather than passing silently over a missing or empty file.
         #
-        # This is the ONE place the report's current contents are asserted non-empty rather
-        # than merely bounded, and it is deliberately about the ARTIFACT being a real tracked
-        # input -- not about how many dead keys remain. If a future PR genuinely fixes every
-        # dead key, this line is the one to relax (to a structural "deadKeys property exists"
-        # check); nothing else in this file needs touching, because everything else asserts
-        # only that nothing NEW appeared.
-        Test-Path $committedReportPath | Should -BeTrue -Because 'Reports/PfbDeadKeyReport.json is a tracked artifact, not a build cache'
+        # SHRINK-TO-ZERO RELAX POINT (1 of 3) -- see the note below. This is the only place in
+        # the file that asserts how MUCH is in the report; everything else asserts either that
+        # nothing NEW appeared or that a floor/ceiling holds.
+        #
+        # WHAT A PR THAT FIXES EVERY REMAINING DEAD KEY HAS TO DO, stated precisely because an
+        # earlier version of this comment got it wrong and would have sent that reader in
+        # circles. With `deadKeys: []` the file reds in exactly three places, all tagged
+        # SHRINK-TO-ZERO RELAX POINT: this floor, and the two scan-input floors in the "no NEW
+        # dead key on a destructive verb" and "no NEW noSurvivingSelector" tests, which
+        # deliberately floor on deadKeys because THIS assertion is what guarantees it non-zero.
+        # Relaxing all three together (to the structural property-exists checks immediately
+        # below) is one reviewed edit, and it is a real decision rather than a formality: past
+        # that point the file no longer proves it scanned anything, and its guarantee narrows
+        # to the monotone one. NOTHING ELSE needs touching -- every other assertion here is
+        # already shrink-safe, including both ordering blocks, which no-op on an empty list.
+        #
+        # A PARTIAL fix -- even all 22 destructive entries, or all 18 groups, at once -- needs
+        # no edit at all. That case was constructed and confirmed green.
         $committedReport.PSObject.Properties.Name | Should -Contain 'deadKeys' -Because 'a deadKeys property that vanished entirely would otherwise be indistinguishable from one holding an empty list'
         $committedReport.PSObject.Properties.Name | Should -Contain 'noSurvivingSelector' -Because 'a noSurvivingSelector property that vanished would make the highest-severity scan below vacuous'
+        # Explicitly NOT -BeNullOrEmpty via @(...).Count: `@($null).Count` is 1, so a report
+        # carrying `"deadKeys": null` would sail past a count-only floor and this assertion
+        # would fail neither first nor loudly.
+        $committedReport.deadKeys | Should -Not -BeNullOrEmpty -Because 'a null or empty deadKeys would make every scan below vacuous'
+        $null -ne $committedReport.noSurvivingSelector | Should -BeTrue -Because 'a null noSurvivingSelector is a structurally broken artifact, not an empty one -- the generator always emits an array'
         @($committedReport.deadKeys).Count | Should -BeGreaterThan 0 -Because 'a report with no deadKeys would make every scan below vacuous'
     }
 
@@ -135,16 +165,23 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
         # DESTRUCTIVE == DELETE/PATCH/PUT (Get-PfbDeadKeySeverity). These are the entries where
         # a discarded key means the request arrives with no selector, so a new one is the
         # motivating incident happening again.
-        $scanned = 0
-        $offenders = foreach ($entry in @($committedReport.deadKeys)) {
+        #
+        # The floor below is on the SCAN INPUT, not on the filtered subset. Counting only the
+        # DESTRUCTIVE matches would make "all 22 destructive dead keys got fixed" -- a tractable
+        # single PR, and the outcome this artifact exists to produce -- red the gate. The filter
+        # is a predicate, not the scan boundary: what still has to be non-empty is the list the
+        # loop walks, which assertion 1 guarantees; what must be free to reach zero is how many
+        # of them match.
+        $scanInput = @($committedReport.deadKeys)
+        $offenders = foreach ($entry in $scanInput) {
             if ($entry.severity -ne 'DESTRUCTIVE') { continue }
-            $scanned++
             $identity = '{0}|{1}|{2}|{3}|{4}' -f $entry.cmdlet, $entry.parameter, $entry.wireKey, $entry.method, $entry.endpoint
             if ($baselineDestructive -notcontains $identity) {
                 "NEW DESTRUCTIVE dead key: $($entry.cmdlet) -$($entry.parameter) writes query key '$($entry.wireKey)', which $($entry.method) $($entry.endpoint) does not declare. That endpoint/verb declares only: $(@($entry.declared) -join ', '). The request will arrive without that selector."
             }
         }
-        $scanned | Should -BeGreaterThan 0 -Because 'a vacuous scan would pass this test without checking anything'
+        # SHRINK-TO-ZERO RELAX POINT (2 of 3).
+        $scanInput.Count | Should -BeGreaterThan 0 -Because 'a vacuous scan would pass this test without checking anything'
         @($offenders) | Should -BeNullOrEmpty -Because "a destructive verb carrying an undeclared query key is the incident this gate exists to prevent. Either declare/rename the key, or -- if this is a deliberate, reviewed addition -- add its identity to `$baselineDestructive in this file."
     }
 
@@ -152,9 +189,13 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
         # The highest-severity class in the artifact: EVERY selector-shaped key the operation
         # sends is dead, so the request carries no usable selector at all. A new one here is
         # strictly worse than a new DESTRUCTIVE dead key alongside a surviving selector.
-        $scanned = 0
+        #
+        # Same scan-input reasoning as the test above, and here the point is sharper: this
+        # collection has only 18 entries, so "somebody fixed all of them" is one PR. Flooring on
+        # noSurvivingSelector.Count would make the gate red on precisely its own success. The
+        # floor is therefore on deadKeys, which assertion 1 guarantees non-empty and which is a
+        # strict superset of the operations that can produce a group here.
         $offenders = foreach ($group in @($committedReport.noSurvivingSelector)) {
-            $scanned++
             $identity = '{0}|{1}|{2}' -f $group.cmdlet, $group.method, $group.endpoint
             if ($baselineNoSurvivingSelector -notcontains $identity) {
                 $deadKeysForGroup = @(@($committedReport.deadKeys) | Where-Object {
@@ -166,8 +207,39 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
                 "NEW noSurvivingSelector: $($group.cmdlet) ($($group.method) $($group.endpoint)) has no surviving selector -- every selector-shaped key it sends is undeclared [$detail]. That endpoint/verb declares only: $($declared -join ', ')."
             }
         }
-        $scanned | Should -BeGreaterThan 0 -Because 'a vacuous scan would pass this test without checking anything'
+        # SHRINK-TO-ZERO RELAX POINT (3 of 3).
+        @($committedReport.deadKeys).Count | Should -BeGreaterThan 0 -Because 'a vacuous scan would pass this test without checking anything'
         @($offenders) | Should -BeNullOrEmpty -Because "an operation with no surviving selector sends an unselected request. Either declare/rename a selector, or -- if this is a deliberate, reviewed addition -- add its identity to `$baselineNoSurvivingSelector in this file."
+    }
+
+    It 'keeps the inventory covered: parametersInventoried and keysEvaluated stay above their floors' {
+        # THE COVERAGE-COLLAPSE GUARD. Without it every other assertion in this file can be
+        # satisfied by a report that simply stopped looking: cut parametersInventoried 2174 ->
+        # 900 and keysEvaluated 1757 -> 700, and a third of the dead keys and a third of the
+        # groups vanish from the gate's view with every ceiling and every allowlist still
+        # cleared. That was reproduced against this file before this test existed -- all six
+        # tests passed. A gate reporting safety it does not provide is worse than no gate.
+        #
+        # The ceilings below cannot cover it: a regression in the AST inventory walk or the
+        # wire-name resolver drops the dead-key and skip counts too, so every one of them moves
+        # in the direction the ceilings call "better". Nor can the PS7 regeneration gate: that
+        # catches a generator change made WITHOUT regenerating, and a PR that changes the
+        # generator and regenerates passes both files.
+        #
+        # FLOORS, NOT PINS, for the reason scripts/Assert-PfbSpecCache.ps1 gives for its own
+        # floor of 20 against 29 published specs: this asserts "the mechanism still ran over
+        # the corpus", and the real figures move with ordinary cmdlet churn and with genuine
+        # reclassification. Pinning them would turn every unrelated cmdlet addition into a red
+        # build. Measured at the baseline commit (specVersion 2.28): parametersInventoried
+        # 2174, keysEvaluated 1757 -- so the headroom below is 174 and 157 respectively, and
+        # the 900/700 collapse misses by a wide margin.
+        #
+        # deadKey and the skip counts are deliberately NOT floored. Those must be free to fall
+        # to zero; that is the whole monotone design, and flooring them would recreate the bug
+        # this file was sent back for.
+        $committedReport.counts.parametersInventoried | Should -BeGreaterOrEqual 2000 -Because "the AST inventory must still be walking the whole of Public/: it reported $($committedReport.counts.parametersInventoried) parameters against a measured 2174. A large drop is a coverage collapse, not an improvement -- the keys that disappeared were not proven safe, they stopped being looked at."
+        $committedReport.counts.keysEvaluated | Should -BeGreaterOrEqual 1600 -Because "the classifier must still be evaluating the bulk of the inventory: it reported $($committedReport.counts.keysEvaluated) evaluated keys against a measured 1757. Every key that stops being evaluated leaves the gate's view silently."
+        $committedReport.counts.ok | Should -BeGreaterOrEqual 0 -Because 'ok = keysEvaluated - deadKey, so a negative value means the two counters disagree and the artifact is internally inconsistent'
     }
 
     It 'grows no count: dead keys, no-surviving-selector groups, and every skip reason are <= the committed figures' {
@@ -272,16 +344,23 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
             return @($list)
         }
 
+        # Both blocks are guarded rather than floored. An ordering assertion over an empty list
+        # is trivially satisfied, so a floor here would only mean "reds when the collection it
+        # is checking the order of became empty" -- which for noSurvivingSelector is 18 fixes
+        # away and is the outcome the artifact exists to produce. Non-vacuity for this file
+        # lives in assertion 1, not here.
         $deadKeys = @($committedReport.deadKeys)
-        $deadKeys.Count | Should -BeGreaterThan 0 -Because 'a vacuous scan would pass this test without checking anything'
-        $deadKeyActual = @($deadKeys | ForEach-Object { '{0}|{1}' -f $_.cmdlet, $_.parameter })
-        $deadKeyExpected = @((& $sortByOrdinal $deadKeys @('cmdlet', 'parameter')) | ForEach-Object { '{0}|{1}' -f $_.cmdlet, $_.parameter })
-        ($deadKeyActual -join "`n") | Should -Be ($deadKeyExpected -join "`n") -Because 'deadKeys must be committed in ordinal order on (cmdlet, parameter); an unsorted artifact produces churn diffs that bury the real change'
+        if ($deadKeys.Count -gt 0) {
+            $deadKeyActual = @($deadKeys | ForEach-Object { '{0}|{1}' -f $_.cmdlet, $_.parameter })
+            $deadKeyExpected = @((& $sortByOrdinal $deadKeys @('cmdlet', 'parameter')) | ForEach-Object { '{0}|{1}' -f $_.cmdlet, $_.parameter })
+            ($deadKeyActual -join "`n") | Should -Be ($deadKeyExpected -join "`n") -Because 'deadKeys must be committed in ordinal order on (cmdlet, parameter); an unsorted artifact produces churn diffs that bury the real change'
+        }
 
         $groups = @($committedReport.noSurvivingSelector)
-        $groups.Count | Should -BeGreaterThan 0 -Because 'a vacuous scan would pass this test without checking anything'
-        $groupActual = @($groups | ForEach-Object { '{0}|{1}|{2}' -f $_.cmdlet, $_.method, $_.endpoint })
-        $groupExpected = @((& $sortByOrdinal $groups @('cmdlet', 'method', 'endpoint')) | ForEach-Object { '{0}|{1}|{2}' -f $_.cmdlet, $_.method, $_.endpoint })
-        ($groupActual -join "`n") | Should -Be ($groupExpected -join "`n") -Because 'noSurvivingSelector must be committed in ordinal order on (cmdlet, method, endpoint)'
+        if ($groups.Count -gt 0) {
+            $groupActual = @($groups | ForEach-Object { '{0}|{1}|{2}' -f $_.cmdlet, $_.method, $_.endpoint })
+            $groupExpected = @((& $sortByOrdinal $groups @('cmdlet', 'method', 'endpoint')) | ForEach-Object { '{0}|{1}|{2}' -f $_.cmdlet, $_.method, $_.endpoint })
+            ($groupActual -join "`n") | Should -Be ($groupExpected -join "`n") -Because 'noSurvivingSelector must be committed in ordinal order on (cmdlet, method, endpoint)'
+        }
     }
 }

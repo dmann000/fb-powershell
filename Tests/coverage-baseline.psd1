@@ -55,11 +55,15 @@
             'Rail A - no unwaived selector coercion'
             'Rail B - committed map matches regeneration'
             # Dead-key gate. The COMMITTED guard is ungated and so is listed under winps51
-            # too; the regeneration gate is PS7-only (the generator carries
-            # `#Requires -Version 7.0`), so like the issue-#90 rails above it belongs to this
-            # block alone -- requiring it on 5.1 would be a permanent false red.
+            # too; the two halves of the generator gate are PS7-only (the generator carries
+            # `#Requires -Version 7.0`), so like the issue-#90 rails above they belong to this
+            # block alone -- requiring them on 5.1 would be a permanent false red. They are
+            # split on a dependency boundary: the first needs the real tools/specs cache, the
+            # second builds its own fixture and reads no cache at all, so a broken fixture
+            # cannot make the real generator look broken.
             'Committed dead-key report (REGRESSION guard, no spec cache required)'
-            'Build-PfbDeadKeyReport (regeneration gate, spec cache required, PS7 only)'
+            'Build-PfbDeadKeyReport regeneration (real spec cache required, PS7 only)'
+            'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cache, PS7 only)'
         )
     }
     winps51 = @{

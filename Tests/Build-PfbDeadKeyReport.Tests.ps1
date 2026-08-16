@@ -9,9 +9,15 @@
     REGENERATING and comparing, and by driving the classifier over synthetic fixtures whose
     expected answers are known independently of the real repo's contents.
 
+    TWO DESCRIBES, split on a dependency boundary: regeneration needs the real tools/specs
+    cache, the real Public/ tree and the committed artifact; synthetic classification needs
+    only a fixture it builds itself. One shared BeforeAll would have let a broken fixture red
+    the two regeneration tests, reporting the real generator as broken when it was fine.
+    The total It count is unchanged by the split, so 5.1 still contributes exactly six skips.
+
     WHY EVERY DESCRIBE CARRIES -Skip:($PSVersionTable.PSVersion.Major -lt 7):
     the generator carries `#Requires -Version 7.0`, so it cannot run on Windows PowerShell 5.1
-    at all. It is invoked ONLY from the gated Describe's own BeforeAll. Do not add an ungated
+    at all. It is invoked ONLY from a gated Describe's own BeforeAll. Do not add an ungated
     block to this file and do not move the BeforeAll to file scope: a `#Requires -Version 7.0`
     script pulled in by an UNGATED BeforeAll kills every test in the file with a CONTAINER
     FAILURE rather than skipping them. That happened in this repo, at a cost of 65 tests -- see
@@ -28,7 +34,15 @@
     like one level up. So the cache check throws.
 #>
 
-Describe 'Build-PfbDeadKeyReport (regeneration gate, spec cache required, PS7 only)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+Describe 'Build-PfbDeadKeyReport regeneration (real spec cache required, PS7 only)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+
+    # SPLIT FROM THE SYNTHETIC BLOCK BELOW ON PURPOSE, and the seam is a dependency boundary
+    # rather than a stylistic one: this half needs the real ~50MB tools/specs cache, the real
+    # Public/ tree and the committed artifact; the half below needs a fixture and nothing else.
+    # Sharing one BeforeAll made a throw anywhere red all six tests, so a broken FIXTURE would
+    # have reported the real generator as broken. Splitting also stops the synthetic half
+    # depending on a cache it never reads. Both halves keep the PS7 gate, and the total It
+    # count is unchanged, so 5.1 still contributes exactly six skips.
 
     BeforeAll {
         $script:repoRoot = Split-Path -Parent $PSScriptRoot
@@ -38,12 +52,16 @@ Describe 'Build-PfbDeadKeyReport (regeneration gate, spec cache required, PS7 on
 
         # HARD FAILURE, not a skip -- see the header. Assert-PfbSpecCache.ps1 throws when the
         # directory is absent or holds fewer than its floor of fb*.json files.
-        & (Join-Path $repoRoot 'scripts/Assert-PfbSpecCache.ps1') -SpecsDirectory $specsDirectory | Out-Null
+        #
+        # Deliberately NOT piped to Out-Null: that script reports its count with Write-Host,
+        # which bypasses the pipeline, so the line would suppress nothing while reading as
+        # though it did. Its "<path> contains N spec file(s)." appearing in the Pester output
+        # is the useful confirmation that the cache this half depends on actually arrived.
+        & (Join-Path $repoRoot 'scripts/Assert-PfbSpecCache.ps1') -SpecsDirectory $specsDirectory
 
         $script:workRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("PfbDeadKeyGate_" + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $workRoot -Force | Out-Null
 
-        # --- Assertions 1 and 2: two real regenerations, from two different working dirs -----
         $script:regeneratedPath = Join-Path $workRoot 'regenerated.json'
         & $generatorPath -OutputPath $regeneratedPath | Out-Null
 
@@ -55,8 +73,54 @@ Describe 'Build-PfbDeadKeyReport (regeneration gate, spec cache required, PS7 on
         finally {
             Pop-Location
         }
+    }
 
-        # --- Assertions 3-6: a synthetic Public/, capability map and spec ---------------------
+    AfterAll {
+        if ($script:workRoot -and (Test-Path -LiteralPath $script:workRoot)) {
+            Remove-Item -LiteralPath $script:workRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'regenerates byte-for-byte identically to the committed Reports/PfbDeadKeyReport.json' {
+        # THE stale-artifact check. Reds when the generator, the Public/ cmdlets, or the pinned
+        # spec moved without the artifact being regenerated and committed alongside them.
+        $committedBytes = [System.IO.File]::ReadAllBytes($committedReportPath)
+        $regeneratedBytes = [System.IO.File]::ReadAllBytes($regeneratedPath)
+        $regeneratedBytes.Length | Should -Be $committedBytes.Length -Because "the committed artifact is stale: regenerating produced $($regeneratedBytes.Length) bytes against the committed $($committedBytes.Length). Re-run tools/Build-PfbDeadKeyReport.ps1 and commit the result."
+
+        $firstDifference = -1
+        for ($i = 0; $i -lt [Math]::Min($committedBytes.Length, $regeneratedBytes.Length); $i++) {
+            if ($committedBytes[$i] -ne $regeneratedBytes[$i]) { $firstDifference = $i; break }
+        }
+        $firstDifference | Should -Be -1 -Because "the committed artifact is stale: it first diverges from a fresh regeneration at byte $firstDifference. Re-run tools/Build-PfbDeadKeyReport.ps1 and commit the result."
+    }
+
+    It 'produces the same bytes when regenerated from a different working directory' {
+        # Location independence, asserted rather than assumed: an absolute path or a
+        # CWD-relative default leaking into the artifact makes a regeneration from a git
+        # worktree rewrite lines that did not semantically change, burying the real diff.
+        $fromRepoRoot = [System.IO.File]::ReadAllBytes($regeneratedPath)
+        $fromElsewhere = [System.IO.File]::ReadAllBytes($regeneratedElsewherePath)
+        $fromElsewhere.Length | Should -Be $fromRepoRoot.Length -Because 'the generated report must not depend on the process working directory'
+
+        $firstDifference = -1
+        for ($i = 0; $i -lt [Math]::Min($fromRepoRoot.Length, $fromElsewhere.Length); $i++) {
+            if ($fromRepoRoot[$i] -ne $fromElsewhere[$i]) { $firstDifference = $i; break }
+        }
+        $firstDifference | Should -Be -1 -Because "regenerating from '$workRoot' instead of the repo root changed the output at byte $firstDifference -- the generator is resolving something against the working directory"
+    }
+}
+
+Describe 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cache, PS7 only)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+
+    BeforeAll {
+        $script:repoRoot = Split-Path -Parent $PSScriptRoot
+        $script:generatorPath = Join-Path $repoRoot 'tools/Build-PfbDeadKeyReport.ps1'
+        $script:workRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("PfbDeadKeyFixture_" + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $workRoot -Force | Out-Null
+
+        # No Assert-PfbSpecCache call here, and that is the point of the split: every input this
+        # block reads is built below, so the real cache is irrelevant to it.
         # EVERY spec fixture node is a [PSCustomObject], never a bare @{}. Resolve-PfbRef's loop
         # condition tests `$current.PSObject.Properties.Name -contains '$ref'`, which NEVER
         # matches on a hashtable, so a @{} fixture silently drops every $ref'd parameter and the
@@ -195,35 +259,6 @@ function Get-PfbSyntheticContext {
         if ($script:workRoot -and (Test-Path -LiteralPath $script:workRoot)) {
             Remove-Item -LiteralPath $script:workRoot -Recurse -Force -ErrorAction SilentlyContinue
         }
-    }
-
-    It 'regenerates byte-for-byte identically to the committed Reports/PfbDeadKeyReport.json' {
-        # THE stale-artifact check. Reds when the generator, the Public/ cmdlets, or the pinned
-        # spec moved without the artifact being regenerated and committed alongside them.
-        $committedBytes = [System.IO.File]::ReadAllBytes($committedReportPath)
-        $regeneratedBytes = [System.IO.File]::ReadAllBytes($regeneratedPath)
-        $regeneratedBytes.Length | Should -Be $committedBytes.Length -Because "the committed artifact is stale: regenerating produced $($regeneratedBytes.Length) bytes against the committed $($committedBytes.Length). Re-run tools/Build-PfbDeadKeyReport.ps1 and commit the result."
-
-        $firstDifference = -1
-        for ($i = 0; $i -lt [Math]::Min($committedBytes.Length, $regeneratedBytes.Length); $i++) {
-            if ($committedBytes[$i] -ne $regeneratedBytes[$i]) { $firstDifference = $i; break }
-        }
-        $firstDifference | Should -Be -1 -Because "the committed artifact is stale: it first diverges from a fresh regeneration at byte $firstDifference. Re-run tools/Build-PfbDeadKeyReport.ps1 and commit the result."
-    }
-
-    It 'produces the same bytes when regenerated from a different working directory' {
-        # Location independence, asserted rather than assumed: an absolute path or a
-        # CWD-relative default leaking into the artifact makes a regeneration from a git
-        # worktree rewrite lines that did not semantically change, burying the real diff.
-        $fromRepoRoot = [System.IO.File]::ReadAllBytes($regeneratedPath)
-        $fromElsewhere = [System.IO.File]::ReadAllBytes($regeneratedElsewherePath)
-        $fromElsewhere.Length | Should -Be $fromRepoRoot.Length -Because 'the generated report must not depend on the process working directory'
-
-        $firstDifference = -1
-        for ($i = 0; $i -lt [Math]::Min($fromRepoRoot.Length, $fromElsewhere.Length); $i++) {
-            if ($fromRepoRoot[$i] -ne $fromElsewhere[$i]) { $firstDifference = $i; break }
-        }
-        $firstDifference | Should -Be -1 -Because "regenerating from '$workRoot' instead of the repo root changed the output at byte $firstDifference -- the generator is resolving something against the working directory"
     }
 
     It 'classifies a synthetic undeclared query key as a dead key, with the verb-derived severity' {
