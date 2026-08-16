@@ -60,6 +60,20 @@ $inventory = @(Get-PfbCmdletParameterInventory -PublicDirectory $PublicDirectory
 # linguistic and is not. Each collection passes only properties that exist in its emitted
 # artifact: deadKeys uses Cmdlet then Parameter, while noSurvivingSelector uses Cmdlet then
 # Method then Endpoint.
+#
+# THE SORT IS UNSTABLE, and that is safe only because the sort keys are currently unique.
+# List<T>.Sort with a [System.Comparison[object]] is an introsort: it gives no guarantee about
+# the relative order of records whose comparison returns 0. There are 0 duplicate sort keys in
+# the committed artifact today -- (Cmdlet, Parameter) is unique across deadKeys and
+# (Cmdlet, Method, Endpoint) is unique across noSurvivingSelector -- so the output is
+# deterministic and the byte-identity results in Tests/Build-PfbDeadKeyReport.Tests.ps1 are
+# real. A future spec that introduces even ONE tie would make byte-identity depend on .NET's
+# introsort partitioning, and that file's first-difference assertion would then red
+# intermittently and differently across platforms and runtime versions.
+# THE FIX, if that day comes: make the order TOTAL by adding a final tie-break property to each
+# -Property list (WireKey for deadKeys is enough today), here and in the mirrored comparer in
+# Tests/CommittedDeadKeyReport.Tests.ps1. Do not reach for a "stable sort" instead -- a total
+# order is what makes the artifact reproducible.
 function Sort-PfbDeadKeyRecords {
     param(
         [AllowEmptyCollection()]
@@ -202,6 +216,13 @@ foreach ($record in $inventory) {
 # cmdlet carrying a -NewName can appear here regardless of how dead its query selectors are.
 # That errs toward under-reporting, which is the safe direction for a report whose entries
 # are read as destructive-verb hazards.
+#
+# ALL THREE NARROWINGS ABOVE ARE SUMMARISED FOR CONSUMERS in Reports/README.md, under the
+# noSurvivingSelector field's description, with a pointer back to this comment for the full
+# account. Keep the two in step: a downstream consumer reading the field as complete would
+# build a refusal rail with holes it does not know about. They are deliberately NOT carried as
+# a field in the artifact -- that would change its bytes and its schema for a documentation
+# problem.
 $noSurvivingSelectorRecords = [System.Collections.Generic.List[object]]::new()
 $allSelectorRecords = [System.Collections.Generic.List[object]]::new()
 foreach ($record in $inventory) {

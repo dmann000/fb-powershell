@@ -25,6 +25,28 @@ locally first — see `tools/README.md`'s `Update-PfbApiSpecs.ps1` step):
 
 | `PfbPipelineSelectorMap.json` / `.md` | "Can a piped object bind this cmdlet's selector, or does it stringify into the filter?" — issue #90. Every pipeline-bound selector probed against its resource family's real response shape, by invoking the actual cmdlet with the HTTP layer shadowed. Verdicts are observed, never inferred. | `tools/Build-PfbPipelineSelectorMap.ps1` |
 
+### `PfbDeadKeyReport.json` — what `noSurvivingSelector` does *not* cover
+
+The `noSurvivingSelector` list is the report's highest-severity class: every selector-shaped
+query key the operation sends is undeclared, so the request arrives with no usable selector.
+It **deliberately under-reports**, and a consumer that reads it as complete (for example when
+deriving a refusal rail) will have holes it does not know about. Three narrowings, summarised
+here — the full account, with the measurements behind each, is the comment above
+`$noSurvivingSelectorRecords` in `tools/Build-PfbDeadKeyReport.ps1`:
+
+- **It is operation-scoped, not cmdlet-scoped.** Group identity is (cmdlet, method, endpoint).
+  A selector skipped as `endpoint/method ambiguous` carries a null method/endpoint and so forms
+  its own null-keyed group; it cannot suppress the same cmdlet's real group. 10 such records
+  exist today.
+- **It means "no *identifiable* selector was skipped."** A parameter whose wire name could not
+  be resolved is dropped before the shape test — the shape of an unresolvable name is
+  unknowable — so the 125 `wire name unresolved` records fall entirely outside the rule.
+- **`Update-Pfb*` cmdlets carrying `-NewName` can never appear.** Their body-surface `name`
+  (plus `ServicePrincipalNames` / `SubjectAlternativeNames`) is selector-shaped by name, so it
+  suppresses its operation's group however dead that operation's real query selectors are. A
+  request-body `name` can never act as a query selector, so this is under-reporting — the safe
+  direction — rather than a wrong answer.
+
 All of the above are **reporting only** — none of them edit any `Public/` cmdlet. A human
 (or an agent, on request) reads a report and decides what, if anything, to build next.
 

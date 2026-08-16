@@ -435,6 +435,8 @@ Run in this order:
    for that HTTP verb. It pins analysis to the capability map's last `generatedFrom` version,
    skips body and unresolved parameters, and identifies destructive dead keys plus groups with
    no surviving selector. This is reporting only -- it does not edit any cmdlet.
+   The `noSurvivingSelector` list deliberately under-reports in three specific ways -- read
+   `Reports/README.md` before consuming it as a complete list.
 
    ```powershell
    ./tools/Build-PfbDeadKeyReport.ps1

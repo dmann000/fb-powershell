@@ -25,9 +25,13 @@
     artifact regeneration into every later fix -- the anti-pattern the second Describe of
     Tests/CommittedDriftReport.Tests.ps1 argues against at length ("a test asserting 'not yet
     implemented' fails on the PR that implements the thing"). The stated goal is that the set
-    cannot GROW silently, which is a monotone property. A SHRINK MUST PASS. The generator was
-    verified to survive an empty deadKeys set, so a future PR that fixes every dead key must
-    not red this file either.
+    cannot GROW silently, which is a monotone property. A SHRINK MUST PASS, all the way to
+    zero: the generator was verified to survive an empty deadKeys set. A PR that fixes EVERY
+    dead key reds this file in exactly one place -- the two non-emptiness assertions at the
+    bottom of assertion 1 -- and nowhere else, and the edit that case needs is stated precisely
+    at the SHRINK-TO-ZERO RELAX POINT note on assertion 1, which is the single authority for it.
+    Any PARTIAL fix, up to and including all 22 destructive entries or all 18 groups at once,
+    needs no edit at all.
 
     HOW THE BASELINE WAS DERIVED, and what would / would not red this file:
     The artifact is itself the committed thing, so the baseline is the artifact as committed
@@ -38,10 +42,13 @@
     the inventory counts were pinned as FLOORS, which is the one direction the monotone design
     does NOT leave free -- see the coverage-collapse test for why. Therefore:
       REDS   -- a dead key appearing on a destructive verb that is not already pinned; a new
-                noSurvivingSelector group; any dead-key or skip count going UP; a new skip
-                reason; parametersInventoried or keysEvaluated collapsing; an absolute path in
-                the artifact; the artifact's ordering not matching the generator's ordinal
-                comparer.
+                noSurvivingSelector group; the dead-key count or a CEILINGED skip count going
+                UP; a new skip reason; a severity outside the known vocabulary;
+                parametersInventoried or keysEvaluated collapsing; the counts failing to
+                reconcile; an absolute path in the artifact; the artifact's ordering not
+                matching the generator's ordinal comparer. ('body property' is a known skip
+                reason that is deliberately NOT ceilinged -- see $baselineUnceilingedSkipReasons
+                in BeforeAll.)
       PASSES -- any entry disappearing, any dead-key or skip count going DOWN, all the way to
                 zero. Only the total-zero case needs an edit, and only to one assertion; see
                 the SHRINK-TO-ZERO RELAX POINT note on assertion 1.
@@ -138,10 +145,25 @@ BeforeAll {
     $script:baselineNoSurvivingSelectorCount = 18
     $script:baselineSkipReasons = @{
         'wire name unresolved'           = 125
-        'body property'                  = 278
         'endpoint/method ambiguous'      = 14
         'endpoint/verb absent from spec' = 0
     }
+    # KNOWN skip reasons that are deliberately NOT ceilinged. Do not read this as an oversight
+    # and put 'body property' back into the hashtable above.
+    #
+    # 'body property' was ceilinged at 278 and had to come out: bumping it to 279 -- i.e. any
+    # unrelated PR adding a single body-surface parameter -- red the gate with "those keys are
+    # now unevaluable, not proven safe", which asserts a safety regression that did not happen.
+    # A new body parameter was never evaluable AS A QUERY KEY in the first place, so its
+    # non-evaluation is not lost coverage. Body-surface parameters are explicitly P1's scope, so
+    # the ceiling red a PR that had done nothing wrong. The other three reasons are not like
+    # this: growth in 'wire name unresolved' or 'endpoint/method ambiguous' means keys that WERE
+    # evaluable stopped being evaluated, which genuinely does shrink what this gate covers.
+    #
+    # 'body property' is still constrained, just not here: the reconciliation invariant
+    # (keysEvaluated + every skip reason == parametersInventoried) reds if the body-property
+    # count moves without a matching move in the inventory. It is unceilinged, not unwatched.
+    $script:baselineUnceilingedSkipReasons = @('body property')
 }
 
 Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' {
@@ -170,6 +192,14 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
         #
         # A PARTIAL fix -- even all 22 destructive entries, or all 18 groups, at once -- needs
         # no edit at all. Every one of these cases was constructed and confirmed.
+        # specVersion is asserted PRESENT AND VERSION-SHAPED, never pinned to a value. It is the
+        # spec the whole report was computed against, so an artifact that lost it is not
+        # interpretable at all -- and nothing else on the ungated leg looked at it (it was
+        # constrained only indirectly, through the skip ceilings, and finding 3 loosens those).
+        # A pin to '2.28' would red the routine REST-version-bump PR, which is exactly the
+        # exact-equality anti-pattern this file's header argues against.
+        $committedReport.PSObject.Properties.Name | Should -Contain 'specVersion' -Because 'the report is only interpretable against the spec version it was computed from; an artifact that dropped specVersion is structurally broken'
+        [string]$committedReport.specVersion | Should -Match '^\d+\.\d+$' -Because "specVersion must look like a REST API version (e.g. 2.28); it is '$($committedReport.specVersion)'. Deliberately a SHAPE and not a pin -- pinning it would red the PR that bumps the spec."
         $committedReport.PSObject.Properties.Name | Should -Contain 'deadKeys' -Because 'a deadKeys property that vanished entirely would otherwise be indistinguishable from one holding an empty list'
         $committedReport.PSObject.Properties.Name | Should -Contain 'noSurvivingSelector' -Because 'a noSurvivingSelector property that vanished would make the highest-severity scan below vacuous'
         # Explicitly NOT -BeNullOrEmpty via @(...).Count: `@($null).Count` is 1, so a report
@@ -203,6 +233,31 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
         $scanned = 0
         $offenders = foreach ($entry in $scanInput) {
             $scanned++
+            # THE PREDICATE BELOW IS ANCHORED TO THE SEVERITY VOCABULARY, and it is anchored
+            # BECAUSE THE UNANCHORED FORM WAS MEASURED VACUOUS. `-ne 'DESTRUCTIVE'` matches
+            # nothing at all if the vocabulary moves, and two mutations were run that each
+            # produced P7 F0 -- a clean green with this file's highest-value assertion covering
+            # zero entries:
+            #   1. delete the `severity` property from the artifact -- `$null -ne 'DESTRUCTIVE'`
+            #      is true for all 126 records, so every entry `continue`s;
+            #   2. rename the vocabulary in the generator (DESTRUCTIVE -> DELETE-RISK) and
+            #      regenerate honestly -- same total skip, no failure anywhere.
+            # The only thing otherwise pinning the vocabulary is one synthetic assertion in
+            # Tests/Build-PfbDeadKeyReport.Tests.ps1, which is PS7-gated -- so on the 5.1 leg,
+            # the leg this ungated file exists to serve, the 22-identity destructive allowlist
+            # had no proof it matched anything. This assertion makes a renamed or dropped
+            # severity a red instead of a silent full-skip.
+            #
+            # It is NOT a floor on a filtered subset (Task 4 round 1, finding 1 -- do not go
+            # back to counting matches). It is a per-record property assertion inside the scan
+            # that already visits every record, so it costs nothing at zero dead keys: a
+            # `foreach` over an empty collection never evaluates it.
+            $entry.severity | Should -BeIn @('DESTRUCTIVE', 'CREATE', 'WRONG-RESULTS') -Because "the severity vocabulary is what the filter below keys on, so an unrecognised or missing severity means the DESTRUCTIVE filter silently matches nothing: $($entry.cmdlet) -$($entry.parameter) carries severity '$($entry.severity)'. If the generator's vocabulary changed deliberately, update this list AND the filter below in the same reviewed diff."
+            # `declared` is what a reader fixes the cmdlet from, and it is interpolated into the
+            # offender message below -- where a missing property renders as an empty string and
+            # degrades the message silently. Asserted here, on the ungated leg, because nothing
+            # else on 5.1 checked it at all.
+            $entry.PSObject.Properties.Name | Should -Contain 'declared' -Because "every dead-key record must carry the declared-key list a reader fixes the cmdlet from; $($entry.cmdlet) -$($entry.parameter) has none, and its absence would render as an empty list in this test's own failure message rather than as an error"
             if ($entry.severity -ne 'DESTRUCTIVE') { continue }
             $identity = '{0}|{1}|{2}|{3}|{4}' -f $entry.cmdlet, $entry.parameter, $entry.wireKey, $entry.method, $entry.endpoint
             if ($baselineDestructive -notcontains $identity) {
@@ -268,17 +323,30 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
         # this file was sent back for.
         $committedReport.counts.parametersInventoried | Should -BeGreaterOrEqual 2000 -Because "the AST inventory must still be walking the whole of Public/: it reported $($committedReport.counts.parametersInventoried) parameters against a measured 2174. A large drop is a coverage collapse, not an improvement -- the keys that disappeared were not proven safe, they stopped being looked at."
         $committedReport.counts.keysEvaluated | Should -BeGreaterOrEqual 1600 -Because "the classifier must still be evaluating the bulk of the inventory: it reported $($committedReport.counts.keysEvaluated) evaluated keys against a measured 1757. Every key that stops being evaluated leaves the gate's view silently."
-        # THE RECONCILIATION, both halves. An earlier version asserted `ok >= 0`, which cannot
-        # fail on any generated artifact: the generator computes ok as
-        # evaluatedRecords.Count - deadKeyRecords.Count with dead keys a strict subset of
-        # evaluated records, so it is non-negative by construction and only a hand-edit could
-        # trip it. These two are the invariants that line was reaching for, and they can fail --
-        # on a generator arithmetic bug, on a hand-edit, and on a partial regeneration that
-        # updates one counter and not another.
+        # THE RECONCILIATION, both halves -- and the two halves are NOT of equal strength. Said
+        # plainly, because an earlier version of this comment overclaimed the first one:
         #
-        # They also close a specific hole in the floors above: the floors ask whether the
+        #   FIRST (ok + deadKey == keysEvaluated) IS TRUE BY CONSTRUCTION for any GENERATED
+        #   artifact, on any input. The generator computes ok as
+        #   evaluatedRecords.Count - deadKeyRecords.Count and keysEvaluated as
+        #   evaluatedRecords.Count, so the identity holds arithmetically whatever the classifier
+        #   did. It cannot catch a generator bug and it cannot catch a "partial regeneration"
+        #   either -- there is no such thing here, the manifest is serialised whole in one
+        #   ConvertTo-Json / Set-Content. What it CAN catch is a HAND-EDITED artifact, which is
+        #   why it is kept: it is one line, and it is a strictly better use of that line than the
+        #   `ok >= 0` it replaced (which was non-negative by construction too, so it could not
+        #   even catch the hand-edit).
+        #
+        #   SECOND (keysEvaluated + all skip reasons == parametersInventoried) is the one with
+        #   real content against a GENERATOR bug: evaluation and skipping are counted on
+        #   different paths, so a record that falls through both is invisible to the floors above
+        #   and reds here. Proven, not assumed -- dropping a third of the inventory records and
+        #   regenerating reds this half.
+        #
+        # Together they close a specific hole in the floors above: the floors ask whether the
         # headline numbers are big enough, and these ask whether they add up. A collapse that
-        # scaled every counter proportionally would clear neither.
+        # scaled every counter proportionally would clear neither. The second half is also what
+        # still constrains the 'body property' skip count now that its ceiling has been removed.
         $skipTotal = 0
         foreach ($reason in $committedReport.counts.skipReasons.PSObject.Properties) { $skipTotal += [int]$reason.Value }
         ([int]$committedReport.counts.ok + [int]$committedReport.counts.deadKey) |
@@ -298,10 +366,15 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
         $scanned = 0
         $offenders = foreach ($reason in $committedReport.counts.skipReasons.PSObject.Properties) {
             $scanned++
-            if (-not $baselineSkipReasons.ContainsKey($reason.Name)) {
+            if (-not $baselineSkipReasons.ContainsKey($reason.Name) -and $baselineUnceilingedSkipReasons -notcontains $reason.Name) {
                 "UNKNOWN skip reason '$($reason.Name)' (count $($reason.Value)) -- the generator gained a skip class the baseline in this test does not know about"
                 continue
             }
+            # Known, but deliberately not ceilinged -- see $baselineUnceilingedSkipReasons in
+            # BeforeAll for why 'body property' is the odd one out and what still constrains it.
+            # Still VISITED and still counted toward the visit-everything equality below: this
+            # is a change to what the scan enforces per reason, not to the scan.
+            if ($baselineUnceilingedSkipReasons -contains $reason.Name) { continue }
             if ([int]$reason.Value -gt [int]$baselineSkipReasons[$reason.Name]) {
                 "skip reason '$($reason.Name)' grew from $($baselineSkipReasons[$reason.Name]) to $($reason.Value) -- those keys are now unevaluable, not proven safe"
             }

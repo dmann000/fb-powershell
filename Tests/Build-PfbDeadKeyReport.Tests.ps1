@@ -91,15 +91,44 @@ Describe 'Build-PfbDeadKeyReport regeneration (real spec cache required, PS7 onl
     It 'regenerates byte-for-byte identically to the committed Reports/PfbDeadKeyReport.json' {
         # THE stale-artifact check. Reds when the generator, the Public/ cmdlets, or the pinned
         # spec moved without the artifact being regenerated and committed alongside them.
-        $committedBytes = [System.IO.File]::ReadAllBytes($committedReportPath)
-        $regeneratedBytes = [System.IO.File]::ReadAllBytes($regeneratedPath)
-        $regeneratedBytes.Length | Should -Be $committedBytes.Length -Because "the committed artifact is stale: regenerating produced $($regeneratedBytes.Length) bytes against the committed $($committedBytes.Length). Re-run tools/Build-PfbDeadKeyReport.ps1 and commit the result."
+        #
+        # BOTH SIDES ARE NEWLINE-NORMALISED -- both, not just the one that happened to break.
+        # That is this repo's already-written answer to exactly this problem: see
+        # Get-PfbSelectorArtifactHash at Tests/PfbPipelineSelectorRail.Tests.ps1:47-76, whose doc
+        # comment names the CI run that hit it (31830362870) and ends "Normalise both, not the
+        # one that happened to break." The committed blob is LF; the generator ends in
+        # Set-Content, which emits [Environment]::NewLine, so a Windows regeneration is CRLF.
+        # There is no .gitattributes in this repo, so a checkout's endings are whatever the
+        # clone's core.autocrlf says -- CI is green on a raw byte compare only because
+        # autocrlf=true on the Windows runners happens to make the checkout CRLF too. A
+        # contributor with core.autocrlf=false or input would get an LF checkout against a CRLF
+        # regeneration and be told "the committed artifact is stale", which is false, and would
+        # commit a 53KB whitespace-only diff that then breaks the Linux legs.
+        #
+        # ReadAllText also drops a byte-order mark, which is correct here for the same reason it
+        # is correct there: content is what this test asserts. Real content drift still reds --
+        # a one-character change inside a wireKey was measured to fail this It after this
+        # normalisation was added.
+        #
+        # The SECOND comparison below deliberately stays a RAW BYTE compare: both of its sides
+        # are generator output on one platform with no checkout in between, so byte-for-byte is
+        # both correct and strictly stronger there. Do not "make them consistent".
+        $committedText = [System.IO.File]::ReadAllText($committedReportPath) -replace "`r`n", "`n"
+        $regeneratedText = [System.IO.File]::ReadAllText($regeneratedPath) -replace "`r`n", "`n"
+        $regeneratedText.Length | Should -Be $committedText.Length -Because "the committed artifact is stale: regenerating produced $($regeneratedText.Length) newline-normalised characters against the committed $($committedText.Length). Re-run tools/Build-PfbDeadKeyReport.ps1 and commit the result."
 
+        # Located in the NORMALISED text, so the offset it reports is an offset into the thing
+        # actually being compared rather than into the raw bytes.
         $firstDifference = -1
-        for ($i = 0; $i -lt [Math]::Min($committedBytes.Length, $regeneratedBytes.Length); $i++) {
-            if ($committedBytes[$i] -ne $regeneratedBytes[$i]) { $firstDifference = $i; break }
+        for ($i = 0; $i -lt [Math]::Min($committedText.Length, $regeneratedText.Length); $i++) {
+            if ($committedText[$i] -ne $regeneratedText[$i]) { $firstDifference = $i; break }
         }
-        $firstDifference | Should -Be -1 -Because "the committed artifact is stale: it first diverges from a fresh regeneration at byte $firstDifference. Re-run tools/Build-PfbDeadKeyReport.ps1 and commit the result."
+        $context = ''
+        if ($firstDifference -ge 0) {
+            $start = [Math]::Max(0, $firstDifference - 40)
+            $context = " Committed text around it: '" + $committedText.Substring($start, [Math]::Min(80, $committedText.Length - $start)) + "'."
+        }
+        $firstDifference | Should -Be -1 -Because "the committed artifact is stale: it first diverges from a fresh regeneration at normalised character $firstDifference.$context Re-run tools/Build-PfbDeadKeyReport.ps1 and commit the result."
     }
 
     It 'produces the same bytes when regenerated from a different working directory' {
