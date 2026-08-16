@@ -40,7 +40,7 @@ if (-not (Test-Path -LiteralPath $CapabilityMapPath)) {
     throw "Capability map not found at '$CapabilityMapPath'. Run Build-PfbCapabilityMap.ps1 first."
 }
 
-$capabilityMap = Get-Content -Path $CapabilityMapPath -Raw | ConvertFrom-Json -Depth 20
+$capabilityMap = Get-Content -LiteralPath $CapabilityMapPath -Raw | ConvertFrom-Json -Depth 20
 $specVersion = $capabilityMap.generatedFrom | Select-Object -Last 1
 if (-not $specVersion) {
     throw "Capability map at '$CapabilityMapPath' has no generatedFrom versions."
@@ -51,31 +51,36 @@ if (-not (Test-Path -LiteralPath $specPath)) {
     throw "Pinned analysed spec 'fb$specVersion.json' (per capability map's generatedFrom) not found under '$SpecsDirectory'. Run Update-PfbApiSpecs.ps1 first, or rebuild the capability map against the specs on disk."
 }
 
-$spec = Get-Content -Path $specPath -Raw | ConvertFrom-Json -Depth 64
+$spec = Get-Content -LiteralPath $specPath -Raw | ConvertFrom-Json -Depth 64
 $inventory = @(Get-PfbCmdletParameterInventory -PublicDirectory $PublicDirectory)
 
 # Task 4 mirrors this exact helper verbatim. It sorts records, not a joined key, using an
-# explicit ordinal comparison on Cmdlet then Parameter. Ordinal is stable between PS7 and
-# Windows PowerShell 5.1; Sort-Object -Culture '' is invariant linguistic and is not.
+# explicit ordinal comparison over the named properties supplied by -Property. Ordinal is
+# stable between PS7 and Windows PowerShell 5.1; Sort-Object -Culture '' is invariant
+# linguistic and is not. Each collection passes only properties that exist in its emitted
+# artifact: deadKeys uses Cmdlet then Parameter, while noSurvivingSelector uses Cmdlet then
+# Method then Endpoint.
 function Sort-PfbDeadKeyRecords {
     param(
+        [AllowEmptyCollection()]
+        [object[]]$Records,
+
         [Parameter(Mandatory)]
-        [object[]]$Records
+        [string[]]$Property
     )
 
     $sorted = [System.Collections.Generic.List[object]]::new()
     foreach ($record in $Records) { $sorted.Add($record) }
     $sorted.Sort([System.Comparison[object]]{
         param($left, $right)
-        $comparison = [string]::Compare(
-            [string]$left.Cmdlet,
-            [string]$right.Cmdlet,
-            [System.StringComparison]::Ordinal)
-        if ($comparison -ne 0) { return $comparison }
-        return [string]::Compare(
-            [string]$left.Parameter,
-            [string]$right.Parameter,
-            [System.StringComparison]::Ordinal)
+        foreach ($propertyName in $Property) {
+            $comparison = [string]::Compare(
+                [string]$left.$propertyName,
+                [string]$right.$propertyName,
+                [System.StringComparison]::Ordinal)
+            if ($comparison -ne 0) { return $comparison }
+        }
+        return 0
     })
     return @($sorted)
 }
@@ -106,7 +111,7 @@ function Get-PfbDeadKeySeverity {
         'PUT'    { return 'DESTRUCTIVE' }
         'POST'   { return 'CREATE' }
         'GET'    { return 'WRONG-RESULTS' }
-        default  { return 'UNKNOWN' }
+        default  { throw "Unsupported HTTP method '$Method' while classifying a dead key." }
     }
 }
 
@@ -116,7 +121,6 @@ $skipReasons = [ordered]@{
     'endpoint/method ambiguous'     = 0
     'endpoint/verb absent from spec' = 0
 }
-$okRecords = [System.Collections.Generic.List[object]]::new()
 $deadKeyRecords = [System.Collections.Generic.List[object]]::new()
 $evaluatedRecords = [System.Collections.Generic.List[object]]::new()
 
@@ -156,7 +160,6 @@ foreach ($record in $inventory) {
     $evaluatedRecords.Add($evaluated)
 
     if ($status -eq 'OK') {
-        $okRecords.Add($evaluated)
         continue
     }
 
@@ -171,24 +174,50 @@ foreach ($record in $inventory) {
     })
 }
 
-# Group evaluated selector records only. A skipped selector is unevaluable, not evidence that
-# every selector is dead. Thus a group is emitted only when it has at least one selector and all
-# of its selector-shaped keys were evaluated and classified as DEAD KEY.
+# A skipped selector is unevaluable, not evidence that every selector is dead. Group all
+# inventory records by operation, then emit only when the group has at least one selector,
+# no selector was skipped for any reason, and every evaluated selector is a DEAD KEY.
 $noSurvivingSelectorRecords = [System.Collections.Generic.List[object]]::new()
-$selectorGroups = @($evaluatedRecords | Where-Object SelectorShaped | Group-Object Cmdlet, Method, Endpoint)
+$allSelectorRecords = [System.Collections.Generic.List[object]]::new()
+foreach ($record in $inventory) {
+    if ($null -eq $record.WireName) { continue }
+    if (Test-PfbDeadKeySelectorName -WireName ([string]$record.WireName)) {
+        $allSelectorRecords.Add([PSCustomObject]@{
+            Cmdlet    = $record.Cmdlet
+            Parameter = $record.Parameter
+            Method    = if ($record.Method) { ([string]$record.Method).ToUpperInvariant() } else { $null }
+            Endpoint  = $record.Endpoint
+            Evaluated = $false
+            Status    = $null
+        })
+    }
+}
+foreach ($evaluated in $evaluatedRecords | Where-Object SelectorShaped) {
+    $match = $allSelectorRecords | Where-Object {
+        $_.Cmdlet -eq $evaluated.Cmdlet -and $_.Parameter -eq $evaluated.Parameter -and
+        $_.Method -eq $evaluated.Method -and $_.Endpoint -eq $evaluated.Endpoint
+    } | Select-Object -First 1
+    if ($match) {
+        $match.Evaluated = $true
+        $match.Status = $evaluated.Status
+    }
+}
+$selectorGroups = @($allSelectorRecords | Group-Object Cmdlet, Method, Endpoint)
 foreach ($group in $selectorGroups) {
-    if (@($group.Group | Where-Object Status -ne 'DEAD KEY').Count -eq 0) {
-        $first = $group.Group | Select-Object -First 1
+    $selectors = @($group.Group)
+    if ($selectors.Count -gt 0 -and
+        @($selectors | Where-Object { -not $_.Evaluated }).Count -eq 0 -and
+        @($selectors | Where-Object { $_.Status -ne 'DEAD KEY' }).Count -eq 0) {
+        $first = $selectors | Select-Object -First 1
         $noSurvivingSelectorRecords.Add([PSCustomObject]@{
-            Cmdlet    = $first.Cmdlet
-            Parameter = "$($first.Method) $($first.Endpoint)"
-            Method    = $first.Method
-            Endpoint  = $first.Endpoint
+            Cmdlet   = $first.Cmdlet
+            Method   = $first.Method
+            Endpoint = $first.Endpoint
         })
     }
 }
 
-$sortedDeadKeys = @(Sort-PfbDeadKeyRecords -Records @($deadKeyRecords) |
+$sortedDeadKeys = @(Sort-PfbDeadKeyRecords -Records @($deadKeyRecords) -Property @('Cmdlet', 'Parameter') |
     ForEach-Object {
         [ordered]@{
             severity  = $_.Severity
@@ -200,7 +229,7 @@ $sortedDeadKeys = @(Sort-PfbDeadKeyRecords -Records @($deadKeyRecords) |
             declared  = @($_.Declared)
         }
     })
-$sortedNoSurvivingSelector = @(Sort-PfbDeadKeyRecords -Records @($noSurvivingSelectorRecords) |
+$sortedNoSurvivingSelector = @(Sort-PfbDeadKeyRecords -Records @($noSurvivingSelectorRecords) -Property @('Cmdlet', 'Method', 'Endpoint') |
     ForEach-Object {
         [ordered]@{
             cmdlet   = $_.Cmdlet
@@ -214,7 +243,7 @@ $manifest = [ordered]@{
     counts      = [ordered]@{
         parametersInventoried = $inventory.Count
         keysEvaluated         = $evaluatedRecords.Count
-        ok                    = $okRecords.Count
+        ok                    = $evaluatedRecords.Count - $deadKeyRecords.Count
         deadKey               = $deadKeyRecords.Count
         skipReasons           = $skipReasons
     }
@@ -226,5 +255,5 @@ $outputDir = Split-Path -Parent $OutputPath
 if (-not (Test-Path -LiteralPath $outputDir)) {
     New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
 }
-$manifest | ConvertTo-Json -Depth 20 | Set-Content -Path $OutputPath -Encoding UTF8
+$manifest | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $OutputPath -Encoding UTF8
 Write-Host "Wrote $($deadKeyRecords.Count) dead keys from $($inventory.Count) inventoried parameters to $OutputPath" -ForegroundColor Green
