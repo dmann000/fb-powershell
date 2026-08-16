@@ -177,6 +177,31 @@ foreach ($record in $inventory) {
 # A skipped selector is unevaluable, not evidence that every selector is dead. Group all
 # inventory records by operation, then emit only when the group has at least one selector,
 # no selector was skipped for any reason, and every evaluated selector is a DEAD KEY.
+#
+# Two limits on that "for any reason", stated because the guarantee is narrower than the
+# sentence above reads and both were measured rather than assumed:
+#
+#   1. The rule is OPERATION-scoped, not cmdlet-scoped. Group identity is
+#      (Cmdlet, Method, Endpoint), and a selector skipped as `endpoint/method ambiguous`
+#      carries a null Method/Endpoint -- so it forms its own null-keyed group and cannot
+#      suppress the same cmdlet's real group. 10 such records exist today (across
+#      Get-PfbNode, Remove-PfbBucket, Remove-PfbFileSystem, Remove-PfbFileSystemSnapshot,
+#      Remove-PfbRealm); for all five the ambiguity affects EVERY selector the cmdlet has,
+#      so no evaluated-and-dead selector survives to form a group anyway. The gap needs a
+#      cmdlet with some selectors resolved-and-dead and others ambiguous, which does not
+#      exist in the current inventory.
+#   2. An unresolvable wire name is invisible to the rule -- the `continue` below drops it
+#      before the shape test, because the shape of a name that could not be resolved is
+#      unknowable. So this really means "no IDENTIFIABLE selector was skipped", and the 125
+#      `wire name unresolved` records fall outside it.
+#
+# Consequence of the rule as written, deliberate rather than overlooked: the 22 body-surface
+# selector-shaped records are all Update-Pfb* PATCH parameters (NewName -> name, plus
+# ServicePrincipalNames and SubjectAlternativeNames). A request-body `name` can never act as
+# a query selector, yet its presence suppresses its operation's group -- so no Update-Pfb*
+# cmdlet carrying a -NewName can appear here regardless of how dead its query selectors are.
+# That errs toward under-reporting, which is the safe direction for a report whose entries
+# are read as destructive-verb hazards.
 $noSurvivingSelectorRecords = [System.Collections.Generic.List[object]]::new()
 $allSelectorRecords = [System.Collections.Generic.List[object]]::new()
 foreach ($record in $inventory) {
