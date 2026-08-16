@@ -88,7 +88,7 @@ Describe 'Build-PfbDeadKeyReport regeneration (real spec cache required, PS7 onl
         }
     }
 
-    It 'regenerates byte-for-byte identically to the committed Reports/PfbDeadKeyReport.json' {
+    It 'regenerates content-identically to the committed Reports/PfbDeadKeyReport.json' {
         # THE stale-artifact check. Reds when the generator, the Public/ cmdlets, or the pinned
         # spec moved without the artifact being regenerated and committed alongside them.
         #

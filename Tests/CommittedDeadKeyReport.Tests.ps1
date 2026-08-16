@@ -160,9 +160,11 @@ BeforeAll {
     # this: growth in 'wire name unresolved' or 'endpoint/method ambiguous' means keys that WERE
     # evaluable stopped being evaluated, which genuinely does shrink what this gate covers.
     #
-    # 'body property' is still constrained, just not here: the reconciliation invariant
-    # (keysEvaluated + every skip reason == parametersInventoried) reds if the body-property
-    # count moves without a matching move in the inventory. It is unceilinged, not unwatched.
+    # Reconciliation still catches arithmetic inconsistency, but it does NOT catch a realistic
+    # reclassification that moves one record from keysEvaluated into this bucket while preserving
+    # the total. The keysEvaluated floor is the remaining coverage-collapse check, with deliberate
+    # headroom from its measured 1757. This reason is unceilinged because that weaker watch is the
+    # accepted cost of avoiding false reds on legitimate body-surface work.
     $script:baselineUnceilingedSkipReasons = @('body property')
 }
 
@@ -345,8 +347,10 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
         #
         # Together they close a specific hole in the floors above: the floors ask whether the
         # headline numbers are big enough, and these ask whether they add up. A collapse that
-        # scaled every counter proportionally would clear neither. The second half is also what
-        # still constrains the 'body property' skip count now that its ceiling has been removed.
+        # scaled every counter proportionally would clear neither. They assert arithmetic
+        # consistency, not stability of any individual skip-reason count: moving one record from
+        # keysEvaluated into 'body property' preserves this equation and is watched only by the
+        # deliberately loose keysEvaluated floor.
         $skipTotal = 0
         foreach ($reason in $committedReport.counts.skipReasons.PSObject.Properties) { $skipTotal += [int]$reason.Value }
         ([int]$committedReport.counts.ok + [int]$committedReport.counts.deadKey) |

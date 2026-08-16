@@ -25,6 +25,9 @@ locally first — see `tools/README.md`'s `Update-PfbApiSpecs.ps1` step):
 
 | `PfbPipelineSelectorMap.json` / `.md` | "Can a piped object bind this cmdlet's selector, or does it stringify into the filter?" — issue #90. Every pipeline-bound selector probed against its resource family's real response shape, by invoking the actual cmdlet with the HTTP layer shadowed. Verdicts are observed, never inferred. | `tools/Build-PfbPipelineSelectorMap.ps1` |
 
+All of the above are **reporting only** — none of them edit any `Public/` cmdlet. A human
+(or an agent, on request) reads a report and decides what, if anything, to build next.
+
 ### `PfbDeadKeyReport.json` — what `noSurvivingSelector` does *not* cover
 
 The `noSurvivingSelector` list is the report's highest-severity class: every selector-shaped
@@ -46,9 +49,6 @@ here — the full account, with the measurements behind each, is the comment abo
   suppresses its operation's group however dead that operation's real query selectors are. A
   request-body `name` can never act as a query selector, so this is under-reporting — the safe
   direction — rather than a wrong answer.
-
-All of the above are **reporting only** — none of them edit any `Public/` cmdlet. A human
-(or an agent, on request) reads a report and decides what, if anything, to build next.
 
 **Orienting yourself cold:** if you've been handed this repo and told "something changed
 in the API," start at `PfbApiDriftReport.md` — it's the newest, most targeted summary and
