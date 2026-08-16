@@ -46,11 +46,22 @@
                 zero. Only the total-zero case needs an edit, and only to one assertion; see
                 the SHRINK-TO-ZERO RELAX POINT note on assertion 1.
 
-    NON-VACUITY IS ASSERTED AS A PROPERTY OF EACH SCAN, not of the collection it walks: every
-    scan counts the elements it visited and asserts that count EQUALS its input size. That is
-    strictly stronger than a greater-than-zero floor -- which a loop silently skipping most of
-    its entries would pass -- and, unlike a floor, it stays true when the collection legitimately
-    empties out. File-level non-vacuity lives in assertion 1 alone.
+    NON-VACUITY IS ASSERTED AS A PROPERTY OF EACH SCAN, not of the collection it walks. Every
+    scan counts what it visited and asserts a bound tied to its input's REAL SIZE -- never a
+    bare `> 0`, which proves only that a loop ran once and which a loop silently skipping most
+    of its entries passes. The bound takes one of two forms, depending on whether the input size
+    is knowable in advance:
+
+      EQUALITY, where it is. The three scans over a materialised collection -- destructive dead
+      keys, noSurvivingSelector groups, and skip reasons -- each assert visited == input count.
+
+      A CONTENT-DERIVED FLOOR, where it is not. The absolute-path scan is a recursive descent
+      with no collection to measure, so it asserts it visited at least 5 strings per dead-key
+      record: enough to prove it descended into the deadKeys subtree rather than skimming the
+      top level. A `> 0` floor there was measured at one string away from vacuous.
+
+    Both forms are trivially satisfied at zero dead keys (0 == 0, and >= 0), so neither costs
+    shrink-safety. File-level non-vacuity lives in assertion 1 alone.
     Renaming a cmdlet or moving an endpoint changes an identity, so it reads as "new" and
     reds. That is intended: it wants a human to re-confirm the key is still declared, and the
     fix is a one-line edit to the pinned list in the same reviewed diff.
@@ -257,7 +268,23 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
         # this file was sent back for.
         $committedReport.counts.parametersInventoried | Should -BeGreaterOrEqual 2000 -Because "the AST inventory must still be walking the whole of Public/: it reported $($committedReport.counts.parametersInventoried) parameters against a measured 2174. A large drop is a coverage collapse, not an improvement -- the keys that disappeared were not proven safe, they stopped being looked at."
         $committedReport.counts.keysEvaluated | Should -BeGreaterOrEqual 1600 -Because "the classifier must still be evaluating the bulk of the inventory: it reported $($committedReport.counts.keysEvaluated) evaluated keys against a measured 1757. Every key that stops being evaluated leaves the gate's view silently."
-        $committedReport.counts.ok | Should -BeGreaterOrEqual 0 -Because 'ok = keysEvaluated - deadKey, so a negative value means the two counters disagree and the artifact is internally inconsistent'
+        # THE RECONCILIATION, both halves. An earlier version asserted `ok >= 0`, which cannot
+        # fail on any generated artifact: the generator computes ok as
+        # evaluatedRecords.Count - deadKeyRecords.Count with dead keys a strict subset of
+        # evaluated records, so it is non-negative by construction and only a hand-edit could
+        # trip it. These two are the invariants that line was reaching for, and they can fail --
+        # on a generator arithmetic bug, on a hand-edit, and on a partial regeneration that
+        # updates one counter and not another.
+        #
+        # They also close a specific hole in the floors above: the floors ask whether the
+        # headline numbers are big enough, and these ask whether they add up. A collapse that
+        # scaled every counter proportionally would clear neither.
+        $skipTotal = 0
+        foreach ($reason in $committedReport.counts.skipReasons.PSObject.Properties) { $skipTotal += [int]$reason.Value }
+        ([int]$committedReport.counts.ok + [int]$committedReport.counts.deadKey) |
+            Should -Be ([int]$committedReport.counts.keysEvaluated) -Because "every evaluated key is either OK or dead, so ok + deadKey must equal keysEvaluated: $($committedReport.counts.ok) + $($committedReport.counts.deadKey) = $([int]$committedReport.counts.ok + [int]$committedReport.counts.deadKey), against keysEvaluated $($committedReport.counts.keysEvaluated)"
+        ([int]$committedReport.counts.keysEvaluated + $skipTotal) |
+            Should -Be ([int]$committedReport.counts.parametersInventoried) -Because "every inventoried parameter is either evaluated or skipped for exactly one reason, so keysEvaluated + all skip reasons must equal parametersInventoried: $($committedReport.counts.keysEvaluated) + $skipTotal = $([int]$committedReport.counts.keysEvaluated + $skipTotal), against parametersInventoried $($committedReport.counts.parametersInventoried)"
     }
 
     It 'grows no count: dead keys, no-surviving-selector groups, and every skip reason are <= the committed figures' {
@@ -279,7 +306,11 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
                 "skip reason '$($reason.Name)' grew from $($baselineSkipReasons[$reason.Name]) to $($reason.Value) -- those keys are now unevaluable, not proven safe"
             }
         }
-        $scanned | Should -BeGreaterThan 0 -Because 'a vacuous scan would pass this test without checking anything'
+        # EQUALITY, not a floor: the input size is trivially knowable here. A scan visiting 1 of
+        # 4 skip-reason properties passes a `> 0` floor while hiding a 14 -> 999 growth in one of
+        # the three it never looked at.
+        $skipReasonCount = @($committedReport.counts.skipReasons.PSObject.Properties).Count
+        $scanned | Should -Be $skipReasonCount -Because "the scan must visit every skip reason, not silently skip some: it visited $scanned of $skipReasonCount"
         @($offenders) | Should -BeNullOrEmpty -Because 'a skipped key is unevaluated, so a growing skip count silently shrinks what this gate covers'
     }
 
@@ -324,7 +355,23 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
             }
             # Anything else (int, bool) carries no path and needs no scan.
         }
-        $scanned | Should -BeGreaterThan 0 -Because 'a vacuous scan would pass this test without checking anything'
+        # THE FLOOR IS TIED TO THE ARTIFACT'S REAL CONTENT, and it has to be. This is the one
+        # scan whose input size is not knowable in advance -- it is a recursive descent, so
+        # there is no collection to measure -- and a `> 0` floor here was demonstrably one
+        # string away from vacuous: replacing the IEnumerable descent branch above with a bare
+        # `continue` dropped $scanned from 1600 to 1 (top-level specVersion, the only string
+        # reachable without descending) and every test in this file still passed. The very fact
+        # that made the floor look shrink-safe -- specVersion is always present -- is what held
+        # it up while the walk scanned nothing.
+        #
+        # Each deadKeys record carries at least five string fields (severity, cmdlet, parameter,
+        # wireKey, method, endpoint -- six, floored at five so a future field rename cannot red
+        # this), so the walk must reach at least 5x the dead-key count in strings or it did not
+        # descend into the subtree where a leaked path would actually live. Deliberately
+        # expressed against deadKeys.Count rather than a constant: at zero dead keys it reads
+        # `>= 0` and still passes, so this stays shrink-safe.
+        $expectedMinimumStrings = 5 * @($committedReport.deadKeys).Count
+        $scanned | Should -BeGreaterOrEqual $expectedMinimumStrings -Because "the walk must descend into the deadKeys records, not just skim the top level: it visited $scanned strings against the $expectedMinimumStrings that $(@($committedReport.deadKeys).Count) dead-key records carry between them. A walk that stops descending scans nothing and reports clean."
         @($offenders) | Should -BeNullOrEmpty -Because 'every string in the committed report must be repo-relative: an absolute path publishes a local checkout location and makes the artifact depend on where it was generated'
     }
 

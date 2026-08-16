@@ -113,9 +113,10 @@
             'Build-PfbValueEnumMap: hand-written ValidateSet citations'
             # Dead-key gate, ungated half. It reads only the committed
             # Reports/PfbDeadKeyReport.json -- no spec cache, no PowerShell 7, no skip path --
-            # so it must contribute executed tests on BOTH legs. Its PS7-only sibling,
-            # 'Build-PfbDeadKeyReport (regeneration gate, spec cache required, PS7 only)', is
-            # deliberately absent from this list and appears under pwsh7 only.
+            # so it must contribute executed tests on BOTH legs. Its two PS7-only siblings,
+            # 'Build-PfbDeadKeyReport regeneration (real spec cache required, PS7 only)' and
+            # 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cache, PS7
+            # only)', are deliberately absent from this list and appear under pwsh7 only.
             'Committed dead-key report (REGRESSION guard, no spec cache required)'
         )
     }

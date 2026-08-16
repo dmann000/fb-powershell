@@ -59,14 +59,14 @@ Describe 'Build-PfbDeadKeyReport regeneration (real spec cache required, PS7 onl
         # is the useful confirmation that the cache this half depends on actually arrived.
         & (Join-Path $repoRoot 'scripts/Assert-PfbSpecCache.ps1') -SpecsDirectory $specsDirectory
 
-        $script:workRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("PfbDeadKeyGate_" + [guid]::NewGuid().ToString('N'))
-        New-Item -ItemType Directory -Path $workRoot -Force | Out-Null
+        $script:regenWorkRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("PfbDeadKeyGate_" + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $regenWorkRoot -Force | Out-Null
 
-        $script:regeneratedPath = Join-Path $workRoot 'regenerated.json'
+        $script:regeneratedPath = Join-Path $regenWorkRoot 'regenerated.json'
         & $generatorPath -OutputPath $regeneratedPath | Out-Null
 
-        $script:regeneratedElsewherePath = Join-Path $workRoot 'regenerated-elsewhere.json'
-        Push-Location $workRoot
+        $script:regeneratedElsewherePath = Join-Path $regenWorkRoot 'regenerated-elsewhere.json'
+        Push-Location $regenWorkRoot
         try {
             & $generatorPath -OutputPath $regeneratedElsewherePath | Out-Null
         }
@@ -76,8 +76,15 @@ Describe 'Build-PfbDeadKeyReport regeneration (real spec cache required, PS7 onl
     }
 
     AfterAll {
-        if ($script:workRoot -and (Test-Path -LiteralPath $script:workRoot)) {
-            Remove-Item -LiteralPath $script:workRoot -Recurse -Force -ErrorAction SilentlyContinue
+        # Its OWN variable, not a name shared with the block below -- a shared $script:workRoot
+        # crossed exactly the boundary the split exists to isolate, and left this AfterAll able
+        # to delete the other block's directory. Guarded with Get-Variable rather than a bare
+        # truthiness test because this AfterAll still runs when BeforeAll threw before the
+        # assignment (an absent spec cache does exactly that), and reading an undefined variable
+        # would throw under StrictMode, turning a clear cache failure into a confusing second one.
+        $existing = Get-Variable -Name 'regenWorkRoot' -Scope Script -ErrorAction SilentlyContinue
+        if ($existing -and $existing.Value -and (Test-Path -LiteralPath $existing.Value)) {
+            Remove-Item -LiteralPath $existing.Value -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 
@@ -107,7 +114,7 @@ Describe 'Build-PfbDeadKeyReport regeneration (real spec cache required, PS7 onl
         for ($i = 0; $i -lt [Math]::Min($fromRepoRoot.Length, $fromElsewhere.Length); $i++) {
             if ($fromRepoRoot[$i] -ne $fromElsewhere[$i]) { $firstDifference = $i; break }
         }
-        $firstDifference | Should -Be -1 -Because "regenerating from '$workRoot' instead of the repo root changed the output at byte $firstDifference -- the generator is resolving something against the working directory"
+        $firstDifference | Should -Be -1 -Because "regenerating from '$regenWorkRoot' instead of the repo root changed the output at byte $firstDifference -- the generator is resolving something against the working directory"
     }
 }
 
@@ -116,8 +123,8 @@ Describe 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cach
     BeforeAll {
         $script:repoRoot = Split-Path -Parent $PSScriptRoot
         $script:generatorPath = Join-Path $repoRoot 'tools/Build-PfbDeadKeyReport.ps1'
-        $script:workRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("PfbDeadKeyFixture_" + [guid]::NewGuid().ToString('N'))
-        New-Item -ItemType Directory -Path $workRoot -Force | Out-Null
+        $script:fixtureWorkRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("PfbDeadKeyFixture_" + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $fixtureWorkRoot -Force | Out-Null
 
         # No Assert-PfbSpecCache call here, and that is the point of the split: every input this
         # block reads is built below, so the real cache is irrelevant to it.
@@ -134,8 +141,8 @@ Describe 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cach
         # selector would vanish, and assertion 3's cmdlet would wrongly join noSurvivingSelector.
         # That makes the hollow-fixture trap detectable rather than silent.
         $script:fixtureVersion = '9.9'
-        $script:fixtureSpecsDirectory = Join-Path $workRoot 'specs'
-        $script:fixturePublicDirectory = Join-Path $workRoot 'Public'
+        $script:fixtureSpecsDirectory = Join-Path $fixtureWorkRoot 'specs'
+        $script:fixturePublicDirectory = Join-Path $fixtureWorkRoot 'Public'
         New-Item -ItemType Directory -Path $fixtureSpecsDirectory -Force | Out-Null
         New-Item -ItemType Directory -Path $fixturePublicDirectory -Force | Out-Null
 
@@ -179,7 +186,7 @@ Describe 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cach
         $fixtureSpec | ConvertTo-Json -Depth 20 |
             Set-Content -LiteralPath (Join-Path $fixtureSpecsDirectory "fb$fixtureVersion.json") -Encoding UTF8
 
-        $fixtureCapabilityMapPath = Join-Path $workRoot 'PfbFixtureCapabilityMap.json'
+        $fixtureCapabilityMapPath = Join-Path $fixtureWorkRoot 'PfbFixtureCapabilityMap.json'
         ([PSCustomObject]@{ generatedFrom = @($fixtureVersion) } | ConvertTo-Json -Depth 5) |
             Set-Content -LiteralPath $fixtureCapabilityMapPath -Encoding UTF8
 
@@ -239,7 +246,7 @@ function Get-PfbSyntheticContext {
 }
 '@
 
-        $script:syntheticReportPath = Join-Path $workRoot 'synthetic.json'
+        $script:syntheticReportPath = Join-Path $fixtureWorkRoot 'synthetic.json'
         & $generatorPath `
             -SpecsDirectory $fixtureSpecsDirectory `
             -PublicDirectory $fixturePublicDirectory `
@@ -256,8 +263,10 @@ function Get-PfbSyntheticContext {
     }
 
     AfterAll {
-        if ($script:workRoot -and (Test-Path -LiteralPath $script:workRoot)) {
-            Remove-Item -LiteralPath $script:workRoot -Recurse -Force -ErrorAction SilentlyContinue
+        # Its own variable and its own guard -- see the note on the sibling block's AfterAll.
+        $existing = Get-Variable -Name 'fixtureWorkRoot' -Scope Script -ErrorAction SilentlyContinue
+        if ($existing -and $existing.Value -and (Test-Path -LiteralPath $existing.Value)) {
+            Remove-Item -LiteralPath $existing.Value -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 
