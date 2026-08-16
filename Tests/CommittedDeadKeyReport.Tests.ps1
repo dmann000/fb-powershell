@@ -43,8 +43,14 @@
                 the artifact; the artifact's ordering not matching the generator's ordinal
                 comparer.
       PASSES -- any entry disappearing, any dead-key or skip count going DOWN, all the way to
-                zero (see the SHRINK-TO-ZERO RELAX POINT note on assertion 1 for the single
-                edit the total-zero case needs).
+                zero. Only the total-zero case needs an edit, and only to one assertion; see
+                the SHRINK-TO-ZERO RELAX POINT note on assertion 1.
+
+    NON-VACUITY IS ASSERTED AS A PROPERTY OF EACH SCAN, not of the collection it walks: every
+    scan counts the elements it visited and asserts that count EQUALS its input size. That is
+    strictly stronger than a greater-than-zero floor -- which a loop silently skipping most of
+    its entries would pass -- and, unlike a floor, it stays true when the collection legitimately
+    empties out. File-level non-vacuity lives in assertion 1 alone.
     Renaming a cmdlet or moving an endpoint changes an identity, so it reads as "new" and
     reds. That is intended: it wants a human to re-confirm the key is still declared, and the
     fix is a one-line edit to the pinned list in the same reviewed diff.
@@ -133,24 +139,26 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
         # ANTI-VACUITY, first in the file. If this fails every scan below is meaningless, so
         # it fails first and loudly rather than passing silently over a missing or empty file.
         #
-        # SHRINK-TO-ZERO RELAX POINT (1 of 3) -- see the note below. This is the only place in
-        # the file that asserts how MUCH is in the report; everything else asserts either that
-        # nothing NEW appeared or that a floor/ceiling holds.
+        # SHRINK-TO-ZERO RELAX POINT -- the ONLY one in this file. This is the only place that
+        # asserts how MUCH is in the report; everything else asserts either that nothing NEW
+        # appeared, or that a floor/ceiling holds, or that a scan visited everything it was
+        # handed. Those are all satisfied by an empty artifact.
         #
         # WHAT A PR THAT FIXES EVERY REMAINING DEAD KEY HAS TO DO, stated precisely because an
         # earlier version of this comment got it wrong and would have sent that reader in
-        # circles. With `deadKeys: []` the file reds in exactly three places, all tagged
-        # SHRINK-TO-ZERO RELAX POINT: this floor, and the two scan-input floors in the "no NEW
-        # dead key on a destructive verb" and "no NEW noSurvivingSelector" tests, which
-        # deliberately floor on deadKeys because THIS assertion is what guarantees it non-zero.
-        # Relaxing all three together (to the structural property-exists checks immediately
-        # below) is one reviewed edit, and it is a real decision rather than a formality: past
-        # that point the file no longer proves it scanned anything, and its guarantee narrows
-        # to the monotone one. NOTHING ELSE needs touching -- every other assertion here is
-        # already shrink-safe, including both ordering blocks, which no-op on an empty list.
+        # circles. With `deadKeys: []` and `noSurvivingSelector: []` the file reds HERE and
+        # nowhere else. The edit is to drop the two non-emptiness assertions at the bottom of
+        # this block -- the `Should -Not -BeNullOrEmpty` on deadKeys and the `-BeGreaterThan 0`
+        # on its count -- keeping the structural property-exists and non-null checks above
+        # them, which still separate "empty artifact" from "broken artifact". Nothing else
+        # needs touching: the two scans assert an equality against their own input size, which
+        # is trivially true at zero, and both ordering blocks no-op on an empty list.
+        #
+        # It is a real decision rather than a formality: past that point the file no longer
+        # proves it scanned anything, and its guarantee narrows to the monotone one.
         #
         # A PARTIAL fix -- even all 22 destructive entries, or all 18 groups, at once -- needs
-        # no edit at all. That case was constructed and confirmed green.
+        # no edit at all. Every one of these cases was constructed and confirmed.
         $committedReport.PSObject.Properties.Name | Should -Contain 'deadKeys' -Because 'a deadKeys property that vanished entirely would otherwise be indistinguishable from one holding an empty list'
         $committedReport.PSObject.Properties.Name | Should -Contain 'noSurvivingSelector' -Because 'a noSurvivingSelector property that vanished would make the highest-severity scan below vacuous'
         # Explicitly NOT -BeNullOrEmpty via @(...).Count: `@($null).Count` is 1, so a report
@@ -166,22 +174,31 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
         # a discarded key means the request arrives with no selector, so a new one is the
         # motivating incident happening again.
         #
-        # The floor below is on the SCAN INPUT, not on the filtered subset. Counting only the
-        # DESTRUCTIVE matches would make "all 22 destructive dead keys got fixed" -- a tractable
-        # single PR, and the outcome this artifact exists to produce -- red the gate. The filter
-        # is a predicate, not the scan boundary: what still has to be non-empty is the list the
-        # loop walks, which assertion 1 guarantees; what must be free to reach zero is how many
-        # of them match.
+        # NON-VACUITY IS A PROPERTY OF THE SCAN, NOT OF THE COLLECTION. The question worth
+        # asking is not "was there anything to look at" but "did this loop visit everything it
+        # was handed", so the assertion below is an EQUALITY against the full input size rather
+        # than a greater-than-zero floor. Three consequences, all deliberate:
+        #   - It is strictly stronger. `> 0` proved only that the loop ran at least once, so a
+        #     `continue` bug that silently skipped most entries passed it. Equality catches
+        #     that, and was confirmed to by construction.
+        #   - It is trivially satisfied at zero (0 -eq 0), so the case where a future PR fixes
+        #     every dead key needs no edit here at all. Counting the DESTRUCTIVE matches instead
+        #     would have made "all 22 destructive dead keys got fixed" -- a tractable single PR,
+        #     and the outcome this artifact exists to produce -- red the gate.
+        #   - It keeps this test self-sufficient: it proves its own faithfulness without
+        #     depending on assertion 1 having run first.
+        # File-level non-vacuity lives in assertion 1 alone.
         $scanInput = @($committedReport.deadKeys)
+        $scanned = 0
         $offenders = foreach ($entry in $scanInput) {
+            $scanned++
             if ($entry.severity -ne 'DESTRUCTIVE') { continue }
             $identity = '{0}|{1}|{2}|{3}|{4}' -f $entry.cmdlet, $entry.parameter, $entry.wireKey, $entry.method, $entry.endpoint
             if ($baselineDestructive -notcontains $identity) {
                 "NEW DESTRUCTIVE dead key: $($entry.cmdlet) -$($entry.parameter) writes query key '$($entry.wireKey)', which $($entry.method) $($entry.endpoint) does not declare. That endpoint/verb declares only: $(@($entry.declared) -join ', '). The request will arrive without that selector."
             }
         }
-        # SHRINK-TO-ZERO RELAX POINT (2 of 3).
-        $scanInput.Count | Should -BeGreaterThan 0 -Because 'a vacuous scan would pass this test without checking anything'
+        $scanned | Should -Be $scanInput.Count -Because "the scan must visit every dead key, not silently skip some: it visited $scanned of $($scanInput.Count)"
         @($offenders) | Should -BeNullOrEmpty -Because "a destructive verb carrying an undeclared query key is the incident this gate exists to prevent. Either declare/rename the key, or -- if this is a deliberate, reviewed addition -- add its identity to `$baselineDestructive in this file."
     }
 
@@ -190,12 +207,14 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
         # sends is dead, so the request carries no usable selector at all. A new one here is
         # strictly worse than a new DESTRUCTIVE dead key alongside a surviving selector.
         #
-        # Same scan-input reasoning as the test above, and here the point is sharper: this
-        # collection has only 18 entries, so "somebody fixed all of them" is one PR. Flooring on
-        # noSurvivingSelector.Count would make the gate red on precisely its own success. The
-        # floor is therefore on deadKeys, which assertion 1 guarantees non-empty and which is a
-        # strict superset of the operations that can produce a group here.
-        $offenders = foreach ($group in @($committedReport.noSurvivingSelector)) {
+        # Same visit-everything reasoning as the test above, and here the payoff is sharper:
+        # this collection has only 18 entries, so "somebody fixed all of them" is one PR. Any
+        # non-emptiness floor -- on this collection or on deadKeys -- would make the gate red on
+        # precisely its own success. An equality against the input size does not.
+        $scanInput = @($committedReport.noSurvivingSelector)
+        $scanned = 0
+        $offenders = foreach ($group in $scanInput) {
+            $scanned++
             $identity = '{0}|{1}|{2}' -f $group.cmdlet, $group.method, $group.endpoint
             if ($baselineNoSurvivingSelector -notcontains $identity) {
                 $deadKeysForGroup = @(@($committedReport.deadKeys) | Where-Object {
@@ -207,8 +226,7 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
                 "NEW noSurvivingSelector: $($group.cmdlet) ($($group.method) $($group.endpoint)) has no surviving selector -- every selector-shaped key it sends is undeclared [$detail]. That endpoint/verb declares only: $($declared -join ', ')."
             }
         }
-        # SHRINK-TO-ZERO RELAX POINT (3 of 3).
-        @($committedReport.deadKeys).Count | Should -BeGreaterThan 0 -Because 'a vacuous scan would pass this test without checking anything'
+        $scanned | Should -Be $scanInput.Count -Because "the scan must visit every noSurvivingSelector group, not silently skip some: it visited $scanned of $($scanInput.Count)"
         @($offenders) | Should -BeNullOrEmpty -Because "an operation with no surviving selector sends an unselected request. Either declare/rename a selector, or -- if this is a deliberate, reviewed addition -- add its identity to `$baselineNoSurvivingSelector in this file."
     }
 
