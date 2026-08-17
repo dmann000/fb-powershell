@@ -277,3 +277,265 @@ Describe 'Policy and role selector lifts' {
         $result.marker | Should -Be 'preserve-me'
     }
 }
+
+Describe 'Local group member selector lift' {
+    BeforeEach {
+        Mock -ModuleName PureStorageFlashBladePowerShell Assert-PfbConnection { }
+    }
+
+    It 'lifts group.name to GroupName without rebuilding the response' {
+        $fixture = [PSCustomObject]@{
+            name = 'member-1'
+            context = [PSCustomObject]@{ name = 'array-a' }
+            marker = 'preserve-me'
+            group = [PSCustomObject]@{ name = 'group-1' }
+        }
+        $requests = [System.Collections.Generic.List[object]]::new()
+        $global:PfbSelectorLiftFixture = $fixture
+        $global:PfbSelectorLiftRequests = $requests
+
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest {
+            $global:PfbSelectorLiftRequests.Add([PSCustomObject]@{
+                    Method = $Method
+                    Endpoint = $Endpoint
+                    QueryParams = $QueryParams
+                })
+            return $global:PfbSelectorLiftFixture
+        }
+
+        $result = Get-PfbLocalGroupMember -Array $script:fakeArray
+
+        [object]::ReferenceEquals($result, $fixture) | Should -BeTrue
+        $result.GroupName | Should -Be 'group-1'
+        $result.group.name | Should -Be 'group-1'
+        $result.context.name | Should -Be 'array-a'
+        $result.marker | Should -Be 'preserve-me'
+        @($result.PSObject.Properties.Name) | Should -Be @('name', 'context', 'marker', 'group', 'GroupName')
+        $requests.Count | Should -Be 1
+        $requests[0].Method | Should -Be 'GET'
+        $requests[0].Endpoint | Should -Be 'directory-services/local/groups/members'
+        @($requests[0].QueryParams.Keys) | Should -HaveCount 0
+    }
+
+    It 'pipes GroupName into Get-PfbLocalGroupMember as scalar group_names' {
+        $fixture = [PSCustomObject]@{
+            name = 'member-1'
+            context = [PSCustomObject]@{ name = 'array-a' }
+            marker = 'preserve-me'
+            group = [PSCustomObject]@{ name = 'group-1' }
+        }
+        $requests = [System.Collections.Generic.List[object]]::new()
+        $global:PfbSelectorLiftFixture = $fixture
+        $global:PfbSelectorLiftRequests = $requests
+
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest {
+            $global:PfbSelectorLiftRequests.Add([PSCustomObject]@{
+                    Method = $Method
+                    Endpoint = $Endpoint
+                    QueryParams = $QueryParams
+                })
+            return $global:PfbSelectorLiftFixture
+        }
+
+        $first = Get-PfbLocalGroupMember -Array $script:fakeArray
+        $second = $first | Get-PfbLocalGroupMember -Array $script:fakeArray
+        $expectedGroupName = 'group-1'
+
+        $requests.Count | Should -Be 2
+        $requests[0].Method | Should -Be 'GET'
+        $requests[0].Endpoint | Should -Be 'directory-services/local/groups/members'
+        @($requests[0].QueryParams.Keys) | Should -HaveCount 0
+        $requests[1].Method | Should -Be 'GET'
+        $requests[1].Endpoint | Should -Be 'directory-services/local/groups/members'
+        $requests[1].QueryParams['group_names'] | Should -Be $expectedGroupName
+        $requests[1].QueryParams['group_names'] | Should -Not -Match '@\{'
+        @($requests[1].QueryParams.Keys) | Should -Be @('group_names')
+        $second | Should -Not -BeNullOrEmpty
+    }
+
+    It 'declares the group_name alias on Group' {
+        $command = Get-Command Get-PfbLocalGroupMember
+        $command.Parameters['Group'].Aliases | Should -Contain 'group_name'
+    }
+
+    It 'does not add GroupName when group.name is null' {
+        $fixture = [PSCustomObject]@{
+            name = 'member-1'
+            context = [PSCustomObject]@{ name = 'array-a' }
+            marker = 'preserve-me'
+            group = [PSCustomObject]@{ name = $null }
+        }
+        $global:PfbSelectorLiftFixture = $fixture
+
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest {
+            return $global:PfbSelectorLiftFixture
+        }
+
+        $result = Get-PfbLocalGroupMember -Array $script:fakeArray
+
+        [object]::ReferenceEquals($result, $fixture) | Should -BeTrue
+        @($result.PSObject.Properties.Name) | Should -Be @('name', 'context', 'marker', 'group')
+        @($result.PSObject.Properties.Name) | Should -Not -Contain 'GroupName'
+        $result.context.name | Should -Be 'array-a'
+        $result.marker | Should -Be 'preserve-me'
+    }
+
+    It 'does not add GroupName when group is absent' {
+        $fixture = [PSCustomObject]@{
+            name = 'member-1'
+            context = [PSCustomObject]@{ name = 'array-a' }
+            marker = 'preserve-me'
+        }
+        $global:PfbSelectorLiftFixture = $fixture
+
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest {
+            return $global:PfbSelectorLiftFixture
+        }
+
+        $result = Get-PfbLocalGroupMember -Array $script:fakeArray
+
+        [object]::ReferenceEquals($result, $fixture) | Should -BeTrue
+        @($result.PSObject.Properties.Name) | Should -Be @('name', 'context', 'marker')
+        @($result.PSObject.Properties.Name) | Should -Not -Contain 'GroupName'
+        $result.context.name | Should -Be 'array-a'
+        $result.marker | Should -Be 'preserve-me'
+    }
+
+    It 'does not overwrite an existing GroupName' {
+        $fixture = [PSCustomObject]@{
+            name = 'member-1'
+            context = [PSCustomObject]@{ name = 'array-a' }
+            marker = 'preserve-me'
+            group = [PSCustomObject]@{ name = 'nested-group' }
+            GroupName = 'existing-group'
+        }
+        $global:PfbSelectorLiftFixture = $fixture
+
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest {
+            return $global:PfbSelectorLiftFixture
+        }
+
+        $result = Get-PfbLocalGroupMember -Array $script:fakeArray
+
+        [object]::ReferenceEquals($result, $fixture) | Should -BeTrue
+        $result.GroupName | Should -Be 'existing-group'
+        $result.group.name | Should -Be 'nested-group'
+        @($result.PSObject.Properties.Name) | Should -Be @('name', 'context', 'marker', 'group', 'GroupName')
+        $result.context.name | Should -Be 'array-a'
+        $result.marker | Should -Be 'preserve-me'
+    }
+}
+
+Describe 'ObjectStore access policy role selector lift convergence' {
+    BeforeEach {
+        Mock -ModuleName PureStorageFlashBladePowerShell Assert-PfbConnection { }
+    }
+
+    It 'preserves the original association while lifting policy.name to PolicyName' {
+        $fixture = [PSCustomObject]@{
+            name = 'association-1'
+            context = [PSCustomObject]@{ name = 'array-a' }
+            marker = 'preserve-me'
+            policy = [PSCustomObject]@{ name = 'policy-1' }
+            member = [PSCustomObject]@{ name = 'member-1' }
+        }
+        $requests = [System.Collections.Generic.List[object]]::new()
+        $global:PfbSelectorLiftFixture = $fixture
+        $global:PfbSelectorLiftRequests = $requests
+
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest {
+            $global:PfbSelectorLiftRequests.Add([PSCustomObject]@{
+                    Method = $Method
+                    Endpoint = $Endpoint
+                    QueryParams = $QueryParams
+                })
+            return $global:PfbSelectorLiftFixture
+        }
+
+        $result = Get-PfbObjectStoreAccessPolicyRole -Array $script:fakeArray
+
+        [object]::ReferenceEquals($result, $fixture) | Should -BeTrue
+        $result.PolicyName | Should -Be 'policy-1'
+        $result.MemberName | Should -Be 'member-1'
+        $result.policy.name | Should -Be 'policy-1'
+        $result.member.name | Should -Be 'member-1'
+        $result.context.name | Should -Be 'array-a'
+        $result.marker | Should -Be 'preserve-me'
+        @($result.PSObject.Properties.Name) | Should -Be @('name', 'context', 'marker', 'policy', 'member', 'PolicyName', 'MemberName')
+        $requests.Count | Should -Be 1
+        $requests[0].Method | Should -Be 'GET'
+        $requests[0].Endpoint | Should -Be 'object-store-access-policies/object-store-roles'
+        @($requests[0].QueryParams.Keys) | Should -HaveCount 0
+    }
+
+    It 'does not add PolicyName when policy.name is null' {
+        $fixture = [PSCustomObject]@{
+            name = 'association-1'
+            context = [PSCustomObject]@{ name = 'array-a' }
+            marker = 'preserve-me'
+            policy = [PSCustomObject]@{ name = $null }
+            member = [PSCustomObject]@{ name = 'member-1' }
+        }
+        $global:PfbSelectorLiftFixture = $fixture
+
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest {
+            return $global:PfbSelectorLiftFixture
+        }
+
+        $result = Get-PfbObjectStoreAccessPolicyRole -Array $script:fakeArray
+
+        [object]::ReferenceEquals($result, $fixture) | Should -BeTrue
+        @($result.PSObject.Properties.Name) | Should -Be @('name', 'context', 'marker', 'policy', 'member', 'MemberName')
+        @($result.PSObject.Properties.Name) | Should -Not -Contain 'PolicyName'
+        $result.context.name | Should -Be 'array-a'
+        $result.marker | Should -Be 'preserve-me'
+    }
+
+    It 'does not add PolicyName when policy is absent' {
+        $fixture = [PSCustomObject]@{
+            name = 'association-1'
+            context = [PSCustomObject]@{ name = 'array-a' }
+            marker = 'preserve-me'
+            member = [PSCustomObject]@{ name = 'member-1' }
+        }
+        $global:PfbSelectorLiftFixture = $fixture
+
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest {
+            return $global:PfbSelectorLiftFixture
+        }
+
+        $result = Get-PfbObjectStoreAccessPolicyRole -Array $script:fakeArray
+
+        [object]::ReferenceEquals($result, $fixture) | Should -BeTrue
+        @($result.PSObject.Properties.Name) | Should -Be @('name', 'context', 'marker', 'member', 'MemberName')
+        @($result.PSObject.Properties.Name) | Should -Not -Contain 'PolicyName'
+        $result.context.name | Should -Be 'array-a'
+        $result.marker | Should -Be 'preserve-me'
+    }
+
+    It 'does not overwrite an existing PolicyName' {
+        $fixture = [PSCustomObject]@{
+            name = 'association-1'
+            context = [PSCustomObject]@{ name = 'array-a' }
+            marker = 'preserve-me'
+            policy = [PSCustomObject]@{ name = 'nested-policy' }
+            member = [PSCustomObject]@{ name = 'member-1' }
+            PolicyName = 'existing-policy'
+        }
+        $global:PfbSelectorLiftFixture = $fixture
+
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest {
+            return $global:PfbSelectorLiftFixture
+        }
+
+        $result = Get-PfbObjectStoreAccessPolicyRole -Array $script:fakeArray
+
+        [object]::ReferenceEquals($result, $fixture) | Should -BeTrue
+        $result.PolicyName | Should -Be 'existing-policy'
+        $result.policy.name | Should -Be 'nested-policy'
+        $result.MemberName | Should -Be 'member-1'
+        @($result.PSObject.Properties.Name) | Should -Be @('name', 'context', 'marker', 'policy', 'member', 'PolicyName', 'MemberName')
+        $result.context.name | Should -Be 'array-a'
+        $result.marker | Should -Be 'preserve-me'
+    }
+}
