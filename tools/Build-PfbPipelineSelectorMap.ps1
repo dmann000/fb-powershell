@@ -223,7 +223,7 @@ $meaning = @{
     'WrongScalar' = '**yes** -- a value from the wrong property reached the wire'
     'Unbindable'  = 'no -- PowerShell declined to bind this probe object at all. Note that pass 4 is ByPropertyName WITH coercion, so a ByPropertyName-only parameter whose alias matches an object-valued property CAN still coerce; this outcome is not a structural immunity'
     'NoSelector'  = 'no -- reported observation'
-    'Guarded'     = 'no -- the #64 guard fired'
+    'Guarded'     = 'no -- a #64/#90 coercion guard fired'
     'CmdletError' = 'no -- the cmdlet threw before any request was built'
     'BindError'   = 'triage -- the harness never invoked, the only unmeasured outcome'
 }

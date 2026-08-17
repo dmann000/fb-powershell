@@ -112,7 +112,7 @@ Describe 'Assert-PfbSelectorNotCoerced (#90)' {
         }
     }
 
-    It 'tolerates a backtick in the coerced text, which -like would have mis-escaped' {
+    It 'detects a stringified object whose text contains a backtick' {
         InModuleScope PureStorageFlashBladePowerShell {
             { Assert-PfbSelectorNotCoerced -Value ("@{name=nfs" + [char]96 + "01}") -ParameterName 'PolicyName' -Hint 'h' } |
                 Should -Throw -ExpectedMessage '*stringified object*'

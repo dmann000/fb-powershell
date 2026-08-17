@@ -514,7 +514,7 @@ function Get-PfbSelectorOutcome {
     .DESCRIPTION
         Findings are Coerced and WrongScalar ONLY.
 
-        Guarded is #64's fix working, not a defect. NoSelector is a reported observation, not a
+        Guarded is a #64/#90 coercion guard working, not a defect. NoSelector is a reported observation, not a
         finding: if any selector is pipeline-bound then a non-matching object falls through to
         pass 3 and coerces, so NoSelector can only occur where nothing is pipeline-bound -- in
         which case the cmdlet never claimed to accept a chain and PowerShell simply runs it once

@@ -64,8 +64,8 @@ function Assert-PfbSelectorNotCoerced {
     if ($null -eq $Value) { return }
 
     foreach ($v in @($Value)) {
-        # .Contains() rather than -like: the wildcard operator treats a backtick as an
-        # escape character, and a stringified object can contain one.
+        # .Contains() rather than -like: a literal test needs no wildcard semantics, and
+        # .Contains() cannot be broken by interpolating caller text into a pattern.
         if ($v -is [string] -and $v.Contains('@{')) {
             # Built in one -f call: the format operator binds tighter than '+', so
             # splitting this across concatenated literals silently formats only the last.

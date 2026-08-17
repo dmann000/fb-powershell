@@ -61,7 +61,7 @@ function Get-PfbCertificateGroupCertificate {
         Assert-PfbSelectorNotCoerced -Value $CertificateName -ParameterName 'CertificateName' -Hint (
             'Pipe the certificate name instead, e.g. Get-PfbCertificate | ' +
             'Select-Object -ExpandProperty name | Get-PfbCertificateGroupCertificate, ' +
-            'or pass -CertificateName explicitly.')
+            'or pass -CertificateName explicitly, or -CertificateGroupId if you meant to filter by group.')
         if ($CertificateName)    { foreach ($n in $CertificateName)    { $allCertificateNames.Add($n) } }
         if ($CertificateGroupId) { foreach ($i in $CertificateGroupId) { $allCertificateGroupIds.Add($i) } }
     }
