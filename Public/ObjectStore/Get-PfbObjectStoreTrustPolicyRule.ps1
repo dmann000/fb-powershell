@@ -8,8 +8,6 @@ function Get-PfbObjectStoreTrustPolicyRule {
         assume the role.
     .PARAMETER PolicyName
         One or more trust policy names to filter by.
-    .PARAMETER PolicyId
-        One or more trust policy IDs to filter by.
     .PARAMETER Name
         One or more fully-qualified rule names to retrieve.
     .PARAMETER Filter
@@ -36,9 +34,6 @@ function Get-PfbObjectStoreTrustPolicyRule {
         [Alias('policy_name')]
         [string[]]$PolicyName,
 
-        [Parameter(Mandatory, ParameterSetName = 'ByPolicyId')]
-        [string[]]$PolicyId,
-
         [Parameter(Mandatory, ParameterSetName = 'ByName')]
         [string[]]$Name,
 
@@ -51,13 +46,11 @@ function Get-PfbObjectStoreTrustPolicyRule {
     begin {
         Assert-PfbConnection -Array ([ref]$Array)
         $allPolicyNames = [System.Collections.Generic.List[string]]::new()
-        $allPolicyIds   = [System.Collections.Generic.List[string]]::new()
         $allNames       = [System.Collections.Generic.List[string]]::new()
     }
 
     process {
         if ($PolicyName) { foreach ($n in $PolicyName) { $allPolicyNames.Add($n) } }
-        if ($PolicyId)   { foreach ($i in $PolicyId)   { $allPolicyIds.Add($i) } }
         if ($Name)       { foreach ($n in $Name)       { $allNames.Add($n) } }
     }
 
@@ -65,7 +58,6 @@ function Get-PfbObjectStoreTrustPolicyRule {
         $queryParams = @{}
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames
         if ($allPolicyNames.Count -gt 0) { $queryParams['policy_names'] = $allPolicyNames -join ',' }
-        if ($allPolicyIds.Count -gt 0)   { $queryParams['policy_ids']   = $allPolicyIds -join ',' }
 
         $response = Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'object-store-roles/object-store-trust-policies/rules' -QueryParams $queryParams -AutoPaginate
 

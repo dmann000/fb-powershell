@@ -6,8 +6,6 @@ function Get-PfbResourceAccess {
         The Get-PfbResourceAccess cmdlet returns resource access control entries from the
         connected Pure Storage FlashBlade. Resource accesses define which users or groups
         have access to specific resources.
-    .PARAMETER Name
-        One or more resource access names to retrieve. Accepts pipeline input.
     .PARAMETER Id
         One or more resource access IDs to retrieve.
     .PARAMETER Filter
@@ -23,9 +21,9 @@ function Get-PfbResourceAccess {
 
         Retrieves all resource access entries from the connected FlashBlade.
     .EXAMPLE
-        Get-PfbResourceAccess -Name "access-prod"
+        Get-PfbResourceAccess -Id "10314f42-020d-7080-8013-000ddt400012"
 
-        Retrieves the resource access entry with the specified name.
+        Retrieves the resource access entry with the specified ID.
     .EXAMPLE
         Get-PfbResourceAccess -Filter "resource_type='file-system'" -Limit 20
 
@@ -33,25 +31,22 @@ function Get-PfbResourceAccess {
     #>
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param(
-        [Parameter(ParameterSetName = 'ByName', ValueFromPipeline, ValueFromPipelineByPropertyName)] [string[]]$Name,
         [Parameter(ParameterSetName = 'ById')] [string[]]$Id,
         [Parameter()] [string]$Filter, [Parameter()] [string]$Sort, [Parameter()] [int]$Limit,
         [Parameter()] [PSCustomObject]$Array
     )
     begin {
         Assert-PfbConnection -Array ([ref]$Array)
-        $allNames = [System.Collections.Generic.List[string]]::new()
         $allIds = [System.Collections.Generic.List[string]]::new()
     }
 
     process {
-        if ($Name) { foreach ($n in $Name) { $allNames.Add($n) } }
         if ($Id) { foreach ($i in $Id) { $allIds.Add($i) } }
     }
 
     end {
         $queryParams = @{}
-        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Ids $allIds
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'resource-accesses' -QueryParams $queryParams -AutoPaginate
     }
 }
