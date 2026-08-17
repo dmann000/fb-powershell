@@ -318,8 +318,12 @@ Describe 'Bucket policy and filter selectors (#90)' {
             $expectedBucket = 'pslivetest-bucket-a'
             $expectedPolicy = 'pslivetest-policy-a'
 
+            # `effect` is readOnly in BucketAccessPolicyRulePost, so a caller cannot
+            # send it -- the fixture uses only sendable properties. `principals` is an
+            # OBJECT shaped { all: boolean }, not a string array.
             New-PfbBucketAccessPolicyRule -BucketName $expectedBucket -PolicyName $expectedPolicy `
-                -Name $expectedName -Attributes @{ effect = 'allow'; actions = @('s3:GetObject') } `
+                -Name $expectedName `
+                -Attributes @{ actions = @('s3:GetObject'); principals = @{ all = $true } } `
                 -Array $script:fakeArray -Confirm:$false
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
@@ -352,12 +356,14 @@ Describe 'Bucket policy and filter selectors (#90)' {
 
         It 'still passes -Attributes through as the POST body without leaking a query key into it' {
             New-PfbBucketAccessPolicyRule -BucketName 'pslivetest-bucket-a' -PolicyName 'pslivetest-policy-a' `
-                -Name 'pslivetest-rule-a' -Attributes @{ effect = 'allow'; actions = @('s3:GetObject') } `
+                -Name 'pslivetest-rule-a' `
+                -Attributes @{ actions = @('s3:GetObject'); principals = @{ all = $true } } `
                 -Array $script:fakeArray -Confirm:$false
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
-                $Body['effect'] -eq 'allow' -and
+                $Body['principals']['all'] -eq $true -and
                 $Body['actions'] -contains 's3:GetObject' -and
+                -not $Body.ContainsKey('effect') -and
                 -not $Body.ContainsKey('bucket_names') -and
                 -not $Body.ContainsKey('policy_names') -and
                 -not $Body.ContainsKey('names')
@@ -413,8 +419,15 @@ Describe 'Bucket policy and filter selectors (#90)' {
         }
 
         It 'emits the required names on every reachable parameter set' {
+            # Review finding 5, addressed: each set gets a UNIQUE -Name value and is
+            # asserted immediately after its own invocation, so this is a per-set
+            # assertion rather than a total-invocation count. A set that failed to send
+            # `names` can no longer be masked by a sibling set that did.
             $command = Get-Command New-PfbBucketCorsPolicyRule
+            $setIndex = 0
             foreach ($set in $command.ParameterSets) {
+                $setIndex++
+                $expectedSetName = "pslivetest-set-$setIndex-name"
                 $splat = @{
                     Array   = $script:fakeArray
                     Confirm = $false
@@ -423,18 +436,23 @@ Describe 'Bucket policy and filter selectors (#90)' {
                     if (-not $p.IsMandatory) { continue }
                     switch ($p.Name) {
                         'Attributes' { $splat['Attributes'] = @{ allowed_origins = @('*') } }
+                        'Name'       { $splat['Name'] = $expectedSetName }
                         default      { $splat[$p.Name] = "pslivetest-$($p.Name.ToLowerInvariant())" }
                     }
                 }
+
+                # Every Mandatory parameter of the set is bound, so this cannot fall into
+                # the interactive "Supply values for parameters" prompt.
                 New-PfbBucketCorsPolicyRule @splat
+
+                Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest `
+                    -Times 1 -Exactly -ParameterFilter {
+                        $QueryParams.ContainsKey('names') -and
+                        $QueryParams['names'] -eq $expectedSetName
+                    }
             }
 
-            $expectedSetCount = @($command.ParameterSets).Count
-            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest `
-                -Times $expectedSetCount -Exactly -ParameterFilter {
-                    $QueryParams.ContainsKey('names') -and
-                    -not [string]::IsNullOrEmpty($QueryParams['names'])
-                }
+            $setIndex | Should -BeGreaterThan 0
         }
 
         It 'passes -Attributes through as the POST body without leaking a query key into it' {
@@ -549,6 +567,56 @@ Describe 'Bucket policy and filter selectors (#90)' {
 
         It 'no longer publishes FilterNames' {
             (Get-Command Update-PfbBucketAuditFilter).Parameters.Keys | Should -Not -Contain 'FilterNames'
+        }
+    }
+
+    # An empty array must never reach the wire as a dropped selector. All three
+    # cmdlets below carry a parameter that satisfies a `required: true` query key
+    # (`names`), so binding `@()` or `@('')` must be rejected outright rather than
+    # producing a request with the required key missing or blank -- which would
+    # silently reconstruct the dead-selector defect this task removes.
+    Context 'Task 1b/4 -- required selectors reject an empty array' {
+        $script:emptyRequiredCases = @(
+            @{ Cmdlet = 'Update-PfbBucketAuditFilter';   Parameter = 'Name'
+               Extra = @{ BucketName = 'pslivetest-bucket-a' } }
+            @{ Cmdlet = 'New-PfbBucketAccessPolicyRule'; Parameter = 'Name'
+               Extra = @{ BucketName = 'pslivetest-bucket-a'; PolicyName = 'pslivetest-policy-a'
+                          Attributes = @{ actions = @('s3:GetObject') } } }
+            @{ Cmdlet = 'New-PfbBucketAccessPolicyRule'; Parameter = 'BucketName'
+               Extra = @{ PolicyName = 'pslivetest-policy-a'; Name = 'pslivetest-rule-a'
+                          Attributes = @{ actions = @('s3:GetObject') } } }
+            @{ Cmdlet = 'New-PfbBucketAccessPolicyRule'; Parameter = 'PolicyName'
+               Extra = @{ BucketName = 'pslivetest-bucket-a'; Name = 'pslivetest-rule-a'
+                          Attributes = @{ actions = @('s3:GetObject') } } }
+            @{ Cmdlet = 'New-PfbBucketCorsPolicyRule';   Parameter = 'Name'
+               Extra = @{ BucketName = 'pslivetest-bucket-a'; PolicyName = 'pslivetest-policy-a'
+                          Attributes = @{ allowed_origins = @('*') } } }
+            @{ Cmdlet = 'New-PfbBucketCorsPolicyRule';   Parameter = 'BucketName'
+               Extra = @{ PolicyName = 'pslivetest-policy-a'; Name = 'pslivetest-rule-a'
+                          Attributes = @{ allowed_origins = @('*') } } }
+            @{ Cmdlet = 'New-PfbBucketCorsPolicyRule';   Parameter = 'PolicyName'
+               Extra = @{ BucketName = 'pslivetest-bucket-a'; Name = 'pslivetest-rule-a'
+                          Attributes = @{ allowed_origins = @('*') } } }
+        )
+
+        It '<Cmdlet> rejects -<Parameter> @() instead of sending the request' -ForEach $script:emptyRequiredCases {
+            $splat = @{ Array = $script:fakeArray; Confirm = $false; ErrorAction = 'Stop' }
+            foreach ($k in $Extra.Keys) { $splat[$k] = $Extra[$k] }
+            $splat[$Parameter] = @()
+
+            { & $Cmdlet @splat } | Should -Throw
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+        }
+
+        It '<Cmdlet> rejects -<Parameter> @('''') instead of sending the request' -ForEach $script:emptyRequiredCases {
+            $splat = @{ Array = $script:fakeArray; Confirm = $false; ErrorAction = 'Stop' }
+            foreach ($k in $Extra.Keys) { $splat[$k] = $Extra[$k] }
+            $splat[$Parameter] = @('')
+
+            { & $Cmdlet @splat } | Should -Throw
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
         }
     }
 

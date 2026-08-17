@@ -78,7 +78,14 @@ function Update-PfbBucketAuditFilter {
         # -Name is declared bare rather than scoped to the *Individual sets. Being bare it
         # is also reachable in every parameter set, which the endpoint's `required: true`
         # on `names` demands.
+        #
+        # ValidateNotNullOrEmpty is load-bearing here, not decoration: -Name is NOT
+        # Mandatory, so without it `-Name @()` and `-Name @('')` both bind happily,
+        # $PSBoundParameters.ContainsKey('Name') is true, and `names` goes on the wire
+        # empty -- a required selector silently dropped. Verified on pwsh 7 and Windows
+        # PowerShell 5.1 that this attribute rejects both forms.
         [Parameter()]
+        [ValidateNotNullOrEmpty()]
         [string[]]$Name,
 
         [Parameter(ParameterSetName = 'ByBucketNameIndividual')]

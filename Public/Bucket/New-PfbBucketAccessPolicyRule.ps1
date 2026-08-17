@@ -25,32 +25,55 @@ function New-PfbBucketAccessPolicyRule {
         One or more names for the new rule. Sent as 'names'. Required by the
         endpoint.
     .PARAMETER Attributes
-        A hashtable defining the rule properties (actions, principals,
-        resources, conditions, etc.). Sent as the request body.
+        A hashtable defining the rule properties. Sent as the request body.
+
+        The BucketAccessPolicyRulePost schema declares exactly four properties, and
+        constrains three of them in their descriptions rather than in an enum:
+
+          actions    - array of string; the only supported action is "s3:GetObject".
+          principals - an OBJECT, not a string array, shaped @{ all = $true };
+                       only all-principals is supported.
+          resources  - array of string; only all objects in a bucket is supported,
+                       e.g. @("mybucket/*").
+          effect     - readOnly, so a caller cannot send it. It is always "allow".
+
+        Anything outside that set -- a narrower action, a named principal, a
+        principals string array, or a caller-supplied effect -- the endpoint does not
+        accept. Verified against every spec version the endpoint exists in
+        (REST 2.12 through 2.28); the shape is identical throughout.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
-        New-PfbBucketAccessPolicyRule -BucketName "mybucket" -PolicyName "read-only-policy" -Name "allow-get" -Attributes @{ actions = @("s3:GetObject"); principals = @("*") }
+        New-PfbBucketAccessPolicyRule -BucketName "mybucket" -PolicyName "mybucket/myaccount:read-only-policy" -Name "allow-get" -Attributes @{ actions = @("s3:GetObject"); principals = @{ all = $true } }
 
         Creates a rule named 'allow-get' allowing all principals to perform GetObject.
     .EXAMPLE
-        New-PfbBucketAccessPolicyRule -BucketName "mybucket" -PolicyName "write-policy" -Name "allow-write" -Attributes @{ actions = @("s3:PutObject","s3:DeleteObject"); principals = @("user1") }
+        New-PfbBucketAccessPolicyRule -BucketName "mybucket" -PolicyName "mybucket/myaccount:read-only-policy" -Name "allow-get" -Attributes @{ actions = @("s3:GetObject"); principals = @{ all = $true }; resources = @("mybucket/*") }
 
-        Creates a rule allowing user1 to write and delete objects.
+        Creates the same rule with the resource scope stated explicitly.
     .EXAMPLE
-        New-PfbBucketAccessPolicyRule -BucketName "mybucket" -PolicyName "full-access" -Name "allow-all" -Attributes @{ actions = @("s3:*"); principals = @("*") }
+        New-PfbBucketAccessPolicyRule -BucketName "mybucket","archive" -PolicyName "mybucket/myaccount:read-only-policy","archive/myaccount:read-only-policy" -Name "allow-get" -Attributes @{ actions = @("s3:GetObject"); principals = @{ all = $true } }
 
-        Creates a rule granting full S3 access to all principals.
+        Creates the rule across two buckets in one call; each selector is joined into
+        its comma-separated query key.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
+        # ValidateNotNullOrEmpty on all three selectors: each feeds a query key the
+        # endpoint requires or matches on, and an empty array or an array of empty
+        # strings would otherwise join to '' and put a blank selector on the wire. The
+        # Mandatory binder already rejects @() and @('') on both editions, so this is
+        # belt-and-braces against a future edit that drops Mandatory.
         [Parameter(Mandatory, Position = 0, ValueFromPipelineByPropertyName)]
+        [ValidateNotNullOrEmpty()]
         [string[]]$BucketName,
 
         [Parameter(Mandatory, Position = 1, ValueFromPipelineByPropertyName)]
+        [ValidateNotNullOrEmpty()]
         [string[]]$PolicyName,
 
         [Parameter(Mandatory, Position = 2)]
+        [ValidateNotNullOrEmpty()]
         [string[]]$Name,
 
         [Parameter(Mandatory)]

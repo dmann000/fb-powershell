@@ -24,7 +24,7 @@ function Remove-PfbBucketAccessPolicy {
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
-        Remove-PfbBucketAccessPolicy -Name "mybucket/read-only-policy"
+        Remove-PfbBucketAccessPolicy -Name "mybucket/myaccount:read-only-policy"
 
         Removes the single access policy 'read-only-policy' from 'mybucket'.
     .EXAMPLE
@@ -32,7 +32,7 @@ function Remove-PfbBucketAccessPolicy {
 
         Removes ALL access policies from the bucket named 'mybucket'.
     .EXAMPLE
-        Remove-PfbBucketAccessPolicy -Name "mybucket/read-only-policy" -Confirm:$false
+        Remove-PfbBucketAccessPolicy -Name "mybucket/myaccount:read-only-policy" -Confirm:$false
 
         Removes the access policy without confirmation.
     #>

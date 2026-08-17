@@ -34,30 +34,49 @@ function New-PfbBucketCorsPolicyRule {
         A hashtable defining the rule properties. The endpoint accepts
         allowed_origins, allowed_methods and allowed_headers. Sent as the request
         body.
+
+        The schema constrains the VALUES as well as the field names, in its
+        descriptions rather than in an enum: the only supported allowed_origins is
+        "*", the only supported allowed_headers is "*", and the only supported
+        allowed_methods is the complete set
+        @("GET", "PUT", "HEAD", "POST", "DELETE"). Any narrower origin, header or
+        method subset is rejected by the array, so the examples below deliberately
+        show only the supported combination.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
-        New-PfbBucketCorsPolicyRule -BucketName "mybucket" -PolicyName "mybucket/cors-policy" -Name "allow-all" -Attributes @{ allowed_origins = @("*"); allowed_methods = @("GET","PUT") }
+        New-PfbBucketCorsPolicyRule -BucketName "mybucket" -PolicyName "mybucket/cors-policy" -Name "allow-all" -Attributes @{ allowed_origins = @("*"); allowed_methods = @("GET","PUT","HEAD","POST","DELETE") }
 
-        Creates a CORS rule allowing all origins with GET and PUT methods.
+        Creates a CORS rule allowing all origins with the complete supported method set.
     .EXAMPLE
-        New-PfbBucketCorsPolicyRule -BucketName "web-assets" -PolicyName "web-assets/cors-policy" -Name "example-only" -Attributes @{ allowed_origins = @("https://example.com"); allowed_methods = @("GET") }
+        New-PfbBucketCorsPolicyRule -BucketName "web-assets" -PolicyName "web-assets/cors-policy" -Name "allow-all" -Attributes @{ allowed_origins = @("*"); allowed_methods = @("GET","PUT","HEAD","POST","DELETE"); allowed_headers = @("*") }
 
-        Creates a CORS rule for a single origin.
+        Creates the same rule with allowed_headers stated explicitly.
     .EXAMPLE
-        New-PfbBucketCorsPolicyRule -BucketName "mybucket" -PolicyName "mybucket/cors-policy" -Name "allow-all" -Attributes @{ allowed_origins = @("*"); allowed_methods = @("GET","PUT","DELETE"); allowed_headers = @("*") }
+        New-PfbBucketCorsPolicyRule -BucketName "mybucket","web-assets" -PolicyName "mybucket/cors-policy","web-assets/cors-policy" -Name "allow-all" -Attributes @{ allowed_origins = @("*"); allowed_methods = @("GET","PUT","HEAD","POST","DELETE") }
 
-        Creates a CORS rule with custom allowed headers.
+        Creates the rule across two buckets in one call; each selector is joined into
+        its comma-separated query key.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
+        # ValidateNotNullOrEmpty on all three selectors: each one feeds a query key the
+        # endpoint requires or matches on, and an empty array or an array of empty
+        # strings would otherwise join to '' and put a blank selector on the wire. The
+        # Mandatory binder already rejects @() and @('') on both editions, so this is
+        # belt-and-braces against a future edit that drops Mandatory -- it is NOT
+        # belt-and-braces on -Name of Update-PfbBucketAuditFilter, which is not
+        # Mandatory and where the hole was real.
         [Parameter(Mandatory, Position = 0, ValueFromPipelineByPropertyName)]
+        [ValidateNotNullOrEmpty()]
         [string[]]$BucketName,
 
         [Parameter(Mandatory, Position = 1, ValueFromPipelineByPropertyName)]
+        [ValidateNotNullOrEmpty()]
         [string[]]$PolicyName,
 
         [Parameter(Mandatory, Position = 2)]
+        [ValidateNotNullOrEmpty()]
         [string[]]$Name,
 
         [Parameter(Mandatory)]
