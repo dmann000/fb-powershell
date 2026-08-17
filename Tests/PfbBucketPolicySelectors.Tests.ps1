@@ -301,6 +301,28 @@ Describe 'Bucket policy and filter selectors (#90)' {
             }
         }
 
+        # NOTE: metadata-only, deliberately. -BucketName is Mandatory on both of these
+        # POST cmdlets, so a behavioural "pipe an unbindable object" case can drop into
+        # the interactive "Supply values for parameters" prompt and hang a
+        # non-interactive run -- the same hazard documented on Remove-PfbOpenFile in
+        # Tests/PfbDeadSelectorRemoval.Tests.ps1. The absence of bare ValueFromPipeline
+        # from the attribute metadata is the same guarantee without the hang risk.
+        # Do not "fix" this by adding a piped-object case.
+        It '<Cmdlet> declares bare ValueFromPipeline on NO parameter at all' -ForEach $script:bucketOnlyPostCases {
+            $piped = @((Get-Command $Cmdlet).Parameters.Values |
+                ForEach-Object { $_.Attributes } |
+                Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] } |
+                ForEach-Object { $_.ValueFromPipeline })
+            $piped | Should -Not -Contain $true
+        }
+
+        It '<Cmdlet> keeps ValueFromPipelineByPropertyName on BucketName' -ForEach $script:bucketOnlyPostCases {
+            $paramAttrs = @((Get-Command $Cmdlet).Parameters['BucketName'].Attributes |
+                Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] })
+            @($paramAttrs | ForEach-Object { $_.ValueFromPipelineByPropertyName }) | Should -Contain $true
+            @($paramAttrs | ForEach-Object { $_.ValueFromPipeline }) | Should -Not -Contain $true
+        }
+
         It '<Cmdlet> publishes BucketName as a mandatory [string[]] and no Name' -ForEach $script:bucketOnlyPostCases {
             $parameters = (Get-Command $Cmdlet).Parameters
             $parameters.Keys | Should -Not -Contain 'Name'

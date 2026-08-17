@@ -35,7 +35,12 @@ function New-PfbBucketAccessPolicy {
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
-        [Parameter(Mandatory, Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        # ValueFromPipelineByPropertyName only, matching New-PfbBucketAccessPolicyRule.
+        # Bare ValueFromPipeline on a Mandatory selector of a POST cmdlet lets a piped
+        # bucket object fall through to by-value coercion and go on the wire stringified
+        # as bucket_names=@{...}, creating a policy against a bucket the caller never
+        # typed. Pipe an object carrying a `bucketName` property, or pass -BucketName.
+        [Parameter(Mandatory, Position = 0, ValueFromPipelineByPropertyName)]
         [string[]]$BucketName,
 
         [Parameter()] [PSCustomObject]$Array
