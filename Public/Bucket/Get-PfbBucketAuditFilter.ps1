@@ -39,7 +39,7 @@ function Get-PfbBucketAuditFilter {
         [Parameter(ParameterSetName = 'ByName')]
         [string[]]$Name,
 
-        # Within this family, the cross-endpoint chain Get-PfbBucket | Get-PfbBucketAuditFilter cannot
+        # Within this family, the cross-endpoint chain from Get-PfbBucket into Get-PfbBucketAuditFilter cannot
         # filter correctly: a producer's bare `name` bound to -BucketName / `bucket_names` is the defect
         # because `name` means different things by endpoint and metadata cannot identify its producer,
         # so no correct generic binding exists. An undeclared or non-matching query key returns HTTP 200

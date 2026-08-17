@@ -33,7 +33,7 @@ function Get-PfbRealmDefaults {
     #>
     [CmdletBinding()]
     param(
-        # Within this family, the cross-endpoint chain Get-PfbRealm | Get-PfbRealmDefaults cannot
+        # Within this family, the cross-endpoint chain from Get-PfbRealm into Get-PfbRealmDefaults cannot
         # filter correctly: a producer's bare `name` bound to -RealmName / `realm_names` is the
         # defect because `name` means different things by endpoint and metadata cannot identify its
         # producer, so no correct generic binding exists. An undeclared or non-matching query key

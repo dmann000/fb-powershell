@@ -6,10 +6,11 @@
     listed here. It also fails on a waiver whose pair no longer coerces, so a fix must delete
     its waiver rather than leave a licence behind for the next reintroduction.
 
-    ONE ENTRY PER (Cmdlet, Parameter) PAIR, NOT PER PRODUCING ENDPOINT. The audit's 389
-    finding rows are producer multiplicity over 127 real defects; keying by triple would be
-    389 entries against psd1's hard 500-element cap for a single collection literal, and would
-    list the same defect up to a dozen times.
+    ONE ENTRY PER (Cmdlet, Parameter) PAIR, NOT PER PRODUCING ENDPOINT. The current report's
+    268 finding rows are producer multiplicity over 102 real defects; keying by triple would be
+    268 entries against psd1's hard 500-element cap for a single collection literal, and would
+    list the same defect up to a dozen times. (The pre-fix audit measured 389 rows over 127
+    pairs; the guards and renames delivered for #90 account for the reduction.)
 
     Scope and Producers are LOAD-BEARING, not annotation -- pair-level keying is otherwise
     blind to where a coercion happens. Rail A fails if a Family-scoped waiver's pair starts
@@ -30,27 +31,26 @@
 @{
     Waivers = @(
 
-        # === Cluster 1 -- the rule/member family (16 pairs, all on a PRIMARY producer).
+        # === Cluster 1 -- the rule/member family (1 pair still waived here, all on a PRIMARY
+        # producer; the audit found 16 and the other 15 are now guarded or renamed).
         # The parent is returned as a nested object (policy, member, role), never as a flat
         # policy_name/member_name/role_name string, so a name-shaped selector can never bind by
         # property name. One API design decision repeated across roughly a dozen endpoint
         # families: fix it as one change, not sixteen.
         @{ Cmdlet = 'Get-PfbUserGroupQuotaPolicyRule';             Parameter = 'PolicyName';  Scope = 'Primary'; Issue = '#90'; Producers = 4
-            Why = 'Published OpenAPI omission.' }
+            Why = 'GET /user-group-quota-policies/rules returns policy as a nested object, never a flat policy_name, so policy_names receives the stringified rule item. Waived rather than fixed because the array honours a policy_names key the published OpenAPI omits, and the published spec governs.' }
 
-        # === Cluster 2 -- sub-resources that have no name at all (10 pairs, all on a PRIMARY producer).
+        # === Cluster 2 -- sub-resources that have no name at all (1 pair still waived here, all on
+        # a PRIMARY producer; the audit found 10 and the other 9 had the dead parameter removed).
         # -Name is pipeline-bound on a resource whose items carry no name field. Dropping
-        # ValueFromPipeline eliminates the class outright: zero coercions occurred without it.
-        # The four Remove-* pairs are the highest-severity findings in the audit -- a DELETE
-        # whose selector is a stringified object is where selects-the-wrong-thing and
-        # destructive intersect.
+        # ValueFromPipeline narrows the class but does not eliminate it: the four-pass finding
+        # showed pass 4 is ByPropertyName WITH coercion, so an alias matching an object-valued
+        # property still coerces with ValueFromPipeline absent. The two Remove-* pairs the audit
+        # found here (Remove-PfbOpenFile, Remove-PfbResourceAccess, both since fixed by parameter
+        # removal) were its highest-severity findings -- a DELETE whose selector is a stringified
+        # object is where selects-the-wrong-thing and destructive intersect.
         @{ Cmdlet = 'Get-PfbArrayConnectionKey';                   Parameter = 'Name';        Scope = 'Primary'; Issue = '#90'; Producers = 4
             Why = 'GET /array-connections/connection-key items carry no name (connection_key, created, expires), yet -Name is pipeline-bound, so names receives the stringified item.' }
-
-        # === Cluster 3 -- a type mismatch on a name that does match (1 pair).
-        # The field exists but is an object. This is also the audit control-leakage case, and
-        # the only pair whose verdict depends on the probe carrying real spec types: force every
-        # probe property to string and this pair alone stops coercing.
 
         # === Cluster 4 -- family-only exposure (100 pairs, NOT reachable from the primary producer).
         # Each cmdlet's own primary producer returns name correctly, so the obvious chain is

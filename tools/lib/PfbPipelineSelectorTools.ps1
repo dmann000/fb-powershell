@@ -224,6 +224,13 @@ function Get-PfbHelpExampleChain {
         currently matches the pattern, and widening the producer set is the conservative
         direction of error for an audit -- a spurious producer costs a probe, a missed one
         costs a finding. Read the OUTPUTS as "written literally in the file", not "documented".
+
+        HAZARD: "every line" includes ordinary maintainer comments, not just help blocks. A
+        prose note that names two cmdlets either side of a pipe character -- even one saying
+        the chain does NOT work -- registers as a producer edge and changes the generated
+        selector map, which reddens the Rail B regeneration gate. Issue #90 hit this exactly:
+        documentation-only edits under `Public/` flipped eight `FromExample` fields. When
+        writing such a note, avoid putting a pipe between two cmdlet names.
     .OUTPUTS
         [PSCustomObject]@{ File; Producer; Consumer; Line }
     #>

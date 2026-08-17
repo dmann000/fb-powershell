@@ -42,7 +42,7 @@ function Get-PfbCertificateGroupCertificate {
     #>
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param(
-        # Within this family, the cross-endpoint chain Get-PfbCertificate | Get-PfbCertificateGroupCertificate
+        # Within this family, the cross-endpoint chain from Get-PfbCertificate into Get-PfbCertificateGroupCertificate
         # cannot filter correctly: a producer's bare `name` bound to -CertificateName / `certificate_names`
         # is the defect because `name` means different things by endpoint and metadata cannot identify
         # its producer, so no correct generic binding exists. An undeclared or non-matching query key
