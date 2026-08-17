@@ -10,8 +10,8 @@ function Remove-PfbBucketAuditFilter {
         One or more audit filter names to remove.
     .PARAMETER BucketName
         One or more bucket names whose audit filters should be removed.
-    .PARAMETER MemberId
-        The ID of the bucket whose audit filter should be removed.
+    .PARAMETER BucketId
+        One or more bucket IDs whose audit filters should be removed.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
@@ -19,7 +19,7 @@ function Remove-PfbBucketAuditFilter {
 
         Removes the audit filter for the bucket named 'mybucket'.
     .EXAMPLE
-        Remove-PfbBucketAuditFilter -MemberId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+        Remove-PfbBucketAuditFilter -BucketId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 
         Removes the audit filter by bucket ID.
     .EXAMPLE
@@ -29,14 +29,14 @@ function Remove-PfbBucketAuditFilter {
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
     param(
-        [Parameter(ParameterSetName = 'ByName', Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(ParameterSetName = 'ByName', Mandatory, ValueFromPipelineByPropertyName)]
         [string[]]$Name,
 
-        [Parameter(ParameterSetName = 'ByBucketName', Mandatory, ValueFromPipelineByPropertyName)]
+        [Parameter(ParameterSetName = 'ByBucketName', Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [string[]]$BucketName,
 
-        [Parameter(ParameterSetName = 'ByMemberId', Mandatory)]
-        [string]$MemberId,
+        [Parameter(ParameterSetName = 'ByBucketId', Mandatory)]
+        [string[]]$BucketId,
 
         [Parameter()] [PSCustomObject]$Array
     )
@@ -49,9 +49,9 @@ function Remove-PfbBucketAuditFilter {
         $queryParams = @{}
         if ($Name)       { $queryParams['names']        = $Name -join ',' }
         if ($BucketName) { $queryParams['bucket_names'] = $BucketName -join ',' }
-        if ($MemberId)   { $queryParams['member_ids']   = $MemberId }
+        if ($BucketId)   { $queryParams['bucket_ids']   = $BucketId -join ',' }
 
-        $target = if ($Name) { $Name -join ',' } elseif ($BucketName) { $BucketName -join ',' } else { $MemberId }
+        $target = if ($Name) { $Name -join ',' } elseif ($BucketName) { $BucketName -join ',' } else { $BucketId -join ',' }
 
         if ($PSCmdlet.ShouldProcess($target, 'Remove bucket audit filter')) {
             Invoke-PfbApiRequest -Array $Array -Method DELETE -Endpoint 'buckets/audit-filters' -QueryParams $queryParams

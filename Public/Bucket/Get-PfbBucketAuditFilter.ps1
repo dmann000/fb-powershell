@@ -11,7 +11,7 @@ function Get-PfbBucketAuditFilter {
         One or more audit filter names to retrieve.
     .PARAMETER BucketName
         One or more bucket names to retrieve audit filters for.
-    .PARAMETER MemberId
+    .PARAMETER BucketId
         One or more bucket IDs to retrieve audit filters for.
     .PARAMETER Filter
         A server-side filter expression to narrow results.
@@ -42,8 +42,8 @@ function Get-PfbBucketAuditFilter {
         [Parameter(ParameterSetName = 'ByBucketName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [string[]]$BucketName,
 
-        [Parameter(ParameterSetName = 'ByMemberId')]
-        [string[]]$MemberId,
+        [Parameter(ParameterSetName = 'ByBucketId')]
+        [string[]]$BucketId,
 
         [Parameter()] [string]$Filter,
         [Parameter()] [string]$Sort,
@@ -55,20 +55,20 @@ function Get-PfbBucketAuditFilter {
         Assert-PfbConnection -Array ([ref]$Array)
         $allNames = [System.Collections.Generic.List[string]]::new()
         $allBucketNames = [System.Collections.Generic.List[string]]::new()
-        $allMemberIds = [System.Collections.Generic.List[string]]::new()
+        $allBucketIds = [System.Collections.Generic.List[string]]::new()
     }
 
     process {
         if ($Name)       { foreach ($n in $Name)       { $allNames.Add($n) } }
         if ($BucketName) { foreach ($b in $BucketName) { $allBucketNames.Add($b) } }
-        if ($MemberId)   { foreach ($i in $MemberId)   { $allMemberIds.Add($i) } }
+        if ($BucketId)   { foreach ($i in $BucketId)   { $allBucketIds.Add($i) } }
     }
 
     end {
         $queryParams = @{}
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames
         if ($allBucketNames.Count -gt 0) { $queryParams['bucket_names'] = $allBucketNames -join ',' }
-        if ($allMemberIds.Count -gt 0)   { $queryParams['member_ids']   = $allMemberIds -join ',' }
+        if ($allBucketIds.Count -gt 0)   { $queryParams['bucket_ids']   = $allBucketIds -join ',' }
 
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'buckets/audit-filters' -QueryParams $queryParams -AutoPaginate
     }

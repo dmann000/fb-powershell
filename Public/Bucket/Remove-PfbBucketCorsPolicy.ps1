@@ -7,24 +7,31 @@ function Remove-PfbBucketCorsPolicy {
         sharing (CORS) policy on the FlashBlade. This action is irreversible.
         Use -Confirm:$false to suppress the confirmation prompt in automation
         scenarios.
+
+        NOTE: DELETE /buckets/cross-origin-resource-sharing-policies declares
+        only 'names', 'bucket_names' and 'bucket_ids'. There is no policy-level
+        selector, so -BucketName and -BucketId delete EVERY CORS policy
+        association on the specified bucket(s). Use the fully-qualified -Name
+        to remove a single association.
     .PARAMETER Name
-        One or more fully-qualified bucket CORS policy names to remove.
+        One or more fully-qualified bucket CORS policy names to remove. This is
+        the only way to target a single association.
     .PARAMETER BucketName
-        One or more bucket names to remove the CORS policy from.
-    .PARAMETER MemberId
-        The ID of the bucket to remove the CORS policy from.
-    .PARAMETER PolicyName
-        The name of the CORS policy to detach from the bucket.
+        One or more bucket names. Removes all CORS policy associations on those
+        buckets.
+    .PARAMETER BucketId
+        One or more bucket IDs. Removes all CORS policy associations on those
+        buckets.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
-        Remove-PfbBucketCorsPolicy -BucketName "mybucket" -PolicyName "allow-all-origins"
+        Remove-PfbBucketCorsPolicy -Name "mybucket/allow-all-origins"
 
-        Removes the CORS policy association from the specified bucket.
+        Removes the single CORS policy association 'allow-all-origins' from 'mybucket'.
     .EXAMPLE
-        Remove-PfbBucketCorsPolicy -MemberId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -PolicyName "restricted-cors"
+        Remove-PfbBucketCorsPolicy -BucketName "mybucket"
 
-        Removes the CORS policy association by bucket ID.
+        Removes ALL CORS policy associations from the bucket named 'mybucket'.
     .EXAMPLE
         Remove-PfbBucketCorsPolicy -Name "mybucket/allow-all-origins" -Confirm:$false
 
@@ -32,17 +39,14 @@ function Remove-PfbBucketCorsPolicy {
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
     param(
-        [Parameter(ParameterSetName = 'ByName', Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Parameter(ParameterSetName = 'ByName', Mandatory, ValueFromPipelineByPropertyName)]
         [string[]]$Name,
 
-        [Parameter(ParameterSetName = 'ByBucketName', Mandatory, ValueFromPipelineByPropertyName)]
+        [Parameter(ParameterSetName = 'ByBucketName', Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [string[]]$BucketName,
 
-        [Parameter(ParameterSetName = 'ByMemberId', Mandatory)]
-        [string]$MemberId,
-
-        [Parameter()]
-        [string]$PolicyName,
+        [Parameter(ParameterSetName = 'ByBucketId', Mandatory)]
+        [string[]]$BucketId,
 
         [Parameter()] [PSCustomObject]$Array
     )
@@ -55,11 +59,17 @@ function Remove-PfbBucketCorsPolicy {
         $queryParams = @{}
         if ($Name)       { $queryParams['names']        = $Name -join ',' }
         if ($BucketName) { $queryParams['bucket_names'] = $BucketName -join ',' }
-        if ($MemberId)   { $queryParams['member_ids']   = $MemberId }
-        if ($PolicyName) { $queryParams['policy_names'] = $PolicyName }
+        if ($BucketId)   { $queryParams['bucket_ids']   = $BucketId -join ',' }
 
-        $target = if ($Name) { $Name -join ',' } elseif ($BucketName) { $BucketName -join ',' } else { $MemberId }
-        if ($PolicyName) { $target = "$target / $PolicyName" }
+        if ($Name) {
+            $target = "CORS policy association(s) $($Name -join ',')"
+        }
+        elseif ($BucketName) {
+            $target = "ALL CORS policy associations on bucket(s) $($BucketName -join ',')"
+        }
+        else {
+            $target = "ALL CORS policy associations on bucket ID(s) $($BucketId -join ',')"
+        }
 
         if ($PSCmdlet.ShouldProcess($target, 'Remove bucket CORS policy association')) {
             Invoke-PfbApiRequest -Array $Array -Method DELETE -Endpoint 'buckets/cross-origin-resource-sharing-policies' -QueryParams $queryParams
