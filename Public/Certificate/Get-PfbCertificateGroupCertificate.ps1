@@ -6,9 +6,14 @@ function Get-PfbCertificateGroupCertificate {
         The Get-PfbCertificateGroupCertificate cmdlet returns the certificate-to-group membership
         relationships configured on the FlashBlade. This shows which certificates belong to which
         certificate groups. Results support filtering, sorting, and pagination.
-    .PARAMETER Name
-        One or more certificate group names to retrieve certificate memberships for. Accepts pipeline input.
-    .PARAMETER Id
+
+        Selectors on this endpoint are resource-specific: use -CertificateName to select by
+        certificate name (wire key 'certificate_names') and -CertificateGroupId to select by
+        certificate group ID (wire key 'certificate_group_ids'). The endpoint does not accept
+        the generic 'names' or 'ids' query keys.
+    .PARAMETER CertificateName
+        One or more certificate names to retrieve group memberships for. Accepts pipeline input.
+    .PARAMETER CertificateGroupId
         One or more certificate group IDs to retrieve certificate memberships for.
     .PARAMETER Filter
         A server-side filter expression to narrow results.
@@ -23,9 +28,13 @@ function Get-PfbCertificateGroupCertificate {
 
         Returns all certificate-to-group memberships on the connected FlashBlade.
     .EXAMPLE
-        Get-PfbCertificateGroupCertificate -Name 'ad-cert-group'
+        Get-PfbCertificateGroupCertificate -CertificateName 'management'
 
-        Retrieves certificates that belong to the 'ad-cert-group' certificate group.
+        Retrieves the group memberships of the 'management' certificate.
+    .EXAMPLE
+        Get-PfbCertificateGroupCertificate -CertificateGroupId '10314f42-020d-7080-8013-000ddd11003d'
+
+        Retrieves the certificate memberships of the specified certificate group.
     .EXAMPLE
         Get-PfbCertificateGroupCertificate -Filter "group.name='ad-cert-group'" -Limit 10
 
@@ -33,9 +42,9 @@ function Get-PfbCertificateGroupCertificate {
     #>
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param(
-        [Parameter(ParameterSetName = 'ByName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [string[]]$Name,
-        [Parameter(ParameterSetName = 'ById')] [string[]]$Id,
+        [Parameter(ParameterSetName = 'ByCertificateName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [string[]]$CertificateName,
+        [Parameter(ParameterSetName = 'ByCertificateGroupId')] [string[]]$CertificateGroupId,
         [Parameter()] [string]$Filter,
         [Parameter()] [string]$Sort,
         [Parameter()] [int]$Limit,
@@ -44,18 +53,24 @@ function Get-PfbCertificateGroupCertificate {
 
     begin {
         Assert-PfbConnection -Array ([ref]$Array)
-        $allNames = [System.Collections.Generic.List[string]]::new()
-        $allIds = [System.Collections.Generic.List[string]]::new()
+        $allCertificateNames = [System.Collections.Generic.List[string]]::new()
+        $allCertificateGroupIds = [System.Collections.Generic.List[string]]::new()
     }
 
     process {
-        if ($Name) { foreach ($n in $Name) { $allNames.Add($n) } }
-        if ($Id)   { foreach ($i in $Id)   { $allIds.Add($i) } }
+        if ($CertificateName)    { foreach ($n in $CertificateName)    { $allCertificateNames.Add($n) } }
+        if ($CertificateGroupId) { foreach ($i in $CertificateGroupId) { $allCertificateGroupIds.Add($i) } }
     }
 
     end {
         $queryParams = @{}
-        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
+        if ($allCertificateNames.Count -gt 0) {
+            $queryParams['certificate_names'] = $allCertificateNames -join ','
+        }
+        if ($allCertificateGroupIds.Count -gt 0) {
+            $queryParams['certificate_group_ids'] = $allCertificateGroupIds -join ','
+        }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'certificate-groups/certificates' -QueryParams $queryParams -AutoPaginate
     }
 }
