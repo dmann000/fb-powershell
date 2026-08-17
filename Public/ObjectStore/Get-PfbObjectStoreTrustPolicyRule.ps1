@@ -19,9 +19,6 @@ function Get-PfbObjectStoreTrustPolicyRule {
     .PARAMETER Array
         The FlashBlade connection object.
     .EXAMPLE
-        Get-PfbObjectStoreTrustPolicyRule
-        Returns all trust policy rules.
-    .EXAMPLE
         Get-PfbObjectStoreTrustPolicyRule -PolicyName "s3-admin-role/trust-policy"
         Returns rules for the specified trust policy.
     .EXAMPLE

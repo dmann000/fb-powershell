@@ -9,7 +9,9 @@ function Get-PfbFleetKey {
     .PARAMETER Filter
         A server-side filter expression to narrow results.
     .PARAMETER Sort
-        Sort field and direction (e.g., "name" or "name-").
+        Sort field and direction (e.g., "expires" or "expires-"). Fleet key items
+        carry only 'created', 'expires' and 'fleet_key' -- there is no 'name'
+        field to sort or filter on.
     .PARAMETER Limit
         Maximum number of entries to return.
     .PARAMETER Array
@@ -19,9 +21,11 @@ function Get-PfbFleetKey {
 
         Retrieves all fleet keys from the connected FlashBlade.
     .EXAMPLE
-        Get-PfbFleetKey -Filter "name='fleet*'" -Limit 5
+        Get-PfbFleetKey -Filter "expires>0" -Limit 5
 
-        Retrieves up to 5 fleet keys matching the filter.
+        Retrieves up to 5 fleet keys that carry an expiry time. Fleet key items
+        expose only 'created', 'expires' and 'fleet_key', so a filter must
+        reference one of those fields.
     #>
     [CmdletBinding()]
     param(

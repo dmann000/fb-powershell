@@ -151,6 +151,16 @@ Describe 'Issue #90 dead selector removal' {
             @($paramAttrs | ForEach-Object { $_.ValueFromPipeline }) | Should -Not -Contain $true
         }
 
+        It 'declares bare ValueFromPipeline on NO parameter at all' {
+            # Broader than the Id-scoped assertion above: the no-bare-pipeline guarantee
+            # covers the cmdlet's whole surface, so a future parameter cannot reintroduce
+            # bare ValueFromPipeline and slip past a check that only looks at Id.
+            $piped = @((Get-Command Remove-PfbOpenFile).Parameters.Values |
+                ForEach-Object { $_.Attributes } |
+                Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] -and $_.ValueFromPipeline })
+            $piped.Count | Should -Be 0
+        }
+
         It 'binds Id from a piped wire item by property name' {
             $expectedEndpoint = 'file-systems/open-files'
             $expectedMethod = 'DELETE'
@@ -350,6 +360,16 @@ Describe 'Issue #90 dead selector removal' {
                 Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] })
             @($paramAttrs | ForEach-Object { $_.ValueFromPipelineByPropertyName }) | Should -Contain $true
             @($paramAttrs | ForEach-Object { $_.ValueFromPipeline }) | Should -Not -Contain $true
+        }
+
+        It 'declares bare ValueFromPipeline on NO parameter at all' {
+            # Broader than the Id-scoped assertion above: the no-bare-pipeline guarantee
+            # covers the cmdlet's whole surface, so a future parameter cannot reintroduce
+            # bare ValueFromPipeline and slip past a check that only looks at Id.
+            $piped = @((Get-Command Remove-PfbResourceAccess).Parameters.Values |
+                ForEach-Object { $_.Attributes } |
+                Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] -and $_.ValueFromPipeline })
+            $piped.Count | Should -Be 0
         }
 
         It 'binds Id from a piped wire item by property name' {
