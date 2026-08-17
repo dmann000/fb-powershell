@@ -7,7 +7,9 @@ function Get-PfbResourceAccess {
         connected Pure Storage FlashBlade. Resource accesses define which users or groups
         have access to specific resources.
     .PARAMETER Id
-        One or more resource access IDs to retrieve.
+        One or more resource access IDs to retrieve. Binds from the pipeline by
+        property name, so resource access objects (which carry 'id') can be piped
+        in directly.
     .PARAMETER Filter
         A server-side filter expression to narrow results.
     .PARAMETER Sort
@@ -28,10 +30,15 @@ function Get-PfbResourceAccess {
         Get-PfbResourceAccess -Filter "resource_type='file-system'" -Limit 20
 
         Retrieves up to 20 file system resource access entries.
+    .EXAMPLE
+        Get-PfbResourceAccess | Where-Object { $_.scope.name -eq 'admin' } | Remove-PfbResourceAccess
+
+        Removes the matching resource access entries; -Id binds from the 'id'
+        property of each piped object.
     #>
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param(
-        [Parameter(ParameterSetName = 'ById')] [string[]]$Id,
+        [Parameter(ParameterSetName = 'ById', ValueFromPipelineByPropertyName)] [string[]]$Id,
         [Parameter()] [string]$Filter, [Parameter()] [string]$Sort, [Parameter()] [int]$Limit,
         [Parameter()] [PSCustomObject]$Array
     )

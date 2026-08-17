@@ -6,7 +6,8 @@ function Get-PfbOpenFile {
         Returns information about currently open files on file systems. Supports
         filtering by open-file ID. Auto-paginates by default.
     .PARAMETER Id
-        One or more open file IDs to retrieve.
+        One or more open file IDs to retrieve. Binds from the pipeline by property
+        name, so open-file objects (which carry 'id') can be piped in directly.
     .PARAMETER Filter
         A server-side filter expression to narrow results.
     .PARAMETER Sort
@@ -24,10 +25,14 @@ function Get-PfbOpenFile {
     .EXAMPLE
         Get-PfbOpenFile -Filter "protocol='SMB'" -Limit 100
         Returns up to 100 open files using the SMB protocol.
+    .EXAMPLE
+        Get-PfbOpenFile | Where-Object { $_.lock_count -gt 0 } | Remove-PfbOpenFile
+        Closes the locked open files; -Id binds from the 'id' property of each
+        piped object.
     #>
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param(
-        [Parameter(ParameterSetName = 'ById')]
+        [Parameter(ParameterSetName = 'ById', ValueFromPipelineByPropertyName)]
         [ValidateNotNullOrEmpty()]
         [string[]]$Id,
 

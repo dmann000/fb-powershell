@@ -41,6 +41,47 @@ Describe 'Issue #90 dead selector removal' {
             $idParam.ParameterType.FullName | Should -Be 'System.String[]'
         }
 
+        It 'declares ValueFromPipelineByPropertyName on Id, and not bare ValueFromPipeline' {
+            $paramAttrs = @((Get-Command Get-PfbOpenFile).Parameters['Id'].Attributes |
+                Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] })
+            @($paramAttrs | ForEach-Object { $_.ValueFromPipelineByPropertyName }) | Should -Contain $true
+            @($paramAttrs | ForEach-Object { $_.ValueFromPipeline }) | Should -Not -Contain $true
+        }
+
+        It 'binds Id from a piped wire item by property name' {
+            $expectedEndpoint = 'file-systems/open-files'
+            $expectedMethod = 'GET'
+            $expectedIds = 'id-1'
+
+            [PSCustomObject]@{ id = 'id-1' } | Get-PfbOpenFile -Array $script:fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Method -eq $expectedMethod -and
+                $Endpoint -eq $expectedEndpoint -and
+                $QueryParams.Count -eq 1 -and
+                $QueryParams['ids'] -eq $expectedIds -and
+                -not $QueryParams.ContainsKey('names')
+            }
+        }
+
+        It 'accumulates ids across several piped wire items into one request' {
+            $expectedEndpoint = 'file-systems/open-files'
+            $expectedIds = 'id-1,id-2'
+
+            @([PSCustomObject]@{ id = 'id-1' }, [PSCustomObject]@{ id = 'id-2' }) |
+                Get-PfbOpenFile -Array $script:fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Endpoint -eq $expectedEndpoint -and
+                $QueryParams.Count -eq 1 -and
+                $QueryParams['ids'] -eq $expectedIds
+            }
+        }
+
+        It 'refuses a bare piped string rather than coercing it into ids' {
+            { 'id-1' | Get-PfbOpenFile -Array $script:fakeArray -ErrorAction Stop } | Should -Throw
+        }
+
         It 'emits exactly ids for -Id on GET file-systems/open-files' {
             $expectedEndpoint = 'file-systems/open-files'
             $expectedMethod = 'GET'
@@ -98,6 +139,51 @@ Describe 'Issue #90 dead selector removal' {
             $mandatory | Should -Contain $true
         }
 
+        # NOTE: no bare-piped-string case here. Id is Mandatory on this cmdlet, so an
+        # unbindable pipeline object can drop into the interactive "Supply values for
+        # parameters" prompt and hang a non-interactive run. The absence of bare
+        # ValueFromPipeline is asserted from the attribute metadata instead, which is
+        # the same guarantee without the hang risk.
+        It 'declares ValueFromPipelineByPropertyName on Id, and not bare ValueFromPipeline' {
+            $paramAttrs = @((Get-Command Remove-PfbOpenFile).Parameters['Id'].Attributes |
+                Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] })
+            @($paramAttrs | ForEach-Object { $_.ValueFromPipelineByPropertyName }) | Should -Contain $true
+            @($paramAttrs | ForEach-Object { $_.ValueFromPipeline }) | Should -Not -Contain $true
+        }
+
+        It 'binds Id from a piped wire item by property name' {
+            $expectedEndpoint = 'file-systems/open-files'
+            $expectedMethod = 'DELETE'
+            $expectedIds = 'id-1'
+
+            [PSCustomObject]@{ id = 'id-1' } | Remove-PfbOpenFile -Array $script:fakeArray -Confirm:$false
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Method -eq $expectedMethod -and
+                $Endpoint -eq $expectedEndpoint -and
+                $QueryParams.Count -eq 1 -and
+                $QueryParams['ids'] -eq $expectedIds -and
+                -not $QueryParams.ContainsKey('names')
+            }
+        }
+
+        It 'issues one DELETE per piped wire item' {
+            $expectedEndpoint = 'file-systems/open-files'
+            $expectedFirst = 'id-1'
+            $expectedSecond = 'id-2'
+
+            @([PSCustomObject]@{ id = 'id-1' }, [PSCustomObject]@{ id = 'id-2' }) |
+                Remove-PfbOpenFile -Array $script:fakeArray -Confirm:$false
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 2 -Exactly
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Endpoint -eq $expectedEndpoint -and $QueryParams.Count -eq 1 -and $QueryParams['ids'] -eq $expectedFirst
+            }
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Endpoint -eq $expectedEndpoint -and $QueryParams.Count -eq 1 -and $QueryParams['ids'] -eq $expectedSecond
+            }
+        }
+
         It 'emits exactly ids for -Id on DELETE file-systems/open-files' {
             $expectedEndpoint = 'file-systems/open-files'
             $expectedMethod = 'DELETE'
@@ -137,6 +223,47 @@ Describe 'Issue #90 dead selector removal' {
             $idParam = (Get-Command Get-PfbResourceAccess).Parameters['Id']
             $idParam | Should -Not -BeNullOrEmpty
             $idParam.ParameterType.FullName | Should -Be 'System.String[]'
+        }
+
+        It 'declares ValueFromPipelineByPropertyName on Id, and not bare ValueFromPipeline' {
+            $paramAttrs = @((Get-Command Get-PfbResourceAccess).Parameters['Id'].Attributes |
+                Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] })
+            @($paramAttrs | ForEach-Object { $_.ValueFromPipelineByPropertyName }) | Should -Contain $true
+            @($paramAttrs | ForEach-Object { $_.ValueFromPipeline }) | Should -Not -Contain $true
+        }
+
+        It 'binds Id from a piped wire item by property name' {
+            $expectedEndpoint = 'resource-accesses'
+            $expectedMethod = 'GET'
+            $expectedIds = 'id-1'
+
+            [PSCustomObject]@{ id = 'id-1' } | Get-PfbResourceAccess -Array $script:fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Method -eq $expectedMethod -and
+                $Endpoint -eq $expectedEndpoint -and
+                $QueryParams.Count -eq 1 -and
+                $QueryParams['ids'] -eq $expectedIds -and
+                -not $QueryParams.ContainsKey('names')
+            }
+        }
+
+        It 'accumulates ids across several piped wire items into one request' {
+            $expectedEndpoint = 'resource-accesses'
+            $expectedIds = 'id-1,id-2'
+
+            @([PSCustomObject]@{ id = 'id-1' }, [PSCustomObject]@{ id = 'id-2' }) |
+                Get-PfbResourceAccess -Array $script:fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Endpoint -eq $expectedEndpoint -and
+                $QueryParams.Count -eq 1 -and
+                $QueryParams['ids'] -eq $expectedIds
+            }
+        }
+
+        It 'refuses a bare piped string rather than coercing it into ids' {
+            { 'id-1' | Get-PfbResourceAccess -Array $script:fakeArray -ErrorAction Stop } | Should -Throw
         }
 
         It 'emits exactly ids for -Id on GET resource-accesses' {
@@ -214,6 +341,48 @@ Describe 'Issue #90 dead selector removal' {
                 Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] } |
                 ForEach-Object { $_.Mandatory })
             $mandatory | Should -Contain $true
+        }
+
+        # NOTE: no bare-piped-string case here, for the same mandatory-parameter
+        # prompt-hang reason documented on Remove-PfbOpenFile above.
+        It 'declares ValueFromPipelineByPropertyName on Id, and not bare ValueFromPipeline' {
+            $paramAttrs = @((Get-Command Remove-PfbResourceAccess).Parameters['Id'].Attributes |
+                Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] })
+            @($paramAttrs | ForEach-Object { $_.ValueFromPipelineByPropertyName }) | Should -Contain $true
+            @($paramAttrs | ForEach-Object { $_.ValueFromPipeline }) | Should -Not -Contain $true
+        }
+
+        It 'binds Id from a piped wire item by property name' {
+            $expectedEndpoint = 'resource-accesses'
+            $expectedMethod = 'DELETE'
+            $expectedIds = 'id-1'
+
+            [PSCustomObject]@{ id = 'id-1' } | Remove-PfbResourceAccess -Array $script:fakeArray -Confirm:$false
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Method -eq $expectedMethod -and
+                $Endpoint -eq $expectedEndpoint -and
+                $QueryParams.Count -eq 1 -and
+                $QueryParams['ids'] -eq $expectedIds -and
+                -not $QueryParams.ContainsKey('names')
+            }
+        }
+
+        It 'issues one DELETE per piped wire item' {
+            $expectedEndpoint = 'resource-accesses'
+            $expectedFirst = 'id-1'
+            $expectedSecond = 'id-2'
+
+            @([PSCustomObject]@{ id = 'id-1' }, [PSCustomObject]@{ id = 'id-2' }) |
+                Remove-PfbResourceAccess -Array $script:fakeArray -Confirm:$false
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 2 -Exactly
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Endpoint -eq $expectedEndpoint -and $QueryParams.Count -eq 1 -and $QueryParams['ids'] -eq $expectedFirst
+            }
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Endpoint -eq $expectedEndpoint -and $QueryParams.Count -eq 1 -and $QueryParams['ids'] -eq $expectedSecond
+            }
         }
 
         It 'emits exactly ids for -Id on DELETE resource-accesses' {
