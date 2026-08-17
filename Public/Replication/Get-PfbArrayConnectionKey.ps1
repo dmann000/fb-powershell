@@ -31,6 +31,13 @@ function Get-PfbArrayConnectionKey {
     #>
     [CmdletBinding()]
     param(
+        # -Name stays as it is by decision, not oversight. GET /array-connections/connection-key
+        # items carry only connection_key, created and expires -- no name field and no nested
+        # object -- so there is nothing to bind by property name and nothing to lift, and a piped
+        # object reaches by-value coercion. Aliasing a differently-meaning field onto -Name was
+        # considered and rejected as worse than the gap. Do NOT add an alias or a lift here; only
+        # an API change adding a name to the endpoint's items moves it. The pair therefore carries
+        # a selector waiver rather than a fix. Reasoning: issue #90.
         [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)] [string[]]$Name,
         [Parameter()] [string]$Filter, [Parameter()] [string]$Sort, [Parameter()] [int]$Limit,
         [Parameter()] [PSCustomObject]$Array

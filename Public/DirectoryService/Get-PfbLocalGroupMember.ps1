@@ -9,9 +9,12 @@ function Get-PfbLocalGroupMember {
         One or more local group names whose members to list (sent as 'group_names').
         Aliased as 'Group' and 'group_name'. Named to match the top-level GroupName
         property this cmdlet lifts from each item's nested 'group' reference, so a
-        piped membership binds the group's name rather than the group object: a
-        parameter named 'Group' is shadowed by the response's own 'group' property
-        during by-property-name binding and receives a stringified reference.
+        piped membership binds the group's name rather than the group object. The
+        rename is what resolved the shadowing: measured on the real module, the
+        parameter NAME beats the alias in by-property-name binding, so an item
+        carrying both a lifted string 'GroupName' and the object-valued 'group'
+        binds 'GroupName'. The 'Group' alias can still match that object on a
+        producer with no lifted property, which is what the process block guards.
     .PARAMETER Member
         One or more member names to filter by (sent as 'member_names').
     .PARAMETER Filter
@@ -52,6 +55,12 @@ function Get-PfbLocalGroupMember {
         # in by-property-name lookup, and the alias is load-bearing for
         # GET /directory-services/roles, whose `group` is string-valued. This guard covers the
         # object-valued `group` on the members item, which coerces whole into the selector.
+        #
+        # Do NOT "fix" this pair by dropping ValueFromPipeline. Binding has FOUR passes, not three,
+        # and pass 4 is ByPropertyName WITH coercion, so a ByPropertyName-only parameter whose ALIAS
+        # matches the object-valued `group` still binds it stringified: the coercion moves from
+        # pass 3 to pass 4 and the pair stays red. Dropping the `Group` alias instead is a breaking
+        # change for -Group callers and costs the /directory-services/roles bind. Reasoning: #90.
         Assert-PfbSelectorNotCoerced -Value $GroupName -ParameterName 'GroupName' -Hint (
             'Pipe the group name instead, e.g. Get-PfbLocalGroup | Select-Object -ExpandProperty name | ' +
             'Get-PfbLocalGroupMember, or pass -GroupName explicitly.')

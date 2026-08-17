@@ -77,6 +77,13 @@ function Get-PfbSmbClientRule {
         # cmdlet that binds -PolicyName by property name sends a scalar selector instead of a
         # stringified reference. Mutate in place: rebuilding the object would drop 'context' and
         # any wire field a future REST version adds.
+        #
+        # Do NOT delete this lift because the selector rail reports the pair Coerced -- that row is
+        # an artifact. The rail's probe item is synthesized from the spec's declared response fields
+        # and never runs a producer cmdlet, so a property added here at runtime cannot appear on it;
+        # measured Bound against the real module once the lifted PolicyName is present. A Coerced
+        # row from a DIFFERENT producer endpoint is real, not artifact: the lift only reaches items
+        # this cmdlet returns, which is what the process-block guard covers. Reasoning: issue #90.
         foreach ($item in @($response)) {
             if ($null -ne $item -and $null -ne $item.policy -and $null -ne $item.policy.name -and
                 $item.PSObject.Properties.Name -notcontains 'PolicyName') {
