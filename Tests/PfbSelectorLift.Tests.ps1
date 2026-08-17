@@ -353,9 +353,36 @@ Describe 'Local group member selector lift' {
         $second | Should -Not -BeNullOrEmpty
     }
 
-    It 'declares the group_name alias on Group' {
+    # The selector parameter is GroupName, not Group: a parameter named Group is shadowed by the
+    # response's own 'group' property during by-property-name binding (the property matching the
+    # parameter NAME wins over any property matching an alias), so the lifted GroupName could never
+    # bind and the whole item was stringified onto group_names instead. Group survives as an alias,
+    # so -Group stays bindable -- which is the half of this case that must not regress.
+    It 'declares Group and group_name as aliases of the GroupName selector parameter' {
         $command = Get-Command Get-PfbLocalGroupMember
-        $command.Parameters['Group'].Aliases | Should -Contain 'group_name'
+        @($command.Parameters.Keys) | Should -Not -Contain 'Group'
+        $command.Parameters['GroupName'].Aliases | Should -Contain 'group_name'
+        $command.Parameters['GroupName'].Aliases | Should -Contain 'Group'
+    }
+
+    It 'still binds -Group on the command line after the rename' {
+        $requests = [System.Collections.Generic.List[object]]::new()
+        $global:PfbSelectorLiftRequests = $requests
+        $global:PfbSelectorLiftFixture = $null
+
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest {
+            $global:PfbSelectorLiftRequests.Add([PSCustomObject]@{
+                    Method = $Method
+                    Endpoint = $Endpoint
+                    QueryParams = $QueryParams
+                })
+            return $global:PfbSelectorLiftFixture
+        }
+
+        Get-PfbLocalGroupMember -Group 'group-1', 'group-2' -Array $script:fakeArray | Out-Null
+
+        $requests.Count | Should -Be 1
+        $requests[0].QueryParams['group_names'] | Should -Be 'group-1,group-2'
     }
 
     It 'does not add GroupName when group.name is null' {
