@@ -6,16 +6,16 @@ function Get-PfbBucketAccessPolicy {
         Returns one or more bucket access policies from the FlashBlade array.
         Bucket access policies define S3 bucket-level access controls. Filter
         results by fully-qualified name (bucket/account:policy), or by bucket
-        member name/ID and policy name/ID separately.
+        name/ID and policy name/ID separately.
 
         NOTE: The FlashBlade API requires at least one of -Name, -Id,
-        -MemberName, or -PolicyName to be specified.
+        -BucketName, or -PolicyName to be specified.
     .PARAMETER Name
         One or more fully-qualified bucket access policy names
         (e.g. 'mybucket/myaccount:mypolicy').
     .PARAMETER Id
         One or more bucket access policy IDs.
-    .PARAMETER MemberName
+    .PARAMETER BucketName
         One or more bucket names to retrieve access policies for.
     .PARAMETER MemberId
         One or more bucket IDs to retrieve access policies for.
@@ -32,7 +32,7 @@ function Get-PfbBucketAccessPolicy {
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
-        Get-PfbBucketAccessPolicy -MemberName "mybucket"
+        Get-PfbBucketAccessPolicy -BucketName "mybucket"
 
         Returns access policies for the bucket named 'mybucket'.
     .EXAMPLE
@@ -40,11 +40,11 @@ function Get-PfbBucketAccessPolicy {
 
         Returns the specific bucket access policy by fully-qualified name.
     .EXAMPLE
-        Get-PfbBucketAccessPolicy -PolicyName "read-only-policy" -MemberName "mybucket"
+        Get-PfbBucketAccessPolicy -PolicyName "read-only-policy" -BucketName "mybucket"
 
         Returns a specific access policy for a specific bucket.
     #>
-    [CmdletBinding(DefaultParameterSetName = 'ByMemberName')]
+    [CmdletBinding(DefaultParameterSetName = 'ByBucketName')]
     param(
         [Parameter(ParameterSetName = 'ByName')]
         [string[]]$Name,
@@ -52,8 +52,8 @@ function Get-PfbBucketAccessPolicy {
         [Parameter(ParameterSetName = 'ById')]
         [string[]]$Id,
 
-        [Parameter(ParameterSetName = 'ByMemberName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [string[]]$MemberName,
+        [Parameter(ParameterSetName = 'ByBucketName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [string[]]$BucketName,
 
         [Parameter(ParameterSetName = 'ByMemberId')]
         [string[]]$MemberId,
@@ -74,24 +74,24 @@ function Get-PfbBucketAccessPolicy {
         Assert-PfbConnection -Array ([ref]$Array)
         $allNames = [System.Collections.Generic.List[string]]::new()
         $allIds = [System.Collections.Generic.List[string]]::new()
-        $allMemberNames = [System.Collections.Generic.List[string]]::new()
+        $allBucketNames = [System.Collections.Generic.List[string]]::new()
         $allMemberIds = [System.Collections.Generic.List[string]]::new()
     }
 
     process {
         if ($Name)       { foreach ($n in $Name)       { $allNames.Add($n) } }
         if ($Id)         { foreach ($i in $Id)         { $allIds.Add($i) } }
-        if ($MemberName) { foreach ($n in $MemberName) { $allMemberNames.Add($n) } }
+        if ($BucketName) { foreach ($b in $BucketName) { $allBucketNames.Add($b) } }
         if ($MemberId)   { foreach ($i in $MemberId)   { $allMemberIds.Add($i) } }
     }
 
     end {
         $queryParams = @{}
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
-        if ($allMemberNames.Count -gt 0) { $queryParams['member_names'] = $allMemberNames -join ',' }
+        if ($allBucketNames.Count -gt 0) { $queryParams['bucket_names'] = $allBucketNames -join ',' }
         if ($allMemberIds.Count -gt 0)   { $queryParams['member_ids']   = $allMemberIds -join ',' }
-        if ($PolicyName)                  { $queryParams['policy_names'] = $PolicyName -join ',' }
-        if ($PolicyId)                    { $queryParams['policy_ids']   = $PolicyId -join ',' }
+        if ($PolicyName)                 { $queryParams['policy_names'] = $PolicyName -join ',' }
+        if ($PolicyId)                   { $queryParams['policy_ids']   = $PolicyId -join ',' }
 
         try {
             Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'buckets/bucket-access-policies' -QueryParams $queryParams -AutoPaginate

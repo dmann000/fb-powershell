@@ -7,30 +7,35 @@ function New-PfbBucketAuditFilter {
         Audit filters define which S3 operations are captured in audit logs
         for the specified bucket. Use the Attributes parameter to supply
         the filter configuration as a hashtable.
-    .PARAMETER MemberName
-        The name of the bucket to create the audit filter for.
+    .PARAMETER Name
+        One or more audit filter names to create.
+    .PARAMETER BucketName
+        One or more bucket names to create the audit filter for.
     .PARAMETER Attributes
         A hashtable of audit filter properties for the request body.
         When specified, this is used as the entire request body.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
-        New-PfbBucketAuditFilter -MemberName "mybucket" -Attributes @{ actions = @("s3.GetObject") }
+        New-PfbBucketAuditFilter -BucketName "mybucket" -Attributes @{ actions = @("s3.GetObject") }
 
         Creates an audit filter for 'mybucket' that logs GetObject operations.
     .EXAMPLE
-        New-PfbBucketAuditFilter -MemberName "mybucket" -Attributes @{ actions = @("s3.PutObject","s3.DeleteObject") }
+        New-PfbBucketAuditFilter -BucketName "mybucket" -Attributes @{ actions = @("s3.PutObject","s3.DeleteObject") }
 
         Creates an audit filter that logs PutObject and DeleteObject operations.
     .EXAMPLE
-        New-PfbBucketAuditFilter -MemberName "mybucket" -Attributes @{}
+        New-PfbBucketAuditFilter -Name "myfilter" -Attributes @{}
 
-        Creates an audit filter with default settings for the specified bucket.
+        Creates an audit filter with default settings using the given filter name.
     #>
-    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium', DefaultParameterSetName = 'ByBucketName')]
     param(
-        [Parameter(Mandatory, Position = 0)]
-        [string]$MemberName,
+        [Parameter(ParameterSetName = 'ByName', Mandatory, Position = 0)]
+        [string[]]$Name,
+
+        [Parameter(ParameterSetName = 'ByBucketName', Mandatory, Position = 0)]
+        [string[]]$BucketName,
 
         [Parameter()]
         [hashtable]$Attributes,
@@ -42,9 +47,13 @@ function New-PfbBucketAuditFilter {
 
     $body = if ($Attributes) { $Attributes } else { @{} }
 
-    $queryParams = @{ 'member_names' = $MemberName }
+    $queryParams = @{}
+    if ($Name)       { $queryParams['names']        = $Name -join ',' }
+    if ($BucketName) { $queryParams['bucket_names'] = $BucketName -join ',' }
 
-    if ($PSCmdlet.ShouldProcess($MemberName, 'Create bucket audit filter')) {
+    $target = if ($Name) { $Name -join ',' } else { $BucketName -join ',' }
+
+    if ($PSCmdlet.ShouldProcess($target, 'Create bucket audit filter')) {
         Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'buckets/audit-filters' -Body $body -QueryParams $queryParams
     }
 }

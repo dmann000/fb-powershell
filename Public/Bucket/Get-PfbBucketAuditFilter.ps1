@@ -5,9 +5,11 @@ function Get-PfbBucketAuditFilter {
     .DESCRIPTION
         Returns one or more bucket audit filters from the FlashBlade array.
         Audit filters control which S3 operations on a bucket are logged for
-        auditing purposes. Filter results by bucket member name or ID, or use
-        a server-side filter expression.
-    .PARAMETER MemberName
+        auditing purposes. Filter results by audit filter name, by bucket name
+        or ID, or use a server-side filter expression.
+    .PARAMETER Name
+        One or more audit filter names to retrieve.
+    .PARAMETER BucketName
         One or more bucket names to retrieve audit filters for.
     .PARAMETER MemberId
         One or more bucket IDs to retrieve audit filters for.
@@ -24,7 +26,7 @@ function Get-PfbBucketAuditFilter {
 
         Returns all bucket audit filters.
     .EXAMPLE
-        Get-PfbBucketAuditFilter -MemberName "mybucket"
+        Get-PfbBucketAuditFilter -BucketName "mybucket"
 
         Returns audit filters for the bucket named 'mybucket'.
     .EXAMPLE
@@ -34,8 +36,11 @@ function Get-PfbBucketAuditFilter {
     #>
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param(
-        [Parameter(ParameterSetName = 'ByMemberName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [string[]]$MemberName,
+        [Parameter(ParameterSetName = 'ByName')]
+        [string[]]$Name,
+
+        [Parameter(ParameterSetName = 'ByBucketName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [string[]]$BucketName,
 
         [Parameter(ParameterSetName = 'ByMemberId')]
         [string[]]$MemberId,
@@ -48,19 +53,21 @@ function Get-PfbBucketAuditFilter {
 
     begin {
         Assert-PfbConnection -Array ([ref]$Array)
-        $allMemberNames = [System.Collections.Generic.List[string]]::new()
+        $allNames = [System.Collections.Generic.List[string]]::new()
+        $allBucketNames = [System.Collections.Generic.List[string]]::new()
         $allMemberIds = [System.Collections.Generic.List[string]]::new()
     }
 
     process {
-        if ($MemberName) { foreach ($n in $MemberName) { $allMemberNames.Add($n) } }
+        if ($Name)       { foreach ($n in $Name)       { $allNames.Add($n) } }
+        if ($BucketName) { foreach ($b in $BucketName) { $allBucketNames.Add($b) } }
         if ($MemberId)   { foreach ($i in $MemberId)   { $allMemberIds.Add($i) } }
     }
 
     end {
         $queryParams = @{}
-        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
-        if ($allMemberNames.Count -gt 0) { $queryParams['member_names'] = $allMemberNames -join ',' }
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames
+        if ($allBucketNames.Count -gt 0) { $queryParams['bucket_names'] = $allBucketNames -join ',' }
         if ($allMemberIds.Count -gt 0)   { $queryParams['member_ids']   = $allMemberIds -join ',' }
 
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'buckets/audit-filters' -QueryParams $queryParams -AutoPaginate

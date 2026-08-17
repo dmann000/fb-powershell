@@ -6,15 +6,15 @@ function Get-PfbBucketCorsPolicy {
         Returns one or more bucket CORS policy associations from the FlashBlade array.
         CORS policies control which web origins are permitted to access S3 bucket
         resources from a browser. Filter results by fully-qualified name, bucket
-        member name/ID, or policy name.
+        name/ID, or policy name.
 
         NOTE: The FlashBlade API requires at least one of -Name, -Id,
-        -MemberName, or -PolicyName to be specified.
+        -BucketName, or -PolicyName to be specified.
     .PARAMETER Name
         One or more fully-qualified bucket CORS policy names.
     .PARAMETER Id
         One or more bucket CORS policy IDs.
-    .PARAMETER MemberName
+    .PARAMETER BucketName
         One or more bucket names to retrieve CORS policies for.
     .PARAMETER MemberId
         One or more bucket IDs to retrieve CORS policies for.
@@ -29,7 +29,7 @@ function Get-PfbBucketCorsPolicy {
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
-        Get-PfbBucketCorsPolicy -MemberName "mybucket"
+        Get-PfbBucketCorsPolicy -BucketName "mybucket"
 
         Returns CORS policies associated with the bucket named 'mybucket'.
     .EXAMPLE
@@ -37,11 +37,11 @@ function Get-PfbBucketCorsPolicy {
 
         Returns a specific CORS policy by fully-qualified name.
     .EXAMPLE
-        Get-PfbBucketCorsPolicy -PolicyName "allow-all-origins" -MemberName "mybucket"
+        Get-PfbBucketCorsPolicy -PolicyName "allow-all-origins" -BucketName "mybucket"
 
         Returns a specific CORS policy for a specific bucket.
     #>
-    [CmdletBinding(DefaultParameterSetName = 'ByMemberName')]
+    [CmdletBinding(DefaultParameterSetName = 'ByBucketName')]
     param(
         [Parameter(ParameterSetName = 'ByName')]
         [string[]]$Name,
@@ -49,8 +49,8 @@ function Get-PfbBucketCorsPolicy {
         [Parameter(ParameterSetName = 'ById')]
         [string[]]$Id,
 
-        [Parameter(ParameterSetName = 'ByMemberName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [string[]]$MemberName,
+        [Parameter(ParameterSetName = 'ByBucketName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [string[]]$BucketName,
 
         [Parameter(ParameterSetName = 'ByMemberId')]
         [string[]]$MemberId,
@@ -68,23 +68,23 @@ function Get-PfbBucketCorsPolicy {
         Assert-PfbConnection -Array ([ref]$Array)
         $allNames = [System.Collections.Generic.List[string]]::new()
         $allIds = [System.Collections.Generic.List[string]]::new()
-        $allMemberNames = [System.Collections.Generic.List[string]]::new()
+        $allBucketNames = [System.Collections.Generic.List[string]]::new()
         $allMemberIds = [System.Collections.Generic.List[string]]::new()
     }
 
     process {
         if ($Name)       { foreach ($n in $Name)       { $allNames.Add($n) } }
         if ($Id)         { foreach ($i in $Id)         { $allIds.Add($i) } }
-        if ($MemberName) { foreach ($n in $MemberName) { $allMemberNames.Add($n) } }
+        if ($BucketName) { foreach ($b in $BucketName) { $allBucketNames.Add($b) } }
         if ($MemberId)   { foreach ($i in $MemberId)   { $allMemberIds.Add($i) } }
     }
 
     end {
         $queryParams = @{}
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
-        if ($allMemberNames.Count -gt 0) { $queryParams['member_names'] = $allMemberNames -join ',' }
+        if ($allBucketNames.Count -gt 0) { $queryParams['bucket_names'] = $allBucketNames -join ',' }
         if ($allMemberIds.Count -gt 0)   { $queryParams['member_ids']   = $allMemberIds -join ',' }
-        if ($PolicyName)                  { $queryParams['policy_names'] = $PolicyName -join ',' }
+        if ($PolicyName)                 { $queryParams['policy_names'] = $PolicyName -join ',' }
 
         try {
             Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'buckets/cross-origin-resource-sharing-policies' -QueryParams $queryParams -AutoPaginate

@@ -7,8 +7,10 @@ function Remove-PfbBucketCorsPolicy {
         sharing (CORS) policy on the FlashBlade. This action is irreversible.
         Use -Confirm:$false to suppress the confirmation prompt in automation
         scenarios.
-    .PARAMETER MemberName
-        The name of the bucket to remove the CORS policy from.
+    .PARAMETER Name
+        One or more fully-qualified bucket CORS policy names to remove.
+    .PARAMETER BucketName
+        One or more bucket names to remove the CORS policy from.
     .PARAMETER MemberId
         The ID of the bucket to remove the CORS policy from.
     .PARAMETER PolicyName
@@ -16,7 +18,7 @@ function Remove-PfbBucketCorsPolicy {
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
-        Remove-PfbBucketCorsPolicy -MemberName "mybucket" -PolicyName "allow-all-origins"
+        Remove-PfbBucketCorsPolicy -BucketName "mybucket" -PolicyName "allow-all-origins"
 
         Removes the CORS policy association from the specified bucket.
     .EXAMPLE
@@ -24,14 +26,17 @@ function Remove-PfbBucketCorsPolicy {
 
         Removes the CORS policy association by bucket ID.
     .EXAMPLE
-        Remove-PfbBucketCorsPolicy -MemberName "mybucket" -PolicyName "allow-all-origins" -Confirm:$false
+        Remove-PfbBucketCorsPolicy -Name "mybucket/allow-all-origins" -Confirm:$false
 
         Removes the CORS policy association without confirmation.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
     param(
-        [Parameter(ParameterSetName = 'ByMemberName', Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [string]$MemberName,
+        [Parameter(ParameterSetName = 'ByName', Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [string[]]$Name,
+
+        [Parameter(ParameterSetName = 'ByBucketName', Mandatory, ValueFromPipelineByPropertyName)]
+        [string[]]$BucketName,
 
         [Parameter(ParameterSetName = 'ByMemberId', Mandatory)]
         [string]$MemberId,
@@ -48,11 +53,12 @@ function Remove-PfbBucketCorsPolicy {
 
     process {
         $queryParams = @{}
-        if ($MemberName) { $queryParams['member_names'] = $MemberName }
+        if ($Name)       { $queryParams['names']        = $Name -join ',' }
+        if ($BucketName) { $queryParams['bucket_names'] = $BucketName -join ',' }
         if ($MemberId)   { $queryParams['member_ids']   = $MemberId }
         if ($PolicyName) { $queryParams['policy_names'] = $PolicyName }
 
-        $target = if ($MemberName) { $MemberName } else { $MemberId }
+        $target = if ($Name) { $Name -join ',' } elseif ($BucketName) { $BucketName -join ',' } else { $MemberId }
         if ($PolicyName) { $target = "$target / $PolicyName" }
 
         if ($PSCmdlet.ShouldProcess($target, 'Remove bucket CORS policy association')) {
