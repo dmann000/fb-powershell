@@ -144,7 +144,13 @@ BeforeAll {
     $script:baselineDeadKeyCount = 126
     $script:baselineNoSurvivingSelectorCount = 18
     $script:baselineSkipReasons = @{
-        'wire name unresolved'           = 125
+        # New-PfbBucketAuditFilter|Name was introduced by 9d08ecc as a new parameter, so
+        # nothing that was evaluable stopped being evaluated. The parameter demonstrably
+        # reaches the wire through `$filterNames = if ($Name) { $Name } else { $BucketName }`
+        # and `$queryParams['names'] = $filterNames -join ','`; it is unresolvable only because
+        # the AST resolver cannot trace that conditional. This is the `body property` case,
+        # not the coverage-loss case this ceiling guards against.
+        'wire name unresolved'           = 126
         'endpoint/method ambiguous'      = 14
         'endpoint/verb absent from spec' = 0
     }

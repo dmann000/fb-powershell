@@ -449,7 +449,7 @@ Describe 'Bucket policy and filter selectors (#90)' {
             $expectedPolicy = 'pslivetest-cors-policy-a'
 
             New-PfbBucketCorsPolicyRule -BucketName $expectedBucket -PolicyName $expectedPolicy `
-                -Name $expectedName -Attributes @{ allowed_origins = @('*'); allowed_methods = @('GET') } `
+                -Name $expectedName -Attributes @{ allowed_origins = @('*'); allowed_methods = @('GET','PUT','HEAD','POST','DELETE') } `
                 -Array $script:fakeArray -Confirm:$false
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
@@ -520,7 +520,7 @@ Describe 'Bucket policy and filter selectors (#90)' {
 
         It 'passes -Attributes through as the POST body without leaking a query key into it' {
             New-PfbBucketCorsPolicyRule -BucketName 'pslivetest-bucket-a' -PolicyName 'pslivetest-cors-policy-a' `
-                -Name 'pslivetest-cors-rule-a' -Attributes @{ allowed_origins = @('*'); allowed_methods = @('GET') } `
+                -Name 'pslivetest-cors-rule-a' -Attributes @{ allowed_origins = @('*'); allowed_methods = @('GET','PUT','HEAD','POST','DELETE') } `
                 -Array $script:fakeArray -Confirm:$false
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
