@@ -220,6 +220,47 @@ Describe 'Bucket policy and filter selectors (#90)' {
         }
     }
 
+    # Get-PfbBucket | Get-PfbBucketAccessPolicy is a chain a user would naturally write. No
+    # producer emits `BucketName` (the bucket item's own selector is `name`, and -Name here is
+    # not pipeline-bound), so the bucket object fell through to by-value coercion and
+    # bucket_names=@{...whole bucket...} went on the wire: HTTP 200 and the UNFILTERED policy
+    # list. ValueFromPipeline stays, so bare-string piping keeps working; the guard rejects the
+    # coerced object instead.
+    Context 'Coercion guard on the bucket Get-* selectors (#90)' {
+        $script:bucketGuardCases = @(
+            @{ Cmdlet = 'Get-PfbBucketAccessPolicy' }
+            @{ Cmdlet = 'Get-PfbBucketAccessPolicyRule' }
+            @{ Cmdlet = 'Get-PfbBucketAuditFilter' }
+            @{ Cmdlet = 'Get-PfbBucketCorsPolicy' }
+            @{ Cmdlet = 'Get-PfbBucketCorsPolicyRule' }
+        )
+
+        It '<Cmdlet> rejects a coerced bucket object before any request is built' -ForEach $script:bucketGuardCases {
+            { [PSCustomObject]@{ name = 'pslivetest-bucket-a'; destroyed = $false } |
+                & $Cmdlet -Array $script:fakeArray -ErrorAction Stop } |
+                Should -Throw -ExpectedMessage '*stringified object*'
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+        }
+
+        It '<Cmdlet> names -BucketName and Get-PfbBucket in the guard message' -ForEach $script:bucketGuardCases {
+            { [PSCustomObject]@{ name = 'pslivetest-bucket-a' } |
+                & $Cmdlet -Array $script:fakeArray -ErrorAction Stop } |
+                Should -Throw -ExpectedMessage '*-BucketName*'
+            { [PSCustomObject]@{ name = 'pslivetest-bucket-a' } |
+                & $Cmdlet -Array $script:fakeArray -ErrorAction Stop } |
+                Should -Throw -ExpectedMessage '*Get-PfbBucket*'
+        }
+
+        It '<Cmdlet> still binds a bare piped string to bucket_names' -ForEach $script:bucketGuardCases {
+            { 'pslivetest-bucket-a' | & $Cmdlet -Array $script:fakeArray } | Should -Not -Throw
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $QueryParams['bucket_names'] -eq 'pslivetest-bucket-a'
+            }
+        }
+    }
+
     Context 'New-PfbBucketAuditFilter POST shape' {
         It 'sends the spec-required names alongside bucket_names, defaulting names from the bucket' {
             New-PfbBucketAuditFilter -BucketName 'pslivetest-bucket-a' -Attributes @{ actions = @('s3.GetObject') } -Array $script:fakeArray -Confirm:$false

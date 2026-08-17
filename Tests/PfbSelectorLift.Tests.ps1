@@ -453,6 +453,99 @@ Describe 'Local group member selector lift' {
     }
 }
 
+# The Add-Member lift fixes the SELF-chain (a rule item carries the lifted PolicyName, so
+# by-property-name binding wins at pass 2 and the guard never sees it). It cannot fix the
+# CROSS-endpoint chain -- Get-PfbNfsExportPolicy emits `name`, not `PolicyName`, so that
+# object falls through to by-value coercion and the whole thing goes on the wire
+# stringified, HTTP 200, unfiltered collection. The guard closes that residual.
+Describe 'Coercion guard on selector parameters (#90)' {
+    BeforeEach {
+        Mock -ModuleName PureStorageFlashBladePowerShell Assert-PfbConnection { }
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { }
+    }
+
+    It 'rejects an object matching none of Get-PfbNfsExportRule''s parameters, before any request' {
+        { [PSCustomObject]@{ name = 'nfs-policy-1'; enabled = $true } |
+            Get-PfbNfsExportRule -Array $script:fakeArray -ErrorAction Stop } |
+            Should -Throw -ExpectedMessage '*stringified object*'
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+    }
+
+    It 'names -PolicyName and the producer to pipe from in the Get-PfbNfsExportRule message' {
+        { [PSCustomObject]@{ name = 'nfs-policy-1' } |
+            Get-PfbNfsExportRule -Array $script:fakeArray -ErrorAction Stop } |
+            Should -Throw -ExpectedMessage '*-PolicyName*'
+        { [PSCustomObject]@{ name = 'nfs-policy-1' } |
+            Get-PfbNfsExportRule -Array $script:fakeArray -ErrorAction Stop } |
+            Should -Throw -ExpectedMessage '*Get-PfbNfsExportPolicy*'
+    }
+
+    It 'still accepts a bare piped string on Get-PfbNfsExportRule -PolicyName' {
+        { 'nfs-policy-1' | Get-PfbNfsExportRule -Array $script:fakeArray } | Should -Not -Throw
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['policy_names'] -eq 'nfs-policy-1'
+        }
+    }
+
+    # This is the case the guard must NOT break, and the whole point of the lift: an item
+    # carrying the lifted top-level PolicyName binds at pass 2, so the value the guard sees
+    # is a clean scalar and it stays silent.
+    It 'does not fire when the piped object carries the lifted PolicyName' {
+        { [PSCustomObject]@{ name = 'rule-1'; PolicyName = 'nfs-policy-1'; policy = [PSCustomObject]@{ name = 'nfs-policy-1' } } |
+            Get-PfbNfsExportRule -Array $script:fakeArray -ErrorAction Stop } | Should -Not -Throw
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['policy_names'] -eq 'nfs-policy-1'
+        }
+    }
+
+    It 'rejects an object matching none of Get-PfbLocalGroupMember''s parameters' {
+        { [PSCustomObject]@{ unrelated = 'x'; other = 1 } |
+            Get-PfbLocalGroupMember -Array $script:fakeArray -ErrorAction Stop } |
+            Should -Throw -ExpectedMessage '*stringified object*'
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+    }
+
+    # Q4(b) in the task-7 diagnosis: `group` is object-valued on the members item and
+    # `Group` is an alias of -GroupName, so this is the pass-4 shape that would coerce even
+    # with ValueFromPipeline removed. The guard catches it either way.
+    It 'rejects an object whose object-valued group matches only the Group alias' {
+        { [PSCustomObject]@{ group = [PSCustomObject]@{ id = 'g-1'; name = 'group-1' } } |
+            Get-PfbLocalGroupMember -Array $script:fakeArray -ErrorAction Stop } |
+            Should -Throw -ExpectedMessage '*stringified object*'
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+    }
+
+    It 'does not fire when the piped object carries the lifted GroupName' {
+        { [PSCustomObject]@{ name = 'member-1'; GroupName = 'group-1'; group = [PSCustomObject]@{ name = 'group-1' } } |
+            Get-PfbLocalGroupMember -Array $script:fakeArray -ErrorAction Stop } | Should -Not -Throw
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['group_names'] -eq 'group-1'
+        }
+    }
+
+    It 'still accepts a bare piped string on Get-PfbLocalGroupMember -GroupName' {
+        { 'group-1' | Get-PfbLocalGroupMember -Array $script:fakeArray } | Should -Not -Throw
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['group_names'] -eq 'group-1'
+        }
+    }
+
+    It 'rejects an object coerced into -RoleName on Get-PfbObjectStoreTrustPolicy' {
+        { [PSCustomObject]@{ name = 'role-1'; unrelated = 'x' } |
+            Get-PfbObjectStoreTrustPolicy -Array $script:fakeArray -ErrorAction Stop } |
+            Should -Throw -ExpectedMessage '*stringified object*'
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+    }
+}
+
 Describe 'ObjectStore access policy role selector lift convergence' {
     BeforeEach {
         Mock -ModuleName PureStorageFlashBladePowerShell Assert-PfbConnection { }

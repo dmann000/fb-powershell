@@ -4,16 +4,22 @@
     Builds Reports/PfbPipelineSelectorMap.json and .md -- "can a piped object bind this cmdlet's
     selector, or does it stringify into the filter?" (issue #90).
 .DESCRIPTION
-    PowerShell resolves pipeline binding in three passes: ByValue, ByPropertyName, then ByValue
-    WITH COERCION. If a piped object has no property matching any pipeline-bound parameter, pass 3
-    fires and ToString()s the whole object into a [string[]] selector, producing a query filter
-    like
+    PowerShell resolves pipeline binding in FOUR passes: ByValue, ByPropertyName, ByValue WITH
+    COERCION, then ByPropertyName WITH COERCION. If a piped object has no property matching any
+    pipeline-bound parameter, pass 3 fires and ToString()s the whole object into a [string[]]
+    selector, producing a query filter like
 
         remote_names=@{id=10314f42-aaaa; status=connected; remote=}
 
     which the array either rejects or, worse, silently ignores -- returning every record
     unfiltered. On a Remove-* cmdlet that is a wider blast radius than the caller intended. See
     #64 for the specific instance and the guard that fixed it.
+
+    Do NOT assume that removing ValueFromPipeline makes coercion impossible. Pass 4 is
+    ByPropertyName WITH COERCION, so a ValueFromPipelineByPropertyName-only parameter whose ALIAS
+    matches an object-valued property still binds that object stringified. Measured on pwsh 7.6.4.
+    Detection is unaffected -- a pass-4 coercion still contains '@{' and still reads Coerced -- but
+    the remedy differs: such a parameter needs a guard, not an attribute removal.
 
     Every verdict here is OBSERVED, never inferred. The generator imports the shipped module,
     shadows Invoke-PfbApiRequest inside module scope with a capture shim, pipes a schema-derived
@@ -215,7 +221,7 @@ $meaning = @{
     'Bound'       = 'no -- the selector bound as intended'
     'Coerced'     = '**yes** -- a stringified object reached the wire'
     'WrongScalar' = '**yes** -- a value from the wrong property reached the wire'
-    'Unbindable'  = 'no -- PowerShell declined to bind; pass 3 is ByValue so this cannot coerce'
+    'Unbindable'  = 'no -- PowerShell declined to bind this probe object at all. Note that pass 4 is ByPropertyName WITH coercion, so a ByPropertyName-only parameter whose alias matches an object-valued property CAN still coerce; this outcome is not a structural immunity'
     'NoSelector'  = 'no -- reported observation'
     'Guarded'     = 'no -- the #64 guard fired'
     'CmdletError' = 'no -- the cmdlet threw before any request was built'

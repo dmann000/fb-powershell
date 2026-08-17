@@ -58,6 +58,9 @@ function Get-PfbNetworkAccessRule {
     }
 
     process {
+        Assert-PfbSelectorNotCoerced -Value $PolicyName -ParameterName 'PolicyName' -Hint (
+            'Pipe the policy name instead, e.g. Get-PfbNetworkAccessPolicy | ' +
+            'Select-Object -ExpandProperty name | Get-PfbNetworkAccessRule, or pass -PolicyName explicitly.')
         if ($PolicyName) { foreach ($n in $PolicyName) { $allPolicyNames.Add($n) } }
         if ($PolicyId)   { foreach ($i in $PolicyId)   { $allPolicyIds.Add($i) } }
     }

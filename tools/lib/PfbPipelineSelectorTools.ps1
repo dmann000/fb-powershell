@@ -547,11 +547,14 @@ function Get-PfbSelectorOutcome {
         }
         else {
             # Only a harness refusal is genuinely unmeasured. The other kinds are verdicts.
-            # Unbindable means PowerShell declined to bind the object at all, which for a
-            # ValueFromPipelineByPropertyName-only parameter is structural: pass 3 coerces
-            # ByValue, so that parameter can never receive a stringified object. CmdletError
-            # means the cmdlet's own logic stopped it before any request was built. Collapsing
-            # all three into BindError reported 8 already-measured pairs as blind spots.
+            # Unbindable means PowerShell declined to bind THIS probe object at all. It is a
+            # per-probe observation, NOT a structural immunity: binding has FOUR passes --
+            # ByValue, ByPropertyName, ByValue WITH COERCION, ByPropertyName WITH COERCION --
+            # so a ValueFromPipelineByPropertyName-only parameter whose ALIAS matches an
+            # object-valued property still binds that object stringified at pass 4 and reads
+            # Coerced. Removing ValueFromPipeline therefore does not guarantee Unbindable.
+            # CmdletError means the cmdlet's own logic stopped it before any request was built.
+            # Collapsing all three into BindError reported 8 already-measured pairs as blind spots.
             $kind = if ($ProbeResult.PSObject.Properties['ErrorKind']) { $ProbeResult.ErrorKind } else { $null }
             switch ($kind) {
                 'InputObjectNotBound' { 'Unbindable' }

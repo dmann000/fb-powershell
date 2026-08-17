@@ -47,6 +47,10 @@ function Get-PfbObjectStoreTrustPolicyRule {
     }
 
     process {
+        Assert-PfbSelectorNotCoerced -Value $PolicyName -ParameterName 'PolicyName' -Hint (
+            'Pipe the trust-policy name instead, e.g. Get-PfbObjectStoreTrustPolicy -RoleName r | ' +
+            'Select-Object -ExpandProperty name | Get-PfbObjectStoreTrustPolicyRule, ' +
+            'or pass -PolicyName explicitly.')
         if ($PolicyName) { foreach ($n in $PolicyName) { $allPolicyNames.Add($n) } }
         if ($Name)       { foreach ($n in $Name)       { $allNames.Add($n) } }
     }

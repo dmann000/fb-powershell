@@ -58,6 +58,9 @@ function Get-PfbS3ExportRule {
     }
 
     process {
+        Assert-PfbSelectorNotCoerced -Value $PolicyName -ParameterName 'PolicyName' -Hint (
+            'Pipe the policy name instead, e.g. Get-PfbS3ExportPolicy | ' +
+            'Select-Object -ExpandProperty name | Get-PfbS3ExportRule, or pass -PolicyName explicitly.')
         if ($PolicyName) { foreach ($n in $PolicyName) { $allPolicyNames.Add($n) } }
         if ($PolicyId)   { foreach ($i in $PolicyId)   { $allPolicyIds.Add($i) } }
     }

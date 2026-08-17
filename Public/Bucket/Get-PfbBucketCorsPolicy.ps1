@@ -68,6 +68,9 @@ function Get-PfbBucketCorsPolicy {
     }
 
     process {
+        Assert-PfbSelectorNotCoerced -Value $BucketName -ParameterName 'BucketName' -Hint (
+            'Pipe the bucket name instead, e.g. Get-PfbBucket | Select-Object -ExpandProperty name | ' +
+            'Get-PfbBucketCorsPolicy, or pass -BucketName explicitly.')
         if ($Name)       { foreach ($n in $Name)       { $allNames.Add($n) } }
         if ($BucketName) { foreach ($b in $BucketName) { $allBucketNames.Add($b) } }
         if ($BucketId)   { foreach ($i in $BucketId)   { $allBucketIds.Add($i) } }

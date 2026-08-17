@@ -58,6 +58,9 @@ function Get-PfbNfsExportRule {
     }
 
     process {
+        Assert-PfbSelectorNotCoerced -Value $PolicyName -ParameterName 'PolicyName' -Hint (
+            'Pipe the policy name instead, e.g. Get-PfbNfsExportPolicy | ' +
+            'Select-Object -ExpandProperty name | Get-PfbNfsExportRule, or pass -PolicyName explicitly.')
         if ($PolicyName) { foreach ($n in $PolicyName) { $allPolicyNames.Add($n) } }
         if ($PolicyId)   { foreach ($i in $PolicyId)   { $allPolicyIds.Add($i) } }
     }

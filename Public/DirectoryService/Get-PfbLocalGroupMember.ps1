@@ -48,6 +48,13 @@ function Get-PfbLocalGroupMember {
         $allGroups = [System.Collections.Generic.List[string]]::new()
     }
     process {
+        # -GroupName keeps [Alias('Group', 'group_name')]: the parameter name beats the alias
+        # in by-property-name lookup, and the alias is load-bearing for
+        # GET /directory-services/roles, whose `group` is string-valued. This guard covers the
+        # object-valued `group` on the members item, which coerces whole into the selector.
+        Assert-PfbSelectorNotCoerced -Value $GroupName -ParameterName 'GroupName' -Hint (
+            'Pipe the group name instead, e.g. Get-PfbLocalGroup | Select-Object -ExpandProperty name | ' +
+            'Get-PfbLocalGroupMember, or pass -GroupName explicitly.')
         if ($GroupName) { foreach ($g in $GroupName) { $allGroups.Add($g) } }
     }
     end {

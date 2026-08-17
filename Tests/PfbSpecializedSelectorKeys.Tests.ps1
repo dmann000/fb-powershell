@@ -43,6 +43,58 @@ Describe 'Specialized selector query keys (#90)' {
         }
     }
 
+    # The rename fixed the wire KEY but left bare ValueFromPipeline in place, so a piped
+    # object matching none of these cmdlets' parameters by property name still fell
+    # through to by-value coercion and put the whole object on the correct key. The guard
+    # turns that into a loud module-level failure before any request is built.
+    Context 'coercion guard on the renamed selectors' {
+        BeforeEach {
+            Mock -ModuleName PureStorageFlashBladePowerShell Assert-PfbConnection { }
+            Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { }
+        }
+
+        It 'rejects a stringified object coerced into -LocalPortName' {
+            { [PSCustomObject]@{ unrelated = 'x'; other = 1 } |
+                Get-PfbNetworkInterfaceNeighbor -Array $script:fakeArray -ErrorAction Stop } |
+                Should -Throw -ExpectedMessage '*stringified object*'
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+        }
+
+        It 'names -LocalPortName and Get-PfbNetworkInterface in the guard message' {
+            { [PSCustomObject]@{ unrelated = 'x' } |
+                Get-PfbNetworkInterfaceNeighbor -Array $script:fakeArray -ErrorAction Stop } |
+                Should -Throw -ExpectedMessage '*-LocalPortName*'
+            { [PSCustomObject]@{ unrelated = 'x' } |
+                Get-PfbNetworkInterfaceNeighbor -Array $script:fakeArray -ErrorAction Stop } |
+                Should -Throw -ExpectedMessage '*Get-PfbNetworkInterface*'
+        }
+
+        It 'still accepts a bare piped string on -LocalPortName' {
+            { 'CH1.FM1.ETH1' | Get-PfbNetworkInterfaceNeighbor -Array $script:fakeArray } | Should -Not -Throw
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $QueryParams['local_port_names'] -eq 'CH1.FM1.ETH1'
+            }
+        }
+
+        It 'rejects a stringified object coerced into -CertificateName' {
+            { [PSCustomObject]@{ unrelated = 'x' } |
+                Get-PfbCertificateGroupCertificate -Array $script:fakeArray -ErrorAction Stop } |
+                Should -Throw -ExpectedMessage '*stringified object*'
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+        }
+
+        It 'rejects a stringified object coerced into -RealmName' {
+            { [PSCustomObject]@{ unrelated = 'x' } |
+                Get-PfbRealmDefaults -Array $script:fakeArray -ErrorAction Stop } |
+                Should -Throw -ExpectedMessage '*stringified object*'
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+        }
+    }
+
     Context 'query wire keys' {
         BeforeEach {
             Mock -ModuleName PureStorageFlashBladePowerShell Assert-PfbConnection { }

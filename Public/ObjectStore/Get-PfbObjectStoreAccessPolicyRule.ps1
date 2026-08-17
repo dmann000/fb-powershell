@@ -56,6 +56,10 @@ function Get-PfbObjectStoreAccessPolicyRule {
     }
 
     process {
+        Assert-PfbSelectorNotCoerced -Value $PolicyName -ParameterName 'PolicyName' -Hint (
+            'Pipe the policy name instead, e.g. Get-PfbObjectStoreAccessPolicy | ' +
+            'Select-Object -ExpandProperty name | Get-PfbObjectStoreAccessPolicyRule, ' +
+            'or pass -PolicyName explicitly.')
         if ($PolicyName) { foreach ($n in $PolicyName) { $allPolicyNames.Add($n) } }
         if ($PolicyId)   { foreach ($i in $PolicyId)   { $allPolicyIds.Add($i) } }
         if ($Name)       { foreach ($n in $Name)       { $allNames.Add($n) } }
