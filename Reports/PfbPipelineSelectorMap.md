@@ -10,13 +10,13 @@ no request leaves the machine, and nothing here is inferred from pattern-matchin
 
 | Metric | Value |
 |---|---:|
-| `probePairs` | 1247 |
-| `evaluatedPairs` | 1213 |
-| `candidatePairs` | 629 |
-| `candidateRate` | 0.5185 |
-| `findings` | 268 |
-| `findingPairs` | 102 |
-| `confirmationRate` | 0.4261 |
+| `probePairs` | 1251 |
+| `evaluatedPairs` | 1217 |
+| `candidatePairs` | 630 |
+| `candidateRate` | 0.5177 |
+| `findings` | 264 |
+| `findingPairs` | 101 |
+| `confirmationRate` | 0.419 |
 | `controlLeakage` | 0 |
 | `assistedRows` | 213 |
 
@@ -28,11 +28,11 @@ defect appears once per producing endpoint, so rows always exceed pairs.
 | Outcome | Rows | Finding? |
 |---|---:|---|
 | `BindError` | 2 | triage -- the harness never invoked, the only unmeasured outcome |
-| `Bound` | 578 | no -- the selector bound as intended |
+| `Bound` | 581 | no -- the selector bound as intended |
 | `CmdletError` | 6 | no -- the cmdlet threw before any request was built |
-| `Coerced` | 268 | **yes** -- a stringified object reached the wire |
-| `Guarded` | 112 | no -- a #64/#90 coercion guard fired |
-| `NoSelector` | 47 | no -- reported observation |
+| `Coerced` | 264 | **yes** -- a stringified object reached the wire |
+| `Guarded` | 114 | no -- a #64/#90 coercion guard fired |
+| `NoSelector` | 50 | no -- reported observation |
 | `Unbindable` | 234 | no -- PowerShell declined to bind this probe object at all. Note that pass 4 is ByPropertyName WITH coercion, so a ByPropertyName-only parameter whose alias matches an object-valued property CAN still coerce; this outcome is not a structural immunity |
 
 ## Findings
@@ -41,7 +41,6 @@ Ordered with primary-producer rows first: those are the chains a user would most
 
 | Cmdlet | Parameter | Producer | Primary | Evidence |
 |---|---|---|---|---|
-| `Get-PfbArrayConnectionKey` | `Name` | `GET /array-connections/connection-key` | yes | `names=@{connection_key=PROBE-connection_key; created=PROBE-created; expires=PROBE-expires}` |
 | `Get-PfbUserGroupQuotaPolicyRule` | `PolicyName` | `GET /user-group-quota-policies/rules` | yes | `policy_names=@{context=; enforced=PROBE-enforced; id=PROBE-id; index=PROBE-index; name=PROBE-name; notifications=PROBE-notifications; policy=; policy_version=PROBE-policy_version; quota_limit=PROBE-quota_limit; quota_type=PROBE-quota_type; subject=}` |
 | `Get-PfbActiveDirectory` | `Name` | `GET /active-directory/test` |  | `names=@{component_address=PROBE-component_address; component_name=PROBE-component_name; context=; description=PROBE-description; destination=PROBE-destination; enabled=PROBE-enabled; resource=; result_details=PROBE-result_details; success=PROBE-success; test_type=PROBE-test_type}` |
 | `Get-PfbAdmin` | `Name` | `GET /admins/api-tokens` |  | `names=@{admin=; api_token=; context=}` |
@@ -55,9 +54,6 @@ Ordered with primary-producer rows first: those are the chains a user would most
 | `Get-PfbAdminCache` | `Name` | `GET /admins/settings` |  | `names=@{lockout_duration=PROBE-lockout_duration; max_login_attempts=PROBE-max_login_attempts; min_password_length=PROBE-min_password_length}` |
 | `Get-PfbAdminCache` | `Name` | `GET /admins/ssh-certificate-authority-policies` |  | `names=@{context=; member=; policy=}` |
 | `Get-PfbAlertWatcher` | `Name` | `GET /alert-watchers/test` |  | `names=@{component_address=PROBE-component_address; component_name=PROBE-component_name; description=PROBE-description; destination=PROBE-destination; enabled=PROBE-enabled; resource=; result_details=PROBE-result_details; success=PROBE-success; test_type=PROBE-test_type}` |
-| `Get-PfbArrayConnectionKey` | `Name` | `GET /array-connections` |  | `names=@{ca_certificate_group=; context=; encrypted=PROBE-encrypted; id=PROBE-id; management_address=PROBE-management_address; os=PROBE-os; remote=; replication_addresses=System.Object[]; status=PROBE-status; throttle=; type=PROBE-type; version=PROBE-version}` |
-| `Get-PfbArrayConnectionKey` | `Name` | `GET /array-connections/path` |  | `names=@{context=; destination=PROBE-destination; id=PROBE-id; remote=; source=PROBE-source; status=PROBE-status; status_details=PROBE-status_details; type=PROBE-type}` |
-| `Get-PfbArrayConnectionKey` | `Name` | `GET /array-connections/performance/replication` |  | `names=@{aggregate=; continuous=; id=PROBE-id; periodic=; remote=; time=PROBE-time}` |
 | `Get-PfbAuditFileSystemPolicy` | `Name` | `GET /audit-file-systems-policies/members` |  | `names=@{context=; member=; policy=}` |
 | `Get-PfbAuditObjectStorePolicy` | `Name` | `GET /audit-object-store-policies/members` |  | `names=@{context=; member=; policy=}` |
 | `Get-PfbCertificate` | `Name` | `GET /certificates/certificate-groups` |  | `names=@{group=; member=}` |

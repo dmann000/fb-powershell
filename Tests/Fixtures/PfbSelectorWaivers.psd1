@@ -7,8 +7,8 @@
     its waiver rather than leave a licence behind for the next reintroduction.
 
     ONE ENTRY PER (Cmdlet, Parameter) PAIR, NOT PER PRODUCING ENDPOINT. The current report's
-    268 finding rows are producer multiplicity over 102 real defects; keying by triple would be
-    268 entries against psd1's hard 500-element cap for a single collection literal, and would
+    264 finding rows are producer multiplicity over 101 real defects; keying by triple would be
+    264 entries against psd1's hard 500-element cap for a single collection literal, and would
     list the same defect up to a dozen times. (The pre-fix audit measured 389 rows over 127
     pairs; the guards and renames delivered for #90 account for the reduction.)
 
@@ -40,8 +40,8 @@
         @{ Cmdlet = 'Get-PfbUserGroupQuotaPolicyRule';             Parameter = 'PolicyName';  Scope = 'Primary'; Issue = '#90'; Producers = 4
             Why = 'GET /user-group-quota-policies/rules returns policy as a nested object, never a flat policy_name, so policy_names receives the stringified rule item. Waived rather than fixed because the array honours a policy_names key the published OpenAPI omits, and the published spec governs.' }
 
-        # === Cluster 2 -- sub-resources that have no name at all (1 pair still waived here, all on
-        # a PRIMARY producer; the audit found 10 and the other 9 had the dead parameter removed).
+        # === Cluster 2 -- sub-resources that have no name at all (0 pairs still waived here; the
+        # audit found 10, 9 had the dead parameter removed, and the last one was fixed outright).
         # -Name is pipeline-bound on a resource whose items carry no name field. Dropping
         # ValueFromPipeline narrows the class but does not eliminate it: the four-pass finding
         # showed pass 4 is ByPropertyName WITH coercion, so an alias matching an object-valued
@@ -49,8 +49,14 @@
         # found here (Remove-PfbOpenFile, Remove-PfbResourceAccess, both since fixed by parameter
         # removal) were its highest-severity findings -- a DELETE whose selector is a stringified
         # object is where selects-the-wrong-thing and destructive intersect.
-        @{ Cmdlet = 'Get-PfbArrayConnectionKey';                   Parameter = 'Name';        Scope = 'Primary'; Issue = '#90'; Producers = 4
-            Why = 'GET /array-connections/connection-key items carry no name (connection_key, created, expires), yet -Name is pipeline-bound, so names receives the stringified item.' }
+        #
+        # Get-PfbArrayConnectionKey/-Name was waived here and is now deleted rather than downgraded.
+        # The waiver's reasoning still holds for -Name itself -- the endpoint's items carry only
+        # connection_key, created and expires, so no name can ever bind -- but the pair stopped
+        # being a FINDING once the cmdlet gained -Id (the endpoint declares the generic ids key
+        # from REST 2.0, and an array connection carries id) plus the process-block coercion guard.
+        # Rail A fails on a waiver whose pair no longer coerces, so the licence had to go with it.
+        # Keep this cluster heading: the root cause it describes is still what the guard defends.
 
         # === Cluster 4 -- family-only exposure (100 pairs, NOT reachable from the primary producer).
         # Each cmdlet's own primary producer returns name correctly, so the obvious chain is

@@ -7,13 +7,13 @@
     "GET /object-store-roles/object-store-trust-policies/download"
   ],
   "totals": {
-    "probePairs": 1247,
-    "evaluatedPairs": 1213,
-    "candidatePairs": 629,
-    "candidateRate": 0.5185,
-    "findings": 268,
-    "findingPairs": 102,
-    "confirmationRate": 0.4261,
+    "probePairs": 1251,
+    "evaluatedPairs": 1217,
+    "candidatePairs": 630,
+    "candidateRate": 0.5177,
+    "findings": 264,
+    "findingPairs": 101,
+    "confirmationRate": 0.419,
     "controlLeakage": 0,
     "assistedRows": 213
   },
@@ -24,7 +24,7 @@
     },
     {
       "Outcome": "Bound",
-      "Count": 578
+      "Count": 581
     },
     {
       "Outcome": "CmdletError",
@@ -32,15 +32,15 @@
     },
     {
       "Outcome": "Coerced",
-      "Count": 268
+      "Count": 264
     },
     {
       "Outcome": "Guarded",
-      "Count": 112
+      "Count": 114
     },
     {
       "Outcome": "NoSelector",
-      "Count": 47
+      "Count": 50
     },
     {
       "Outcome": "Unbindable",
@@ -50,11 +50,11 @@
   "gateBreakdown": [
     {
       "Gate": "Candidate",
-      "Count": 629
+      "Count": 630
     },
     {
       "Gate": "Matched",
-      "Count": 584
+      "Count": 587
     },
     {
       "Gate": "SelectorUnresolved",
@@ -1283,18 +1283,164 @@
     {
       "Cmdlet": "Get-PfbArrayConnectionKey",
       "Verb": "Get",
+      "Parameter": "Id",
+      "Producer": "GET /array-connections",
+      "IsPrimary": false,
+      "FromExample": true,
+      "WireName": "ids",
+      "IsCandidate": false,
+      "Gate": "Matched",
+      "ValueFromPipeline": false,
+      "Outcome": "Bound",
+      "Evidence": "ids=PROBE-id (from property 'id')",
+      "BoundWireKey": "ids",
+      "BoundValue": "PROBE-id",
+      "ErrorKind": null,
+      "FilledParameter": [],
+      "ProbeProperties": [
+        "ca_certificate_group",
+        "context",
+        "encrypted",
+        "id",
+        "management_address",
+        "os",
+        "remote",
+        "replication_addresses",
+        "status",
+        "throttle",
+        "type",
+        "version"
+      ],
+      "ProbeTypes": {
+        "ca_certificate_group": "object",
+        "context": "object",
+        "encrypted": "boolean",
+        "id": "string",
+        "management_address": "string",
+        "os": "string",
+        "remote": "object",
+        "replication_addresses": "array",
+        "status": "string",
+        "throttle": "object",
+        "type": "string",
+        "version": "string"
+      }
+    },
+    {
+      "Cmdlet": "Get-PfbArrayConnectionKey",
+      "Verb": "Get",
+      "Parameter": "Id",
+      "Producer": "GET /array-connections/connection-key",
+      "IsPrimary": true,
+      "FromExample": false,
+      "WireName": "ids",
+      "IsCandidate": true,
+      "Gate": "Candidate",
+      "ValueFromPipeline": false,
+      "Outcome": "Guarded",
+      "Evidence": "-Name received a stringified object ('@{connection_key=PROBE-connection_key; created=PROBE-created; expires=PROBE-expires}') instead of a name. A piped object that matches none of this cmdlet's parameters by property name is coerced whole into -Name, which sends a garbage filter and returns the UNFILTERED collection. Array connection keys have no name of their own. Pipe an array connection object from Get-PfbArrayConnection instead -- its `id` binds -Id directly -- or pass -Id or -Name explicitly.",
+      "BoundWireKey": null,
+      "BoundValue": null,
+      "ErrorKind": "CmdletError",
+      "FilledParameter": [],
+      "ProbeProperties": [
+        "connection_key",
+        "created",
+        "expires"
+      ],
+      "ProbeTypes": {
+        "connection_key": "string",
+        "created": "integer",
+        "expires": "integer"
+      }
+    },
+    {
+      "Cmdlet": "Get-PfbArrayConnectionKey",
+      "Verb": "Get",
+      "Parameter": "Id",
+      "Producer": "GET /array-connections/path",
+      "IsPrimary": false,
+      "FromExample": false,
+      "WireName": "ids",
+      "IsCandidate": false,
+      "Gate": "Matched",
+      "ValueFromPipeline": false,
+      "Outcome": "Bound",
+      "Evidence": "ids=PROBE-id (from property 'id')",
+      "BoundWireKey": "ids",
+      "BoundValue": "PROBE-id",
+      "ErrorKind": null,
+      "FilledParameter": [],
+      "ProbeProperties": [
+        "context",
+        "destination",
+        "id",
+        "remote",
+        "source",
+        "status",
+        "status_details",
+        "type"
+      ],
+      "ProbeTypes": {
+        "context": "object",
+        "destination": "string",
+        "id": "string",
+        "remote": "object",
+        "source": "string",
+        "status": "string",
+        "status_details": "string",
+        "type": "string"
+      }
+    },
+    {
+      "Cmdlet": "Get-PfbArrayConnectionKey",
+      "Verb": "Get",
+      "Parameter": "Id",
+      "Producer": "GET /array-connections/performance/replication",
+      "IsPrimary": false,
+      "FromExample": false,
+      "WireName": "ids",
+      "IsCandidate": false,
+      "Gate": "Matched",
+      "ValueFromPipeline": false,
+      "Outcome": "Bound",
+      "Evidence": "ids=PROBE-id (from property 'id')",
+      "BoundWireKey": "ids",
+      "BoundValue": "PROBE-id",
+      "ErrorKind": null,
+      "FilledParameter": [],
+      "ProbeProperties": [
+        "aggregate",
+        "continuous",
+        "id",
+        "periodic",
+        "remote",
+        "time"
+      ],
+      "ProbeTypes": {
+        "aggregate": "object",
+        "continuous": "object",
+        "id": "string",
+        "periodic": "object",
+        "remote": "object",
+        "time": "integer"
+      }
+    },
+    {
+      "Cmdlet": "Get-PfbArrayConnectionKey",
+      "Verb": "Get",
       "Parameter": "Name",
       "Producer": "GET /array-connections",
       "IsPrimary": false,
-      "FromExample": false,
+      "FromExample": true,
       "WireName": "names",
       "IsCandidate": true,
       "Gate": "Candidate",
       "ValueFromPipeline": true,
-      "Outcome": "Coerced",
-      "Evidence": "names=@{ca_certificate_group=; context=; encrypted=PROBE-encrypted; id=PROBE-id; management_address=PROBE-management_address; os=PROBE-os; remote=; replication_addresses=System.Object[]; status=PROBE-status; throttle=; type=PROBE-type; version=PROBE-version}",
-      "BoundWireKey": "names",
-      "BoundValue": "@{ca_certificate_group=; context=; encrypted=PROBE-encrypted; id=PROBE-id; management_address=PROBE-management_address; os=PROBE-os; remote=; replication_addresses=System.Object[]; status=PROBE-status; throttle=; type=PROBE-type; version=PROBE-version}",
+      "Outcome": "NoSelector",
+      "Evidence": "the request carried no 'names' key, so this parameter did not bind",
+      "BoundWireKey": null,
+      "BoundValue": null,
       "ErrorKind": null,
       "FilledParameter": [],
       "ProbeProperties": [
@@ -1337,11 +1483,11 @@
       "IsCandidate": true,
       "Gate": "Candidate",
       "ValueFromPipeline": true,
-      "Outcome": "Coerced",
-      "Evidence": "names=@{connection_key=PROBE-connection_key; created=PROBE-created; expires=PROBE-expires}",
-      "BoundWireKey": "names",
-      "BoundValue": "@{connection_key=PROBE-connection_key; created=PROBE-created; expires=PROBE-expires}",
-      "ErrorKind": null,
+      "Outcome": "Guarded",
+      "Evidence": "-Name received a stringified object ('@{connection_key=PROBE-connection_key; created=PROBE-created; expires=PROBE-expires}') instead of a name. A piped object that matches none of this cmdlet's parameters by property name is coerced whole into -Name, which sends a garbage filter and returns the UNFILTERED collection. Array connection keys have no name of their own. Pipe an array connection object from Get-PfbArrayConnection instead -- its `id` binds -Id directly -- or pass -Id or -Name explicitly.",
+      "BoundWireKey": null,
+      "BoundValue": null,
+      "ErrorKind": "CmdletError",
       "FilledParameter": [],
       "ProbeProperties": [
         "connection_key",
@@ -1365,10 +1511,10 @@
       "IsCandidate": true,
       "Gate": "Candidate",
       "ValueFromPipeline": true,
-      "Outcome": "Coerced",
-      "Evidence": "names=@{context=; destination=PROBE-destination; id=PROBE-id; remote=; source=PROBE-source; status=PROBE-status; status_details=PROBE-status_details; type=PROBE-type}",
-      "BoundWireKey": "names",
-      "BoundValue": "@{context=; destination=PROBE-destination; id=PROBE-id; remote=; source=PROBE-source; status=PROBE-status; status_details=PROBE-status_details; type=PROBE-type}",
+      "Outcome": "NoSelector",
+      "Evidence": "the request carried no 'names' key, so this parameter did not bind",
+      "BoundWireKey": null,
+      "BoundValue": null,
       "ErrorKind": null,
       "FilledParameter": [],
       "ProbeProperties": [
@@ -1403,10 +1549,10 @@
       "IsCandidate": true,
       "Gate": "Candidate",
       "ValueFromPipeline": true,
-      "Outcome": "Coerced",
-      "Evidence": "names=@{aggregate=; continuous=; id=PROBE-id; periodic=; remote=; time=PROBE-time}",
-      "BoundWireKey": "names",
-      "BoundValue": "@{aggregate=; continuous=; id=PROBE-id; periodic=; remote=; time=PROBE-time}",
+      "Outcome": "NoSelector",
+      "Evidence": "the request carried no 'names' key, so this parameter did not bind",
+      "BoundWireKey": null,
+      "BoundValue": null,
       "ErrorKind": null,
       "FilledParameter": [],
       "ProbeProperties": [
