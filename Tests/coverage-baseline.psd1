@@ -54,6 +54,16 @@
             # see, since a cacheless runner leaves it contributing neither a pass nor a skip.
             'Rail A - no unwaived selector coercion'
             'Rail B - committed map matches regeneration'
+            # Dead-key gate. The COMMITTED guard is ungated and so is listed under winps51
+            # too; the two halves of the generator gate are PS7-only (the generator carries
+            # `#Requires -Version 7.0`), so like the issue-#90 rails above they belong to this
+            # block alone -- requiring them on 5.1 would be a permanent false red. They are
+            # split on a dependency boundary: the first needs the real tools/specs cache, the
+            # second builds its own fixture and reads no cache at all, so a broken fixture
+            # cannot make the real generator look broken.
+            'Committed dead-key report (REGRESSION guard, no spec cache required)'
+            'Build-PfbDeadKeyReport regeneration (real spec cache required, PS7 only)'
+            'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cache, PS7 only)'
         )
     }
     winps51 = @{
@@ -101,6 +111,13 @@
             # Ungated for the same reason: it parses tracked .ps1 files via the AST, so it needs
             # neither the spec cache nor the generated manifest and has no skip path.
             'Build-PfbValueEnumMap: hand-written ValidateSet citations'
+            # Dead-key gate, ungated half. It reads only the committed
+            # Reports/PfbDeadKeyReport.json -- no spec cache, no PowerShell 7, no skip path --
+            # so it must contribute executed tests on BOTH legs. Its two PS7-only siblings,
+            # 'Build-PfbDeadKeyReport regeneration (real spec cache required, PS7 only)' and
+            # 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cache, PS7
+            # only)', are deliberately absent from this list and appear under pwsh7 only.
+            'Committed dead-key report (REGRESSION guard, no spec cache required)'
         )
     }
 }

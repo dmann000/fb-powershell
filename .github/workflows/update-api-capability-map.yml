@@ -130,6 +130,10 @@ jobs:
         shell: pwsh
         run: ./tools/Build-PfbApiDriftReport.ps1
 
+      - name: Build dead-key report
+        shell: pwsh
+        run: ./tools/Build-PfbDeadKeyReport.ps1
+
       # Pinned + cached, with retry on the gallery path; see
       # .github/actions/install-test-modules/action.yml (including why Posh-SSH is
       # needed at all -- Pester can only mock a resolvable command).
@@ -208,6 +212,9 @@ jobs:
             - Rebuilt `Reports/PfbValueEnumMap.json`, `Reports/PfbFieldCmdletMap.json`, and
               `Reports/PfbApiDriftReport.json` (+ their Markdown companions) -- see
               `Reports/README.md` for what each answers.
+            - Rebuilt `Reports/PfbDeadKeyReport.json`, the inventory of query keys that
+              `Public/` cmdlets send but the endpoint does not declare for that HTTP verb --
+              see `Reports/README.md`.
 
             New REST versions detected: ${{ steps.summary.outputs.new_versions || 'none - see diff (e.g. a version-map-only update once an SSOT_API_KEY secret was configured, or new parameters/fields added to existing endpoints in a point release)' }}
 

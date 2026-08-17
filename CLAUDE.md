@@ -23,12 +23,14 @@ Gallery listing.
 Any commit that changes which REST query/body parameters or endpoints a
 `Public/` cmdlet covers must regenerate the derived `Reports/` artifacts in
 the same commit -- otherwise they go stale relative to your own change, and
-the drift-report invariant tests (`Tests/Build-PfbApiDriftReport.Tests.ps1`,
-Task 8) will catch it later for whoever next merges `main`, instead of now:
+the derived-report invariant tests (`Tests/Build-PfbApiDriftReport.Tests.ps1`,
+Task 8, and `Tests/Build-PfbDeadKeyReport.Tests.ps1`) will catch it later for
+whoever next merges `main`, instead of now:
 
 ```powershell
 ./tools/Build-PfbFieldCmdletMap.ps1   # must run first -- Build-PfbApiDriftReport.ps1 reads its output
 ./tools/Build-PfbApiDriftReport.ps1
+./tools/Build-PfbDeadKeyReport.ps1
 ```
 
 Merge/rebase onto an up-to-date `main` *before* regenerating. `Build-PfbApiDriftReport.ps1`
