@@ -51,11 +51,16 @@
         # object is where selects-the-wrong-thing and destructive intersect.
         #
         # Get-PfbArrayConnectionKey/-Name was waived here and is now deleted rather than downgraded.
-        # The waiver's reasoning still holds for -Name itself -- the endpoint's items carry only
-        # connection_key, created and expires, so no name can ever bind -- but the pair stopped
-        # being a FINDING once the cmdlet gained -Id (the endpoint declares the generic ids key
-        # from REST 2.0, and an array connection carries id) plus the process-block coercion guard.
-        # Rail A fails on a waiver whose pair no longer coerces, so the licence had to go with it.
+        # The process-block coercion guard alone is the fix, and it is the only fix available: the
+        # published spec's components.schemas.ArrayConnectionKey -- the item type GET
+        # array-connections/connection-key returns -- declares exactly connection_key, created and
+        # expires at every version 2.0 through 2.28, with no allOf, so it never inherits the base
+        # schema that supplies id and name to ordinary resources. Both the generic names and ids
+        # query keys select by an identifier the returned resource carries, so on an item carrying
+        # neither, neither key can select and no identity parameter could rescue the chain. The
+        # guard converts the silently unfiltered result into a loud error, which turns the pair
+        # from Coerced into Guarded -- and Guarded is not a finding, so Rail A's stale-waiver test
+        # requires the licence to go with it.
         # Keep this cluster heading: the root cause it describes is still what the guard defends.
 
         # === Cluster 4 -- family-only exposure (100 pairs, NOT reachable from the primary producer).

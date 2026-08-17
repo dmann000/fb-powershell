@@ -8,61 +8,11 @@ BeforeAll {
     $script:fakeArray = [PSCustomObject]@{ Endpoint = 'fb.example.test'; ApiVersion = '2.0'; AuthToken = 'x' }
 }
 
-Describe 'Get-PfbArrayConnectionKey - identity selectors and coercion guard (#90)' {
+Describe 'Get-PfbArrayConnectionKey - name selector and coercion guard (#90)' {
 
     BeforeEach {
         Mock -ModuleName PureStorageFlashBladePowerShell Assert-PfbConnection { }
         Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { }
-    }
-
-    It 'declares an -Id parameter' {
-        (Get-Command Get-PfbArrayConnectionKey).Parameters.Keys | Should -Contain 'Id'
-    }
-
-    It 'declares ValueFromPipelineByPropertyName on -Id' {
-        $attrs = (Get-Command Get-PfbArrayConnectionKey).Parameters['Id'].Attributes |
-            Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] }
-        @($attrs | Where-Object { $_.ValueFromPipelineByPropertyName }).Count | Should -BeGreaterThan 0
-    }
-
-    It 'does not declare ValueFromPipeline on -Id, so an unrelated object cannot coerce into it' {
-        $attrs = (Get-Command Get-PfbArrayConnectionKey).Parameters['Id'].Attributes |
-            Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] }
-        @($attrs | Where-Object { $_.ValueFromPipeline }).Count | Should -Be 0
-    }
-
-    It 'sends ids when -Id is passed explicitly, and no names key' {
-        Get-PfbArrayConnectionKey -Id 'conn-1' -Array $fakeArray
-
-        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
-            $Method -eq 'GET' -and $Endpoint -eq 'array-connections/connection-key' -and
-            $QueryParams['ids'] -eq 'conn-1' -and -not $QueryParams.ContainsKey('names')
-        }
-    }
-
-    It 'accumulates multiple -Id values across pipeline items into one comma-joined ids key' {
-        [PSCustomObject]@{ id = 'conn-1' }, [PSCustomObject]@{ id = 'conn-2' } |
-            Get-PfbArrayConnectionKey -Array $fakeArray
-
-        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
-            $QueryParams['ids'] -eq 'conn-1,conn-2' -and -not $QueryParams.ContainsKey('names')
-        }
-    }
-
-    It 'binds a whole piped connection object by id and sends ids, never a stringified names key' {
-        # The shape GET /array-connections returns: an id, no name.
-        [PSCustomObject]@{
-            id                 = '10314f42-020d-7080-8013-000133810cd0'
-            status             = 'connected'
-            encrypted          = $true
-            management_address = '10.0.0.10'
-            remote             = [PSCustomObject]@{ id = 'r-1'; name = 'FB-B' }
-        } | Get-PfbArrayConnectionKey -Array $fakeArray
-
-        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
-            $QueryParams['ids'] -eq '10314f42-020d-7080-8013-000133810cd0' -and
-            -not $QueryParams.ContainsKey('names')
-        }
     }
 
     It 'rejects a piped object carrying neither name nor id instead of stringifying it into -Name' {
@@ -100,13 +50,13 @@ Describe 'Get-PfbArrayConnectionKey - identity selectors and coercion guard (#90
         }
     }
 
-    It 'rejects -Name together with -Id at bind time, and makes no API call' {
-        # The spec declares ids "cannot be provided together with the `name` or `names` query
-        # parameters", so the combination is refused before it reaches the wire.
-        { Get-PfbArrayConnectionKey -Name 'remote-fb-dc2' -Id 'conn-1' -Array $fakeArray -ErrorAction Stop } |
-            Should -Throw -ExpectedMessage '*Parameter set cannot be resolved*'
+    It 'binds -Name alongside -Filter and -Limit and emits all three wire keys' {
+        Get-PfbArrayConnectionKey -Name 'remote-fb-dc2' -Filter "expires>0" -Limit 3 -Array $fakeArray
 
-        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['names'] -eq 'remote-fb-dc2' -and $QueryParams['filter'] -eq "expires>0" -and
+            $QueryParams['limit'] -eq 3 -and -not $QueryParams.ContainsKey('ids')
+        }
     }
 
     It 'still routes filter/sort/limit through the common helper with no selector key' {
@@ -125,10 +75,5 @@ Describe 'Get-PfbArrayConnectionKey - identity selectors and coercion guard (#90
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
             -not $QueryParams.ContainsKey('names') -and -not $QueryParams.ContainsKey('ids')
         }
-    }
-
-    It 'documents -Id in comment-based help' {
-        $help = Get-Help Get-PfbArrayConnectionKey -Full
-        @($help.parameters.parameter | Where-Object { $_.name -eq 'Id' }).Count | Should -Be 1
     }
 }

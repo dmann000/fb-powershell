@@ -7,13 +7,13 @@
     "GET /object-store-roles/object-store-trust-policies/download"
   ],
   "totals": {
-    "probePairs": 1251,
-    "evaluatedPairs": 1217,
-    "candidatePairs": 630,
-    "candidateRate": 0.5177,
+    "probePairs": 1247,
+    "evaluatedPairs": 1213,
+    "candidatePairs": 629,
+    "candidateRate": 0.5185,
     "findings": 264,
     "findingPairs": 101,
-    "confirmationRate": 0.419,
+    "confirmationRate": 0.4197,
     "controlLeakage": 0,
     "assistedRows": 213
   },
@@ -24,7 +24,7 @@
     },
     {
       "Outcome": "Bound",
-      "Count": 581
+      "Count": 578
     },
     {
       "Outcome": "CmdletError",
@@ -36,11 +36,11 @@
     },
     {
       "Outcome": "Guarded",
-      "Count": 114
+      "Count": 116
     },
     {
       "Outcome": "NoSelector",
-      "Count": 50
+      "Count": 47
     },
     {
       "Outcome": "Unbindable",
@@ -50,11 +50,11 @@
   "gateBreakdown": [
     {
       "Gate": "Candidate",
-      "Count": 630
+      "Count": 629
     },
     {
       "Gate": "Matched",
-      "Count": 587
+      "Count": 584
     },
     {
       "Gate": "SelectorUnresolved",
@@ -1283,165 +1283,19 @@
     {
       "Cmdlet": "Get-PfbArrayConnectionKey",
       "Verb": "Get",
-      "Parameter": "Id",
-      "Producer": "GET /array-connections",
-      "IsPrimary": false,
-      "FromExample": true,
-      "WireName": "ids",
-      "IsCandidate": false,
-      "Gate": "Matched",
-      "ValueFromPipeline": false,
-      "Outcome": "Bound",
-      "Evidence": "ids=PROBE-id (from property 'id')",
-      "BoundWireKey": "ids",
-      "BoundValue": "PROBE-id",
-      "ErrorKind": null,
-      "FilledParameter": [],
-      "ProbeProperties": [
-        "ca_certificate_group",
-        "context",
-        "encrypted",
-        "id",
-        "management_address",
-        "os",
-        "remote",
-        "replication_addresses",
-        "status",
-        "throttle",
-        "type",
-        "version"
-      ],
-      "ProbeTypes": {
-        "ca_certificate_group": "object",
-        "context": "object",
-        "encrypted": "boolean",
-        "id": "string",
-        "management_address": "string",
-        "os": "string",
-        "remote": "object",
-        "replication_addresses": "array",
-        "status": "string",
-        "throttle": "object",
-        "type": "string",
-        "version": "string"
-      }
-    },
-    {
-      "Cmdlet": "Get-PfbArrayConnectionKey",
-      "Verb": "Get",
-      "Parameter": "Id",
-      "Producer": "GET /array-connections/connection-key",
-      "IsPrimary": true,
-      "FromExample": false,
-      "WireName": "ids",
-      "IsCandidate": true,
-      "Gate": "Candidate",
-      "ValueFromPipeline": false,
-      "Outcome": "Guarded",
-      "Evidence": "-Name received a stringified object ('@{connection_key=PROBE-connection_key; created=PROBE-created; expires=PROBE-expires}') instead of a name. A piped object that matches none of this cmdlet's parameters by property name is coerced whole into -Name, which sends a garbage filter and returns the UNFILTERED collection. Array connection keys have no name of their own. Pipe an array connection object from Get-PfbArrayConnection instead -- its `id` binds -Id directly -- or pass -Id or -Name explicitly.",
-      "BoundWireKey": null,
-      "BoundValue": null,
-      "ErrorKind": "CmdletError",
-      "FilledParameter": [],
-      "ProbeProperties": [
-        "connection_key",
-        "created",
-        "expires"
-      ],
-      "ProbeTypes": {
-        "connection_key": "string",
-        "created": "integer",
-        "expires": "integer"
-      }
-    },
-    {
-      "Cmdlet": "Get-PfbArrayConnectionKey",
-      "Verb": "Get",
-      "Parameter": "Id",
-      "Producer": "GET /array-connections/path",
-      "IsPrimary": false,
-      "FromExample": false,
-      "WireName": "ids",
-      "IsCandidate": false,
-      "Gate": "Matched",
-      "ValueFromPipeline": false,
-      "Outcome": "Bound",
-      "Evidence": "ids=PROBE-id (from property 'id')",
-      "BoundWireKey": "ids",
-      "BoundValue": "PROBE-id",
-      "ErrorKind": null,
-      "FilledParameter": [],
-      "ProbeProperties": [
-        "context",
-        "destination",
-        "id",
-        "remote",
-        "source",
-        "status",
-        "status_details",
-        "type"
-      ],
-      "ProbeTypes": {
-        "context": "object",
-        "destination": "string",
-        "id": "string",
-        "remote": "object",
-        "source": "string",
-        "status": "string",
-        "status_details": "string",
-        "type": "string"
-      }
-    },
-    {
-      "Cmdlet": "Get-PfbArrayConnectionKey",
-      "Verb": "Get",
-      "Parameter": "Id",
-      "Producer": "GET /array-connections/performance/replication",
-      "IsPrimary": false,
-      "FromExample": false,
-      "WireName": "ids",
-      "IsCandidate": false,
-      "Gate": "Matched",
-      "ValueFromPipeline": false,
-      "Outcome": "Bound",
-      "Evidence": "ids=PROBE-id (from property 'id')",
-      "BoundWireKey": "ids",
-      "BoundValue": "PROBE-id",
-      "ErrorKind": null,
-      "FilledParameter": [],
-      "ProbeProperties": [
-        "aggregate",
-        "continuous",
-        "id",
-        "periodic",
-        "remote",
-        "time"
-      ],
-      "ProbeTypes": {
-        "aggregate": "object",
-        "continuous": "object",
-        "id": "string",
-        "periodic": "object",
-        "remote": "object",
-        "time": "integer"
-      }
-    },
-    {
-      "Cmdlet": "Get-PfbArrayConnectionKey",
-      "Verb": "Get",
       "Parameter": "Name",
       "Producer": "GET /array-connections",
       "IsPrimary": false,
-      "FromExample": true,
+      "FromExample": false,
       "WireName": "names",
       "IsCandidate": true,
       "Gate": "Candidate",
       "ValueFromPipeline": true,
-      "Outcome": "NoSelector",
-      "Evidence": "the request carried no 'names' key, so this parameter did not bind",
+      "Outcome": "Guarded",
+      "Evidence": "-Name received a stringified object ('@{ca_certificate_group=; context=; encrypted=PROBE-encrypted; id=PROBE-id; management_address=PROBE-management_address; os=PROBE-os; remote=; replication_addresses=System.Object[]; status=PROBE-status; throttle=; type=PROBE-type; version=PROBE-version}') instead of a name. A piped object that matches none of this cmdlet's parameters by property name is coerced whole into -Name, which sends a garbage filter and returns the UNFILTERED collection. This endpoint cannot be filtered by connection identity at all: its items carry neither an id nor a name, so neither the ids nor the names query key has anything to select on. Call Get-PfbArrayConnectionKey with no selector and match the keys you want from the returned collection.",
       "BoundWireKey": null,
       "BoundValue": null,
-      "ErrorKind": null,
+      "ErrorKind": "CmdletError",
       "FilledParameter": [],
       "ProbeProperties": [
         "ca_certificate_group",
@@ -1484,7 +1338,7 @@
       "Gate": "Candidate",
       "ValueFromPipeline": true,
       "Outcome": "Guarded",
-      "Evidence": "-Name received a stringified object ('@{connection_key=PROBE-connection_key; created=PROBE-created; expires=PROBE-expires}') instead of a name. A piped object that matches none of this cmdlet's parameters by property name is coerced whole into -Name, which sends a garbage filter and returns the UNFILTERED collection. Array connection keys have no name of their own. Pipe an array connection object from Get-PfbArrayConnection instead -- its `id` binds -Id directly -- or pass -Id or -Name explicitly.",
+      "Evidence": "-Name received a stringified object ('@{connection_key=PROBE-connection_key; created=PROBE-created; expires=PROBE-expires}') instead of a name. A piped object that matches none of this cmdlet's parameters by property name is coerced whole into -Name, which sends a garbage filter and returns the UNFILTERED collection. This endpoint cannot be filtered by connection identity at all: its items carry neither an id nor a name, so neither the ids nor the names query key has anything to select on. Call Get-PfbArrayConnectionKey with no selector and match the keys you want from the returned collection.",
       "BoundWireKey": null,
       "BoundValue": null,
       "ErrorKind": "CmdletError",
@@ -1511,11 +1365,11 @@
       "IsCandidate": true,
       "Gate": "Candidate",
       "ValueFromPipeline": true,
-      "Outcome": "NoSelector",
-      "Evidence": "the request carried no 'names' key, so this parameter did not bind",
+      "Outcome": "Guarded",
+      "Evidence": "-Name received a stringified object ('@{context=; destination=PROBE-destination; id=PROBE-id; remote=; source=PROBE-source; status=PROBE-status; status_details=PROBE-status_details; type=PROBE-type}') instead of a name. A piped object that matches none of this cmdlet's parameters by property name is coerced whole into -Name, which sends a garbage filter and returns the UNFILTERED collection. This endpoint cannot be filtered by connection identity at all: its items carry neither an id nor a name, so neither the ids nor the names query key has anything to select on. Call Get-PfbArrayConnectionKey with no selector and match the keys you want from the returned collection.",
       "BoundWireKey": null,
       "BoundValue": null,
-      "ErrorKind": null,
+      "ErrorKind": "CmdletError",
       "FilledParameter": [],
       "ProbeProperties": [
         "context",
@@ -1549,11 +1403,11 @@
       "IsCandidate": true,
       "Gate": "Candidate",
       "ValueFromPipeline": true,
-      "Outcome": "NoSelector",
-      "Evidence": "the request carried no 'names' key, so this parameter did not bind",
+      "Outcome": "Guarded",
+      "Evidence": "-Name received a stringified object ('@{aggregate=; continuous=; id=PROBE-id; periodic=; remote=; time=PROBE-time}') instead of a name. A piped object that matches none of this cmdlet's parameters by property name is coerced whole into -Name, which sends a garbage filter and returns the UNFILTERED collection. This endpoint cannot be filtered by connection identity at all: its items carry neither an id nor a name, so neither the ids nor the names query key has anything to select on. Call Get-PfbArrayConnectionKey with no selector and match the keys you want from the returned collection.",
       "BoundWireKey": null,
       "BoundValue": null,
-      "ErrorKind": null,
+      "ErrorKind": "CmdletError",
       "FilledParameter": [],
       "ProbeProperties": [
         "aggregate",
