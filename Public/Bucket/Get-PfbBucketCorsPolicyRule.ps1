@@ -45,6 +45,13 @@ function Get-PfbBucketCorsPolicyRule {
         [Parameter(ParameterSetName = 'ByName')]
         [string[]]$Name,
 
+        # Within this family, the cross-endpoint chain Get-PfbBucket | Get-PfbBucketCorsPolicyRule
+        # cannot filter correctly: a producer's bare `name` bound to -BucketName / `bucket_names` is
+        # the defect because `name` means different things by endpoint and metadata cannot identify
+        # its producer, so no correct generic binding exists. An undeclared or non-matching query key
+        # returns HTTP 200 with the unfiltered collection; the guard's loud failure is therefore best.
+        # Do NOT remove it or add an alias: that flips WrongScalar to Bound while sending the wrong
+        # name; revisit only if the consumer can establish its producer, which metadata alone cannot. Issue #90.
         [Parameter(ParameterSetName = 'ByBucketName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [string[]]$BucketName,
 

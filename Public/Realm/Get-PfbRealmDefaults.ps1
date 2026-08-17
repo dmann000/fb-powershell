@@ -33,6 +33,13 @@ function Get-PfbRealmDefaults {
     #>
     [CmdletBinding()]
     param(
+        # Within this family, the cross-endpoint chain Get-PfbRealm | Get-PfbRealmDefaults cannot
+        # filter correctly: a producer's bare `name` bound to -RealmName / `realm_names` is the
+        # defect because `name` means different things by endpoint and metadata cannot identify its
+        # producer, so no correct generic binding exists. An undeclared or non-matching query key
+        # returns HTTP 200 with the unfiltered collection, so the guard's loud failure is best. Do NOT
+        # remove it or add an alias: that flips WrongScalar to Bound while sending the wrong name;
+        # revisit only if the consumer can establish its producer, which metadata alone cannot. Issue #90.
         [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)] [string[]]$RealmName,
         [Parameter()] [string]$Filter, [Parameter()] [string]$Sort, [Parameter()] [int]$Limit,
         [Parameter()] [PSCustomObject]$Array
