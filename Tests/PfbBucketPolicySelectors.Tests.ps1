@@ -365,6 +365,101 @@ Describe 'Bucket policy and filter selectors (#90)' {
         }
     }
 
+    # Coordinator ruling (round 3): POST
+    # /buckets/cross-origin-resource-sharing-policies/rules declares
+    # `bucket_ids bucket_names names* policy_names` in every version it exists in
+    # (2.12-2.28; `context_names` joins at 2.17), where * is required:true. The
+    # cmdlet previously sent NO query parameters at all, so it could not satisfy
+    # the required `names` and was inoperable -- not merely mis-keyed. The request
+    # body declares only allowed_headers/allowed_methods/allowed_origins and
+    # carries no identity, so there is no overlap with the query keys.
+    Context 'Task 1b/3 -- New-PfbBucketCorsPolicyRule POST shape' {
+        It 'sends the spec-required names alongside bucket_names and policy_names' {
+            $expectedName   = 'pslivetest-cors-rule-a'
+            $expectedBucket = 'pslivetest-bucket-a'
+            $expectedPolicy = 'pslivetest-cors-policy-a'
+
+            New-PfbBucketCorsPolicyRule -BucketName $expectedBucket -PolicyName $expectedPolicy `
+                -Name $expectedName -Attributes @{ allowed_origins = @('*'); allowed_methods = @('GET') } `
+                -Array $script:fakeArray -Confirm:$false
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Method -eq 'POST' -and
+                $Endpoint -eq 'buckets/cross-origin-resource-sharing-policies/rules' -and
+                $QueryParams.Count -eq 3 -and
+                $QueryParams['names'] -eq $expectedName -and
+                $QueryParams['bucket_names'] -eq $expectedBucket -and
+                $QueryParams['policy_names'] -eq $expectedPolicy -and
+                -not $QueryParams.ContainsKey('member_names')
+            }
+        }
+
+        It 'makes -Name mandatory, because POST .../rules declares names as required' {
+            $nameParam = (Get-Command New-PfbBucketCorsPolicyRule).Parameters['Name']
+            $nameParam | Should -Not -BeNullOrEmpty
+            $nameParam.ParameterType.FullName | Should -Be 'System.String[]'
+            $mandatory = @($nameParam.Attributes |
+                Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] } |
+                ForEach-Object { $_.Mandatory })
+            $mandatory | Should -Contain $true
+        }
+
+        It 'keeps -Name reachable in every parameter set, so the required key can never be unsendable' {
+            $command = Get-Command New-PfbBucketCorsPolicyRule
+            @($command.ParameterSets).Count | Should -BeGreaterThan 0
+            foreach ($set in $command.ParameterSets) {
+                @($set.Parameters.Name) | Should -Contain 'Name'
+            }
+        }
+
+        It 'emits the required names on every reachable parameter set' {
+            $command = Get-Command New-PfbBucketCorsPolicyRule
+            foreach ($set in $command.ParameterSets) {
+                $splat = @{
+                    Array   = $script:fakeArray
+                    Confirm = $false
+                }
+                foreach ($p in $set.Parameters) {
+                    if (-not $p.IsMandatory) { continue }
+                    switch ($p.Name) {
+                        'Attributes' { $splat['Attributes'] = @{ allowed_origins = @('*') } }
+                        default      { $splat[$p.Name] = "pslivetest-$($p.Name.ToLowerInvariant())" }
+                    }
+                }
+                New-PfbBucketCorsPolicyRule @splat
+            }
+
+            $expectedSetCount = @($command.ParameterSets).Count
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest `
+                -Times $expectedSetCount -Exactly -ParameterFilter {
+                    $QueryParams.ContainsKey('names') -and
+                    -not [string]::IsNullOrEmpty($QueryParams['names'])
+                }
+        }
+
+        It 'passes -Attributes through as the POST body without leaking a query key into it' {
+            New-PfbBucketCorsPolicyRule -BucketName 'pslivetest-bucket-a' -PolicyName 'pslivetest-cors-policy-a' `
+                -Name 'pslivetest-cors-rule-a' -Attributes @{ allowed_origins = @('*'); allowed_methods = @('GET') } `
+                -Array $script:fakeArray -Confirm:$false
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body['allowed_origins'] -contains '*' -and
+                $Body['allowed_methods'] -contains 'GET' -and
+                -not $Body.ContainsKey('bucket_names') -and
+                -not $Body.ContainsKey('policy_names') -and
+                -not $Body.ContainsKey('names')
+            }
+        }
+
+        It 'exposes no BucketId parameter, matching its access-policy-rule sibling' {
+            # bucket_ids IS declared on this operation but no -BucketId parameter exists
+            # here or on New-PfbBucketAccessPolicyRule; adding one is out of scope for
+            # this ruling. This case pins the current surface so the omission stays a
+            # deliberate, visible decision rather than drift.
+            (Get-Command New-PfbBucketCorsPolicyRule).Parameters.Keys | Should -Not -Contain 'BucketId'
+        }
+    }
+
     Context 'Task 1b -- Remove-PfbBucketAccessPolicy DELETE shape' {
         It 'maps -Name to names only' {
             $expectedName = 'pslivetest-bucket-a/pslivetest-account:pslivetest-policy-a'
