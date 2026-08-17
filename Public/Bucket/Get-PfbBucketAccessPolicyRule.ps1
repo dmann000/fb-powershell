@@ -8,12 +8,12 @@ function Get-PfbBucketAccessPolicyRule {
         principals, and resources. Filter by fully-qualified name, bucket
         name, or policy name.
 
-        NOTE: The FlashBlade API requires at least one of -Name, -Id,
-        -BucketName, or -PolicyName to be specified.
+        NOTE: The FlashBlade API requires at least one of -Name, -BucketName, or
+        -PolicyName to be specified. GET /buckets/bucket-access-policies/rules
+        declares no 'ids' selector, so there is no -Id parameter: the endpoint
+        silently ignored the key and returned the unfiltered collection.
     .PARAMETER Name
         One or more fully-qualified bucket access policy rule names.
-    .PARAMETER Id
-        One or more bucket access policy rule IDs.
     .PARAMETER BucketName
         One or more bucket names to retrieve access policy rules for.
     .PARAMETER PolicyName
@@ -44,9 +44,6 @@ function Get-PfbBucketAccessPolicyRule {
         [Parameter(ParameterSetName = 'ByName')]
         [string[]]$Name,
 
-        [Parameter(ParameterSetName = 'ById')]
-        [string[]]$Id,
-
         [Parameter(ParameterSetName = 'ByBucketName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [string[]]$BucketName,
 
@@ -62,19 +59,17 @@ function Get-PfbBucketAccessPolicyRule {
     begin {
         Assert-PfbConnection -Array ([ref]$Array)
         $allNames = [System.Collections.Generic.List[string]]::new()
-        $allIds = [System.Collections.Generic.List[string]]::new()
         $allBucketNames = [System.Collections.Generic.List[string]]::new()
     }
 
     process {
         if ($Name)       { foreach ($n in $Name)       { $allNames.Add($n) } }
-        if ($Id)         { foreach ($i in $Id)         { $allIds.Add($i) } }
         if ($BucketName) { foreach ($b in $BucketName) { $allBucketNames.Add($b) } }
     }
 
     end {
         $queryParams = @{}
-        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames
         if ($allBucketNames.Count -gt 0) { $queryParams['bucket_names'] = $allBucketNames -join ',' }
         if ($PolicyName)                 { $queryParams['policy_names'] = $PolicyName -join ',' }
 
@@ -83,7 +78,7 @@ function Get-PfbBucketAccessPolicyRule {
         }
         catch {
             if ($_ -match 'Either names or ids' -or $_ -match 'Policy must be specified') {
-                Write-Warning "Bucket access policy rules require the -Name parameter with a fully-qualified name, or the -Id parameter."
+                Write-Warning "Bucket access policy rules require the -Name parameter with a fully-qualified name, or -BucketName/-PolicyName."
                 return
             }
             throw

@@ -3,47 +3,55 @@ function New-PfbBucketAccessPolicy {
     .SYNOPSIS
         Creates a new bucket access policy on the FlashBlade.
     .DESCRIPTION
-        Associates an access policy with a bucket on the FlashBlade array.
-        Bucket access policies provide S3-compatible bucket-level access
-        controls. Both the bucket member name and the policy name are required.
-    .PARAMETER MemberName
-        The name of the bucket to associate the access policy with.
-    .PARAMETER PolicyName
-        The name of the access policy to attach to the bucket.
+        Creates the bucket access policy for one or more buckets on the
+        FlashBlade array. Bucket access policies provide S3-compatible
+        bucket-level access controls.
+
+        NOTE: POST /buckets/bucket-access-policies declares only 'bucket_names',
+        'bucket_ids' (and 'context_names' from REST 2.17) as query parameters --
+        there is no 'names' and no 'policy_names' on this operation, because a
+        bucket's access policy is identified by the bucket that owns it. The
+        previous -MemberName / -PolicyName parameters wrote 'member_names' and
+        'policy_names', neither of which this endpoint declares, so the array
+        silently discarded both. Use Get-PfbBucketAccessPolicy to read the
+        resulting policy, and New-PfbBucketAccessPolicyRule to add rules to it.
+    .PARAMETER BucketName
+        One or more bucket names to create the access policy for. Sent as the
+        'bucket_names' query parameter.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
-        New-PfbBucketAccessPolicy -MemberName "mybucket" -PolicyName "read-only-policy"
+        New-PfbBucketAccessPolicy -BucketName "mybucket"
 
-        Associates the 'read-only-policy' access policy with 'mybucket'.
+        Creates the bucket access policy for 'mybucket'.
     .EXAMPLE
-        New-PfbBucketAccessPolicy -MemberName "data-lake" -PolicyName "full-access"
+        New-PfbBucketAccessPolicy -BucketName "data-lake","web-assets"
 
-        Associates the 'full-access' policy with the 'data-lake' bucket.
+        Creates the bucket access policy for both buckets in one request.
     .EXAMPLE
-        New-PfbBucketAccessPolicy -MemberName "mybucket" -PolicyName "read-only-policy" -Confirm:$false
+        New-PfbBucketAccessPolicy -BucketName "mybucket" -Confirm:$false
 
-        Creates the association without confirmation.
+        Creates the policy without confirmation.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
-        [Parameter(Mandatory, Position = 0)]
-        [string]$MemberName,
-
-        [Parameter(Mandatory, Position = 1)]
-        [string]$PolicyName,
+        [Parameter(Mandatory, Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [string[]]$BucketName,
 
         [Parameter()] [PSCustomObject]$Array
     )
 
-    Assert-PfbConnection -Array ([ref]$Array)
-
-    $queryParams = @{
-        'member_names' = $MemberName
-        'policy_names' = $PolicyName
+    begin {
+        Assert-PfbConnection -Array ([ref]$Array)
     }
 
-    if ($PSCmdlet.ShouldProcess("$MemberName / $PolicyName", 'Create bucket access policy association')) {
-        Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'buckets/bucket-access-policies' -QueryParams $queryParams
+    process {
+        $queryParams = @{
+            'bucket_names' = $BucketName -join ','
+        }
+
+        if ($PSCmdlet.ShouldProcess(($BucketName -join ','), 'Create bucket access policy')) {
+            Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'buckets/bucket-access-policies' -QueryParams $queryParams
+        }
     }
 }

@@ -51,14 +51,58 @@ $script:noPolicySelectorCases = @(
     @{ Cmdlet = 'Get-PfbBucketCorsPolicy';   Forbidden = 'PolicyName' }
     @{ Cmdlet = 'Get-PfbBucketCorsPolicy';   Forbidden = 'PolicyId' }
     @{ Cmdlet = 'Remove-PfbBucketCorsPolicy'; Forbidden = 'PolicyName' }
+    # Task 1b: same rule on the access-policy parent operations.
+    @{ Cmdlet = 'Remove-PfbBucketAccessPolicy'; Forbidden = 'PolicyName' }
+    @{ Cmdlet = 'Remove-PfbBucketAccessPolicy'; Forbidden = 'PolicyId' }
+    @{ Cmdlet = 'New-PfbBucketAccessPolicy';    Forbidden = 'PolicyName' }
+    @{ Cmdlet = 'New-PfbBucketCorsPolicy';      Forbidden = 'PolicyName' }
 )
 
 # Pipeline binding: a bare piped string must mean "bucket" on the destructive
 # cmdlets exactly as it does on their Get-* siblings.
 $script:pipelineCases = @(
-    @{ Cmdlet = 'Get-PfbBucketAuditFilter';    Endpoint = 'buckets/audit-filters'; Method = 'GET' }
-    @{ Cmdlet = 'Remove-PfbBucketAuditFilter'; Endpoint = 'buckets/audit-filters'; Method = 'DELETE' }
-    @{ Cmdlet = 'Remove-PfbBucketCorsPolicy';  Endpoint = 'buckets/cross-origin-resource-sharing-policies'; Method = 'DELETE' }
+    @{ Cmdlet = 'Get-PfbBucketAuditFilter';      Endpoint = 'buckets/audit-filters'; Method = 'GET' }
+    @{ Cmdlet = 'Remove-PfbBucketAuditFilter';   Endpoint = 'buckets/audit-filters'; Method = 'DELETE' }
+    @{ Cmdlet = 'Remove-PfbBucketCorsPolicy';    Endpoint = 'buckets/cross-origin-resource-sharing-policies'; Method = 'DELETE' }
+    @{ Cmdlet = 'Remove-PfbBucketAccessPolicy';  Endpoint = 'buckets/bucket-access-policies'; Method = 'DELETE' }
+)
+
+# ---------------------------------------------------------------------------
+# Task 1b -- the remaining bucket selector surface.
+# ---------------------------------------------------------------------------
+
+# The five siblings that still carried -MemberName / `member_names`. Verified
+# per endpoint against tools/specs/fb2.0-2.28: `member_names` and `member_ids`
+# are declared on NONE of these operations in ANY version, while `bucket_names`
+# and `bucket_ids` have been declared since each endpoint first appeared.
+$script:task1bMemberCases = @(
+    @{ Cmdlet = 'New-PfbBucketAccessPolicy' }
+    @{ Cmdlet = 'New-PfbBucketAccessPolicyRule' }
+    @{ Cmdlet = 'New-PfbBucketCorsPolicy' }
+    @{ Cmdlet = 'Remove-PfbBucketAccessPolicy' }
+    @{ Cmdlet = 'Update-PfbBucketAuditFilter' }
+)
+
+# The four bucket Get-* cmdlets that published a generic -Id emitting `ids`.
+# Verified INDIVIDUALLY: none of these four GET operations declares `ids` in
+# any version 2.12-2.28 (2.12 is where all four paths first appear), so -Id
+# silently returned the unfiltered collection. `names` IS declared on all
+# four, so -Name survives.
+$script:deadIdCases = @(
+    @{ Cmdlet = 'Get-PfbBucketAccessPolicy';     Endpoint = 'buckets/bucket-access-policies';                       Method = 'GET' }
+    @{ Cmdlet = 'Get-PfbBucketCorsPolicy';       Endpoint = 'buckets/cross-origin-resource-sharing-policies';       Method = 'GET' }
+    @{ Cmdlet = 'Get-PfbBucketAccessPolicyRule'; Endpoint = 'buckets/bucket-access-policies/rules';                 Method = 'GET' }
+    @{ Cmdlet = 'Get-PfbBucketCorsPolicyRule';   Endpoint = 'buckets/cross-origin-resource-sharing-policies/rules'; Method = 'GET' }
+)
+
+# POST /buckets/bucket-access-policies and
+# POST /buckets/cross-origin-resource-sharing-policies declare ONLY
+# bucket_names / bucket_ids (plus context_names from 2.17). Neither `names`
+# nor `policy_names` exists on either, so these two cmdlets carry no
+# policy-level and no name-level selector at all.
+$script:bucketOnlyPostCases = @(
+    @{ Cmdlet = 'New-PfbBucketAccessPolicy'; Endpoint = 'buckets/bucket-access-policies' }
+    @{ Cmdlet = 'New-PfbBucketCorsPolicy';   Endpoint = 'buckets/cross-origin-resource-sharing-policies' }
 )
 
 BeforeAll {
@@ -209,6 +253,250 @@ Describe 'Bucket policy and filter selectors (#90)' {
                 $Body['s3_prefixes'] -contains 'logs/' -and
                 -not $Body.ContainsKey('bucket_names') -and
                 -not $Body.ContainsKey('names')
+            }
+        }
+    }
+
+    # =======================================================================
+    # Task 1b
+    # =======================================================================
+
+    Context 'Task 1b -- remaining member selector surface' {
+        It '<Cmdlet> publishes neither MemberName nor MemberId, and does publish BucketName' -ForEach $script:task1bMemberCases {
+            $keys = (Get-Command $Cmdlet).Parameters.Keys
+            $keys | Should -Not -Contain 'MemberName'
+            $keys | Should -Not -Contain 'MemberId'
+            $keys | Should -Contain 'BucketName'
+        }
+
+        # NOTE: deliberately no behavioural "rejects -MemberName at bind time" case here.
+        # Every one of these five cmdlets carries at least one other Mandatory parameter,
+        # so an invocation supplying only -MemberName can drop into the interactive
+        # "Supply values for parameters" prompt and hang a non-interactive run. Parameter
+        # absence from the metadata is the same guarantee -- PowerShell cannot bind a name
+        # it does not publish -- without the hang risk. Do not "fix" this by adding one.
+        It '<Cmdlet> exposes MemberName/MemberId in no parameter set' -ForEach $script:task1bMemberCases {
+            foreach ($set in (Get-Command $Cmdlet).ParameterSets) {
+                @($set.Parameters.Name) | Should -Not -Contain 'MemberName'
+                @($set.Parameters.Name) | Should -Not -Contain 'MemberId'
+            }
+        }
+    }
+
+    Context 'Task 1b -- New-PfbBucketAccessPolicy / New-PfbBucketCorsPolicy POST shape' {
+        It '<Cmdlet> emits exactly bucket_names, with no member_names and no policy_names' -ForEach $script:bucketOnlyPostCases {
+            $expectedEndpoint = $Endpoint
+            $expectedBucket   = 'pslivetest-bucket-a'
+
+            & $Cmdlet -BucketName $expectedBucket -Array $script:fakeArray -Confirm:$false
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Method -eq 'POST' -and
+                $Endpoint -eq $expectedEndpoint -and
+                $QueryParams.Count -eq 1 -and
+                $QueryParams['bucket_names'] -eq $expectedBucket -and
+                -not $QueryParams.ContainsKey('member_names') -and
+                -not $QueryParams.ContainsKey('policy_names') -and
+                -not $QueryParams.ContainsKey('names')
+            }
+        }
+
+        It '<Cmdlet> publishes BucketName as a mandatory [string[]] and no Name' -ForEach $script:bucketOnlyPostCases {
+            $parameters = (Get-Command $Cmdlet).Parameters
+            $parameters.Keys | Should -Not -Contain 'Name'
+            $parameters['BucketName'].ParameterType.FullName | Should -Be 'System.String[]'
+            $mandatory = @($parameters['BucketName'].Attributes |
+                Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] } |
+                ForEach-Object { $_.Mandatory })
+            $mandatory | Should -Contain $true
+        }
+    }
+
+    Context 'Task 1b -- New-PfbBucketAccessPolicyRule POST shape' {
+        It 'sends the spec-required names alongside bucket_names and policy_names' {
+            $expectedName   = 'pslivetest-rule-a'
+            $expectedBucket = 'pslivetest-bucket-a'
+            $expectedPolicy = 'pslivetest-policy-a'
+
+            New-PfbBucketAccessPolicyRule -BucketName $expectedBucket -PolicyName $expectedPolicy `
+                -Name $expectedName -Attributes @{ effect = 'allow'; actions = @('s3:GetObject') } `
+                -Array $script:fakeArray -Confirm:$false
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Method -eq 'POST' -and
+                $Endpoint -eq 'buckets/bucket-access-policies/rules' -and
+                $QueryParams.Count -eq 3 -and
+                $QueryParams['names'] -eq $expectedName -and
+                $QueryParams['bucket_names'] -eq $expectedBucket -and
+                $QueryParams['policy_names'] -eq $expectedPolicy -and
+                -not $QueryParams.ContainsKey('member_names')
+            }
+        }
+
+        It 'makes -Name mandatory, because POST .../rules declares names as required' {
+            $nameParam = (Get-Command New-PfbBucketAccessPolicyRule).Parameters['Name']
+            $nameParam | Should -Not -BeNullOrEmpty
+            $nameParam.ParameterType.FullName | Should -Be 'System.String[]'
+            $mandatory = @($nameParam.Attributes |
+                Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] } |
+                ForEach-Object { $_.Mandatory })
+            $mandatory | Should -Contain $true
+        }
+
+        It 'keeps -Name reachable in every parameter set' {
+            $command = Get-Command New-PfbBucketAccessPolicyRule
+            foreach ($set in $command.ParameterSets) {
+                @($set.Parameters.Name) | Should -Contain 'Name'
+            }
+        }
+
+        It 'still passes -Attributes through as the POST body without leaking a query key into it' {
+            New-PfbBucketAccessPolicyRule -BucketName 'pslivetest-bucket-a' -PolicyName 'pslivetest-policy-a' `
+                -Name 'pslivetest-rule-a' -Attributes @{ effect = 'allow'; actions = @('s3:GetObject') } `
+                -Array $script:fakeArray -Confirm:$false
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Body['effect'] -eq 'allow' -and
+                $Body['actions'] -contains 's3:GetObject' -and
+                -not $Body.ContainsKey('bucket_names') -and
+                -not $Body.ContainsKey('policy_names') -and
+                -not $Body.ContainsKey('names')
+            }
+        }
+    }
+
+    Context 'Task 1b -- Remove-PfbBucketAccessPolicy DELETE shape' {
+        It 'maps -Name to names only' {
+            $expectedName = 'pslivetest-bucket-a/pslivetest-account:pslivetest-policy-a'
+
+            Remove-PfbBucketAccessPolicy -Name $expectedName -Array $script:fakeArray -Confirm:$false
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Method -eq 'DELETE' -and
+                $Endpoint -eq 'buckets/bucket-access-policies' -and
+                $QueryParams.Count -eq 1 -and
+                $QueryParams['names'] -eq $expectedName -and
+                -not $QueryParams.ContainsKey('member_names') -and
+                -not $QueryParams.ContainsKey('policy_names')
+            }
+        }
+
+        It 'maps -BucketId to bucket_ids only' {
+            $expectedBucketId = 'pslivetest-bucket-id-a'
+
+            Remove-PfbBucketAccessPolicy -BucketId $expectedBucketId -Array $script:fakeArray -Confirm:$false
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Method -eq 'DELETE' -and
+                $Endpoint -eq 'buckets/bucket-access-policies' -and
+                $QueryParams.Count -eq 1 -and
+                $QueryParams['bucket_ids'] -eq $expectedBucketId -and
+                -not $QueryParams.ContainsKey('member_ids')
+            }
+        }
+
+        It 'maps -BucketName to bucket_names only' {
+            $expectedBucket = 'pslivetest-bucket-a'
+
+            Remove-PfbBucketAccessPolicy -BucketName $expectedBucket -Array $script:fakeArray -Confirm:$false
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Method -eq 'DELETE' -and
+                $Endpoint -eq 'buckets/bucket-access-policies' -and
+                $QueryParams.Count -eq 1 -and
+                $QueryParams['bucket_names'] -eq $expectedBucket -and
+                -not $QueryParams.ContainsKey('member_names') -and
+                -not $QueryParams.ContainsKey('policy_names')
+            }
+        }
+    }
+
+    Context 'Task 1b -- Update-PfbBucketAuditFilter renamed selectors' {
+        It 'maps -BucketName to bucket_names and defaults the required names from it' {
+            $expectedBucket = 'pslivetest-bucket-a'
+
+            Update-PfbBucketAuditFilter -BucketName $expectedBucket -Array $script:fakeArray -Confirm:$false
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Method -eq 'PATCH' -and
+                $Endpoint -eq 'buckets/audit-filters' -and
+                $QueryParams.Count -eq 2 -and
+                $QueryParams['bucket_names'] -eq $expectedBucket -and
+                $QueryParams['names'] -eq $expectedBucket -and
+                -not $QueryParams.ContainsKey('member_names')
+            }
+        }
+
+        It 'maps -BucketId to bucket_ids and takes the required names from -Name' {
+            $expectedBucketId = 'pslivetest-bucket-id-a'
+            $expectedName     = 'pslivetest-filter-a'
+
+            Update-PfbBucketAuditFilter -BucketId $expectedBucketId -Name $expectedName `
+                -Array $script:fakeArray -Confirm:$false
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Method -eq 'PATCH' -and
+                $Endpoint -eq 'buckets/audit-filters' -and
+                $QueryParams.Count -eq 2 -and
+                $QueryParams['bucket_ids'] -eq $expectedBucketId -and
+                $QueryParams['names'] -eq $expectedName -and
+                -not $QueryParams.ContainsKey('member_ids') -and
+                -not $QueryParams.ContainsKey('bucket_names')
+            }
+        }
+
+        It 'still throws when -BucketId is used alone, since names cannot be inferred from an ID' {
+            { Update-PfbBucketAuditFilter -BucketId 'pslivetest-bucket-id-a' -Array $script:fakeArray -Confirm:$false -ErrorAction Stop } |
+                Should -Throw -ExpectedMessage '*-Name is required*'
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+        }
+
+        It 'no longer publishes FilterNames' {
+            (Get-Command Update-PfbBucketAuditFilter).Parameters.Keys | Should -Not -Contain 'FilterNames'
+        }
+    }
+
+    Context 'Task 1b -- dead generic Id on the four bucket Get-* cmdlets' {
+        It '<Cmdlet> no longer declares an Id parameter' -ForEach $script:deadIdCases {
+            (Get-Command $Cmdlet).Parameters.Keys | Should -Not -Contain 'Id'
+        }
+
+        It '<Cmdlet> rejects -Id at bind time' -ForEach $script:deadIdCases {
+            { & $Cmdlet -Id 'pslivetest-id-a' -Array $script:fakeArray -ErrorAction Stop } | Should -Throw
+        }
+
+        It '<Cmdlet> leaves no ById parameter set behind' -ForEach $script:deadIdCases {
+            (Get-Command $Cmdlet).ParameterSets.Name | Should -Not -Contain 'ById'
+        }
+
+        It '<Cmdlet> emits exactly names for -Name and never ids' -ForEach $script:deadIdCases {
+            $expectedEndpoint = $Endpoint
+            $expectedMethod   = $Method
+            $expectedNames    = 'pslivetest-selector-a'
+
+            & $Cmdlet -Name $expectedNames -Array $script:fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Method -eq $expectedMethod -and
+                $Endpoint -eq $expectedEndpoint -and
+                $QueryParams.Count -eq 1 -and
+                $QueryParams['names'] -eq $expectedNames -and
+                -not $QueryParams.ContainsKey('ids')
+            }
+        }
+
+        It '<Cmdlet> emits no query keys at all for a bare read' -ForEach $script:deadIdCases {
+            $expectedEndpoint = $Endpoint
+            $expectedMethod   = $Method
+
+            & $Cmdlet -Array $script:fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Method -eq $expectedMethod -and
+                $Endpoint -eq $expectedEndpoint -and
+                $QueryParams.Count -eq 0 -and
+                -not $QueryParams.ContainsKey('ids')
             }
         }
     }

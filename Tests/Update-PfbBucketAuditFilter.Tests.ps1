@@ -17,7 +17,7 @@ Describe 'Update-PfbBucketAuditFilter - typed body parameters (#31)' {
 
     Context 'typed parameters build the body' {
         It 'sends actions and s3_prefixes as body fields' {
-            Update-PfbBucketAuditFilter -MemberName 'mybucket' -Actions 's3:GetObject', 's3:PutObject' `
+            Update-PfbBucketAuditFilter -BucketName 'mybucket' -Actions 's3:GetObject', 's3:PutObject' `
                 -S3Prefixes 'prefix1', 'prefix2' -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
@@ -28,7 +28,7 @@ Describe 'Update-PfbBucketAuditFilter - typed body parameters (#31)' {
         }
 
         It 'sends an EMPTY array for -Actions @() so a list can be cleared (constraint 2, array field)' {
-            Update-PfbBucketAuditFilter -MemberName 'mybucket' -Actions @() -Confirm:$false -Array $fakeArray
+            Update-PfbBucketAuditFilter -BucketName 'mybucket' -Actions @() -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $Body.ContainsKey('actions') -and @($Body['actions']).Count -eq 0
@@ -36,7 +36,7 @@ Describe 'Update-PfbBucketAuditFilter - typed body parameters (#31)' {
         }
 
         It 'sends an EMPTY array for -S3Prefixes @() so a list can be cleared (constraint 2, array field)' {
-            Update-PfbBucketAuditFilter -MemberName 'mybucket' -S3Prefixes @() -Confirm:$false -Array $fakeArray
+            Update-PfbBucketAuditFilter -BucketName 'mybucket' -S3Prefixes @() -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $Body.ContainsKey('s3_prefixes') -and @($Body['s3_prefixes']).Count -eq 0
@@ -44,7 +44,7 @@ Describe 'Update-PfbBucketAuditFilter - typed body parameters (#31)' {
         }
 
         It 'omits every body key when no typed body parameter is supplied' {
-            Update-PfbBucketAuditFilter -MemberName 'mybucket' -Confirm:$false -Array $fakeArray
+            Update-PfbBucketAuditFilter -BucketName 'mybucket' -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $Body.Count -eq 0
@@ -53,16 +53,16 @@ Describe 'Update-PfbBucketAuditFilter - typed body parameters (#31)' {
     }
 
     Context 'query parameters (wire-correctness fix: bucket_names/bucket_ids, not member_names/member_ids)' {
-        It 'sends -MemberName as bucket_names, NOT member_names' {
-            Update-PfbBucketAuditFilter -MemberName 'mybucket' -Confirm:$false -Array $fakeArray
+        It 'sends -BucketName as bucket_names, NOT member_names' {
+            Update-PfbBucketAuditFilter -BucketName 'mybucket' -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $QueryParams['bucket_names'] -eq 'mybucket' -and -not $QueryParams.ContainsKey('member_names')
             }
         }
 
-        It 'sends -MemberId as bucket_ids, NOT member_ids' {
-            Update-PfbBucketAuditFilter -MemberId 'bucket-1' -FilterNames 'mybucket' -Confirm:$false -Array $fakeArray
+        It 'sends -BucketId as bucket_ids, NOT member_ids' {
+            Update-PfbBucketAuditFilter -BucketId 'bucket-1' -Name 'mybucket' -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $QueryParams['bucket_ids'] -eq 'bucket-1' -and -not $QueryParams.ContainsKey('member_ids') -and
@@ -70,23 +70,23 @@ Describe 'Update-PfbBucketAuditFilter - typed body parameters (#31)' {
             }
         }
 
-        It 'throws when -MemberId is used alone: the required "names" query parameter cannot be inferred from an ID (review finding)' {
-            { Update-PfbBucketAuditFilter -MemberId 'bucket-1' -Confirm:$false -Array $fakeArray -ErrorAction Stop } |
-                Should -Throw -ExpectedMessage '*-FilterNames is required*'
+        It 'throws when -BucketId is used alone: the required "names" query parameter cannot be inferred from an ID (review finding)' {
+            { Update-PfbBucketAuditFilter -BucketId 'bucket-1' -Confirm:$false -Array $fakeArray -ErrorAction Stop } |
+                Should -Throw -ExpectedMessage '*-Name is required*'
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
         }
 
-        It 'defaults the required "names" query parameter from -MemberName when -FilterNames is not supplied' {
-            Update-PfbBucketAuditFilter -MemberName 'mybucket' -Confirm:$false -Array $fakeArray
+        It 'defaults the required "names" query parameter from -BucketName when -Name is not supplied' {
+            Update-PfbBucketAuditFilter -BucketName 'mybucket' -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
                 $QueryParams['names'] -eq 'mybucket'
             }
         }
 
-        It 'sends -FilterNames as names when explicitly supplied, overriding the -MemberName default' {
-            Update-PfbBucketAuditFilter -MemberId 'bucket-1' -FilterNames 'custom-filter-name' `
+        It 'sends -Name as names when explicitly supplied, overriding the -BucketName default' {
+            Update-PfbBucketAuditFilter -BucketId 'bucket-1' -Name 'custom-filter-name' `
                 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
@@ -97,7 +97,7 @@ Describe 'Update-PfbBucketAuditFilter - typed body parameters (#31)' {
 
     Context '-Attributes remains supported and is mutually exclusive' {
         It 'still sends a raw -Attributes body' {
-            Update-PfbBucketAuditFilter -MemberName 'mybucket' -Attributes @{ actions = @('s3:GetObject') } `
+            Update-PfbBucketAuditFilter -BucketName 'mybucket' -Attributes @{ actions = @('s3:GetObject') } `
                 -Confirm:$false -Array $fakeArray
 
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
@@ -106,13 +106,13 @@ Describe 'Update-PfbBucketAuditFilter - typed body parameters (#31)' {
         }
 
         It 'rejects -Attributes combined with a typed parameter at bind time' {
-            { Update-PfbBucketAuditFilter -MemberName 'mybucket' -Actions @('s3:GetObject') `
+            { Update-PfbBucketAuditFilter -BucketName 'mybucket' -Actions @('s3:GetObject') `
                 -Attributes @{ actions = @('s3:PutObject') } -Confirm:$false -Array $fakeArray -ErrorAction Stop } |
                 Should -Throw -ExpectedMessage '*Parameter set cannot be resolved*'
         }
 
         It 'rejects an unresolved selector plus typed parameter plus -Attributes' {
-            { Update-PfbBucketAuditFilter -MemberId 'bucket-1' -S3Prefixes @('p1') `
+            { Update-PfbBucketAuditFilter -BucketId 'bucket-1' -S3Prefixes @('p1') `
                 -Attributes @{ s3_prefixes = @('p2') } -Confirm:$false -Array $fakeArray -ErrorAction Stop } |
                 Should -Throw -ExpectedMessage '*Parameter set cannot be resolved*'
         }
