@@ -36,6 +36,7 @@ function Get-PfbNetworkAccessRule {
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param(
         [Parameter(ParameterSetName = 'ByPolicyName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Alias('policy_name')]
         [string[]]$PolicyName,
 
         [Parameter(ParameterSetName = 'ByPolicyId')]
@@ -67,6 +68,18 @@ function Get-PfbNetworkAccessRule {
         if ($allPolicyNames.Count -gt 0) { $queryParams['policy_names'] = $allPolicyNames -join ',' }
         if ($allPolicyIds.Count -gt 0)   { $queryParams['policy_ids']   = $allPolicyIds -join ',' }
 
-        Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'network-access-policies/rules' -QueryParams $queryParams -AutoPaginate
+        $response = Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'network-access-policies/rules' -QueryParams $queryParams -AutoPaginate
+
+        # Lift the nested parent policy name to a top-level property so that piping a rule into a
+        # cmdlet that binds -PolicyName by property name sends a scalar selector instead of a
+        # stringified reference. Mutate in place: rebuilding the object would drop 'context' and
+        # any wire field a future REST version adds.
+        foreach ($item in @($response)) {
+            if ($null -ne $item -and $null -ne $item.policy -and $null -ne $item.policy.name -and
+                $item.PSObject.Properties.Name -notcontains 'PolicyName') {
+                $item | Add-Member -MemberType NoteProperty -Name 'PolicyName' -Value $item.policy.name
+            }
+        }
+        $response
     }
 }

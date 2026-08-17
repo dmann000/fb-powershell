@@ -31,6 +31,7 @@ function Get-PfbObjectStoreTrustPolicy {
     [CmdletBinding(DefaultParameterSetName = 'ByRoleName')]
     param(
         [Parameter(Mandatory, ParameterSetName = 'ByRoleName', Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Alias('role_name')]
         [string[]]$RoleName,
 
         [Parameter(Mandatory, ParameterSetName = 'ByRoleId')]
@@ -59,6 +60,18 @@ function Get-PfbObjectStoreTrustPolicy {
         if ($allRoleNames.Count -gt 0) { $queryParams['role_names'] = $allRoleNames -join ',' }
         if ($allRoleIds.Count -gt 0)   { $queryParams['role_ids']   = $allRoleIds -join ',' }
 
-        Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'object-store-roles/object-store-trust-policies' -QueryParams $queryParams -AutoPaginate
+        $response = Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'object-store-roles/object-store-trust-policies' -QueryParams $queryParams -AutoPaginate
+
+        # Lift the nested parent role name to a top-level property so that piping a trust policy
+        # into a cmdlet that binds -RoleName by property name sends a scalar selector instead of a
+        # stringified reference. Mutate in place: rebuilding the object would drop 'context' and
+        # any wire field a future REST version adds.
+        foreach ($item in @($response)) {
+            if ($null -ne $item -and $null -ne $item.role -and $null -ne $item.role.name -and
+                $item.PSObject.Properties.Name -notcontains 'RoleName') {
+                $item | Add-Member -MemberType NoteProperty -Name 'RoleName' -Value $item.role.name
+            }
+        }
+        $response
     }
 }
