@@ -50,7 +50,7 @@ function Get-PfbRealmDefaults {
     }
 
     process {
-        Assert-PfbSelectorNotCoerced -Value $RealmName -ParameterName 'RealmName' -Hint (
+        Assert-PfbSelectorNotCoerced -Value $RealmName -OriginalInput $PSItem -ParameterName 'RealmName' -Hint (
             'Pipe the realm name instead, e.g. Get-PfbRealm | Select-Object -ExpandProperty name | ' +
             'Get-PfbRealmDefaults, or pass -RealmName explicitly.')
         if ($RealmName) { foreach ($n in $RealmName) { $allRealmNames.Add($n) } }

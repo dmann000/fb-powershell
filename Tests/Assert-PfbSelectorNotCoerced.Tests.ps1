@@ -4,9 +4,18 @@ BeforeAll {
     $moduleRoot = Split-Path -Parent $PSScriptRoot
     $manifest   = Join-Path $moduleRoot 'PureStorageFlashBladePowerShell.psd1'
     Import-Module $manifest -Force
+    $script:fakeArray = [PSCustomObject]@{
+        Endpoint   = 'fb.example.test'
+        ApiVersion = '2.0'
+        AuthToken  = 'x'
+    }
 }
 
 Describe 'Assert-PfbSelectorNotCoerced (#90)' {
+    BeforeEach {
+        Mock -ModuleName PureStorageFlashBladePowerShell Assert-PfbConnection { }
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest { }
+    }
 
     It 'accepts a plain name' {
         InModuleScope PureStorageFlashBladePowerShell {
@@ -116,6 +125,51 @@ Describe 'Assert-PfbSelectorNotCoerced (#90)' {
         InModuleScope PureStorageFlashBladePowerShell {
             { Assert-PfbSelectorNotCoerced -Value ("@{name=nfs" + [char]96 + "01}") -ParameterName 'PolicyName' -Hint 'h' } |
                 Should -Throw -ExpectedMessage '*stringified object*'
+        }
+    }
+
+    It 'rejects a hashtable piped into an actual selector cmdlet before any request' {
+        { , @{ name = 'nfs-policy-1' } |
+            Get-PfbNfsExportRule -Array $script:fakeArray -ErrorAction Stop } |
+            Should -Throw -ExpectedMessage '*stringified object*'
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+    }
+
+    It 'rejects a generic dictionary piped into an actual selector cmdlet before any request' {
+        $dictionary = [System.Collections.Generic.Dictionary[string, string]]::new()
+        $dictionary['name'] = 'nfs-policy-1'
+
+        { , $dictionary |
+            Get-PfbNfsExportRule -Array $script:fakeArray -ErrorAction Stop } |
+            Should -Throw -ExpectedMessage '*stringified object*'
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+    }
+
+    It 'rejects a PSCustomObject piped into an actual selector cmdlet before any request' {
+        { [PSCustomObject]@{ name = 'nfs-policy-1' } |
+            Get-PfbNfsExportRule -Array $script:fakeArray -ErrorAction Stop } |
+            Should -Throw -ExpectedMessage '*stringified object*'
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+    }
+
+    It 'accepts a legitimate piped name' {
+        { 'prod-policy' | Get-PfbNfsExportRule -Array $script:fakeArray -ErrorAction Stop } |
+            Should -Not -Throw
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['policy_names'] -eq 'prod-policy'
+        }
+    }
+
+    It 'accepts a legitimate piped name that looks type-ish' {
+        { 'System.backup' | Get-PfbNfsExportRule -Array $script:fakeArray -ErrorAction Stop } |
+            Should -Not -Throw
+
+        Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+            $QueryParams['policy_names'] -eq 'System.backup'
         }
     }
 }

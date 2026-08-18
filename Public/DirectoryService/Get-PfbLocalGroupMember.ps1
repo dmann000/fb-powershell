@@ -61,7 +61,8 @@ function Get-PfbLocalGroupMember {
         # matches the object-valued `group` still binds it stringified: the coercion moves from
         # pass 3 to pass 4 and the pair stays red. Dropping the `Group` alias instead is a breaking
         # change for -Group callers and costs the /directory-services/roles bind. Reasoning: #90.
-        Assert-PfbSelectorNotCoerced -Value $GroupName -ParameterName 'GroupName' -Hint (
+        Assert-PfbSelectorNotCoerced -Value $GroupName -OriginalInput $PSItem -ParameterName 'GroupName' `
+            -BindingPropertyName 'Group', 'group_name' -Hint (
             'Pipe the group name instead, e.g. Get-PfbLocalGroup | Select-Object -ExpandProperty name | ' +
             'Get-PfbLocalGroupMember, or pass -GroupName explicitly.')
         if ($GroupName) { foreach ($g in $GroupName) { $allGroups.Add($g) } }

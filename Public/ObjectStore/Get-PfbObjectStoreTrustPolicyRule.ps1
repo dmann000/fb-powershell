@@ -47,7 +47,8 @@ function Get-PfbObjectStoreTrustPolicyRule {
     }
 
     process {
-        Assert-PfbSelectorNotCoerced -Value $PolicyName -ParameterName 'PolicyName' -Hint (
+        Assert-PfbSelectorNotCoerced -Value $PolicyName -OriginalInput $PSItem -ParameterName 'PolicyName' `
+            -BindingPropertyName 'policy_name' -Hint (
             'Pipe the trust-policy name instead, e.g. Get-PfbObjectStoreTrustPolicy -RoleName r | ' +
             'Select-Object -ExpandProperty name | Get-PfbObjectStoreTrustPolicyRule, ' +
             'or pass -PolicyName explicitly.')

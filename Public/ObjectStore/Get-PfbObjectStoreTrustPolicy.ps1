@@ -50,7 +50,8 @@ function Get-PfbObjectStoreTrustPolicy {
     }
 
     process {
-        Assert-PfbSelectorNotCoerced -Value $RoleName -ParameterName 'RoleName' -Hint (
+        Assert-PfbSelectorNotCoerced -Value $RoleName -OriginalInput $PSItem -ParameterName 'RoleName' `
+            -BindingPropertyName 'role_name' -Hint (
             'Pipe the role name instead, e.g. Get-PfbObjectStoreRole | ' +
             'Select-Object -ExpandProperty name | Get-PfbObjectStoreTrustPolicy, or pass -RoleName explicitly.')
         if ($RoleName) { foreach ($n in $RoleName) { $allRoleNames.Add($n) } }

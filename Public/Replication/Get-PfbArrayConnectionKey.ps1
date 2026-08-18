@@ -68,7 +68,7 @@ function Get-PfbArrayConnectionKey {
     }
 
     process {
-        Assert-PfbSelectorNotCoerced -Value $Name -ParameterName 'Name' -Hint (
+        Assert-PfbSelectorNotCoerced -Value $Name -OriginalInput $PSItem -ParameterName 'Name' -Hint (
             'This endpoint cannot be filtered by connection identity at all: its items carry ' +
             'neither an id nor a name, so neither the ids nor the names query key has anything ' +
             'to select on. Call Get-PfbArrayConnectionKey with no selector and match the keys ' +

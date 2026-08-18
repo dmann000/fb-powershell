@@ -66,7 +66,7 @@ function Get-PfbBucketAuditFilter {
     }
 
     process {
-        Assert-PfbSelectorNotCoerced -Value $BucketName -ParameterName 'BucketName' -Hint (
+        Assert-PfbSelectorNotCoerced -Value $BucketName -OriginalInput $PSItem -ParameterName 'BucketName' -Hint (
             'Pipe the bucket name instead, e.g. Get-PfbBucket | Select-Object -ExpandProperty name | ' +
             'Get-PfbBucketAuditFilter, or pass -BucketName explicitly.')
         if ($Name)       { foreach ($n in $Name)       { $allNames.Add($n) } }

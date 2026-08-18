@@ -58,7 +58,8 @@ function Get-PfbSmbShareRule {
     }
 
     process {
-        Assert-PfbSelectorNotCoerced -Value $PolicyName -ParameterName 'PolicyName' -Hint (
+        Assert-PfbSelectorNotCoerced -Value $PolicyName -OriginalInput $PSItem -ParameterName 'PolicyName' `
+            -BindingPropertyName 'policy_name' -Hint (
             'Pipe the policy name instead, e.g. Get-PfbSmbSharePolicy | ' +
             'Select-Object -ExpandProperty name | Get-PfbSmbShareRule, or pass -PolicyName explicitly.')
         if ($PolicyName) { foreach ($n in $PolicyName) { $allPolicyNames.Add($n) } }

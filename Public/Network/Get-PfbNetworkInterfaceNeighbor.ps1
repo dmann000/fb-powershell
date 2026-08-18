@@ -54,7 +54,7 @@ function Get-PfbNetworkInterfaceNeighbor {
         $allLocalPortNames = [System.Collections.Generic.List[string]]::new()
     }
     process {
-        Assert-PfbSelectorNotCoerced -Value $LocalPortName -ParameterName 'LocalPortName' -Hint (
+        Assert-PfbSelectorNotCoerced -Value $LocalPortName -OriginalInput $PSItem -ParameterName 'LocalPortName' -Hint (
             'Pipe the interface name instead, e.g. Get-PfbNetworkInterface | ' +
             'Select-Object -ExpandProperty name | Get-PfbNetworkInterfaceNeighbor, ' +
             'or pass -LocalPortName explicitly.')
