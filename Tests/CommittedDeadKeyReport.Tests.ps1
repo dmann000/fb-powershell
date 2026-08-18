@@ -97,13 +97,6 @@ BeforeAll {
     # no-surviving-selector group = cmdlet|method|endpoint (exactly the fields the artifact
     # carries for each; there is no file/line in either record).
     $script:baselineDestructive = @(
-        'Remove-PfbBucketAccessPolicy|MemberName|member_names|DELETE|buckets/bucket-access-policies'
-        'Remove-PfbBucketAccessPolicy|PolicyName|policy_names|DELETE|buckets/bucket-access-policies'
-        'Remove-PfbBucketAuditFilter|MemberId|member_ids|DELETE|buckets/audit-filters'
-        'Remove-PfbBucketAuditFilter|MemberName|member_names|DELETE|buckets/audit-filters'
-        'Remove-PfbBucketCorsPolicy|MemberId|member_ids|DELETE|buckets/cross-origin-resource-sharing-policies'
-        'Remove-PfbBucketCorsPolicy|MemberName|member_names|DELETE|buckets/cross-origin-resource-sharing-policies'
-        'Remove-PfbBucketCorsPolicy|PolicyName|policy_names|DELETE|buckets/cross-origin-resource-sharing-policies'
         'Remove-PfbFileLock|Id|ids|DELETE|file-systems/locks'
         'Remove-PfbFleetMember|FleetName|fleet_names|DELETE|fleets/members'
         'Remove-PfbLocalGroup|Id|ids|DELETE|directory-services/local/groups'
@@ -119,18 +112,11 @@ BeforeAll {
         'Remove-PfbSmbClientRule|PolicyName|policy_names|DELETE|smb-client-policies/rules'
     )
     $script:baselineNoSurvivingSelector = @(
-        'Get-PfbBucketAuditFilter|GET|buckets/audit-filters'
         'Get-PfbFileLockClient|GET|file-systems/locks/clients'
         'Get-PfbKeytabDownload|GET|keytabs/download'
         'Get-PfbLegalHoldEntity|GET|legal-holds/held-entities'
         'Get-PfbNodeGroupNode|GET|node-groups/nodes'
-        'New-PfbBucketAccessPolicy|POST|buckets/bucket-access-policies'
-        'New-PfbBucketAuditFilter|POST|buckets/audit-filters'
-        'New-PfbBucketCorsPolicy|POST|buckets/cross-origin-resource-sharing-policies'
         'New-PfbNlmReclamation|POST|file-systems/locks/nlm-reclamations'
-        'Remove-PfbBucketAccessPolicy|DELETE|buckets/bucket-access-policies'
-        'Remove-PfbBucketAuditFilter|DELETE|buckets/audit-filters'
-        'Remove-PfbBucketCorsPolicy|DELETE|buckets/cross-origin-resource-sharing-policies'
         'Remove-PfbNodeGroupNode|DELETE|node-groups/nodes'
     )
     # CEILINGS, not pins -- see the monotone note above.
@@ -245,7 +231,7 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
             #      regenerate honestly -- same total skip, no failure anywhere.
             # The only thing otherwise pinning the vocabulary is one synthetic assertion in
             # Tests/Build-PfbDeadKeyReport.Tests.ps1, which is PS7-gated -- so on the 5.1 leg,
-            # the leg this ungated file exists to serve, the 20-identity destructive allowlist
+            # the leg this ungated file exists to serve, the 13-identity destructive allowlist
             # had no proof it matched anything. This assertion makes a renamed or dropped
             # severity a red instead of a silent full-skip.
             #
