@@ -17,6 +17,29 @@ BeforeAll {
     $script:reportPath = Join-Path $script:repoRoot 'Reports/PfbPipelineSelectorMap.json'
 }
 
+Describe 'Build-PfbPipelineSelectorMap parameter contract' {
+
+    It 'exposes -ResponseShapeMapPath so a caller can redirect the shape-map input' {
+        # AST rather than Get-Command -Syntax: the generator carries #Requires -Version 7.0,
+        # so resolving it as a command fails outright on Windows PowerShell 5.1. Parsing the
+        # file is edition-agnostic and does not execute the ~minutes-long probe harness.
+        $generatorPath = Join-Path $script:repoRoot 'tools/Build-PfbPipelineSelectorMap.ps1'
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($generatorPath, [ref]$null, [ref]$null)
+        $names = @($ast.ParamBlock.Parameters | ForEach-Object { $_.Name.VariablePath.UserPath })
+
+        $names | Should -Contain 'ResponseShapeMapPath'
+    }
+
+    It 'no longer hardcodes the committed response-shape map path' {
+        # The regression this guards: with the path inlined at the call site, a caller could
+        # pass -ResponseShapeMapPath and still silently read the committed file.
+        $generatorPath = Join-Path $script:repoRoot 'tools/Build-PfbPipelineSelectorMap.ps1'
+        $source = Get-Content $generatorPath -Raw
+
+        $source | Should -Not -Match "Get-Content \(Join-Path \`$repoRoot 'Data/PfbResponseShapeMap\.json'\)"
+    }
+}
+
 Describe 'Build-PfbPipelineSelectorMap' {
 
     It 'emits a report with the documented top-level shape' {
