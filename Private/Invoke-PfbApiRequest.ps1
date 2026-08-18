@@ -227,6 +227,10 @@ function Invoke-PfbApiRequest {
 
     $allItems = [System.Collections.Generic.List[object]]::new()
     $totalItemCount = $null
+    # Computed once, before either response-shape branch, so the no-items branch inside the
+    # pagination loop and the final wrapper return below cannot drift apart. See the block beside
+    # that final return for why the REQUEST, not the response, has to be the discriminator.
+    $totalOnlyRequested = ($null -ne $QueryParams -and $QueryParams['total_only'] -eq 'true')
     $hasMore = $true
     $isFirstRequest = $true
 
@@ -345,8 +349,16 @@ function Invoke-PfbApiRequest {
             }
         }
         elseif ($null -ne $response) {
-            # Some endpoints return data directly (not wrapped in items)
-            return $response
+            # Some endpoints return data directly (not wrapped in items). But a
+            # total_item_count-only body is an empty list response unless the request asked for
+            # total_only. Other no-items bodies are genuine direct-data responses and stay verbatim.
+            $responseKeys = @($response.PSObject.Properties.Name)
+            $isCountOnlyListResponse = ($responseKeys.Count -eq 1 -and
+                $responseKeys[0] -eq 'total_item_count')
+            if (-not $isCountOnlyListResponse -or $totalOnlyRequested) {
+                return $response
+            }
+            $totalItemCount = $response.total_item_count
         }
 
         # Track total count from first response
@@ -375,8 +387,30 @@ function Invoke-PfbApiRequest {
         $allItems = $allItems.GetRange(0, $requestedLimit)
     }
 
-    # If TotalOnly was requested and we got a count but no items, return the count
-    if ($allItems.Count -eq 0 -and $null -ne $totalItemCount) {
+    # A total-only read asked for the count and nothing else, so hand back the count on its own.
+    # Every OTHER empty result must return an empty collection -- see issue #121 for what the
+    # bare wrapper did to callers when this branch fired for all of them.
+    #
+    # The discriminator has to be the request. Measured against FB-A at REST 2.26, a total-only
+    # response and an ordinary empty result are the same four keys and differ only in the value
+    # of total_item_count:
+    #
+    #   GET /file-systems?total_only=true   -> { total, continuation_token, total_item_count: 2, items: [] }
+    #   GET /file-systems?filter=<no-match> -> { total, continuation_token, total_item_count: 0, items: [] }
+    #
+    # so no test on the RESPONSE can tell them apart, and a guard keyed on a non-zero count
+    # would hand the wrapper straight back to an ordinary caller. $QueryParams already carries
+    # the answer: Add-PfbCommonQueryParams writes total_only there when the caller passed
+    # -TotalOnly. Gate on the value rather than the key, so this stays correct if that helper's
+    # separate ContainsKey behaviour is ever changed. $totalOnlyRequested is computed once up with
+    # the pagination setup, above the loop, because the no-items branch inside the loop needs the
+    # same answer this return does.
+    #
+    # The zero-items half of the original condition is kept deliberately. A total-only response
+    # has always been observed to carry an empty items array, so this narrowing costs nothing
+    # today -- but if some endpoint ever answers a total-only read with items in it, returning
+    # those items is the older behaviour and the safer one.
+    if ($allItems.Count -eq 0 -and $totalOnlyRequested -and $null -ne $totalItemCount) {
         return [PSCustomObject]@{ total_item_count = $totalItemCount }
     }
 
