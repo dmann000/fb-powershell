@@ -23,11 +23,11 @@ This report accepts **false positives in order to eliminate false negatives**. A
 - Uncovered endpoints: 95
 - Endpoints with parameter gaps: 439
 - Missing body properties (addable): 426
-- Missing query parameters (addable): 913
+- Missing query parameters (addable): 883
 - Read-only body fields (not addable -- see the Read-only fields section below): 384
 - Phantom fields silently excluded (accumulated in the capability map, absent from the newest analysed spec): 40
-- Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 60
-- Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): 245
+- Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 61
+- Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): 241
 - ValidateSet drift: 0
 - New ValidateSet candidates: 2
 - Context cardinality signal disagreements (fb2.28): 9
@@ -39,35 +39,35 @@ This report accepts **false positives in order to eliminate false negatives**. A
 
 One finding per distinct wire field name, collapsed across every endpoint where a high-confidence gap exists (decision 7) -- turns hundreds of per-endpoint rows into a handful of real, actionable decisions. "Cmdlets already using this name" is decision 8's convention-strength ranking: a high count means closing the remaining gaps for this name is a mechanical batch fix; zero means no established convention exists to extend at all -- closing it is an architectural decision, not a mechanical one.
 
-Showing the top 25 of 245 findings by endpoint count -- the full list is in the JSON manifest's `systemicGaps`, nothing is dropped there.
+Showing the top 25 of 241 findings by endpoint count -- the full list is in the JSON manifest's `systemicGaps`, nothing is dropped there.
 
 | Field name | Endpoints | Query | Body | Cmdlets already using this name | Annotation |
 |---|---|---|---|---|---|
-| `context_names` | 269 | 269 | 0 | 0 | implemented in Phase 1 via central injection; still listed as a gap because the drift detector does not resolve the variable-keyed injection site (issue #113) |
+| `context_names` | 268 | 268 | 0 | 0 | implemented in Phase 1 via central injection; still listed as a gap because the drift detector does not resolve the variable-keyed injection site (issue #113) |
 | `allow_errors` | 118 | 118 | 0 | 0 | not yet implemented; deferred to Phase 2 |
-| `ids` | 38 | 38 | 0 | 225 |  |
-| `names` | 31 | 31 | 0 | 303 |  |
-| `sort` | 28 | 28 | 0 | 180 |  |
-| `bucket_ids` | 17 | 17 | 0 | 2 |  |
+| `ids` | 38 | 38 | 0 | 220 |  |
+| `sort` | 28 | 28 | 0 | 179 |  |
+| `names` | 24 | 24 | 0 | 300 |  |
 | `total_only` | 17 | 17 | 0 | 12 |  |
-| `bucket_names` | 16 | 16 | 0 | 3 |  |
-| `policy_ids` | 16 | 16 | 0 | 99 |  |
-| `member_ids` | 14 | 14 | 0 | 86 |  |
-| `policy_names` | 10 | 10 | 0 | 119 |  |
+| `policy_ids` | 16 | 16 | 0 | 97 |  |
+| `member_ids` | 14 | 14 | 0 | 81 |  |
+| `bucket_ids` | 10 | 10 | 0 | 8 |  |
+| `policy_names` | 9 | 9 | 0 | 114 |  |
 | `file_system_ids` | 8 | 8 | 0 | 9 |  |
 | `local_file_system_ids` | 8 | 8 | 0 | 2 |  |
-| `actions` | 7 | 0 | 7 | 2 |  |
 | `limit` | 7 | 7 | 0 | 199 |  |
 | `name` | 7 | 0 | 7 | 20 |  |
 | `versions` | 7 | 7 | 0 | 5 |  |
+| `actions` | 6 | 0 | 6 | 2 |  |
 | `enabled` | 6 | 0 | 6 | 10 |  |
-| `filter` | 6 | 6 | 0 | 202 |  |
+| `filter` | 6 | 6 | 0 | 201 |  |
 | `role_ids` | 6 | 6 | 0 | 2 |  |
 | `role_names` | 6 | 6 | 0 | 4 |  |
 | `workload_ids` | 6 | 6 | 0 | 0 |  |
 | `workload_names` | 6 | 6 | 0 | 0 |  |
 | `gids` | 5 | 5 | 0 | 2 |  |
 | `local_file_system_names` | 5 | 5 | 0 | 5 |  |
+| `policy` | 5 | 0 | 5 | 3 |  |
 
 ## Parameter gaps
 
@@ -87,10 +87,10 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `DELETE /audit-object-store-policies` | Remove-PfbAuditObjectStorePolicy | context_names |  | `high` |  |
 | `DELETE /audit-object-store-policies/members` | Remove-PfbAuditObjectStorePolicyMember | context_names |  | `high` |  |
 | `DELETE /buckets` | Remove-PfbBucket | context_names |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
-| `DELETE /buckets/audit-filters` | Remove-PfbBucketAuditFilter | bucket_ids, bucket_names, context_names, names |  | `high` |  |
-| `DELETE /buckets/bucket-access-policies` | Remove-PfbBucketAccessPolicy | bucket_ids, bucket_names, context_names, names |  | `high` |  |
+| `DELETE /buckets/audit-filters` | Remove-PfbBucketAuditFilter | context_names |  | `high` |  |
+| `DELETE /buckets/bucket-access-policies` | Remove-PfbBucketAccessPolicy | context_names |  | `high` |  |
 | `DELETE /buckets/bucket-access-policies/rules` | Remove-PfbBucketAccessPolicyRule | bucket_ids, bucket_names, context_names, policy_names |  | `high` |  |
-| `DELETE /buckets/cross-origin-resource-sharing-policies` | Remove-PfbBucketCorsPolicy | bucket_ids, bucket_names, context_names, names |  | `high` |  |
+| `DELETE /buckets/cross-origin-resource-sharing-policies` | Remove-PfbBucketCorsPolicy | context_names |  | `high` |  |
 | `DELETE /buckets/cross-origin-resource-sharing-policies/rules` | Remove-PfbBucketCorsPolicyRule | bucket_ids, bucket_names, context_names, policy_names |  | `high` |  |
 | `DELETE /certificates/certificate-groups` | Remove-PfbCertificateCertificateGroup | certificate_group_ids, certificate_ids |  | `high` |  |
 | `DELETE /data-eviction-policies` | Remove-PfbDataEvictionPolicy | context_names |  | `high` |  |
@@ -192,12 +192,12 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /bucket-audit-filter-actions` | Get-PfbBucketAuditFilterAction | allow_errors, context_names, names |  | `high` |  |
 | `GET /bucket-replica-links` | Get-PfbBucketReplicaLink | allow_errors, context_names, local_bucket_ids, total_only |  | `high` |  |
 | `GET /buckets` | Get-PfbBucket | allow_errors, context_names |  | `high` |  |
-| `GET /buckets/audit-filters` | Get-PfbBucketAuditFilter | allow_errors, bucket_ids, bucket_names, context_names, names |  | `high` |  |
-| `GET /buckets/bucket-access-policies` | Get-PfbBucketAccessPolicy | allow_errors, bucket_ids, bucket_names, context_names |  | `high` |  |
-| `GET /buckets/bucket-access-policies/rules` | Get-PfbBucketAccessPolicyRule | allow_errors, bucket_ids, bucket_names, context_names |  | `high` |  |
-| `GET /buckets/cross-origin-resource-sharing-policies` | Get-PfbBucketCorsPolicy | allow_errors, bucket_ids, bucket_names, context_names |  | `high` |  |
-| `GET /buckets/cross-origin-resource-sharing-policies/rules` | Get-PfbBucketCorsPolicyRule | allow_errors, bucket_ids, bucket_names, context_names |  | `high` |  |
-| `GET /certificate-groups/certificates` | Get-PfbCertificateGroupCertificate | certificate_group_ids, certificate_group_names, certificate_ids, certificate_names |  | `high` |  |
+| `GET /buckets/audit-filters` | Get-PfbBucketAuditFilter | allow_errors, context_names |  | `high` |  |
+| `GET /buckets/bucket-access-policies` | Get-PfbBucketAccessPolicy | allow_errors, context_names |  | `high` |  |
+| `GET /buckets/bucket-access-policies/rules` | Get-PfbBucketAccessPolicyRule | allow_errors, bucket_ids, context_names |  | `high` |  |
+| `GET /buckets/cross-origin-resource-sharing-policies` | Get-PfbBucketCorsPolicy | allow_errors, context_names |  | `high` |  |
+| `GET /buckets/cross-origin-resource-sharing-policies/rules` | Get-PfbBucketCorsPolicyRule | allow_errors, bucket_ids, context_names |  | `high` |  |
+| `GET /certificate-groups/certificates` | Get-PfbCertificateGroupCertificate | certificate_group_names, certificate_ids |  | `high` |  |
 | `GET /certificate-groups/uses` | Get-PfbCertificateGroupUse | ids |  | `high` |  |
 | `GET /certificates/certificate-groups` | Get-PfbCertificateCertificateGroup | certificate_group_ids, certificate_ids, sort |  | `high` |  |
 | `GET /certificates/uses` | Get-PfbCertificateUse | ids |  | `high` |  |
@@ -252,7 +252,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /network-access-policies/rules` | Get-PfbNetworkAccessRule | ids |  | `high` |  |
 | `GET /network-interfaces/connectors/performance` | Get-PfbNetworkInterfaceConnectorPerformance | ids, total_only |  | `high` |  |
 | `GET /network-interfaces/connectors/settings` | Get-PfbNetworkInterfaceConnectorSettings | ids |  | `high` |  |
-| `GET /network-interfaces/neighbors` | Get-PfbNetworkInterfaceNeighbor | local_port_names, total_item_count |  | `high` |  |
+| `GET /network-interfaces/neighbors` | Get-PfbNetworkInterfaceNeighbor | total_item_count |  | `high` |  |
 | `GET /network-interfaces/network-connection-statistics` | Get-PfbNetworkConnectionStatistics | current_state, local_host, local_port, remote_host, remote_port |  | `high` |  |
 | `GET /network-interfaces/ping` | Invoke-PfbNetworkPing | component_name, print_latency, resolve_hostname, source |  | `high` |  |
 | `GET /network-interfaces/trace` | Invoke-PfbNetworkTrace | component_name, discover_mtu, fragment_packet, port, resolve_hostname, source |  | `high` |  |
@@ -294,7 +294,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /quotas/settings` | Get-PfbQuotaSettings | ids, names |  | `high` |  |
 | `GET /quotas/users` | Get-PfbQuotaUser | allow_errors, context_names, file_system_ids, uids, user_names |  | `high` |  |
 | `GET /realms` | Get-PfbRealm | allow_errors, context_names |  | `high` |  |
-| `GET /realms/defaults` | Get-PfbRealmDefaults | allow_errors, context_names, realm_ids, realm_names |  | `high` |  |
+| `GET /realms/defaults` | Get-PfbRealmDefaults | allow_errors, context_names, realm_ids |  | `high` |  |
 | `GET /realms/space` | Get-PfbRealmSpace | end_time, ids, resolution, start_time, total_only, type |  | `high` |  |
 | `GET /realms/space/storage-classes` | Get-PfbRealmStorageClass | end_time, ids, resolution, start_time, storage_class_names, total_only |  | `high` |  |
 | `GET /remote-arrays` | Get-PfbRemoteArray | total_only |  | `high` |  |
@@ -423,11 +423,11 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `POST /audit-object-store-policies` | New-PfbAuditObjectStorePolicy | context_names | enabled, location, log_targets, name | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `POST /audit-object-store-policies/members` | New-PfbAuditObjectStorePolicyMember | context_names |  | `high` |  |
 | `POST /buckets` | New-PfbBucket | context_names | bucket_type, eradication_config, hard_limit_enabled, object_lock_config, retention_lock | `high` |  |
-| `POST /buckets/audit-filters` | New-PfbBucketAuditFilter | bucket_ids, bucket_names, context_names, names | actions, s3_prefixes | `high` |  |
-| `POST /buckets/bucket-access-policies` | New-PfbBucketAccessPolicy | bucket_ids, bucket_names, context_names | rules | `high` |  |
-| `POST /buckets/bucket-access-policies/rules` | New-PfbBucketAccessPolicyRule | bucket_ids, bucket_names, context_names, names | actions, principals, resources | `high` |  |
-| `POST /buckets/cross-origin-resource-sharing-policies` | New-PfbBucketCorsPolicy | bucket_ids, bucket_names, context_names | rules | `high` |  |
-| `POST /buckets/cross-origin-resource-sharing-policies/rules` | New-PfbBucketCorsPolicyRule | bucket_ids, bucket_names, context_names, names, policy_names | allowed_headers, allowed_methods, allowed_origins | `high` |  |
+| `POST /buckets/audit-filters` | New-PfbBucketAuditFilter | bucket_ids, context_names, names | actions, s3_prefixes | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
+| `POST /buckets/bucket-access-policies` | New-PfbBucketAccessPolicy | bucket_ids, context_names | rules | `high` |  |
+| `POST /buckets/bucket-access-policies/rules` | New-PfbBucketAccessPolicyRule | bucket_ids, context_names | actions, principals, resources | `high` |  |
+| `POST /buckets/cross-origin-resource-sharing-policies` | New-PfbBucketCorsPolicy | bucket_ids, context_names | rules | `high` |  |
+| `POST /buckets/cross-origin-resource-sharing-policies/rules` | New-PfbBucketCorsPolicyRule | bucket_ids, context_names | allowed_headers, allowed_methods, allowed_origins | `high` |  |
 | `POST /certificates` | New-PfbCertificate |  | certificate, certificate_type, common_name, country, days, email, intermediate_certificate, key_algorithm, key_size, locality, organization, organizational_unit, passphrase, private_key, state, subject_alternative_names | `high` |  |
 | `POST /certificates/certificate-signing-requests` | New-PfbCertificateSigningRequest |  | certificate, common_name, country, email, locality, organization, organizational_unit, state, subject_alternative_names | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `POST /data-eviction-policies` | New-PfbDataEvictionPolicy | context_names | enabled, location, name | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
@@ -571,6 +571,7 @@ Per the decision-6 procedure above: open each parameter at its `file:line` and f
 | `POST /active-directory` | `-Name` | AttributesOnly | `Public/DirectoryService/New-PfbActiveDirectory.ps1:40` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /audit-file-systems-policies` | `-Enabled` | AttributesOnly | `Public/Policy/New-PfbAuditFileSystemPolicy.ps1:35` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /audit-object-store-policies` | `-Enabled` | AttributesOnly | `Public/Policy/New-PfbAuditObjectStorePolicy.ps1:35` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
+| `POST /buckets/audit-filters` | `-Name` | AttributesOnly | `Public/Bucket/New-PfbBucketAuditFilter.ps1:44` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /certificates/certificate-signing-requests` | `-Name` | AttributesOnly | `Public/Certificate/New-PfbCertificateSigningRequest.ps1:29` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `POST /data-eviction-policies` | `-Disabled` | TypedUnresolved | `Public/DataEviction/New-PfbDataEvictionPolicy.ps1:31` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
 | `POST /directory-services/local/groups/members` | `-Member` | TypedUnresolved | `Public/DirectoryService/New-PfbLocalGroupMember.ps1:35` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |

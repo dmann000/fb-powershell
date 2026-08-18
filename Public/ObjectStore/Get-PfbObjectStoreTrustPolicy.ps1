@@ -31,7 +31,6 @@ function Get-PfbObjectStoreTrustPolicy {
     [CmdletBinding(DefaultParameterSetName = 'ByRoleName')]
     param(
         [Parameter(Mandatory, ParameterSetName = 'ByRoleName', Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [Alias('role_name')]
         [string[]]$RoleName,
 
         [Parameter(Mandatory, ParameterSetName = 'ByRoleId')]
@@ -50,8 +49,7 @@ function Get-PfbObjectStoreTrustPolicy {
     }
 
     process {
-        Assert-PfbSelectorNotCoerced -Value $RoleName -OriginalInput $PSItem -ParameterName 'RoleName' `
-            -BindingPropertyName 'role_name' -Hint (
+        Assert-PfbSelectorNotCoerced -Value $RoleName -OriginalInput $PSItem -ParameterName 'RoleName' -Hint (
             'Pipe the role name instead, e.g. Get-PfbObjectStoreRole | ' +
             'Select-Object -ExpandProperty name | Get-PfbObjectStoreTrustPolicy, or pass -RoleName explicitly.')
         if ($RoleName) { foreach ($n in $RoleName) { $allRoleNames.Add($n) } }

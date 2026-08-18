@@ -68,10 +68,12 @@ function Update-PfbBucketAuditFilter {
     param(
         [Parameter(ParameterSetName = 'ByBucketNameIndividual', Mandatory, ValueFromPipelineByPropertyName)]
         [Parameter(ParameterSetName = 'ByBucketNameAttributes',  Mandatory, ValueFromPipelineByPropertyName)]
+        [Alias('MemberName')]
         [string]$BucketName,
 
         [Parameter(ParameterSetName = 'ByBucketIdIndividual', Mandatory)]
         [Parameter(ParameterSetName = 'ByBucketIdAttributes',  Mandatory)]
+        [Alias('MemberId')]
         [string]$BucketId,
 
         # Constraint 17: `names` is a QUERY parameter, orthogonal to the request body, so
@@ -85,6 +87,7 @@ function Update-PfbBucketAuditFilter {
         # empty -- a required selector silently dropped. Verified on pwsh 7 and Windows
         # PowerShell 5.1 that this attribute rejects both forms.
         [Parameter()]
+        [Alias('FilterNames')]
         [ValidateNotNullOrEmpty()]
         [string[]]$Name,
 

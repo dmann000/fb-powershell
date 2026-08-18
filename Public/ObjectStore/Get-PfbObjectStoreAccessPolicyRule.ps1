@@ -33,7 +33,6 @@ function Get-PfbObjectStoreAccessPolicyRule {
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param(
         [Parameter(ParameterSetName = 'ByPolicyName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [Alias('policy_name')]
         [string[]]$PolicyName,
 
         [Parameter(ParameterSetName = 'ByPolicyId')]
@@ -56,8 +55,7 @@ function Get-PfbObjectStoreAccessPolicyRule {
     }
 
     process {
-        Assert-PfbSelectorNotCoerced -Value $PolicyName -OriginalInput $PSItem -ParameterName 'PolicyName' `
-            -BindingPropertyName 'policy_name' -Hint (
+        Assert-PfbSelectorNotCoerced -Value $PolicyName -OriginalInput $PSItem -ParameterName 'PolicyName' -Hint (
             'Pipe the policy name instead, e.g. Get-PfbObjectStoreAccessPolicy | ' +
             'Select-Object -ExpandProperty name | Get-PfbObjectStoreAccessPolicyRule, ' +
             'or pass -PolicyName explicitly.')
@@ -82,9 +80,10 @@ function Get-PfbObjectStoreAccessPolicyRule {
         # Do NOT delete this lift because the selector rail reports the pair Coerced -- that row is
         # an artifact. The rail's probe item is synthesized from the spec's declared response fields
         # and never runs a producer cmdlet, so a property added here at runtime cannot appear on it;
-        # measured Bound against the real module once the lifted PolicyName is present. A Coerced
-        # row from a DIFFERENT producer endpoint is real, not artifact: the lift only reaches items
-        # this cmdlet returns, which is what the process-block guard covers. Reasoning: issue #90.
+        # measured Bound against the real module once the lifted PolicyName is present. This makes
+        # same-family piping work, but an item lifted by a different policy family can bind silently
+        # when both policies share a name, where the guard used to throw. The rail cannot see that
+        # cost because its spec-derived probes never carry runtime-added properties. Reasoning: issue #90.
         foreach ($item in @($response)) {
             if ($null -ne $item -and $null -ne $item.policy -and $null -ne $item.policy.name -and
                 $item.PSObject.Properties.Name -notcontains 'PolicyName') {

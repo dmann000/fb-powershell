@@ -115,22 +115,15 @@ BeforeAll {
         'Remove-PfbNodeGroupNode|MemberName|member_names|DELETE|node-groups/nodes'
         'Remove-PfbObjectStoreAccessKey|Id|ids|DELETE|object-store-access-keys'
         'Remove-PfbObjectStoreRoleAccessPolicy|RoleName|role_names|DELETE|object-store-roles/object-store-access-policies'
-        'Remove-PfbOpenFile|Name|names|DELETE|file-systems/open-files'
-        'Remove-PfbResourceAccess|Name|names|DELETE|resource-accesses'
         'Remove-PfbSmbClientRule|PolicyId|policy_ids|DELETE|smb-client-policies/rules'
         'Remove-PfbSmbClientRule|PolicyName|policy_names|DELETE|smb-client-policies/rules'
     )
     $script:baselineNoSurvivingSelector = @(
         'Get-PfbBucketAuditFilter|GET|buckets/audit-filters'
-        'Get-PfbCertificateGroupCertificate|GET|certificate-groups/certificates'
         'Get-PfbFileLockClient|GET|file-systems/locks/clients'
-        'Get-PfbFleetKey|GET|fleets/fleet-key'
         'Get-PfbKeytabDownload|GET|keytabs/download'
         'Get-PfbLegalHoldEntity|GET|legal-holds/held-entities'
-        'Get-PfbNetworkConnectionStatistics|GET|network-interfaces/network-connection-statistics'
-        'Get-PfbNetworkInterfaceNeighbor|GET|network-interfaces/neighbors'
         'Get-PfbNodeGroupNode|GET|node-groups/nodes'
-        'Get-PfbRealmDefaults|GET|realms/defaults'
         'New-PfbBucketAccessPolicy|POST|buckets/bucket-access-policies'
         'New-PfbBucketAuditFilter|POST|buckets/audit-filters'
         'New-PfbBucketCorsPolicy|POST|buckets/cross-origin-resource-sharing-policies'
@@ -141,8 +134,8 @@ BeforeAll {
         'Remove-PfbNodeGroupNode|DELETE|node-groups/nodes'
     )
     # CEILINGS, not pins -- see the monotone note above.
-    $script:baselineDeadKeyCount = 126
-    $script:baselineNoSurvivingSelectorCount = 18
+    $script:baselineDeadKeyCount = 85
+    $script:baselineNoSurvivingSelectorCount = 6
     $script:baselineSkipReasons = @{
         # New-PfbBucketAuditFilter|Name was introduced by 9d08ecc as a new parameter, so
         # nothing that was evaluable stopped being evaluated. The parameter demonstrably

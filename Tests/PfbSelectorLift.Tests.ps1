@@ -171,9 +171,9 @@ Describe 'Policy and role selector lifts' {
         $second | Should -Not -BeNullOrEmpty
     }
 
-    It 'declares the wire alias <Alias> on <LiftProperty>' -ForEach @($policyRows + $roleRows) {
+    It 'does not need an underscored alias for the runtime lift on <Cmdlet>' -ForEach @($policyRows + $roleRows) {
         $command = Get-Command $Cmdlet
-        $command.Parameters[$LiftProperty].Aliases | Should -Contain $Alias
+        $command.Parameters[$LiftProperty].Aliases | Should -Not -Contain $Alias
     }
 
     # Both halves of "add only when the nested object AND its name are non-null" need a case: a

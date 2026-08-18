@@ -12,8 +12,8 @@ function Remove-PfbBucketAccessPolicy {
         -BucketName and -BucketId delete EVERY access policy on the specified
         bucket(s). Use the fully-qualified -Name to remove a single policy. The
         previous -MemberName / -PolicyName parameters wrote 'member_names' and
-        'policy_names', neither of which this endpoint declares, so the array
-        silently ignored both and deleted more than the caller asked for.
+        'policy_names', neither of which this endpoint declares; behaviour when
+        undeclared query keys are sent is undefined by the published API contract.
     .PARAMETER Name
         One or more fully-qualified bucket access policy names to remove. This is
         the only way to target a single policy.

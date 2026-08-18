@@ -8,10 +8,9 @@ function Get-PfbBucketAccessPolicy {
         results by fully-qualified name (bucket/account:policy), or by bucket
         name or bucket ID.
 
-        NOTE: The FlashBlade API requires at least one of -Name, -BucketName, or
-        -BucketId to be specified. GET /buckets/bucket-access-policies declares
-        no policy-level selector; 'policy_names'/'policy_ids' exist only on the
-        /rules variant, so use Get-PfbBucketAccessPolicyRule -PolicyName for
+        GET /buckets/bucket-access-policies declares no policy-level selector;
+        'policy_names' exists only on the /rules variant, so use
+        Get-PfbBucketAccessPolicyRule -PolicyName for
         that. It also declares no 'ids' selector, so there is no -Id parameter:
         the endpoint silently ignored the key and returned the unfiltered
         collection.

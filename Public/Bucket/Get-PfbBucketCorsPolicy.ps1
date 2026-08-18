@@ -8,9 +8,7 @@ function Get-PfbBucketCorsPolicy {
         resources from a browser. Filter results by fully-qualified name, bucket
         name, or bucket ID.
 
-        NOTE: The FlashBlade API requires at least one of -Name, -BucketName, or
-        -BucketId to be specified. GET
-        /buckets/cross-origin-resource-sharing-policies declares no
+        GET /buckets/cross-origin-resource-sharing-policies declares no
         policy-level selector; 'policy_names' exists only on the /rules
         variant, so use Get-PfbBucketCorsPolicyRule -PolicyName for that. It
         also declares no 'ids' selector, so there is no -Id parameter: the

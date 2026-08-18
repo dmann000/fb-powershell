@@ -43,8 +43,8 @@ $script:bucketIdCases = @(
     @{ Cmdlet = 'Remove-PfbBucketCorsPolicy';  Endpoint = 'buckets/cross-origin-resource-sharing-policies'; Method = 'DELETE' }
 )
 
-# `policy_names` / `policy_ids` are declared only on the /rules variants, so
-# these cmdlets must not publish them at all.
+# `policy_names` is declared only on the /rules variants; `policy_ids` is
+# declared on none of these operations, so these cmdlets must not publish them.
 $script:noPolicySelectorCases = @(
     @{ Cmdlet = 'Get-PfbBucketAccessPolicy'; Forbidden = 'PolicyName' }
     @{ Cmdlet = 'Get-PfbBucketAccessPolicy'; Forbidden = 'PolicyId' }
@@ -628,8 +628,11 @@ Describe 'Bucket policy and filter selectors (#90)' {
             Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
         }
 
-        It 'no longer publishes FilterNames' {
-            (Get-Command Update-PfbBucketAuditFilter).Parameters.Keys | Should -Not -Contain 'FilterNames'
+        It 'resolves the legacy FilterNames, MemberName, and MemberId names as aliases' {
+            $parameters = (Get-Command Update-PfbBucketAuditFilter).Parameters
+            $parameters['Name'].Aliases | Should -Contain 'FilterNames'
+            $parameters['BucketName'].Aliases | Should -Contain 'MemberName'
+            $parameters['BucketId'].Aliases | Should -Contain 'MemberId'
         }
     }
 

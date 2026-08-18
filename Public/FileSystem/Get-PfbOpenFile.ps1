@@ -8,39 +8,21 @@ function Get-PfbOpenFile {
     .PARAMETER Id
         One or more open file IDs to retrieve. Binds from the pipeline by property
         name, so open-file objects (which carry 'id') can be piped in directly.
-    .PARAMETER Filter
-        A server-side filter expression to narrow results.
-    .PARAMETER Sort
-        Sort field and direction.
     .PARAMETER Limit
         Maximum number of items to return.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, uses the default connection.
     .EXAMPLE
-        Get-PfbOpenFile
-        Returns all open files on the FlashBlade.
-    .EXAMPLE
         Get-PfbOpenFile -Id "abc-123"
-        Returns the open file with the specified ID.
-    .EXAMPLE
-        Get-PfbOpenFile -Filter "protocol='SMB'" -Limit 100
-        Returns up to 100 open files using the SMB protocol.
-    .EXAMPLE
-        Get-PfbOpenFile | Where-Object { $_.lock_count -gt 0 } | Remove-PfbOpenFile
-        Closes the locked open files; -Id binds from the 'id' property of each
-        piped object.
+        Requests the open-file record with the specified ID. The published spec also
+        marks 'protocols' required; the missing query-parameter surface is tracked in
+        Reports/PfbApiDriftReport.md.
     #>
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param(
         [Parameter(ParameterSetName = 'ById', ValueFromPipelineByPropertyName)]
         [ValidateNotNullOrEmpty()]
         [string[]]$Id,
-
-        [Parameter()]
-        [string]$Filter,
-
-        [Parameter()]
-        [string]$Sort,
 
         [Parameter()]
         [ValidateRange(1, 10000)]

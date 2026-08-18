@@ -8,9 +8,7 @@ function Get-PfbBucketCorsPolicyRule {
         cross-origin requests to the S3 bucket. Filter by fully-qualified name,
         bucket name, or policy name.
 
-        NOTE: The FlashBlade API requires at least one of -Name, -BucketName, or
-        -PolicyName to be specified. GET
-        /buckets/cross-origin-resource-sharing-policies/rules declares no 'ids'
+        GET /buckets/cross-origin-resource-sharing-policies/rules declares no 'ids'
         selector, so there is no -Id parameter: the endpoint silently ignored the
         key and returned the unfiltered collection.
     .PARAMETER Name

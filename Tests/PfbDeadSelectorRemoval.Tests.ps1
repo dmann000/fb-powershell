@@ -41,6 +41,12 @@ Describe 'Issue #90 dead selector removal' {
             $idParam.ParameterType.FullName | Should -Be 'System.String[]'
         }
 
+        It 'declares neither Filter nor Sort because the GET operation never declares those keys' {
+            $parameters = (Get-Command Get-PfbOpenFile).Parameters.Keys
+            $parameters | Should -Not -Contain 'Filter'
+            $parameters | Should -Not -Contain 'Sort'
+        }
+
         It 'declares ValueFromPipelineByPropertyName on Id, and not bare ValueFromPipeline' {
             $paramAttrs = @((Get-Command Get-PfbOpenFile).Parameters['Id'].Attributes |
                 Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] })
@@ -548,11 +554,11 @@ Describe 'Issue #90 dead selector removal' {
             $defaultSet | Should -Be 'ByPolicyName'
         }
 
-        It 'keeps PolicyName with its pipeline attributes and alias' {
+        It 'keeps PolicyName with its pipeline attributes and no schema-less alias' {
             $policyNameParam = (Get-Command Get-PfbObjectStoreTrustPolicyRule).Parameters['PolicyName']
             $policyNameParam | Should -Not -BeNullOrEmpty
             $policyNameParam.ParameterType.FullName | Should -Be 'System.String[]'
-            $policyNameParam.Aliases | Should -Contain 'policy_name'
+            $policyNameParam.Aliases | Should -Not -Contain 'policy_name'
 
             $paramAttrs = @($policyNameParam.Attributes |
                 Where-Object { $_ -is [System.Management.Automation.ParameterAttribute] })

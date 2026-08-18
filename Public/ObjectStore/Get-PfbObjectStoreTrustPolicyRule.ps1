@@ -28,7 +28,6 @@ function Get-PfbObjectStoreTrustPolicyRule {
     [CmdletBinding(DefaultParameterSetName = 'ByPolicyName')]
     param(
         [Parameter(Mandatory, ParameterSetName = 'ByPolicyName', Position = 0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [Alias('policy_name')]
         [string[]]$PolicyName,
 
         [Parameter(Mandatory, ParameterSetName = 'ByName')]
@@ -47,8 +46,7 @@ function Get-PfbObjectStoreTrustPolicyRule {
     }
 
     process {
-        Assert-PfbSelectorNotCoerced -Value $PolicyName -OriginalInput $PSItem -ParameterName 'PolicyName' `
-            -BindingPropertyName 'policy_name' -Hint (
+        Assert-PfbSelectorNotCoerced -Value $PolicyName -OriginalInput $PSItem -ParameterName 'PolicyName' -Hint (
             'Pipe the trust-policy name instead, e.g. Get-PfbObjectStoreTrustPolicy -RoleName r | ' +
             'Select-Object -ExpandProperty name | Get-PfbObjectStoreTrustPolicyRule, ' +
             'or pass -PolicyName explicitly.')

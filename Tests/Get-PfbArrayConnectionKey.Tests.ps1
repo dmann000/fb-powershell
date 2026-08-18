@@ -19,14 +19,14 @@ Describe 'Get-PfbArrayConnectionKey - name selector and coercion guard (#90)' {
         # The self-chain shape: connection-key items carry only connection_key/created/expires.
         {
             [PSCustomObject]@{ connection_key = 'abc123'; created = 1; expires = 2 } |
-                Get-PfbArrayConnectionKey -Array $fakeArray -ErrorAction Stop
+                Get-PfbArrayConnectionKey -Array $script:fakeArray -ErrorAction Stop
         } | Should -Throw -ExpectedMessage '*stringified object*'
     }
 
     It 'issues no request at all when the guard trips' {
         try {
             [PSCustomObject]@{ connection_key = 'abc123'; created = 1; expires = 2 } |
-                Get-PfbArrayConnectionKey -Array $fakeArray -ErrorAction Stop
+                Get-PfbArrayConnectionKey -Array $script:fakeArray -ErrorAction Stop
         } catch {
             # Expected: the guard throws terminatingly, so the end block never runs.
         }
@@ -35,7 +35,7 @@ Describe 'Get-PfbArrayConnectionKey - name selector and coercion guard (#90)' {
     }
 
     It 'still binds a bare string to -Name by value and sends names' {
-        'remote-fb-dc2' | Get-PfbArrayConnectionKey -Array $fakeArray
+        'remote-fb-dc2' | Get-PfbArrayConnectionKey -Array $script:fakeArray
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
             $QueryParams['names'] -eq 'remote-fb-dc2' -and -not $QueryParams.ContainsKey('ids')
@@ -43,7 +43,7 @@ Describe 'Get-PfbArrayConnectionKey - name selector and coercion guard (#90)' {
     }
 
     It 'still sends names when -Name is passed explicitly' {
-        Get-PfbArrayConnectionKey -Name 'remote-fb-dc2','remote-fb-dc3' -Array $fakeArray
+        Get-PfbArrayConnectionKey -Name 'remote-fb-dc2','remote-fb-dc3' -Array $script:fakeArray
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
             $QueryParams['names'] -eq 'remote-fb-dc2,remote-fb-dc3' -and -not $QueryParams.ContainsKey('ids')
@@ -51,7 +51,7 @@ Describe 'Get-PfbArrayConnectionKey - name selector and coercion guard (#90)' {
     }
 
     It 'binds -Name alongside -Filter and -Limit and emits all three wire keys' {
-        Get-PfbArrayConnectionKey -Name 'remote-fb-dc2' -Filter "expires>0" -Limit 3 -Array $fakeArray
+        Get-PfbArrayConnectionKey -Name 'remote-fb-dc2' -Filter "expires>0" -Limit 3 -Array $script:fakeArray
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
             $QueryParams['names'] -eq 'remote-fb-dc2' -and $QueryParams['filter'] -eq "expires>0" -and
@@ -60,7 +60,7 @@ Describe 'Get-PfbArrayConnectionKey - name selector and coercion guard (#90)' {
     }
 
     It 'still routes filter/sort/limit through the common helper with no selector key' {
-        Get-PfbArrayConnectionKey -Filter "expires>0" -Sort 'created' -Limit 5 -Array $fakeArray
+        Get-PfbArrayConnectionKey -Filter "expires>0" -Sort 'created' -Limit 5 -Array $script:fakeArray
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
             $QueryParams['filter'] -eq "expires>0" -and $QueryParams['sort'] -eq 'created' -and
@@ -70,7 +70,7 @@ Describe 'Get-PfbArrayConnectionKey - name selector and coercion guard (#90)' {
     }
 
     It 'sends no selector key at all when listing everything' {
-        Get-PfbArrayConnectionKey -Array $fakeArray
+        Get-PfbArrayConnectionKey -Array $script:fakeArray
 
         Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
             -not $QueryParams.ContainsKey('names') -and -not $QueryParams.ContainsKey('ids')
