@@ -12,12 +12,8 @@ function Get-PfbOpenFile {
         Maximum number of items to return.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, uses the default connection.
-    .EXAMPLE
-        Get-PfbOpenFile -Id "abc-123"
-        Requests the open-file record with the specified ID. The published spec also
-        marks 'protocols' required; the missing query-parameter surface is tracked in
-        Reports/PfbApiDriftReport.md.
     #>
+    # The spec-required protocols parameter and six optional gaps are tracked in Reports/PfbApiDriftReport.md.
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param(
         [Parameter(ParameterSetName = 'ById', ValueFromPipelineByPropertyName)]
