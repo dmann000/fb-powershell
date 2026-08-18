@@ -245,7 +245,7 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
             #      regenerate honestly -- same total skip, no failure anywhere.
             # The only thing otherwise pinning the vocabulary is one synthetic assertion in
             # Tests/Build-PfbDeadKeyReport.Tests.ps1, which is PS7-gated -- so on the 5.1 leg,
-            # the leg this ungated file exists to serve, the 13-identity destructive allowlist
+            # the leg this ungated file exists to serve, the 20-identity destructive allowlist
             # had no proof it matched anything. This assertion makes a renamed or dropped
             # severity a red instead of a silent full-skip.
             #
