@@ -1,12 +1,12 @@
 {
   "specVersion": "2.28",
   "counts": {
-    "parametersInventoried": 2174,
-    "keysEvaluated": 1757,
-    "ok": 1631,
-    "deadKey": 126,
+    "parametersInventoried": 2164,
+    "keysEvaluated": 1746,
+    "ok": 1661,
+    "deadKey": 85,
     "skipReasons": {
-      "wire name unresolved": 125,
+      "wire name unresolved": 126,
       "body property": 278,
       "endpoint/method ambiguous": 14,
       "endpoint/verb absent from spec": 0
@@ -329,348 +329,6 @@
     },
     {
       "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbBucketAccessPolicy",
-      "parameter": "Id",
-      "wireKey": "ids",
-      "method": "GET",
-      "endpoint": "buckets/bucket-access-policies",
-      "declared": [
-        "allow_errors",
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "continuation_token",
-        "filter",
-        "limit",
-        "names",
-        "offset",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbBucketAccessPolicy",
-      "parameter": "MemberId",
-      "wireKey": "member_ids",
-      "method": "GET",
-      "endpoint": "buckets/bucket-access-policies",
-      "declared": [
-        "allow_errors",
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "continuation_token",
-        "filter",
-        "limit",
-        "names",
-        "offset",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbBucketAccessPolicy",
-      "parameter": "MemberName",
-      "wireKey": "member_names",
-      "method": "GET",
-      "endpoint": "buckets/bucket-access-policies",
-      "declared": [
-        "allow_errors",
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "continuation_token",
-        "filter",
-        "limit",
-        "names",
-        "offset",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbBucketAccessPolicy",
-      "parameter": "PolicyId",
-      "wireKey": "policy_ids",
-      "method": "GET",
-      "endpoint": "buckets/bucket-access-policies",
-      "declared": [
-        "allow_errors",
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "continuation_token",
-        "filter",
-        "limit",
-        "names",
-        "offset",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbBucketAccessPolicy",
-      "parameter": "PolicyName",
-      "wireKey": "policy_names",
-      "method": "GET",
-      "endpoint": "buckets/bucket-access-policies",
-      "declared": [
-        "allow_errors",
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "continuation_token",
-        "filter",
-        "limit",
-        "names",
-        "offset",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbBucketAccessPolicyRule",
-      "parameter": "Id",
-      "wireKey": "ids",
-      "method": "GET",
-      "endpoint": "buckets/bucket-access-policies/rules",
-      "declared": [
-        "allow_errors",
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "continuation_token",
-        "filter",
-        "limit",
-        "names",
-        "offset",
-        "policy_names",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbBucketAccessPolicyRule",
-      "parameter": "MemberName",
-      "wireKey": "member_names",
-      "method": "GET",
-      "endpoint": "buckets/bucket-access-policies/rules",
-      "declared": [
-        "allow_errors",
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "continuation_token",
-        "filter",
-        "limit",
-        "names",
-        "offset",
-        "policy_names",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbBucketAuditFilter",
-      "parameter": "MemberId",
-      "wireKey": "member_ids",
-      "method": "GET",
-      "endpoint": "buckets/audit-filters",
-      "declared": [
-        "allow_errors",
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "continuation_token",
-        "filter",
-        "limit",
-        "names",
-        "offset",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbBucketAuditFilter",
-      "parameter": "MemberName",
-      "wireKey": "member_names",
-      "method": "GET",
-      "endpoint": "buckets/audit-filters",
-      "declared": [
-        "allow_errors",
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "continuation_token",
-        "filter",
-        "limit",
-        "names",
-        "offset",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbBucketCorsPolicy",
-      "parameter": "Id",
-      "wireKey": "ids",
-      "method": "GET",
-      "endpoint": "buckets/cross-origin-resource-sharing-policies",
-      "declared": [
-        "allow_errors",
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "continuation_token",
-        "filter",
-        "limit",
-        "names",
-        "offset",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbBucketCorsPolicy",
-      "parameter": "MemberId",
-      "wireKey": "member_ids",
-      "method": "GET",
-      "endpoint": "buckets/cross-origin-resource-sharing-policies",
-      "declared": [
-        "allow_errors",
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "continuation_token",
-        "filter",
-        "limit",
-        "names",
-        "offset",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbBucketCorsPolicy",
-      "parameter": "MemberName",
-      "wireKey": "member_names",
-      "method": "GET",
-      "endpoint": "buckets/cross-origin-resource-sharing-policies",
-      "declared": [
-        "allow_errors",
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "continuation_token",
-        "filter",
-        "limit",
-        "names",
-        "offset",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbBucketCorsPolicy",
-      "parameter": "PolicyName",
-      "wireKey": "policy_names",
-      "method": "GET",
-      "endpoint": "buckets/cross-origin-resource-sharing-policies",
-      "declared": [
-        "allow_errors",
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "continuation_token",
-        "filter",
-        "limit",
-        "names",
-        "offset",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbBucketCorsPolicyRule",
-      "parameter": "Id",
-      "wireKey": "ids",
-      "method": "GET",
-      "endpoint": "buckets/cross-origin-resource-sharing-policies/rules",
-      "declared": [
-        "allow_errors",
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "continuation_token",
-        "filter",
-        "limit",
-        "names",
-        "offset",
-        "policy_names",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbBucketCorsPolicyRule",
-      "parameter": "MemberName",
-      "wireKey": "member_names",
-      "method": "GET",
-      "endpoint": "buckets/cross-origin-resource-sharing-policies/rules",
-      "declared": [
-        "allow_errors",
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "continuation_token",
-        "filter",
-        "limit",
-        "names",
-        "offset",
-        "policy_names",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbCertificateGroupCertificate",
-      "parameter": "Id",
-      "wireKey": "ids",
-      "method": "GET",
-      "endpoint": "certificate-groups/certificates",
-      "declared": [
-        "certificate_group_ids",
-        "certificate_group_names",
-        "certificate_ids",
-        "certificate_names",
-        "continuation_token",
-        "filter",
-        "limit",
-        "offset",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbCertificateGroupCertificate",
-      "parameter": "Name",
-      "wireKey": "names",
-      "method": "GET",
-      "endpoint": "certificate-groups/certificates",
-      "declared": [
-        "certificate_group_ids",
-        "certificate_group_names",
-        "certificate_ids",
-        "certificate_names",
-        "continuation_token",
-        "filter",
-        "limit",
-        "offset",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
       "cmdlet": "Get-PfbFileLock",
       "parameter": "Id",
       "wireKey": "ids",
@@ -972,22 +630,6 @@
     },
     {
       "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbFleetKey",
-      "parameter": "Name",
-      "wireKey": "names",
-      "method": "GET",
-      "endpoint": "fleets/fleet-key",
-      "declared": [
-        "continuation_token",
-        "filter",
-        "limit",
-        "offset",
-        "sort",
-        "total_only"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
       "cmdlet": "Get-PfbKeytabDownload",
       "parameter": "Filter",
       "wireKey": "filter",
@@ -1186,42 +828,6 @@
     },
     {
       "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbNetworkConnectionStatistics",
-      "parameter": "Name",
-      "wireKey": "names",
-      "method": "GET",
-      "endpoint": "network-interfaces/network-connection-statistics",
-      "declared": [
-        "current_state",
-        "filter",
-        "limit",
-        "local_host",
-        "local_port",
-        "offset",
-        "remote_host",
-        "remote_port",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbNetworkInterfaceNeighbor",
-      "parameter": "Name",
-      "wireKey": "names",
-      "method": "GET",
-      "endpoint": "network-interfaces/neighbors",
-      "declared": [
-        "continuation_token",
-        "filter",
-        "limit",
-        "local_port_names",
-        "offset",
-        "sort",
-        "total_item_count"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
       "cmdlet": "Get-PfbNodeGroupNode",
       "parameter": "GroupId",
       "wireKey": "group_ids",
@@ -1353,123 +959,6 @@
         "offset",
         "policy_ids",
         "policy_names",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbObjectStoreTrustPolicyRule",
-      "parameter": "PolicyId",
-      "wireKey": "policy_ids",
-      "method": "GET",
-      "endpoint": "object-store-roles/object-store-trust-policies/rules",
-      "declared": [
-        "allow_errors",
-        "context_names",
-        "continuation_token",
-        "filter",
-        "indices",
-        "limit",
-        "names",
-        "offset",
-        "policy_names",
-        "role_ids",
-        "role_names",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbOpenFile",
-      "parameter": "Filter",
-      "wireKey": "filter",
-      "method": "GET",
-      "endpoint": "file-systems/open-files",
-      "declared": [
-        "client_names",
-        "continuation_token",
-        "file_system_ids",
-        "file_system_names",
-        "ids",
-        "limit",
-        "paths",
-        "protocols",
-        "session_names",
-        "user_names"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbOpenFile",
-      "parameter": "Name",
-      "wireKey": "names",
-      "method": "GET",
-      "endpoint": "file-systems/open-files",
-      "declared": [
-        "client_names",
-        "continuation_token",
-        "file_system_ids",
-        "file_system_names",
-        "ids",
-        "limit",
-        "paths",
-        "protocols",
-        "session_names",
-        "user_names"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbOpenFile",
-      "parameter": "Sort",
-      "wireKey": "sort",
-      "method": "GET",
-      "endpoint": "file-systems/open-files",
-      "declared": [
-        "client_names",
-        "continuation_token",
-        "file_system_ids",
-        "file_system_names",
-        "ids",
-        "limit",
-        "paths",
-        "protocols",
-        "session_names",
-        "user_names"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbRealmDefaults",
-      "parameter": "Name",
-      "wireKey": "names",
-      "method": "GET",
-      "endpoint": "realms/defaults",
-      "declared": [
-        "allow_errors",
-        "context_names",
-        "continuation_token",
-        "filter",
-        "limit",
-        "offset",
-        "realm_ids",
-        "realm_names",
-        "sort"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Get-PfbResourceAccess",
-      "parameter": "Name",
-      "wireKey": "names",
-      "method": "GET",
-      "endpoint": "resource-accesses",
-      "declared": [
-        "continuation_token",
-        "filter",
-        "ids",
-        "limit",
-        "offset",
         "sort"
       ]
     },
@@ -1650,87 +1139,6 @@
     },
     {
       "severity": "CREATE",
-      "cmdlet": "New-PfbBucketAccessPolicy",
-      "parameter": "MemberName",
-      "wireKey": "member_names",
-      "method": "POST",
-      "endpoint": "buckets/bucket-access-policies",
-      "declared": [
-        "bucket_ids",
-        "bucket_names",
-        "context_names"
-      ]
-    },
-    {
-      "severity": "CREATE",
-      "cmdlet": "New-PfbBucketAccessPolicy",
-      "parameter": "PolicyName",
-      "wireKey": "policy_names",
-      "method": "POST",
-      "endpoint": "buckets/bucket-access-policies",
-      "declared": [
-        "bucket_ids",
-        "bucket_names",
-        "context_names"
-      ]
-    },
-    {
-      "severity": "CREATE",
-      "cmdlet": "New-PfbBucketAccessPolicyRule",
-      "parameter": "MemberName",
-      "wireKey": "member_names",
-      "method": "POST",
-      "endpoint": "buckets/bucket-access-policies/rules",
-      "declared": [
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "names",
-        "policy_names"
-      ]
-    },
-    {
-      "severity": "CREATE",
-      "cmdlet": "New-PfbBucketAuditFilter",
-      "parameter": "MemberName",
-      "wireKey": "member_names",
-      "method": "POST",
-      "endpoint": "buckets/audit-filters",
-      "declared": [
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "names"
-      ]
-    },
-    {
-      "severity": "CREATE",
-      "cmdlet": "New-PfbBucketCorsPolicy",
-      "parameter": "MemberName",
-      "wireKey": "member_names",
-      "method": "POST",
-      "endpoint": "buckets/cross-origin-resource-sharing-policies",
-      "declared": [
-        "bucket_ids",
-        "bucket_names",
-        "context_names"
-      ]
-    },
-    {
-      "severity": "CREATE",
-      "cmdlet": "New-PfbBucketCorsPolicy",
-      "parameter": "PolicyName",
-      "wireKey": "policy_names",
-      "method": "POST",
-      "endpoint": "buckets/cross-origin-resource-sharing-policies",
-      "declared": [
-        "bucket_ids",
-        "bucket_names",
-        "context_names"
-      ]
-    },
-    {
-      "severity": "CREATE",
       "cmdlet": "New-PfbNlmReclamation",
       "parameter": "Name",
       "wireKey": "names",
@@ -1753,104 +1161,6 @@
         "member_names",
         "policy_ids",
         "policy_names"
-      ]
-    },
-    {
-      "severity": "DESTRUCTIVE",
-      "cmdlet": "Remove-PfbBucketAccessPolicy",
-      "parameter": "MemberName",
-      "wireKey": "member_names",
-      "method": "DELETE",
-      "endpoint": "buckets/bucket-access-policies",
-      "declared": [
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "names"
-      ]
-    },
-    {
-      "severity": "DESTRUCTIVE",
-      "cmdlet": "Remove-PfbBucketAccessPolicy",
-      "parameter": "PolicyName",
-      "wireKey": "policy_names",
-      "method": "DELETE",
-      "endpoint": "buckets/bucket-access-policies",
-      "declared": [
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "names"
-      ]
-    },
-    {
-      "severity": "DESTRUCTIVE",
-      "cmdlet": "Remove-PfbBucketAuditFilter",
-      "parameter": "MemberId",
-      "wireKey": "member_ids",
-      "method": "DELETE",
-      "endpoint": "buckets/audit-filters",
-      "declared": [
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "names"
-      ]
-    },
-    {
-      "severity": "DESTRUCTIVE",
-      "cmdlet": "Remove-PfbBucketAuditFilter",
-      "parameter": "MemberName",
-      "wireKey": "member_names",
-      "method": "DELETE",
-      "endpoint": "buckets/audit-filters",
-      "declared": [
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "names"
-      ]
-    },
-    {
-      "severity": "DESTRUCTIVE",
-      "cmdlet": "Remove-PfbBucketCorsPolicy",
-      "parameter": "MemberId",
-      "wireKey": "member_ids",
-      "method": "DELETE",
-      "endpoint": "buckets/cross-origin-resource-sharing-policies",
-      "declared": [
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "names"
-      ]
-    },
-    {
-      "severity": "DESTRUCTIVE",
-      "cmdlet": "Remove-PfbBucketCorsPolicy",
-      "parameter": "MemberName",
-      "wireKey": "member_names",
-      "method": "DELETE",
-      "endpoint": "buckets/cross-origin-resource-sharing-policies",
-      "declared": [
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "names"
-      ]
-    },
-    {
-      "severity": "DESTRUCTIVE",
-      "cmdlet": "Remove-PfbBucketCorsPolicy",
-      "parameter": "PolicyName",
-      "wireKey": "policy_names",
-      "method": "DELETE",
-      "endpoint": "buckets/cross-origin-resource-sharing-policies",
-      "declared": [
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "names"
       ]
     },
     {
@@ -2011,28 +1321,6 @@
     },
     {
       "severity": "DESTRUCTIVE",
-      "cmdlet": "Remove-PfbOpenFile",
-      "parameter": "Name",
-      "wireKey": "names",
-      "method": "DELETE",
-      "endpoint": "file-systems/open-files",
-      "declared": [
-        "ids"
-      ]
-    },
-    {
-      "severity": "DESTRUCTIVE",
-      "cmdlet": "Remove-PfbResourceAccess",
-      "parameter": "Name",
-      "wireKey": "names",
-      "method": "DELETE",
-      "endpoint": "resource-accesses",
-      "declared": [
-        "ids"
-      ]
-    },
-    {
-      "severity": "DESTRUCTIVE",
       "cmdlet": "Remove-PfbSmbClientRule",
       "parameter": "PolicyId",
       "wireKey": "policy_ids",
@@ -2062,24 +1350,9 @@
   ],
   "noSurvivingSelector": [
     {
-      "cmdlet": "Get-PfbBucketAuditFilter",
-      "method": "GET",
-      "endpoint": "buckets/audit-filters"
-    },
-    {
-      "cmdlet": "Get-PfbCertificateGroupCertificate",
-      "method": "GET",
-      "endpoint": "certificate-groups/certificates"
-    },
-    {
       "cmdlet": "Get-PfbFileLockClient",
       "method": "GET",
       "endpoint": "file-systems/locks/clients"
-    },
-    {
-      "cmdlet": "Get-PfbFleetKey",
-      "method": "GET",
-      "endpoint": "fleets/fleet-key"
     },
     {
       "cmdlet": "Get-PfbKeytabDownload",
@@ -2092,59 +1365,14 @@
       "endpoint": "legal-holds/held-entities"
     },
     {
-      "cmdlet": "Get-PfbNetworkConnectionStatistics",
-      "method": "GET",
-      "endpoint": "network-interfaces/network-connection-statistics"
-    },
-    {
-      "cmdlet": "Get-PfbNetworkInterfaceNeighbor",
-      "method": "GET",
-      "endpoint": "network-interfaces/neighbors"
-    },
-    {
       "cmdlet": "Get-PfbNodeGroupNode",
       "method": "GET",
       "endpoint": "node-groups/nodes"
     },
     {
-      "cmdlet": "Get-PfbRealmDefaults",
-      "method": "GET",
-      "endpoint": "realms/defaults"
-    },
-    {
-      "cmdlet": "New-PfbBucketAccessPolicy",
-      "method": "POST",
-      "endpoint": "buckets/bucket-access-policies"
-    },
-    {
-      "cmdlet": "New-PfbBucketAuditFilter",
-      "method": "POST",
-      "endpoint": "buckets/audit-filters"
-    },
-    {
-      "cmdlet": "New-PfbBucketCorsPolicy",
-      "method": "POST",
-      "endpoint": "buckets/cross-origin-resource-sharing-policies"
-    },
-    {
       "cmdlet": "New-PfbNlmReclamation",
       "method": "POST",
       "endpoint": "file-systems/locks/nlm-reclamations"
-    },
-    {
-      "cmdlet": "Remove-PfbBucketAccessPolicy",
-      "method": "DELETE",
-      "endpoint": "buckets/bucket-access-policies"
-    },
-    {
-      "cmdlet": "Remove-PfbBucketAuditFilter",
-      "method": "DELETE",
-      "endpoint": "buckets/audit-filters"
-    },
-    {
-      "cmdlet": "Remove-PfbBucketCorsPolicy",
-      "method": "DELETE",
-      "endpoint": "buckets/cross-origin-resource-sharing-policies"
     },
     {
       "cmdlet": "Remove-PfbNodeGroupNode",

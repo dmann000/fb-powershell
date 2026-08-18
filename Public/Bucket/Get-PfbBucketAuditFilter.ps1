@@ -5,11 +5,13 @@ function Get-PfbBucketAuditFilter {
     .DESCRIPTION
         Returns one or more bucket audit filters from the FlashBlade array.
         Audit filters control which S3 operations on a bucket are logged for
-        auditing purposes. Filter results by bucket member name or ID, or use
-        a server-side filter expression.
-    .PARAMETER MemberName
+        auditing purposes. Filter results by audit filter name, by bucket name
+        or ID, or use a server-side filter expression.
+    .PARAMETER Name
+        One or more audit filter names to retrieve.
+    .PARAMETER BucketName
         One or more bucket names to retrieve audit filters for.
-    .PARAMETER MemberId
+    .PARAMETER BucketId
         One or more bucket IDs to retrieve audit filters for.
     .PARAMETER Filter
         A server-side filter expression to narrow results.
@@ -24,7 +26,7 @@ function Get-PfbBucketAuditFilter {
 
         Returns all bucket audit filters.
     .EXAMPLE
-        Get-PfbBucketAuditFilter -MemberName "mybucket"
+        Get-PfbBucketAuditFilter -BucketName "mybucket"
 
         Returns audit filters for the bucket named 'mybucket'.
     .EXAMPLE
@@ -34,11 +36,21 @@ function Get-PfbBucketAuditFilter {
     #>
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param(
-        [Parameter(ParameterSetName = 'ByMemberName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [string[]]$MemberName,
+        [Parameter(ParameterSetName = 'ByName')]
+        [string[]]$Name,
 
-        [Parameter(ParameterSetName = 'ByMemberId')]
-        [string[]]$MemberId,
+        # Within this family, the cross-endpoint chain from Get-PfbBucket into Get-PfbBucketAuditFilter cannot
+        # filter correctly: a producer's bare `name` bound to -BucketName / `bucket_names` is the defect
+        # because `name` means different things by endpoint and metadata cannot identify its producer,
+        # so no correct generic binding exists. An undeclared or non-matching query key returns HTTP 200
+        # with the unfiltered collection; the guard's loud failure is therefore best. Do NOT remove it
+        # or add an alias: that flips WrongScalar to Bound while sending the wrong name; revisit only if
+        # the consumer can establish its producer, which parameter metadata alone cannot. Issue #90.
+        [Parameter(ParameterSetName = 'ByBucketName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [string[]]$BucketName,
+
+        [Parameter(ParameterSetName = 'ByBucketId')]
+        [string[]]$BucketId,
 
         [Parameter()] [string]$Filter,
         [Parameter()] [string]$Sort,
@@ -48,20 +60,25 @@ function Get-PfbBucketAuditFilter {
 
     begin {
         Assert-PfbConnection -Array ([ref]$Array)
-        $allMemberNames = [System.Collections.Generic.List[string]]::new()
-        $allMemberIds = [System.Collections.Generic.List[string]]::new()
+        $allNames = [System.Collections.Generic.List[string]]::new()
+        $allBucketNames = [System.Collections.Generic.List[string]]::new()
+        $allBucketIds = [System.Collections.Generic.List[string]]::new()
     }
 
     process {
-        if ($MemberName) { foreach ($n in $MemberName) { $allMemberNames.Add($n) } }
-        if ($MemberId)   { foreach ($i in $MemberId)   { $allMemberIds.Add($i) } }
+        Assert-PfbSelectorNotCoerced -Value $BucketName -OriginalInput $PSItem -ParameterName 'BucketName' -Hint (
+            'Pipe the bucket name instead, e.g. Get-PfbBucket | Select-Object -ExpandProperty name | ' +
+            'Get-PfbBucketAuditFilter, or pass -BucketName explicitly.')
+        if ($Name)       { foreach ($n in $Name)       { $allNames.Add($n) } }
+        if ($BucketName) { foreach ($b in $BucketName) { $allBucketNames.Add($b) } }
+        if ($BucketId)   { foreach ($i in $BucketId)   { $allBucketIds.Add($i) } }
     }
 
     end {
         $queryParams = @{}
-        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
-        if ($allMemberNames.Count -gt 0) { $queryParams['member_names'] = $allMemberNames -join ',' }
-        if ($allMemberIds.Count -gt 0)   { $queryParams['member_ids']   = $allMemberIds -join ',' }
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames
+        if ($allBucketNames.Count -gt 0) { $queryParams['bucket_names'] = $allBucketNames -join ',' }
+        if ($allBucketIds.Count -gt 0)   { $queryParams['bucket_ids']   = $allBucketIds -join ',' }
 
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'buckets/audit-filters' -QueryParams $queryParams -AutoPaginate
     }

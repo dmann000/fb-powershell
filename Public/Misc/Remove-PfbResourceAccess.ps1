@@ -4,30 +4,29 @@ function Remove-PfbResourceAccess {
         Removes a resource access entry from a FlashBlade array.
     .DESCRIPTION
         The Remove-PfbResourceAccess cmdlet deletes a resource access entry from the connected
-        Pure Storage FlashBlade. The entry can be identified by name or ID.
-    .PARAMETER Name
-        The name of the resource access to remove. Accepts pipeline input.
+        Pure Storage FlashBlade. The entry is identified by its ID.
     .PARAMETER Id
-        The ID of the resource access to remove.
+        The ID of the resource access to remove. Binds from the pipeline by property
+        name, so resource access objects (which carry 'id') can be piped in directly.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
-        Remove-PfbResourceAccess -Name "access-old"
+        Remove-PfbResourceAccess -Id "10314f42-020d-7080-8013-000ddt400012"
 
         Removes the resource access entry after prompting for confirmation.
     .EXAMPLE
-        Remove-PfbResourceAccess -Name "access-test" -Confirm:$false
+        Remove-PfbResourceAccess -Id "10314f42-020d-7080-8013-000ddt400012" -Confirm:$false
 
         Removes the resource access entry without prompting.
     .EXAMPLE
-        Remove-PfbResourceAccess -Id "10314f42-020d-7080-8013-000ddt400012"
+        Get-PfbResourceAccess | Where-Object { $_.scope.name -eq 'admin' } | Remove-PfbResourceAccess -Confirm:$false
 
-        Removes the resource access entry by ID.
+        Removes every matching resource access entry, one DELETE per piped object;
+        -Id binds from each object's 'id' property.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
     param(
-        [Parameter(ParameterSetName = 'ByName', Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)] [string]$Name,
-        [Parameter(ParameterSetName = 'ById', Mandatory)] [string]$Id,
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)] [string]$Id,
         [Parameter()] [PSCustomObject]$Array
     )
     begin {
@@ -35,11 +34,9 @@ function Remove-PfbResourceAccess {
     }
 
     process {
-        $target = if ($Name) { $Name } else { $Id }
         $queryParams = @{}
-        if ($Name) { $queryParams['names'] = $Name }
         if ($Id) { $queryParams['ids'] = $Id }
-        if ($PSCmdlet.ShouldProcess($target, 'Remove resource access')) {
+        if ($PSCmdlet.ShouldProcess($Id, 'Remove resource access')) {
             Invoke-PfbApiRequest -Array $Array -Method DELETE -Endpoint 'resource-accesses' -QueryParams $queryParams
         }
     }

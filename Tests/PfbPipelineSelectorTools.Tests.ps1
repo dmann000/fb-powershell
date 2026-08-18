@@ -125,8 +125,31 @@ Describe 'Get-PfbPipelineBoundParameter' -Skip:($PSVersionTable.PSVersion.Major 
     }
 
     It 'reports the measured module-wide population' {
-        @($script:bound).Count | Should -Be 303
-        @($script:bound | Where-Object ValueFromPipeline).Count | Should -Be 214
+        # Re-baselined from 303 / 214 when the Stage 2 selector fixes landed. The whole
+        # movement is accounted for, which is the only thing that makes a re-baseline
+        # legitimate rather than a silenced tripwire -- measured by diffing this function's
+        # output between origin/main and the fix branch:
+        #
+        #   +26 rows: renames of a selector that carried the wrong wire key
+        #             (MemberName -> BucketName on 11 bucket-policy cmdlets, and
+        #             Name -> CertificateName / GroupName / LocalPortName / RealmName),
+        #             plus selectors that replace a removed dead one (-Id on
+        #             Get/Remove-PfbOpenFile and Get/Remove-PfbResourceAccess) and
+        #             parent-name selectors added so a policy-family pipeline binds by
+        #             property name instead of falling through to coercion.
+        #   -18 rows: the old name of each of those renames, and the dead selectors
+        #             themselves (Get-PfbFleetKey/Name,
+        #             Get-PfbNetworkConnectionStatistics/Name, Get-PfbOpenFile/Name, ...).
+        #
+        #   Net +8, giving 311. ValueFromPipeline: 214 + 12 added - 17 removed = 209.
+        #
+        # NO row changed its ValueFromPipeline value. That is deliberate and worth pinning:
+        # removing ValueFromPipeline was rejected as a remedy on this branch, because binding
+        # resolves in FOUR passes and pass 4 coerces a ByPropertyName-only parameter through
+        # its alias -- so the attribute removal buys no structural immunity, and a guard is
+        # what the affected parameters got instead.
+        @($script:bound).Count | Should -Be 311
+        @($script:bound | Where-Object ValueFromPipeline).Count | Should -Be 209
     }
 }
 

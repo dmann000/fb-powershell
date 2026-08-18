@@ -299,9 +299,10 @@ function Invoke-PfbSelectorProbe {
         and would classify differently on a CI host:
 
         - 'HarnessRefusal'      -- never invoked; the only genuinely unmeasured outcome.
-        - 'InputObjectNotBound' -- PowerShell refused to bind the object to anything. A real
-                                   verdict: pass 3 is ByValue, so a ValueFromPipelineByPropertyName-
-                                   only parameter cannot coerce.
+        - 'InputObjectNotBound' -- PowerShell refused to bind THIS probe object at all. It is a
+                                   per-probe observation, NOT a structural immunity: binding has FOUR
+                                   passes, including ByPropertyName WITH coercion, so an alias matching
+                                   an object-valued property can coerce even when ValueFromPipeline is absent.
         - 'ParameterBindingError' -- some other binding failure, e.g. an ambiguous set.
         - 'CmdletError'         -- the cmdlet itself threw before reaching the shim.
     .OUTPUTS

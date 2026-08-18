@@ -6,10 +6,11 @@
     listed here. It also fails on a waiver whose pair no longer coerces, so a fix must delete
     its waiver rather than leave a licence behind for the next reintroduction.
 
-    ONE ENTRY PER (Cmdlet, Parameter) PAIR, NOT PER PRODUCING ENDPOINT. The audit's 389
-    finding rows are producer multiplicity over 127 real defects; keying by triple would be
-    389 entries against psd1's hard 500-element cap for a single collection literal, and would
-    list the same defect up to a dozen times.
+    ONE ENTRY PER (Cmdlet, Parameter) PAIR, NOT PER PRODUCING ENDPOINT. The current report's
+    264 finding rows are producer multiplicity over 101 real defects; keying by triple would be
+    264 entries against psd1's hard 500-element cap for a single collection literal, and would
+    list the same defect up to a dozen times. (The pre-fix audit measured 389 rows over 127
+    pairs; the guards and renames delivered for #90 account for the reduction.)
 
     Scope and Producers are LOAD-BEARING, not annotation -- pair-level keying is otherwise
     blind to where a coercion happens. Rail A fails if a Family-scoped waiver's pair starts
@@ -30,77 +31,37 @@
 @{
     Waivers = @(
 
-        # === Cluster 1 -- the rule/member family (16 pairs, all on a PRIMARY producer).
+        # === Cluster 1 -- the rule/member family (1 pair still waived here, all on a PRIMARY
+        # producer; the audit found 16 and the other 15 are now guarded or renamed).
         # The parent is returned as a nested object (policy, member, role), never as a flat
         # policy_name/member_name/role_name string, so a name-shaped selector can never bind by
         # property name. One API design decision repeated across roughly a dozen endpoint
         # families: fix it as one change, not sixteen.
-        @{ Cmdlet = 'Get-PfbBucketAccessPolicy';                   Parameter = 'MemberName';  Scope = 'Primary'; Issue = '#90'; Producers = 8
-            Why = 'GET /buckets/bucket-access-policies items carry no member/member_name field -- membership is a separate endpoint -- so member_names receives the stringified policy item.' }
-        @{ Cmdlet = 'Get-PfbBucketAccessPolicyRule';               Parameter = 'MemberName';  Scope = 'Primary'; Issue = '#90'; Producers = 8
-            Why = 'GET /buckets/bucket-access-policies/rules items carry no member/member_name field -- membership is a separate endpoint -- so member_names receives the stringified rule item.' }
-        @{ Cmdlet = 'Get-PfbBucketAuditFilter';                    Parameter = 'MemberName';  Scope = 'Primary'; Issue = '#90'; Producers = 8
-            Why = 'GET /buckets/audit-filters items carry no member/member_name field -- membership is a separate endpoint -- so member_names receives the stringified filter item.' }
-        @{ Cmdlet = 'Get-PfbBucketCorsPolicy';                     Parameter = 'MemberName';  Scope = 'Primary'; Issue = '#90'; Producers = 8
-            Why = 'GET /buckets/cross-origin-resource-sharing-policies items carry no member/member_name field -- membership is a separate endpoint -- so member_names receives the stringified policy item.' }
-        @{ Cmdlet = 'Get-PfbBucketCorsPolicyRule';                 Parameter = 'MemberName';  Scope = 'Primary'; Issue = '#90'; Producers = 8
-            Why = 'GET /buckets/cross-origin-resource-sharing-policies/rules items carry no member/member_name field -- membership is a separate endpoint -- so member_names receives the stringified rule item.' }
-        @{ Cmdlet = 'Get-PfbNetworkAccessRule';                    Parameter = 'PolicyName';  Scope = 'Primary'; Issue = '#90'; Producers = 3
-            Why = 'GET /network-access-policies/rules returns policy as a nested object, never a flat policy_name, so policy_names receives the stringified rule item.' }
-        @{ Cmdlet = 'Get-PfbNfsExportRule';                        Parameter = 'PolicyName';  Scope = 'Primary'; Issue = '#90'; Producers = 2
-            Why = 'GET /nfs-export-policies/rules returns policy as a nested object, never a flat policy_name, so policy_names receives the stringified rule item.' }
-        @{ Cmdlet = 'Get-PfbObjectStoreAccessPolicyRule';          Parameter = 'PolicyName';  Scope = 'Primary'; Issue = '#90'; Producers = 4
-            Why = 'GET /object-store-access-policies/rules returns policy as a nested object, never a flat policy_name, so policy_names receives the stringified rule item.' }
-        @{ Cmdlet = 'Get-PfbObjectStoreTrustPolicy';               Parameter = 'RoleName';    Scope = 'Primary'; Issue = '#90'; Producers = 4
-            Why = 'GET /object-store-roles/object-store-trust-policies returns role as a nested object, never a flat role_name, so role_names receives the stringified policy item.' }
-        @{ Cmdlet = 'Get-PfbObjectStoreTrustPolicyRule';           Parameter = 'PolicyName';  Scope = 'Primary'; Issue = '#90'; Producers = 4
-            Why = 'GET /object-store-roles/object-store-trust-policies/rules returns policy as a nested object, never a flat policy_name, so policy_names receives the stringified rule item.' }
-        @{ Cmdlet = 'Get-PfbS3ExportRule';                         Parameter = 'PolicyName';  Scope = 'Primary'; Issue = '#90'; Producers = 2
-            Why = 'GET /s3-export-policies/rules returns policy as a nested object, never a flat policy_name, so policy_names receives the stringified rule item.' }
-        @{ Cmdlet = 'Get-PfbSmbClientRule';                        Parameter = 'PolicyName';  Scope = 'Primary'; Issue = '#90'; Producers = 2
-            Why = 'GET /smb-client-policies/rules returns policy as a nested object, never a flat policy_name, so policy_names receives the stringified rule item.' }
-        @{ Cmdlet = 'Get-PfbSmbShareRule';                         Parameter = 'PolicyName';  Scope = 'Primary'; Issue = '#90'; Producers = 2
-            Why = 'GET /smb-share-policies/rules returns policy as a nested object, never a flat policy_name, so policy_names receives the stringified rule item.' }
         @{ Cmdlet = 'Get-PfbUserGroupQuotaPolicyRule';             Parameter = 'PolicyName';  Scope = 'Primary'; Issue = '#90'; Producers = 4
-            Why = 'GET /user-group-quota-policies/rules returns policy as a nested object, never a flat policy_name, so policy_names receives the stringified rule item.' }
-        @{ Cmdlet = 'Remove-PfbBucketAuditFilter';                 Parameter = 'MemberName';  Scope = 'Primary'; Issue = '#90'; Producers = 8
-            Why = 'DESTRUCTIVE -- GET /buckets/audit-filters items carry no member/member_name field, so a piped filter item lands in member_names of a DELETE as a stringified object.' }
-        @{ Cmdlet = 'Remove-PfbBucketCorsPolicy';                  Parameter = 'MemberName';  Scope = 'Primary'; Issue = '#90'; Producers = 8
-            Why = 'DESTRUCTIVE -- GET /buckets/cross-origin-resource-sharing-policies items carry no member/member_name field, so a piped policy item lands in member_names of a DELETE as a stringified object.' }
+            Why = 'GET /user-group-quota-policies/rules returns policy as a nested object, never a flat policy_name, so policy_names receives the stringified rule item. Waived rather than fixed because the array honours a policy_names key the published OpenAPI omits, and the published spec governs.' }
 
-        # === Cluster 2 -- sub-resources that have no name at all (10 pairs, all on a PRIMARY producer).
+        # === Cluster 2 -- sub-resources that have no name at all (0 pairs still waived here; the
+        # audit found 10, 9 had the dead parameter removed, and the last one was fixed outright).
         # -Name is pipeline-bound on a resource whose items carry no name field. Dropping
-        # ValueFromPipeline eliminates the class outright: zero coercions occurred without it.
-        # The four Remove-* pairs are the highest-severity findings in the audit -- a DELETE
-        # whose selector is a stringified object is where selects-the-wrong-thing and
-        # destructive intersect.
-        @{ Cmdlet = 'Get-PfbArrayConnectionKey';                   Parameter = 'Name';        Scope = 'Primary'; Issue = '#90'; Producers = 4
-            Why = 'GET /array-connections/connection-key items carry no name (connection_key, created, expires), yet -Name is pipeline-bound, so names receives the stringified item.' }
-        @{ Cmdlet = 'Get-PfbCertificateGroupCertificate';          Parameter = 'Name';        Scope = 'Primary'; Issue = '#90'; Producers = 1
-            Why = 'GET /certificate-groups/certificates items carry no name (group, member -- both objects), yet -Name is pipeline-bound, so names receives the stringified item.' }
-        @{ Cmdlet = 'Get-PfbFleetKey';                             Parameter = 'Name';        Scope = 'Primary'; Issue = '#90'; Producers = 2
-            Why = 'GET /fleets/fleet-key items carry no name (created, expires, fleet_key), yet -Name is pipeline-bound, so names receives the stringified item.' }
-        @{ Cmdlet = 'Get-PfbNetworkConnectionStatistics';          Parameter = 'Name';        Scope = 'Primary'; Issue = '#90'; Producers = 5
-            Why = 'GET /network-interfaces/network-connection-statistics items carry no name (current_state, local, remote, time), yet -Name is pipeline-bound, so names receives the stringified item.' }
-        @{ Cmdlet = 'Get-PfbNetworkInterfaceNeighbor';             Parameter = 'Name';        Scope = 'Primary'; Issue = '#90'; Producers = 5
-            Why = 'GET /network-interfaces/neighbors items carry no name (initial_ttl_in_sec, local_port, neighbor_chassis, neighbor_port), yet -Name is pipeline-bound, so names receives the stringified item.' }
-        @{ Cmdlet = 'Get-PfbOpenFile';                             Parameter = 'Name';        Scope = 'Primary'; Issue = '#90'; Producers = 9
-            Why = 'GET /file-systems/open-files items carry no name (client, id, lock_count, mode, path, session, source, user), yet -Name is pipeline-bound, so names receives the stringified item.' }
-        @{ Cmdlet = 'Get-PfbRealmDefaults';                        Parameter = 'Name';        Scope = 'Primary'; Issue = '#90'; Producers = 1
-            Why = 'GET /realms/defaults items carry no name (context, object_store, realm), yet -Name is pipeline-bound, so names receives the stringified item.' }
-        @{ Cmdlet = 'Get-PfbResourceAccess';                       Parameter = 'Name';        Scope = 'Primary'; Issue = '#90'; Producers = 1
-            Why = 'GET /resource-accesses items carry no name (id, resource, scope), yet -Name is pipeline-bound, so names receives the stringified item.' }
-        @{ Cmdlet = 'Remove-PfbOpenFile';                          Parameter = 'Name';        Scope = 'Primary'; Issue = '#90'; Producers = 9
-            Why = 'DESTRUCTIVE -- GET /file-systems/open-files items carry no name (client, id, lock_count, mode, path, session, source, user), so a piped open file lands in names of a DELETE as a stringified object.' }
-        @{ Cmdlet = 'Remove-PfbResourceAccess';                    Parameter = 'Name';        Scope = 'Primary'; Issue = '#90'; Producers = 1
-            Why = 'DESTRUCTIVE -- GET /resource-accesses items carry no name (id, resource, scope), so a piped access record lands in names of a DELETE as a stringified object.' }
-
-        # === Cluster 3 -- a type mismatch on a name that does match (1 pair).
-        # The field exists but is an object. This is also the audit control-leakage case, and
-        # the only pair whose verdict depends on the probe carrying real spec types: force every
-        # probe property to string and this pair alone stops coercing.
-        @{ Cmdlet = 'Get-PfbLocalGroupMember';                     Parameter = 'Group';       Scope = 'Primary'; Issue = '#90'; Producers = 8
-            Why = 'GET /directory-services/local/groups/members returns group as an object, so -Group receives a stringified group rather than its name.' }
+        # ValueFromPipeline narrows the class but does not eliminate it: the four-pass finding
+        # showed pass 4 is ByPropertyName WITH coercion, so an alias matching an object-valued
+        # property still coerces with ValueFromPipeline absent. The two Remove-* pairs the audit
+        # found here (Remove-PfbOpenFile, Remove-PfbResourceAccess, both since fixed by parameter
+        # removal) were its highest-severity findings -- a DELETE whose selector is a stringified
+        # object is where selects-the-wrong-thing and destructive intersect.
+        #
+        # Get-PfbArrayConnectionKey/-Name was waived here and is now deleted rather than downgraded.
+        # The process-block coercion guard alone is the fix, and it is the only fix available: the
+        # published spec's components.schemas.ArrayConnectionKey -- the item type GET
+        # array-connections/connection-key returns -- declares exactly connection_key, created and
+        # expires at every version 2.0 through 2.28, with no allOf, so it never inherits the base
+        # schema that supplies id and name to ordinary resources. Both the generic names and ids
+        # query keys select by an identifier the returned resource carries, so on an item carrying
+        # neither, neither key can select and no identity parameter could rescue the chain. The
+        # guard converts the silently unfiltered result into a loud error, which turns the pair
+        # from Coerced into Guarded -- and Guarded is not a finding, so Rail A's stale-waiver test
+        # requires the licence to go with it.
+        # Keep this cluster heading: the root cause it describes is still what the guard defends.
 
         # === Cluster 4 -- family-only exposure (100 pairs, NOT reachable from the primary producer).
         # Each cmdlet's own primary producer returns name correctly, so the obvious chain is

@@ -685,10 +685,7 @@
         "Remove-PfbBucketAuditFilter"
       ],
       "missingQueryParameters": [
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "names"
+        "context_names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -706,10 +703,7 @@
         "Remove-PfbBucketAccessPolicy"
       ],
       "missingQueryParameters": [
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "names"
+        "context_names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -748,10 +742,7 @@
         "Remove-PfbBucketCorsPolicy"
       ],
       "missingQueryParameters": [
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "names"
+        "context_names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2800,10 +2791,7 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "names"
+        "context_names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2822,8 +2810,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "bucket_ids",
-        "bucket_names",
         "context_names"
       ],
       "missingBodyProperties": [],
@@ -2844,7 +2830,6 @@
       "missingQueryParameters": [
         "allow_errors",
         "bucket_ids",
-        "bucket_names",
         "context_names"
       ],
       "missingBodyProperties": [],
@@ -2864,8 +2849,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "bucket_ids",
-        "bucket_names",
         "context_names"
       ],
       "missingBodyProperties": [],
@@ -2886,7 +2869,6 @@
       "missingQueryParameters": [
         "allow_errors",
         "bucket_ids",
-        "bucket_names",
         "context_names"
       ],
       "missingBodyProperties": [],
@@ -2905,10 +2887,8 @@
         "Get-PfbCertificateGroupCertificate"
       ],
       "missingQueryParameters": [
-        "certificate_group_ids",
         "certificate_group_names",
-        "certificate_ids",
-        "certificate_names"
+        "certificate_ids"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4036,7 +4016,6 @@
         "Get-PfbNetworkInterfaceNeighbor"
       ],
       "missingQueryParameters": [
-        "local_port_names",
         "total_item_count"
       ],
       "missingBodyProperties": [],
@@ -4876,8 +4855,7 @@
       "missingQueryParameters": [
         "allow_errors",
         "context_names",
-        "realm_ids",
-        "realm_names"
+        "realm_ids"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -9667,52 +9645,28 @@
       ],
       "missingQueryParameters": [
         "bucket_ids",
-        "bucket_names",
         "context_names",
         "names"
       ],
       "missingBodyProperties": [
-        {
-          "name": "actions",
-          "type": "array",
-          "format": null,
-          "specRequired": false,
-          "synopsis": "The list of ops to be audited by this filter.",
-          "suggestedPowerShellType": "[string[]]",
-          "enumValues": [],
-          "enumStatus": "not-found-in-resource",
-          "target": {
-            "file": "Public/Bucket/New-PfbBucketAuditFilter.ps1",
-            "paramBlockLine": 38,
-            "payloadVariable": "body",
-            "assignmentStyle": "unknown",
-            "hasAttributes": true
-          }
-        },
-        {
-          "name": "s3_prefixes",
-          "type": "array",
-          "format": null,
-          "specRequired": false,
-          "synopsis": "The list of object name prefixes.",
-          "suggestedPowerShellType": "[string[]]",
-          "enumValues": [],
-          "enumStatus": "no-spec-enum-found",
-          "target": {
-            "file": "Public/Bucket/New-PfbBucketAuditFilter.ps1",
-            "paramBlockLine": 38,
-            "payloadVariable": "body",
-            "assignmentStyle": "unknown",
-            "hasAttributes": true
-          }
-        }
+        "actions",
+        "s3_prefixes"
       ],
       "readOnlyFields": [],
       "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
+        "level": "partial",
+        "unresolvedParameters": [
+          {
+            "parameter": "Name",
+            "surface": "AttributesOnly",
+            "file": "Public/Bucket/New-PfbBucketAuditFilter.ps1",
+            "line": 44
+          }
+        ],
+        "escapeHatchOnly": [
+          "Name"
+        ],
+        "caveat": "body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability"
       },
       "annotations": []
     },
@@ -9723,7 +9677,6 @@
       ],
       "missingQueryParameters": [
         "bucket_ids",
-        "bucket_names",
         "context_names"
       ],
       "missingBodyProperties": [
@@ -9738,7 +9691,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Bucket/New-PfbBucketAccessPolicy.ps1",
-            "paramBlockLine": 36,
+            "paramBlockLine": 53,
             "payloadVariable": null,
             "assignmentStyle": null,
             "hasAttributes": false
@@ -9761,9 +9714,7 @@
       ],
       "missingQueryParameters": [
         "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "names"
+        "context_names"
       ],
       "missingBodyProperties": [
         {
@@ -9777,7 +9728,7 @@
           "enumStatus": "not-found-in-resource",
           "target": {
             "file": "Public/Bucket/New-PfbBucketAccessPolicyRule.ps1",
-            "paramBlockLine": 42,
+            "paramBlockLine": 82,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -9794,7 +9745,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Bucket/New-PfbBucketAccessPolicyRule.ps1",
-            "paramBlockLine": 42,
+            "paramBlockLine": 82,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -9811,7 +9762,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Bucket/New-PfbBucketAccessPolicyRule.ps1",
-            "paramBlockLine": 42,
+            "paramBlockLine": 82,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -9836,7 +9787,6 @@
       ],
       "missingQueryParameters": [
         "bucket_ids",
-        "bucket_names",
         "context_names"
       ],
       "missingBodyProperties": [
@@ -9851,7 +9801,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Bucket/New-PfbBucketCorsPolicy.ps1",
-            "paramBlockLine": 36,
+            "paramBlockLine": 53,
             "payloadVariable": null,
             "assignmentStyle": null,
             "hasAttributes": false
@@ -9874,10 +9824,7 @@
       ],
       "missingQueryParameters": [
         "bucket_ids",
-        "bucket_names",
-        "context_names",
-        "names",
-        "policy_names"
+        "context_names"
       ],
       "missingBodyProperties": [
         {
@@ -9891,7 +9838,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Bucket/New-PfbBucketCorsPolicyRule.ps1",
-            "paramBlockLine": 32,
+            "paramBlockLine": 85,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -9908,7 +9855,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Bucket/New-PfbBucketCorsPolicyRule.ps1",
-            "paramBlockLine": 32,
+            "paramBlockLine": 85,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -9925,7 +9872,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Bucket/New-PfbBucketCorsPolicyRule.ps1",
-            "paramBlockLine": 32,
+            "paramBlockLine": 85,
             "payloadVariable": "Attributes",
             "assignmentStyle": "attributesOnly",
             "hasAttributes": true
@@ -14169,8 +14116,8 @@
   "systemicGaps": [
     {
       "name": "context_names",
-      "endpointCount": 269,
-      "queryEndpointCount": 269,
+      "endpointCount": 268,
+      "queryEndpointCount": 268,
       "bodyEndpointCount": 0,
       "endpoints": [
         "DELETE /admins/api-tokens",
@@ -14394,7 +14341,6 @@
         "POST /audit-file-systems-policies/members",
         "POST /audit-object-store-policies/members",
         "POST /buckets",
-        "POST /buckets/audit-filters",
         "POST /buckets/bucket-access-policies",
         "POST /buckets/bucket-access-policies/rules",
         "POST /buckets/cross-origin-resource-sharing-policies",
@@ -14636,46 +14582,6 @@
       "annotations": []
     },
     {
-      "name": "names",
-      "endpointCount": 31,
-      "queryEndpointCount": 31,
-      "bodyEndpointCount": 0,
-      "endpoints": [
-        "DELETE /buckets/audit-filters",
-        "DELETE /buckets/bucket-access-policies",
-        "DELETE /buckets/cross-origin-resource-sharing-policies",
-        "GET /arrays/clients/performance",
-        "GET /arrays/clients/s3-specific-performance",
-        "GET /arrays/supported-time-zones",
-        "GET /audit-file-systems-policy-operations",
-        "GET /bucket-audit-filter-actions",
-        "GET /buckets/audit-filters",
-        "GET /directory-services/test",
-        "GET /dns",
-        "GET /file-systems/groups/performance",
-        "GET /file-systems/users/performance",
-        "GET /legal-holds/held-entities",
-        "GET /object-store-access-policy-actions",
-        "GET /object-store-roles/object-store-trust-policies",
-        "GET /password-policies",
-        "GET /quotas/settings",
-        "GET /smtp-servers",
-        "GET /snmp-agents",
-        "GET /software-check",
-        "GET /syslog-servers/settings",
-        "PATCH /password-policies",
-        "PATCH /syslog-servers/settings",
-        "POST /buckets/audit-filters",
-        "POST /buckets/bucket-access-policies/rules",
-        "POST /buckets/cross-origin-resource-sharing-policies/rules",
-        "POST /maintenance-windows",
-        "POST /object-store-access-keys",
-        "POST /object-store-access-policies/rules",
-        "POST /object-store-roles/object-store-trust-policies/rules"
-      ],
-      "annotations": []
-    },
-    {
       "name": "sort",
       "endpointCount": 28,
       "queryEndpointCount": 28,
@@ -14713,28 +14619,35 @@
       "annotations": []
     },
     {
-      "name": "bucket_ids",
-      "endpointCount": 17,
-      "queryEndpointCount": 17,
+      "name": "names",
+      "endpointCount": 24,
+      "queryEndpointCount": 24,
       "bodyEndpointCount": 0,
       "endpoints": [
-        "DELETE /buckets/audit-filters",
-        "DELETE /buckets/bucket-access-policies",
-        "DELETE /buckets/bucket-access-policies/rules",
-        "DELETE /buckets/cross-origin-resource-sharing-policies",
-        "DELETE /buckets/cross-origin-resource-sharing-policies/rules",
-        "DELETE /lifecycle-rules",
-        "GET /buckets/audit-filters",
-        "GET /buckets/bucket-access-policies",
-        "GET /buckets/bucket-access-policies/rules",
-        "GET /buckets/cross-origin-resource-sharing-policies",
-        "GET /buckets/cross-origin-resource-sharing-policies/rules",
-        "GET /lifecycle-rules",
-        "POST /buckets/audit-filters",
-        "POST /buckets/bucket-access-policies",
-        "POST /buckets/bucket-access-policies/rules",
-        "POST /buckets/cross-origin-resource-sharing-policies",
-        "POST /buckets/cross-origin-resource-sharing-policies/rules"
+        "GET /arrays/clients/performance",
+        "GET /arrays/clients/s3-specific-performance",
+        "GET /arrays/supported-time-zones",
+        "GET /audit-file-systems-policy-operations",
+        "GET /bucket-audit-filter-actions",
+        "GET /directory-services/test",
+        "GET /dns",
+        "GET /file-systems/groups/performance",
+        "GET /file-systems/users/performance",
+        "GET /legal-holds/held-entities",
+        "GET /object-store-access-policy-actions",
+        "GET /object-store-roles/object-store-trust-policies",
+        "GET /password-policies",
+        "GET /quotas/settings",
+        "GET /smtp-servers",
+        "GET /snmp-agents",
+        "GET /software-check",
+        "GET /syslog-servers/settings",
+        "PATCH /password-policies",
+        "PATCH /syslog-servers/settings",
+        "POST /maintenance-windows",
+        "POST /object-store-access-keys",
+        "POST /object-store-access-policies/rules",
+        "POST /object-store-roles/object-store-trust-policies/rules"
       ],
       "annotations": []
     },
@@ -14761,31 +14674,6 @@
         "GET /realms/space/storage-classes",
         "GET /remote-arrays",
         "GET /targets/performance/replication"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "bucket_names",
-      "endpointCount": 16,
-      "queryEndpointCount": 16,
-      "bodyEndpointCount": 0,
-      "endpoints": [
-        "DELETE /buckets/audit-filters",
-        "DELETE /buckets/bucket-access-policies",
-        "DELETE /buckets/bucket-access-policies/rules",
-        "DELETE /buckets/cross-origin-resource-sharing-policies",
-        "DELETE /buckets/cross-origin-resource-sharing-policies/rules",
-        "DELETE /lifecycle-rules",
-        "GET /buckets/audit-filters",
-        "GET /buckets/bucket-access-policies",
-        "GET /buckets/bucket-access-policies/rules",
-        "GET /buckets/cross-origin-resource-sharing-policies",
-        "GET /buckets/cross-origin-resource-sharing-policies/rules",
-        "POST /buckets/audit-filters",
-        "POST /buckets/bucket-access-policies",
-        "POST /buckets/bucket-access-policies/rules",
-        "POST /buckets/cross-origin-resource-sharing-policies",
-        "POST /buckets/cross-origin-resource-sharing-policies/rules"
       ],
       "annotations": []
     },
@@ -14838,9 +14726,28 @@
       "annotations": []
     },
     {
-      "name": "policy_names",
+      "name": "bucket_ids",
       "endpointCount": 10,
       "queryEndpointCount": 10,
+      "bodyEndpointCount": 0,
+      "endpoints": [
+        "DELETE /buckets/bucket-access-policies/rules",
+        "DELETE /buckets/cross-origin-resource-sharing-policies/rules",
+        "DELETE /lifecycle-rules",
+        "GET /buckets/bucket-access-policies/rules",
+        "GET /buckets/cross-origin-resource-sharing-policies/rules",
+        "GET /lifecycle-rules",
+        "POST /buckets/bucket-access-policies",
+        "POST /buckets/bucket-access-policies/rules",
+        "POST /buckets/cross-origin-resource-sharing-policies",
+        "POST /buckets/cross-origin-resource-sharing-policies/rules"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "policy_names",
+      "endpointCount": 9,
+      "queryEndpointCount": 9,
       "bodyEndpointCount": 0,
       "endpoints": [
         "DELETE /buckets/bucket-access-policies/rules",
@@ -14851,7 +14758,6 @@
         "PATCH /object-store-roles/object-store-trust-policies/rules",
         "PATCH /s3-export-policies/rules",
         "PATCH /smb-share-policies/rules",
-        "POST /buckets/cross-origin-resource-sharing-policies/rules",
         "POST /object-store-roles/object-store-access-policies"
       ],
       "annotations": []
@@ -14887,22 +14793,6 @@
         "GET /policies-all/members",
         "GET /policies/file-system-replica-links",
         "POST /file-system-replica-links"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "actions",
-      "endpointCount": 7,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 7,
-      "endpoints": [
-        "PATCH /object-store-access-policies/rules",
-        "PATCH /object-store-roles/object-store-trust-policies/rules",
-        "PATCH /s3-export-policies/rules",
-        "POST /buckets/audit-filters",
-        "POST /buckets/bucket-access-policies/rules",
-        "POST /object-store-access-policies/rules",
-        "POST /object-store-roles/object-store-trust-policies/rules"
       ],
       "annotations": []
     },
@@ -14951,6 +14841,21 @@
         "PATCH /network-access-policies/rules",
         "PATCH /nfs-export-policies/rules",
         "PATCH /smb-client-policies/rules"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "actions",
+      "endpointCount": 6,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 6,
+      "endpoints": [
+        "PATCH /object-store-access-policies/rules",
+        "PATCH /object-store-roles/object-store-trust-policies/rules",
+        "PATCH /s3-export-policies/rules",
+        "POST /buckets/bucket-access-policies/rules",
+        "POST /object-store-access-policies/rules",
+        "POST /object-store-roles/object-store-trust-policies/rules"
       ],
       "annotations": []
     },
@@ -15309,14 +15214,14 @@
       "annotations": []
     },
     {
-      "name": "certificate_group_ids",
+      "name": "bucket_names",
       "endpointCount": 3,
       "queryEndpointCount": 3,
       "bodyEndpointCount": 0,
       "endpoints": [
-        "DELETE /certificates/certificate-groups",
-        "GET /certificate-groups/certificates",
-        "GET /certificates/certificate-groups"
+        "DELETE /buckets/bucket-access-policies/rules",
+        "DELETE /buckets/cross-origin-resource-sharing-policies/rules",
+        "DELETE /lifecycle-rules"
       ],
       "annotations": []
     },
@@ -15497,6 +15402,17 @@
         "GET /file-systems/users/performance",
         "GET /quotas/users",
         "GET /usage/users"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "certificate_group_ids",
+      "endpointCount": 2,
+      "queryEndpointCount": 2,
+      "bodyEndpointCount": 0,
+      "endpoints": [
+        "DELETE /certificates/certificate-groups",
+        "GET /certificates/certificate-groups"
       ],
       "annotations": []
     },
@@ -16190,16 +16106,6 @@
       "annotations": []
     },
     {
-      "name": "certificate_names",
-      "endpointCount": 1,
-      "queryEndpointCount": 1,
-      "bodyEndpointCount": 0,
-      "endpoints": [
-        "GET /certificate-groups/certificates"
-      ],
-      "annotations": []
-    },
-    {
       "name": "certificate_type",
       "endpointCount": 1,
       "queryEndpointCount": 0,
@@ -16730,16 +16636,6 @@
       "annotations": []
     },
     {
-      "name": "local_port_names",
-      "endpointCount": 1,
-      "queryEndpointCount": 1,
-      "bodyEndpointCount": 0,
-      "endpoints": [
-        "GET /network-interfaces/neighbors"
-      ],
-      "annotations": []
-    },
-    {
       "name": "locality",
       "endpointCount": 1,
       "queryEndpointCount": 0,
@@ -17100,16 +16996,6 @@
       "annotations": []
     },
     {
-      "name": "realm_names",
-      "endpointCount": 1,
-      "queryEndpointCount": 1,
-      "bodyEndpointCount": 0,
-      "endpoints": [
-        "GET /realms/defaults"
-      ],
-      "annotations": []
-    },
-    {
       "name": "recursive",
       "endpointCount": 1,
       "queryEndpointCount": 1,
@@ -17216,16 +17102,6 @@
       "bodyEndpointCount": 1,
       "endpoints": [
         "POST /lifecycle-rules"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "s3_prefixes",
-      "endpointCount": 1,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "POST /buckets/audit-filters"
       ],
       "annotations": []
     },
@@ -17403,7 +17279,7 @@
   "conventionStrength": [
     {
       "name": "names",
-      "cmdletCount": 303,
+      "cmdletCount": 300,
       "cmdlets": [
         "Get-PfbActiveDirectory",
         "Get-PfbAdmin",
@@ -17421,13 +17297,13 @@
         "Get-PfbBucket",
         "Get-PfbBucketAccessPolicy",
         "Get-PfbBucketAccessPolicyRule",
+        "Get-PfbBucketAuditFilter",
         "Get-PfbBucketCorsPolicy",
         "Get-PfbBucketCorsPolicyRule",
         "Get-PfbBucketPerformance",
         "Get-PfbBucketS3Performance",
         "Get-PfbCertificate",
         "Get-PfbCertificateGroup",
-        "Get-PfbCertificateGroupCertificate",
         "Get-PfbCertificateGroupUse",
         "Get-PfbCertificateUse",
         "Get-PfbDataEvictionPolicy",
@@ -17443,7 +17319,6 @@
         "Get-PfbFileSystemSnapshotTransfer",
         "Get-PfbFileSystemStorageClass",
         "Get-PfbFleet",
-        "Get-PfbFleetKey",
         "Get-PfbHardware",
         "Get-PfbHardwareConnector",
         "Get-PfbHardwareConnectorPerformance",
@@ -17462,12 +17337,10 @@
         "Get-PfbManagementAccessPolicy",
         "Get-PfbNetworkAccessPolicy",
         "Get-PfbNetworkAccessRule",
-        "Get-PfbNetworkConnectionStatistics",
         "Get-PfbNetworkInterface",
         "Get-PfbNetworkInterfaceConnector",
         "Get-PfbNetworkInterfaceConnectorPerformance",
         "Get-PfbNetworkInterfaceConnectorSettings",
-        "Get-PfbNetworkInterfaceNeighbor",
         "Get-PfbNfsExportPolicy",
         "Get-PfbNfsExportRule",
         "Get-PfbNode",
@@ -17484,7 +17357,6 @@
         "Get-PfbObjectStoreUser",
         "Get-PfbObjectStoreVirtualHost",
         "Get-PfbOidcIdp",
-        "Get-PfbOpenFile",
         "Get-PfbPolicy",
         "Get-PfbPolicyAll",
         "Get-PfbPresetWorkload",
@@ -17494,12 +17366,10 @@
         "Get-PfbQuotaGroup",
         "Get-PfbQuotaUser",
         "Get-PfbRealm",
-        "Get-PfbRealmDefaults",
         "Get-PfbRealmSpace",
         "Get-PfbRealmStorageClass",
         "Get-PfbRemoteArray",
         "Get-PfbResiliencyGroup",
-        "Get-PfbResourceAccess",
         "Get-PfbRole",
         "Get-PfbS3ExportPolicy",
         "Get-PfbS3ExportRule",
@@ -17530,6 +17400,8 @@
         "New-PfbAuditFileSystemPolicy",
         "New-PfbAuditObjectStorePolicy",
         "New-PfbBucket",
+        "New-PfbBucketAccessPolicyRule",
+        "New-PfbBucketCorsPolicyRule",
         "New-PfbCertificate",
         "New-PfbCertificateGroup",
         "New-PfbDataEvictionPolicy",
@@ -17573,7 +17445,10 @@
         "Remove-PfbAuditFileSystemPolicy",
         "Remove-PfbAuditObjectStorePolicy",
         "Remove-PfbBucket",
+        "Remove-PfbBucketAccessPolicy",
         "Remove-PfbBucketAccessPolicyRule",
+        "Remove-PfbBucketAuditFilter",
+        "Remove-PfbBucketCorsPolicy",
         "Remove-PfbBucketCorsPolicyRule",
         "Remove-PfbCertificate",
         "Remove-PfbCertificateGroup",
@@ -17612,13 +17487,11 @@
         "Remove-PfbObjectStoreUser",
         "Remove-PfbObjectStoreVirtualHost",
         "Remove-PfbOidcIdp",
-        "Remove-PfbOpenFile",
         "Remove-PfbPolicy",
         "Remove-PfbPresetWorkload",
         "Remove-PfbPublicKey",
         "Remove-PfbQosPolicy",
         "Remove-PfbRealm",
-        "Remove-PfbResourceAccess",
         "Remove-PfbS3ExportPolicy",
         "Remove-PfbS3ExportRule",
         "Remove-PfbSaml2Idp",
@@ -17712,7 +17585,7 @@
     },
     {
       "name": "ids",
-      "cmdletCount": 225,
+      "cmdletCount": 220,
       "cmdlets": [
         "Get-PfbAdmin",
         "Get-PfbAdminCache",
@@ -17729,16 +17602,11 @@
         "Get-PfbAuditObjectStorePolicy",
         "Get-PfbBlade",
         "Get-PfbBucket",
-        "Get-PfbBucketAccessPolicy",
-        "Get-PfbBucketAccessPolicyRule",
-        "Get-PfbBucketCorsPolicy",
-        "Get-PfbBucketCorsPolicyRule",
         "Get-PfbBucketPerformance",
         "Get-PfbBucketReplicaLink",
         "Get-PfbBucketS3Performance",
         "Get-PfbCertificate",
         "Get-PfbCertificateGroup",
-        "Get-PfbCertificateGroupCertificate",
         "Get-PfbDataEvictionPolicy",
         "Get-PfbDirectoryServiceRole",
         "Get-PfbDrive",
@@ -17943,7 +17811,7 @@
     },
     {
       "name": "filter",
-      "cmdletCount": 202,
+      "cmdletCount": 201,
       "cmdlets": [
         "Get-PfbActiveDirectory",
         "Get-PfbAdmin",
@@ -18083,7 +17951,6 @@
         "Get-PfbObjectStoreUserAccessPolicy",
         "Get-PfbObjectStoreVirtualHost",
         "Get-PfbOidcIdp",
-        "Get-PfbOpenFile",
         "Get-PfbPasswordPolicy",
         "Get-PfbPolicy",
         "Get-PfbPolicyAll",
@@ -18356,7 +18223,7 @@
     },
     {
       "name": "sort",
-      "cmdletCount": 180,
+      "cmdletCount": 179,
       "cmdlets": [
         "Get-PfbAdmin",
         "Get-PfbAdminCache",
@@ -18486,7 +18353,6 @@
         "Get-PfbObjectStoreUserAccessPolicy",
         "Get-PfbObjectStoreVirtualHost",
         "Get-PfbOidcIdp",
-        "Get-PfbOpenFile",
         "Get-PfbPasswordPolicy",
         "Get-PfbPolicy",
         "Get-PfbPolicyAll",
@@ -18542,7 +18408,7 @@
     },
     {
       "name": "policy_names",
-      "cmdletCount": 119,
+      "cmdletCount": 114,
       "cmdlets": [
         "Add-PfbDataEvictionPolicyFileSystem",
         "Get-PfbAdminManagementAccessPolicy",
@@ -18550,9 +18416,7 @@
         "Get-PfbArraySshCaPolicy",
         "Get-PfbAuditFileSystemPolicyMember",
         "Get-PfbAuditObjectStorePolicyMember",
-        "Get-PfbBucketAccessPolicy",
         "Get-PfbBucketAccessPolicyRule",
-        "Get-PfbBucketCorsPolicy",
         "Get-PfbBucketCorsPolicyRule",
         "Get-PfbDataEvictionPolicyFileSystem",
         "Get-PfbDataEvictionPolicyMember",
@@ -18599,9 +18463,8 @@
         "New-PfbArraySshCaPolicy",
         "New-PfbAuditFileSystemPolicyMember",
         "New-PfbAuditObjectStorePolicyMember",
-        "New-PfbBucketAccessPolicy",
         "New-PfbBucketAccessPolicyRule",
-        "New-PfbBucketCorsPolicy",
+        "New-PfbBucketCorsPolicyRule",
         "New-PfbDirectoryServiceRoleManagementPolicy",
         "New-PfbFileSystemAuditPolicy",
         "New-PfbFileSystemExport",
@@ -18634,8 +18497,6 @@
         "Remove-PfbArraySshCaPolicy",
         "Remove-PfbAuditFileSystemPolicyMember",
         "Remove-PfbAuditObjectStorePolicyMember",
-        "Remove-PfbBucketAccessPolicy",
-        "Remove-PfbBucketCorsPolicy",
         "Remove-PfbDataEvictionPolicyFileSystem",
         "Remove-PfbDirectoryServiceRoleManagementPolicy",
         "Remove-PfbFileSystemAuditPolicy",
@@ -18667,7 +18528,7 @@
     },
     {
       "name": "policy_ids",
-      "cmdletCount": 99,
+      "cmdletCount": 97,
       "cmdlets": [
         "Add-PfbDataEvictionPolicyFileSystem",
         "Get-PfbAdminManagementAccessPolicy",
@@ -18675,7 +18536,6 @@
         "Get-PfbArraySshCaPolicy",
         "Get-PfbAuditFileSystemPolicyMember",
         "Get-PfbAuditObjectStorePolicyMember",
-        "Get-PfbBucketAccessPolicy",
         "Get-PfbDataEvictionPolicyFileSystem",
         "Get-PfbDataEvictionPolicyMember",
         "Get-PfbDirectoryServiceRoleManagementPolicy",
@@ -18695,7 +18555,6 @@
         "Get-PfbObjectStoreAccessPolicyRole",
         "Get-PfbObjectStoreAccessPolicyRule",
         "Get-PfbObjectStoreAccessPolicyUser",
-        "Get-PfbObjectStoreTrustPolicyRule",
         "Get-PfbObjectStoreUserAccessPolicy",
         "Get-PfbPolicyAllMember",
         "Get-PfbPolicyFileSystem",
@@ -18772,7 +18631,7 @@
     },
     {
       "name": "member_ids",
-      "cmdletCount": 86,
+      "cmdletCount": 81,
       "cmdlets": [
         "Add-PfbDataEvictionPolicyFileSystem",
         "Get-PfbAdminManagementAccessPolicy",
@@ -18780,9 +18639,6 @@
         "Get-PfbArraySshCaPolicy",
         "Get-PfbAuditFileSystemPolicyMember",
         "Get-PfbAuditObjectStorePolicyMember",
-        "Get-PfbBucketAccessPolicy",
-        "Get-PfbBucketAuditFilter",
-        "Get-PfbBucketCorsPolicy",
         "Get-PfbDataEvictionPolicyFileSystem",
         "Get-PfbDataEvictionPolicyMember",
         "Get-PfbDirectoryServiceRoleManagementPolicy",
@@ -18843,8 +18699,6 @@
         "Remove-PfbArraySshCaPolicy",
         "Remove-PfbAuditFileSystemPolicyMember",
         "Remove-PfbAuditObjectStorePolicyMember",
-        "Remove-PfbBucketAuditFilter",
-        "Remove-PfbBucketCorsPolicy",
         "Remove-PfbDataEvictionPolicyFileSystem",
         "Remove-PfbDirectoryServiceRoleManagementPolicy",
         "Remove-PfbFileSystemAuditPolicy",
@@ -18935,6 +18789,28 @@
       ]
     },
     {
+      "name": "bucket_names",
+      "cmdletCount": 16,
+      "cmdlets": [
+        "Get-PfbBucketAccessPolicy",
+        "Get-PfbBucketAccessPolicyRule",
+        "Get-PfbBucketAuditFilter",
+        "Get-PfbBucketCorsPolicy",
+        "Get-PfbBucketCorsPolicyRule",
+        "Get-PfbLifecycleRule",
+        "New-PfbBucketAccessPolicy",
+        "New-PfbBucketAccessPolicyRule",
+        "New-PfbBucketAuditFilter",
+        "New-PfbBucketCorsPolicy",
+        "New-PfbBucketCorsPolicyRule",
+        "Remove-PfbBucketAccessPolicy",
+        "Remove-PfbBucketAuditFilter",
+        "Remove-PfbBucketCorsPolicy",
+        "Update-PfbBucketAuditFilter",
+        "Update-PfbLifecycleRule"
+      ]
+    },
+    {
       "name": "resolution",
       "cmdletCount": 15,
       "cmdlets": [
@@ -19021,6 +18897,20 @@
         "New-PfbLegalHoldEntity",
         "New-PfbUserGroupQuotaPolicy",
         "Update-PfbLegalHoldEntity"
+      ]
+    },
+    {
+      "name": "bucket_ids",
+      "cmdletCount": 8,
+      "cmdlets": [
+        "Get-PfbBucketAccessPolicy",
+        "Get-PfbBucketAuditFilter",
+        "Get-PfbBucketCorsPolicy",
+        "Remove-PfbBucketAccessPolicy",
+        "Remove-PfbBucketAuditFilter",
+        "Remove-PfbBucketCorsPolicy",
+        "Update-PfbBucketAuditFilter",
+        "Update-PfbLifecycleRule"
       ]
     },
     {
@@ -19176,15 +19066,6 @@
       ]
     },
     {
-      "name": "bucket_names",
-      "cmdletCount": 3,
-      "cmdlets": [
-        "Get-PfbLifecycleRule",
-        "Update-PfbBucketAuditFilter",
-        "Update-PfbLifecycleRule"
-      ]
-    },
-    {
       "name": "ca_certificate",
       "cmdletCount": 3,
       "cmdlets": [
@@ -19195,15 +19076,6 @@
     },
     {
       "name": "certificate_group_names",
-      "cmdletCount": 3,
-      "cmdlets": [
-        "Get-PfbCertificateCertificateGroup",
-        "New-PfbCertificateCertificateGroup",
-        "Remove-PfbCertificateCertificateGroup"
-      ]
-    },
-    {
-      "name": "certificate_names",
       "cmdletCount": 3,
       "cmdlets": [
         "Get-PfbCertificateCertificateGroup",
@@ -19291,11 +19163,11 @@
       ]
     },
     {
-      "name": "bucket_ids",
+      "name": "certificate_group_ids",
       "cmdletCount": 2,
       "cmdlets": [
-        "Update-PfbBucketAuditFilter",
-        "Update-PfbLifecycleRule"
+        "Get-PfbCertificateGroupCertificate",
+        "New-PfbCertificateCertificateGroup"
       ]
     },
     {
@@ -19470,13 +19342,6 @@
       "cmdletCount": 1,
       "cmdlets": [
         "Update-PfbCertificate"
-      ]
-    },
-    {
-      "name": "certificate_group_ids",
-      "cmdletCount": 1,
-      "cmdlets": [
-        "New-PfbCertificateCertificateGroup"
       ]
     },
     {
@@ -19823,13 +19688,6 @@
       ]
     },
     {
-      "name": "realm_names",
-      "cmdletCount": 1,
-      "cmdlets": [
-        "Update-PfbRealmDefaults"
-      ]
-    },
-    {
       "name": "required_transport_security",
       "cmdletCount": 1,
       "cmdlets": [
@@ -19848,13 +19706,6 @@
       "cmdletCount": 1,
       "cmdlets": [
         "Update-PfbWormPolicy"
-      ]
-    },
-    {
-      "name": "s3_prefixes",
-      "cmdletCount": 1,
-      "cmdlets": [
-        "Update-PfbBucketAuditFilter"
       ]
     },
     {
@@ -20206,11 +20057,6 @@
     },
     {
       "name": "local_port",
-      "cmdletCount": 0,
-      "cmdlets": []
-    },
-    {
-      "name": "local_port_names",
       "cmdletCount": 0,
       "cmdlets": []
     },

@@ -30,13 +30,13 @@
     dead key reds this file in exactly one place -- the two non-emptiness assertions at the
     bottom of assertion 1 -- and nowhere else, and the edit that case needs is stated precisely
     at the SHRINK-TO-ZERO RELAX POINT note on assertion 1, which is the single authority for it.
-    Any PARTIAL fix, up to and including all 22 destructive entries or all 18 groups at once,
+    Any PARTIAL fix, up to and including all 13 destructive entries or all 6 groups at once,
     needs no edit at all.
 
     HOW THE BASELINE WAS DERIVED, and what would / would not red this file:
-    The artifact is itself the committed thing, so the baseline is the artifact as committed
-    at the HEAD this file was written against (bde3270, specVersion 2.28): 126 deadKeys
-    (22 DESTRUCTIVE / 8 CREATE / 96 WRONG-RESULTS) and 18 noSurvivingSelector groups. The
+    The artifact is itself the committed thing, so the baseline is the artifact as regenerated
+    for the issue-90 selector fixes (specVersion 2.28): 85 deadKeys
+    (13 DESTRUCTIVE / 2 CREATE / 70 WRONG-RESULTS) and 6 noSurvivingSelector groups. The
     DESTRUCTIVE identities and the noSurvivingSelector identities were read out of that file
     and pinned below as ALLOWLISTS; the dead-key and skip counts were pinned as CEILINGS; and
     the inventory counts were pinned as FLOORS, which is the one direction the monotone design
@@ -92,18 +92,11 @@ BeforeAll {
     }
     $script:committedReport = Get-Content -Path $committedReportPath -Raw | ConvertFrom-Json
 
-    # --- Pinned baseline, read out of the committed artifact at HEAD bde3270 -------------
+    # --- Pinned baseline, read out of the regenerated issue-90 artifact -----------------
     # Identity of a dead key = cmdlet|parameter|wireKey|method|endpoint. Identity of a
     # no-surviving-selector group = cmdlet|method|endpoint (exactly the fields the artifact
     # carries for each; there is no file/line in either record).
     $script:baselineDestructive = @(
-        'Remove-PfbBucketAccessPolicy|MemberName|member_names|DELETE|buckets/bucket-access-policies'
-        'Remove-PfbBucketAccessPolicy|PolicyName|policy_names|DELETE|buckets/bucket-access-policies'
-        'Remove-PfbBucketAuditFilter|MemberId|member_ids|DELETE|buckets/audit-filters'
-        'Remove-PfbBucketAuditFilter|MemberName|member_names|DELETE|buckets/audit-filters'
-        'Remove-PfbBucketCorsPolicy|MemberId|member_ids|DELETE|buckets/cross-origin-resource-sharing-policies'
-        'Remove-PfbBucketCorsPolicy|MemberName|member_names|DELETE|buckets/cross-origin-resource-sharing-policies'
-        'Remove-PfbBucketCorsPolicy|PolicyName|policy_names|DELETE|buckets/cross-origin-resource-sharing-policies'
         'Remove-PfbFileLock|Id|ids|DELETE|file-systems/locks'
         'Remove-PfbFleetMember|FleetName|fleet_names|DELETE|fleets/members'
         'Remove-PfbLocalGroup|Id|ids|DELETE|directory-services/local/groups'
@@ -115,36 +108,28 @@ BeforeAll {
         'Remove-PfbNodeGroupNode|MemberName|member_names|DELETE|node-groups/nodes'
         'Remove-PfbObjectStoreAccessKey|Id|ids|DELETE|object-store-access-keys'
         'Remove-PfbObjectStoreRoleAccessPolicy|RoleName|role_names|DELETE|object-store-roles/object-store-access-policies'
-        'Remove-PfbOpenFile|Name|names|DELETE|file-systems/open-files'
-        'Remove-PfbResourceAccess|Name|names|DELETE|resource-accesses'
         'Remove-PfbSmbClientRule|PolicyId|policy_ids|DELETE|smb-client-policies/rules'
         'Remove-PfbSmbClientRule|PolicyName|policy_names|DELETE|smb-client-policies/rules'
     )
     $script:baselineNoSurvivingSelector = @(
-        'Get-PfbBucketAuditFilter|GET|buckets/audit-filters'
-        'Get-PfbCertificateGroupCertificate|GET|certificate-groups/certificates'
         'Get-PfbFileLockClient|GET|file-systems/locks/clients'
-        'Get-PfbFleetKey|GET|fleets/fleet-key'
         'Get-PfbKeytabDownload|GET|keytabs/download'
         'Get-PfbLegalHoldEntity|GET|legal-holds/held-entities'
-        'Get-PfbNetworkConnectionStatistics|GET|network-interfaces/network-connection-statistics'
-        'Get-PfbNetworkInterfaceNeighbor|GET|network-interfaces/neighbors'
         'Get-PfbNodeGroupNode|GET|node-groups/nodes'
-        'Get-PfbRealmDefaults|GET|realms/defaults'
-        'New-PfbBucketAccessPolicy|POST|buckets/bucket-access-policies'
-        'New-PfbBucketAuditFilter|POST|buckets/audit-filters'
-        'New-PfbBucketCorsPolicy|POST|buckets/cross-origin-resource-sharing-policies'
         'New-PfbNlmReclamation|POST|file-systems/locks/nlm-reclamations'
-        'Remove-PfbBucketAccessPolicy|DELETE|buckets/bucket-access-policies'
-        'Remove-PfbBucketAuditFilter|DELETE|buckets/audit-filters'
-        'Remove-PfbBucketCorsPolicy|DELETE|buckets/cross-origin-resource-sharing-policies'
         'Remove-PfbNodeGroupNode|DELETE|node-groups/nodes'
     )
     # CEILINGS, not pins -- see the monotone note above.
-    $script:baselineDeadKeyCount = 126
-    $script:baselineNoSurvivingSelectorCount = 18
+    $script:baselineDeadKeyCount = 85
+    $script:baselineNoSurvivingSelectorCount = 6
     $script:baselineSkipReasons = @{
-        'wire name unresolved'           = 125
+        # New-PfbBucketAuditFilter|Name was introduced by 9d08ecc as a new parameter, so
+        # nothing that was evaluable stopped being evaluated. The parameter demonstrably
+        # reaches the wire through `$filterNames = if ($Name) { $Name } else { $BucketName }`
+        # and `$queryParams['names'] = $filterNames -join ','`; it is unresolvable only because
+        # the AST resolver cannot trace that conditional. This is the `body property` case,
+        # not the coverage-loss case this ceiling guards against.
+        'wire name unresolved'           = 126
         'endpoint/method ambiguous'      = 14
         'endpoint/verb absent from spec' = 0
     }
@@ -192,7 +177,7 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
         # It is a real decision rather than a formality: past that point the file no longer
         # proves it scanned anything, and its guarantee narrows to the monotone one.
         #
-        # A PARTIAL fix -- even all 22 destructive entries, or all 18 groups, at once -- needs
+        # A PARTIAL fix -- even all 13 destructive entries, or all 6 groups, at once -- needs
         # no edit at all. Every one of these cases was constructed and confirmed.
         # specVersion is asserted PRESENT AND VERSION-SHAPED, never pinned to a value. It is the
         # spec the whole report was computed against, so an artifact that lost it is not
@@ -226,7 +211,7 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
         #     that, and was confirmed to by construction.
         #   - It is trivially satisfied at zero (0 -eq 0), so the case where a future PR fixes
         #     every dead key needs no edit here at all. Counting the DESTRUCTIVE matches instead
-        #     would have made "all 22 destructive dead keys got fixed" -- a tractable single PR,
+        #     would have made "all 13 destructive dead keys got fixed" -- a tractable single PR,
         #     and the outcome this artifact exists to produce -- red the gate.
         #   - It keeps this test self-sufficient: it proves its own faithfulness without
         #     depending on assertion 1 having run first.
@@ -241,12 +226,12 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
             # produced P7 F0 -- a clean green with this file's highest-value assertion covering
             # zero entries:
             #   1. delete the `severity` property from the artifact -- `$null -ne 'DESTRUCTIVE'`
-            #      is true for all 126 records, so every entry `continue`s;
+            #      is true for all 85 records, so every entry `continue`s;
             #   2. rename the vocabulary in the generator (DESTRUCTIVE -> DELETE-RISK) and
             #      regenerate honestly -- same total skip, no failure anywhere.
             # The only thing otherwise pinning the vocabulary is one synthetic assertion in
             # Tests/Build-PfbDeadKeyReport.Tests.ps1, which is PS7-gated -- so on the 5.1 leg,
-            # the leg this ungated file exists to serve, the 22-identity destructive allowlist
+            # the leg this ungated file exists to serve, the 13-identity destructive allowlist
             # had no proof it matched anything. This assertion makes a renamed or dropped
             # severity a red instead of a silent full-skip.
             #

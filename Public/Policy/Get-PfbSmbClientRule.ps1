@@ -57,6 +57,9 @@ function Get-PfbSmbClientRule {
     }
 
     process {
+        Assert-PfbSelectorNotCoerced -Value $PolicyName -OriginalInput $PSItem -ParameterName 'PolicyName' -Hint (
+            'Pipe the policy name instead, e.g. Get-PfbSmbClientPolicy | ' +
+            'Select-Object -ExpandProperty name | Get-PfbSmbClientRule, or pass -PolicyName explicitly.')
         if ($PolicyName) { foreach ($n in $PolicyName) { $allPolicyNames.Add($n) } }
         if ($PolicyId)   { foreach ($i in $PolicyId)   { $allPolicyIds.Add($i) } }
     }
@@ -67,6 +70,26 @@ function Get-PfbSmbClientRule {
         if ($allPolicyNames.Count -gt 0) { $queryParams['policy_names'] = $allPolicyNames -join ',' }
         if ($allPolicyIds.Count -gt 0)   { $queryParams['policy_ids']   = $allPolicyIds -join ',' }
 
-        Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'smb-client-policies/rules' -QueryParams $queryParams -AutoPaginate
+        $response = Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'smb-client-policies/rules' -QueryParams $queryParams -AutoPaginate
+
+        # Lift the nested parent policy name to a top-level property so that piping a rule into a
+        # cmdlet that binds -PolicyName by property name sends a scalar selector instead of a
+        # stringified reference. Mutate in place: rebuilding the object would drop 'context' and
+        # any wire field a future REST version adds.
+        #
+        # Do NOT delete this lift because the selector rail reports the pair Coerced -- that row is
+        # an artifact. The rail's probe item is synthesized from the spec's declared response fields
+        # and never runs a producer cmdlet, so a property added here at runtime cannot appear on it;
+        # measured Bound against the real module once the lifted PolicyName is present. This makes
+        # same-family piping work, but an item lifted by a different policy family can bind silently
+        # when both policies share a name, where the guard used to throw. The rail cannot see that
+        # cost because its spec-derived probes never carry runtime-added properties. Reasoning: issue #90.
+        foreach ($item in @($response)) {
+            if ($null -ne $item -and $null -ne $item.policy -and $null -ne $item.policy.name -and
+                $item.PSObject.Properties.Name -notcontains 'PolicyName') {
+                $item | Add-Member -MemberType NoteProperty -Name 'PolicyName' -Value $item.policy.name
+            }
+        }
+        $response
     }
 }

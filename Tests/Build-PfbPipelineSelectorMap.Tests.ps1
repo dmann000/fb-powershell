@@ -54,19 +54,35 @@ Describe 'Build-PfbPipelineSelectorMap' {
         }
     }
 
-    It 'reproduces the Stage 1 headline numbers' {
+    It 'reproduces the measured headline numbers' {
         # A tripwire, not a snapshot. These are the measured baseline the audit report is
         # written against; if the generator drifts from the sweep that produced it, the
         # narrative and the artifact stop agreeing and neither says so.
+        #
+        # Re-baselined from the Stage 1 audit figures (1179 / 389 / 127) when the Stage 2
+        # fixes landed, because those fixes deliberately moved all three. A tripwire is only
+        # worth keeping if each re-baseline is justified rather than merely applied, so:
+        #
+        #   probePairs 1179 -> 1247  more pipeline-bound parameters now exist to probe. The
+        #                            module-wide population moved 303 -> 311, accounted for
+        #                            row by row in PfbPipelineSelectorTools.Tests.ps1, and
+        #                            renamed selectors resolve to more producers each.
+        #   findings    389 -> 264   the point of the branch: coercions that were fixed are
+        #                            no longer found.
+        #   pairs       127 -> 101   unique cmdlet/parameter pairs still coercing. This must
+        #                            equal the entry count of Fixtures/PfbSelectorWaivers.psd1,
+        #                            which Rail A pins from the opposite direction -- a waiver
+        #                            for a pair that no longer coerces fails there -- so the
+        #                            two figures cannot drift apart quietly.
         $report = Get-Content $script:reportPath -Raw | ConvertFrom-Json
-        $report.totals.probePairs | Should -Be 1179
-        $report.totals.findings | Should -Be 389
+        $report.totals.probePairs | Should -Be 1247
+        $report.totals.findings | Should -Be 264
 
         $pairs = @($report.results |
                 Where-Object { $_.Outcome -in @('Coerced', 'WrongScalar') } |
                 ForEach-Object { "$($_.Cmdlet)/$($_.Parameter)" } |
                 Sort-Object -Unique)
-        $pairs.Count | Should -Be 127
+        $pairs.Count | Should -Be 101
     }
 
     It 'records only BindError as unmeasured' {

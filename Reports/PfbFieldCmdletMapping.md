@@ -9,7 +9,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - matched: 2
 - collision: 1
 - not-found-in-resource: 29
-- no-spec-enum-found: 1982
+- no-spec-enum-found: 1971
 
 | Cmdlet | Parameter | Wire name | Status | Spec values | Recommendation |
 |---|---|---|---|---|---|
@@ -46,11 +46,12 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 | `Update-PfbWorkload` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbWormPolicy` | `-DefaultRetention` | default_retention | not-found-in-resource |  |  |
 
-## Attributes-only parameters (no typed field to attach either mechanism to): 74
+## Attributes-only parameters (no typed field to attach either mechanism to): 75
 
 - `New-PfbActiveDirectory -Name`
 - `New-PfbAuditFileSystemPolicy -Enabled`
 - `New-PfbAuditObjectStorePolicy -Enabled`
+- `New-PfbBucketAuditFilter -Name`
 - `New-PfbCertificateSigningRequest -Name`
 - `New-PfbDns -Name`
 - `New-PfbFileSystem -DefaultExports`

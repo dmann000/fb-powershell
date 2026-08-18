@@ -3,31 +3,28 @@ function Remove-PfbOpenFile {
     .SYNOPSIS
         Closes an open file on the FlashBlade.
     .DESCRIPTION
-        Forces the closure of an open file by file system name or ID. This is a
+        Forces the closure of an open file by its open-file ID. This is a
         disruptive operation that can cause data loss if the file is being actively
         written to by a client.
-    .PARAMETER Name
-        The name of the file system whose open file should be closed.
     .PARAMETER Id
-        The ID of the open file to close.
+        The ID of the open file to close. Binds from the pipeline by property name,
+        so open-file objects (which carry 'id') can be piped in directly.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, uses the default connection.
-    .EXAMPLE
-        Remove-PfbOpenFile -Name "fs01"
-        Closes open files on file system 'fs01'.
     .EXAMPLE
         Remove-PfbOpenFile -Id "abc-123"
         Closes the open file with the specified ID.
     .EXAMPLE
-        Remove-PfbOpenFile -Name "fs01" -Confirm:$false
+        Remove-PfbOpenFile -Id "abc-123" -Confirm:$false
         Closes the open file without prompting for confirmation.
+    .EXAMPLE
+        Get-PfbOpenFile | Where-Object { $_.path -like '*\temp\*' } | Remove-PfbOpenFile -Confirm:$false
+        Closes the matching open files, one DELETE per piped object; -Id binds from
+        each object's 'id' property.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
     param(
-        [Parameter(ParameterSetName = 'ByName', Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [string]$Name,
-
-        [Parameter(ParameterSetName = 'ById', Mandatory)]
+        [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
         [string]$Id,
 
         [Parameter()]
@@ -40,12 +37,9 @@ function Remove-PfbOpenFile {
 
     process {
         $queryParams = @{}
-        if ($Name) { $queryParams['names'] = $Name }
-        if ($Id)   { $queryParams['ids']   = $Id }
+        if ($Id) { $queryParams['ids'] = $Id }
 
-        $target = if ($Name) { $Name } else { $Id }
-
-        if ($PSCmdlet.ShouldProcess($target, 'Close open file')) {
+        if ($PSCmdlet.ShouldProcess($Id, 'Close open file')) {
             Invoke-PfbApiRequest -Array $Array -Method DELETE -Endpoint 'file-systems/open-files' -QueryParams $queryParams
         }
     }

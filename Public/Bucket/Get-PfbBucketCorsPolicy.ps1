@@ -6,20 +6,20 @@ function Get-PfbBucketCorsPolicy {
         Returns one or more bucket CORS policy associations from the FlashBlade array.
         CORS policies control which web origins are permitted to access S3 bucket
         resources from a browser. Filter results by fully-qualified name, bucket
-        member name/ID, or policy name.
+        name, or bucket ID.
 
-        NOTE: The FlashBlade API requires at least one of -Name, -Id,
-        -MemberName, or -PolicyName to be specified.
+        GET /buckets/cross-origin-resource-sharing-policies declares no
+        policy-level selector; 'policy_names' exists only on the /rules
+        variant, so use Get-PfbBucketCorsPolicyRule -PolicyName for that. It
+        also declares no 'ids' selector, so there is no -Id parameter: the
+        endpoint silently ignored the key and returned the unfiltered
+        collection.
     .PARAMETER Name
         One or more fully-qualified bucket CORS policy names.
-    .PARAMETER Id
-        One or more bucket CORS policy IDs.
-    .PARAMETER MemberName
+    .PARAMETER BucketName
         One or more bucket names to retrieve CORS policies for.
-    .PARAMETER MemberId
+    .PARAMETER BucketId
         One or more bucket IDs to retrieve CORS policies for.
-    .PARAMETER PolicyName
-        One or more CORS policy names to retrieve.
     .PARAMETER Filter
         A server-side filter expression to narrow results.
     .PARAMETER Sort
@@ -29,7 +29,7 @@ function Get-PfbBucketCorsPolicy {
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE
-        Get-PfbBucketCorsPolicy -MemberName "mybucket"
+        Get-PfbBucketCorsPolicy -BucketName "mybucket"
 
         Returns CORS policies associated with the bucket named 'mybucket'.
     .EXAMPLE
@@ -37,26 +37,27 @@ function Get-PfbBucketCorsPolicy {
 
         Returns a specific CORS policy by fully-qualified name.
     .EXAMPLE
-        Get-PfbBucketCorsPolicy -PolicyName "allow-all-origins" -MemberName "mybucket"
+        Get-PfbBucketCorsPolicy -BucketId "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 
-        Returns a specific CORS policy for a specific bucket.
+        Returns CORS policies for the bucket with the given ID.
     #>
-    [CmdletBinding(DefaultParameterSetName = 'ByMemberName')]
+    [CmdletBinding(DefaultParameterSetName = 'ByBucketName')]
     param(
         [Parameter(ParameterSetName = 'ByName')]
         [string[]]$Name,
 
-        [Parameter(ParameterSetName = 'ById')]
-        [string[]]$Id,
+        # Within this family, the cross-endpoint chain from Get-PfbBucket into Get-PfbBucketCorsPolicy cannot
+        # filter correctly: a producer's bare `name` bound to -BucketName / `bucket_names` is the defect
+        # because `name` means different things by endpoint and metadata cannot identify its producer,
+        # so no correct generic binding exists. An undeclared or non-matching query key returns HTTP 200
+        # with the unfiltered collection; the guard's loud failure is therefore best. Do NOT remove it
+        # or add an alias: that flips WrongScalar to Bound while sending the wrong name; revisit only if
+        # the consumer can establish its producer, which parameter metadata alone cannot. Issue #90.
+        [Parameter(ParameterSetName = 'ByBucketName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [string[]]$BucketName,
 
-        [Parameter(ParameterSetName = 'ByMemberName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [string[]]$MemberName,
-
-        [Parameter(ParameterSetName = 'ByMemberId')]
-        [string[]]$MemberId,
-
-        [Parameter()]
-        [string[]]$PolicyName,
+        [Parameter(ParameterSetName = 'ByBucketId')]
+        [string[]]$BucketId,
 
         [Parameter()] [string]$Filter,
         [Parameter()] [string]$Sort,
@@ -67,31 +68,31 @@ function Get-PfbBucketCorsPolicy {
     begin {
         Assert-PfbConnection -Array ([ref]$Array)
         $allNames = [System.Collections.Generic.List[string]]::new()
-        $allIds = [System.Collections.Generic.List[string]]::new()
-        $allMemberNames = [System.Collections.Generic.List[string]]::new()
-        $allMemberIds = [System.Collections.Generic.List[string]]::new()
+        $allBucketNames = [System.Collections.Generic.List[string]]::new()
+        $allBucketIds = [System.Collections.Generic.List[string]]::new()
     }
 
     process {
+        Assert-PfbSelectorNotCoerced -Value $BucketName -OriginalInput $PSItem -ParameterName 'BucketName' -Hint (
+            'Pipe the bucket name instead, e.g. Get-PfbBucket | Select-Object -ExpandProperty name | ' +
+            'Get-PfbBucketCorsPolicy, or pass -BucketName explicitly.')
         if ($Name)       { foreach ($n in $Name)       { $allNames.Add($n) } }
-        if ($Id)         { foreach ($i in $Id)         { $allIds.Add($i) } }
-        if ($MemberName) { foreach ($n in $MemberName) { $allMemberNames.Add($n) } }
-        if ($MemberId)   { foreach ($i in $MemberId)   { $allMemberIds.Add($i) } }
+        if ($BucketName) { foreach ($b in $BucketName) { $allBucketNames.Add($b) } }
+        if ($BucketId)   { foreach ($i in $BucketId)   { $allBucketIds.Add($i) } }
     }
 
     end {
         $queryParams = @{}
-        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
-        if ($allMemberNames.Count -gt 0) { $queryParams['member_names'] = $allMemberNames -join ',' }
-        if ($allMemberIds.Count -gt 0)   { $queryParams['member_ids']   = $allMemberIds -join ',' }
-        if ($PolicyName)                  { $queryParams['policy_names'] = $PolicyName -join ',' }
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames
+        if ($allBucketNames.Count -gt 0) { $queryParams['bucket_names'] = $allBucketNames -join ',' }
+        if ($allBucketIds.Count -gt 0)   { $queryParams['bucket_ids']   = $allBucketIds -join ',' }
 
         try {
             Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'buckets/cross-origin-resource-sharing-policies' -QueryParams $queryParams -AutoPaginate
         }
         catch {
             if ($_ -match 'Either names or ids' -or $_ -match 'Policy must be specified') {
-                Write-Warning "Bucket CORS policies require the -Name parameter with a fully-qualified 'bucket/policy' name, or the -Id parameter."
+                Write-Warning "Bucket CORS policies require the -Name parameter with a fully-qualified 'bucket/policy' name, or -BucketName/-BucketId."
                 return
             }
             throw

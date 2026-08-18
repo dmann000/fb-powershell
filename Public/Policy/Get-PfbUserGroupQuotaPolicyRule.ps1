@@ -28,6 +28,15 @@ function Get-PfbUserGroupQuotaPolicyRule {
     #>
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param(
+        # -PolicyName maps to policy_names, which the published OpenAPI spec does NOT declare on
+        # GET user-group-quota-policies/rules in any of the four versions carrying the endpoint
+        # (2.25-2.28), though it IS declared on that path's POST and DELETE and on both sibling
+        # sub-collections. Measured against an array, the key is parsed and validated server-side,
+        # while a genuinely unknown key on the same endpoint is silently ignored with HTTP 200.
+        # That proves the key is acted on; it does NOT demonstrate row filtering, which would need
+        # two policies each owning a rule. Do NOT treat the parameter as supported or lower the
+        # module's capability floor on that evidence -- the published spec governs, so this pair
+        # keeps a selector waiver instead. Reasoning: issue #90.
         [Parameter(ParameterSetName = 'ByPolicyName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
         [string[]]$PolicyName,
 

@@ -4,45 +4,38 @@ function Get-PfbOpenFile {
         Retrieves open files from the FlashBlade.
     .DESCRIPTION
         Returns information about currently open files on file systems. Supports
-        filtering by file system name, ID, or advanced filter expressions.
-        Auto-paginates by default.
-    .PARAMETER Name
-        One or more file system names to retrieve open files for. Accepts pipeline input.
+        filtering by open-file ID. Auto-paginates by default.
     .PARAMETER Id
-        One or more open file IDs to retrieve.
-    .PARAMETER Filter
-        A server-side filter expression to narrow results.
-    .PARAMETER Sort
-        Sort field and direction.
+        One or more open file IDs to retrieve. Binds from the pipeline by property
+        name, so open-file objects (which carry 'id') can be piped in directly.
     .PARAMETER Limit
         Maximum number of items to return.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, uses the default connection.
     .EXAMPLE
         Get-PfbOpenFile
-        Returns all open files on the FlashBlade.
+
+        Returns open files on the FlashBlade. Note that this cmdlet does not send the
+        protocols query parameter the specification marks required; that gap is tracked
+        in Reports/PfbApiDriftReport.md rather than worked around here.
     .EXAMPLE
-        Get-PfbOpenFile -Name "fs01"
-        Returns all open files on file system 'fs01'.
+        Get-PfbOpenFile -Id "abc-123"
+
+        Returns the open file with the specified ID.
     .EXAMPLE
-        Get-PfbOpenFile -Filter "protocol='SMB'" -Limit 100
-        Returns up to 100 open files using the SMB protocol.
+        Get-PfbOpenFile | Where-Object { $_.lock_count -gt 0 } | Remove-PfbOpenFile
+
+        Closes the locked open files. The -Id that binds from each piped object's 'id'
+        property is Remove-PfbOpenFile's, not this cmdlet's. Both declare
+        ValueFromPipelineByPropertyName rather than a bare ValueFromPipeline, so an object
+        matching no parameter is declined instead of being stringified into the selector.
     #>
+    # The spec-required protocols parameter and six optional gaps are tracked in Reports/PfbApiDriftReport.md.
     [CmdletBinding(DefaultParameterSetName = 'List')]
     param(
-        [Parameter(ParameterSetName = 'ByName', ValueFromPipeline, ValueFromPipelineByPropertyName)]
-        [ValidateNotNullOrEmpty()]
-        [string[]]$Name,
-
-        [Parameter(ParameterSetName = 'ById')]
+        [Parameter(ParameterSetName = 'ById', ValueFromPipelineByPropertyName)]
         [ValidateNotNullOrEmpty()]
         [string[]]$Id,
-
-        [Parameter()]
-        [string]$Filter,
-
-        [Parameter()]
-        [string]$Sort,
 
         [Parameter()]
         [ValidateRange(1, 10000)]
@@ -54,18 +47,16 @@ function Get-PfbOpenFile {
 
     begin {
         Assert-PfbConnection -Array ([ref]$Array)
-        $allNames = [System.Collections.Generic.List[string]]::new()
         $allIds = [System.Collections.Generic.List[string]]::new()
     }
 
     process {
-        if ($Name) { foreach ($n in $Name) { $allNames.Add($n) } }
-        if ($Id)   { foreach ($i in $Id)   { $allIds.Add($i) } }
+        if ($Id) { foreach ($i in $Id) { $allIds.Add($i) } }
     }
 
     end {
         $queryParams = @{}
-        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Ids $allIds
 
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'file-systems/open-files' -QueryParams $queryParams -AutoPaginate
     }

@@ -16,8 +16,8 @@
     object is rebuilt from the report's own ProbeProperties/ProbeTypes fields instead.
 
     Waivers are keyed by (cmdlet, parameter) PAIR, not by (cmdlet, parameter, producer)
-    triple. The 389 finding rows are producer multiplicity over 127 real defects; a
-    triple-keyed file would be 389 entries against psd1's hard 500-element parse cap for a
+    triple. The 264 finding rows are producer multiplicity over 101 real defects; a
+    triple-keyed file would be 264 entries against psd1's hard 500-element parse cap for a
     single collection literal, and would list the same defect up to a dozen times. The rail
     still names the producing endpoint in its failure text as evidence.
 
@@ -97,9 +97,9 @@ BeforeAll {
             }
             # Enforced, not merely documented. A degraded map is the one failure the rest of this
             # rail cannot see: an all-string probe binds cleanly to an object-typed field, and
-            # forcing every type to string today flips 2 of 389 findings (both
-            # Get-PfbLocalGroupMember/Group) out of Coerced. Pair-level waiving means even that
-            # would leave all 127 pairs looking defective, so no assertion below would catch it.
+            # forcing every type to string can turn an object-valued field into a clean
+            # by-property-name bind and hide a Coerced row. Pair-level waiving can leave the same
+            # pair defective through another producer, so no assertion below would catch it.
             if ($probeTypes.Count -ne @($row.ProbeProperties).Count) {
                 throw ("Report row $($row.Cmdlet)/$($row.Parameter) via $($row.Producer) has " +
                     "degraded ProbeTypes ($($probeTypes.Count) of $(@($row.ProbeProperties).Count)); " +
@@ -186,7 +186,7 @@ Describe 'Rail A - no unwaived selector coercion' -Skip:($PSVersionTable.PSVersi
     }
 
     It 'no Family-scoped waiver has escalated onto its primary producer' {
-        # A pair-keyed waiver is blind to WHERE the coercion happens, and 100 of the 127 are
+        # A pair-keyed waiver is blind to WHERE the coercion happens, and 100 of the 101 are
         # waived precisely because the obvious chain -- the cmdlet's own base-path GET -- is
         # safe. Without this, a change that breaks property-name binding on, say,
         # Remove-PfbFileSystem would turn `Get-PfbFileSystem | Remove-PfbFileSystem` into a
@@ -250,8 +250,8 @@ Describe 'Rail A - no unwaived selector coercion' -Skip:($PSVersionTable.PSVersi
         # A rise here means the harness has started refusing cmdlets it used to measure, which
         # is precisely the regression that produced the original 33-pair blind spot.
         #
-        # BindError is an OUTCOME, not an ErrorKind. ErrorKind is non-null on 193 rows (160
-        # InputObjectNotBound, 31 CmdletError, 2 ParameterBindingError); only the 2
+        # BindError is an OUTCOME, not an ErrorKind. ErrorKind is non-null on 358 rows (234
+        # InputObjectNotBound, 122 CmdletError, 2 ParameterBindingError); only the 2
         # ParameterBindingError rows classify as the BindError outcome, and only that outcome
         # means unmeasured. Asserting on ErrorKind -eq 'BindError' matches nothing at all.
         @($script:measured | Where-Object { $_.Outcome -eq 'BindError' }).Count | Should -Be 2

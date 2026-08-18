@@ -6,8 +6,6 @@ function Get-PfbNetworkConnectionStatistics {
         The Get-PfbNetworkConnectionStatistics cmdlet returns connection-level statistics
         for network interfaces on the connected Pure Storage FlashBlade. This includes
         counters for active connections, connection rates, and protocol-level statistics.
-    .PARAMETER Name
-        One or more interface names to retrieve statistics for.
     .PARAMETER Filter
         A server-side filter expression.
     .PARAMETER Sort
@@ -21,17 +19,12 @@ function Get-PfbNetworkConnectionStatistics {
 
         Retrieves connection statistics for all network interfaces.
     .EXAMPLE
-        Get-PfbNetworkConnectionStatistics -Name "vip1"
-
-        Retrieves connection statistics for the specified interface.
-    .EXAMPLE
         Get-PfbNetworkConnectionStatistics -Filter "interface_type='vip'" -Sort "name" -Limit 10
 
         Retrieves connection statistics for up to 10 VIP interfaces sorted by name.
     #>
     [CmdletBinding()]
     param(
-        [Parameter(ValueFromPipeline, ValueFromPipelineByPropertyName)] [string[]]$Name,
         [Parameter()] [string]$Filter,
         [Parameter()] [string]$Sort,
         [Parameter()] [int]$Limit,
@@ -39,14 +32,10 @@ function Get-PfbNetworkConnectionStatistics {
     )
     begin {
         Assert-PfbConnection -Array ([ref]$Array)
-        $allNames = [System.Collections.Generic.List[string]]::new()
-    }
-    process {
-        if ($Name) { foreach ($n in $Name) { $allNames.Add($n) } }
     }
     end {
         $queryParams = @{}
-        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'network-interfaces/network-connection-statistics' -QueryParams $queryParams -AutoPaginate
     }
 }

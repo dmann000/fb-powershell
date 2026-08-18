@@ -224,6 +224,13 @@ function Get-PfbHelpExampleChain {
         currently matches the pattern, and widening the producer set is the conservative
         direction of error for an audit -- a spurious producer costs a probe, a missed one
         costs a finding. Read the OUTPUTS as "written literally in the file", not "documented".
+
+        HAZARD: "every line" includes ordinary maintainer comments, not just help blocks. A
+        prose note that names two cmdlets either side of a pipe character -- even one saying
+        the chain does NOT work -- registers as a producer edge and changes the generated
+        selector map, which reddens the Rail B regeneration gate. Issue #90 hit this exactly:
+        documentation-only edits under `Public/` flipped eight `FromExample` fields. When
+        writing such a note, avoid putting a pipe between two cmdlet names.
     .OUTPUTS
         [PSCustomObject]@{ File; Producer; Consumer; Line }
     #>
@@ -514,7 +521,7 @@ function Get-PfbSelectorOutcome {
     .DESCRIPTION
         Findings are Coerced and WrongScalar ONLY.
 
-        Guarded is #64's fix working, not a defect. NoSelector is a reported observation, not a
+        Guarded is a #64/#90 coercion guard working, not a defect. NoSelector is a reported observation, not a
         finding: if any selector is pipeline-bound then a non-matching object falls through to
         pass 3 and coerces, so NoSelector can only occur where nothing is pipeline-bound -- in
         which case the cmdlet never claimed to accept a chain and PowerShell simply runs it once
@@ -547,11 +554,14 @@ function Get-PfbSelectorOutcome {
         }
         else {
             # Only a harness refusal is genuinely unmeasured. The other kinds are verdicts.
-            # Unbindable means PowerShell declined to bind the object at all, which for a
-            # ValueFromPipelineByPropertyName-only parameter is structural: pass 3 coerces
-            # ByValue, so that parameter can never receive a stringified object. CmdletError
-            # means the cmdlet's own logic stopped it before any request was built. Collapsing
-            # all three into BindError reported 8 already-measured pairs as blind spots.
+            # Unbindable means PowerShell declined to bind THIS probe object at all. It is a
+            # per-probe observation, NOT a structural immunity: binding has FOUR passes --
+            # ByValue, ByPropertyName, ByValue WITH COERCION, ByPropertyName WITH COERCION --
+            # so a ValueFromPipelineByPropertyName-only parameter whose ALIAS matches an
+            # object-valued property still binds that object stringified at pass 4 and reads
+            # Coerced. Removing ValueFromPipeline therefore does not guarantee Unbindable.
+            # CmdletError means the cmdlet's own logic stopped it before any request was built.
+            # Collapsing all three into BindError reported 8 already-measured pairs as blind spots.
             $kind = if ($ProbeResult.PSObject.Properties['ErrorKind']) { $ProbeResult.ErrorKind } else { $null }
             switch ($kind) {
                 'InputObjectNotBound' { 'Unbindable' }

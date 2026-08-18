@@ -76,16 +76,23 @@ function Get-PfbObjectStoreAccessPolicyRole {
         if ($allMemberIds.Count -gt 0)   { $queryParams['member_ids']   = $allMemberIds -join ',' }
 
         $response = Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'object-store-access-policies/object-store-roles' -QueryParams $queryParams -AutoPaginate
-        foreach ($item in $response) {
-            if ($null -ne $item) {
-                $policyNameValue = $null
-                if ($null -ne $item.policy) { $policyNameValue = $item.policy.name }
-                $memberNameValue = $null
-                if ($null -ne $item.member) { $memberNameValue = $item.member.name }
-                $item | Add-Member -MemberType NoteProperty -Name 'PolicyName' -Value $policyNameValue -Force
-                $item | Add-Member -MemberType NoteProperty -Name 'MemberName' -Value $memberNameValue -Force
+
+        # Lift the nested parent names to top-level properties so that piping an association into a
+        # cmdlet that binds -PolicyName or -MemberName by property name sends a scalar selector
+        # instead of a stringified reference. Add only when the nested object AND its name are
+        # non-null: a top-level property holding $null still binds downstream and would send an
+        # empty selector, which makes the consumer return everything. Mutate in place: rebuilding
+        # the object would drop 'context' and any wire field a future REST version adds.
+        foreach ($item in @($response)) {
+            if ($null -ne $item -and $null -ne $item.policy -and $null -ne $item.policy.name -and
+                $item.PSObject.Properties.Name -notcontains 'PolicyName') {
+                $item | Add-Member -MemberType NoteProperty -Name 'PolicyName' -Value $item.policy.name
             }
-            $item
+            if ($null -ne $item -and $null -ne $item.member -and $null -ne $item.member.name -and
+                $item.PSObject.Properties.Name -notcontains 'MemberName') {
+                $item | Add-Member -MemberType NoteProperty -Name 'MemberName' -Value $item.member.name
+            }
         }
+        $response
     }
 }
