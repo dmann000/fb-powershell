@@ -66,6 +66,15 @@ function Update-PfbBucketAuditFilter {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium',
                    DefaultParameterSetName = 'ByBucketNameIndividual')]
     param(
+        # The three aliases below restore the pre-rename names so existing callers keep
+        # working. Note the deliberate asymmetry with the Remove-Pfb* cmdlets in this family,
+        # which underwent the same MemberName/MemberId -> BucketName/BucketId rename on this
+        # branch and were given NO aliases: their legacy parameters wrote query keys the
+        # endpoint does not declare, so they over-deleted rather than filtering. Aliasing
+        # those onto a key that does work would quietly change what a DELETE removes, which
+        # is worse than the break. Here the old names genuinely worked, so restoring them
+        # restores working behaviour and nothing else. Do not "fix" the inconsistency by
+        # adding aliases there.
         [Parameter(ParameterSetName = 'ByBucketNameIndividual', Mandatory, ValueFromPipelineByPropertyName)]
         [Parameter(ParameterSetName = 'ByBucketNameAttributes',  Mandatory, ValueFromPipelineByPropertyName)]
         [Alias('MemberName')]

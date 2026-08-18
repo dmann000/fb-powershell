@@ -19,11 +19,16 @@ function Get-PfbOpenFile {
         protocols query parameter the specification marks required; that gap is tracked
         in Reports/PfbApiDriftReport.md rather than worked around here.
     .EXAMPLE
+        Get-PfbOpenFile -Id "abc-123"
+
+        Returns the open file with the specified ID.
+    .EXAMPLE
         Get-PfbOpenFile | Where-Object { $_.lock_count -gt 0 } | Remove-PfbOpenFile
 
-        Closes the locked open files. -Id binds from the 'id' property of each piped
-        object, which is why this cmdlet declares ValueFromPipelineByPropertyName rather
-        than a bare ValueFromPipeline.
+        Closes the locked open files. The -Id that binds from each piped object's 'id'
+        property is Remove-PfbOpenFile's, not this cmdlet's. Both declare
+        ValueFromPipelineByPropertyName rather than a bare ValueFromPipeline, so an object
+        matching no parameter is declined instead of being stringified into the selector.
     #>
     # The spec-required protocols parameter and six optional gaps are tracked in Reports/PfbApiDriftReport.md.
     [CmdletBinding(DefaultParameterSetName = 'List')]

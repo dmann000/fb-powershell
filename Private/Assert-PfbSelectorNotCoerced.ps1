@@ -61,8 +61,18 @@ function Assert-PfbSelectorNotCoerced {
     .PARAMETER BindingPropertyName
         Additional property names, normally parameter aliases, that can bind the selector.
         Their presence suppresses the whole-input comparison because false rejection is worse
-        than a missed ambiguous case. The existing '@{' signal still catches an object-valued
-        property that pass 4 stringifies.
+        than a missed ambiguous case.
+
+        KNOWN GAP, stated rather than papered over: the '@{' signal catches an object-valued
+        property only when that value's ToString() contains '@{', which is true of a
+        PSCustomObject and false of a Hashtable or a generic Dictionary. So piping
+        [pscustomobject]@{ Group = @{ name = 'g1' } } binds at pass 4 via the Group alias,
+        yields the bare type name as the selector, and passes both signals -- the whole-input
+        comparison cannot help either, because the item's own ToString() is not the bound
+        value. Closing it means comparing against each binding property's ToString() too,
+        which widens the false-positive surface and is a maintainer's call rather than a
+        drive-by change. Reachability is low in practice: ConvertFrom-Json produces
+        PSCustomObject values, so a response object piped from a real cmdlet stays covered.
     .PARAMETER Hint
         Caller-facing, cmdlet-specific advice naming the property to pipe instead. Each
         call site writes its own against what that family's producer actually returns.
