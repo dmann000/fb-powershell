@@ -27,6 +27,12 @@
     would silently RENAME the caller's variable, and moving the left edge of the splice
     back to the line's indentation would silently DELETE whatever preceded it.
 
+    An import carrying any parameter other than -Force/-PassThru/-Name is likewise
+    Unrecognised, because Import-PfbTestModule has no way to honour it and emitting the
+    helper call regardless would silently DROP it (-Global, -ErrorAction Stop). Zero such
+    sites exist in this tree today; the point is that the next one stops the tool instead
+    of changing behaviour quietly.
+
     Line endings are read, detected and preserved per file, and the newline spliced in is
     the one that terminates the preceding line rather than a per-file guess, so a file with
     mixed terminators neither loses its indentation nor gains a foreign terminator. Both LF
@@ -81,6 +87,42 @@ $excluded = @()
 $unrecognised = @()
 $unchanged = 0
 
+# Parameters Import-PfbTestModule can stand in for. Anything else on the import (-Global,
+# -ErrorAction Stop, -Scope, ...) has no equivalent in the emitted call, so the import goes
+# to Unrecognised rather than being rewritten with the parameter silently dropped. Rejecting
+# is the right direction: a spelling that would have rewritten cleanly now needs a human,
+# whereas a dropped parameter changes behaviour with nothing on screen to say so.
+$script:AllowedImportParameter = @('Force', 'PassThru', 'Name')
+
+function Test-PfbSpliceStatementPosition {
+    <#
+        Is $Node itself in statement position -- i.e. would replacing its whole extent with
+        two statements be legal? True only when its parent is a statement container, and
+        never when that container is the body of an expression ($( ), @( ), ( )), where two
+        spliced statements either fail to parse or silently discard the module.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)]$Node)
+
+    $parent = $Node.Parent
+    $isStatementPosition =
+        ($parent -is [System.Management.Automation.Language.StatementBlockAst]) -or
+        ($parent -is [System.Management.Automation.Language.NamedBlockAst]) -or
+        ($parent -is [System.Management.Automation.Language.ScriptBlockAst])
+    if (-not $isStatementPosition) { return $false }
+
+    if ($parent -is [System.Management.Automation.Language.StatementBlockAst]) {
+        $grandparent = $parent.Parent
+        if (($grandparent -is [System.Management.Automation.Language.SubExpressionAst]) -or
+            ($grandparent -is [System.Management.Automation.Language.ArrayExpressionAst]) -or
+            ($grandparent -is [System.Management.Automation.Language.ParenExpressionAst])) {
+            return $false
+        }
+    }
+
+    return $true
+}
+
 function Resolve-PfbImportSplice {
     <#
         Map an Import-Module CommandAst to the extent that should be replaced and the
@@ -92,9 +134,20 @@ function Resolve-PfbImportSplice {
           <indent>$target = Import-Module ...   -> replace the AssignmentStatementAst,
                                                    target = its Left extent text verbatim
           <indent>Import-Module ...             -> replace the PipelineAst, target = $null
+
+        In BOTH arms the node whose extent will be replaced must itself be in statement
+        position, checked identically by Test-PfbSpliceStatementPosition. Without that
+        check `if ($m = Import-Module ... -PassThru) { }` emits a file that does not parse,
+        and `$a = $b = ...` / `$m = $(...)` / `$m = @(...)` all parse but leave the caller's
+        variable silently empty -- the exact failure class Unrecognised exists to prevent.
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory = $true)]$Command)
+
+    foreach ($element in $Command.CommandElements) {
+        if ($element -isnot [System.Management.Automation.Language.CommandParameterAst]) { continue }
+        if ($script:AllowedImportParameter -notcontains $element.ParameterName) { return $null }
+    }
 
     $pipeline = $Command.Parent
     if ($pipeline -isnot [System.Management.Automation.Language.PipelineAst]) { return $null }
@@ -107,6 +160,7 @@ function Resolve-PfbImportSplice {
         # Only a plain `=`; a `+=` or `??=` around an import is not something to reproduce.
         if ($parent.Operator -ne [System.Management.Automation.Language.TokenKind]::Equals) { return $null }
         if (-not [object]::ReferenceEquals($parent.Right, $pipeline)) { return $null }
+        if (-not (Test-PfbSpliceStatementPosition -Node $parent)) { return $null }
         return [PSCustomObject]@{
             StartOffset = $parent.Extent.StartOffset
             EndOffset   = $parent.Extent.EndOffset
@@ -114,11 +168,7 @@ function Resolve-PfbImportSplice {
         }
     }
 
-    $isStatementPosition =
-        ($parent -is [System.Management.Automation.Language.StatementBlockAst]) -or
-        ($parent -is [System.Management.Automation.Language.NamedBlockAst]) -or
-        ($parent -is [System.Management.Automation.Language.ScriptBlockAst])
-    if (-not $isStatementPosition) { return $null }
+    if (-not (Test-PfbSpliceStatementPosition -Node $pipeline)) { return $null }
 
     return [PSCustomObject]@{
         StartOffset = $pipeline.Extent.StartOffset

@@ -294,6 +294,52 @@ Describe 'Update-PfbTestModuleImport rewrites each known form' -Skip:($PSVersion
             "}`n")
     }
 
+    It 'preserves a semicolon-joined statement that FOLLOWS the import' {
+        # The mirror of K.Tests.ps1. Nothing outside the replaced node's extent may move, so
+        # a following statement has to survive verbatim on the second emitted line.
+        $path = Join-Path $script:sandbox 'S.Tests.ps1'
+        [System.IO.File]::WriteAllText($path,
+            "BeforeAll {`n    Import-Module `$manifest -Force; `$script:after = 7`n}`n")
+
+        $null = & $script:rewriter -TestRoot $script:sandbox
+        [System.IO.File]::ReadAllText($path) | Should -Be (
+            "BeforeAll {`n" +
+            "    . (Join-Path `$PSScriptRoot 'PfbTestModule.ps1')`n" +
+            "    `$null = Import-PfbTestModule; `$script:after = 7`n" +
+            "}`n")
+    }
+
+    It 'reports <Name> as Unrecognised and leaves the file byte-identical' -ForEach @(
+        # The replaced node is not itself in statement position. Splicing two statements over
+        # its extent either fails to parse (the `if` condition) or parses while silently
+        # emptying the caller's variable (the other three) -- the failure class Unrecognised
+        # exists to prevent. Zero sites in the real tree; the guard is what keeps it that way.
+        @{ Name = 'AssignmentInIfCondition'
+            Statement = "    if (`$m = Import-Module `$manifest -Force -PassThru) { }" }
+        @{ Name = 'ChainedAssignment'
+            Statement = "    `$a = `$b = Import-Module `$manifest -Force -PassThru" }
+        @{ Name = 'SubExpressionBody'
+            Statement = "    `$m = `$(Import-Module `$manifest -Force -PassThru)" }
+        @{ Name = 'ArrayExpressionBody'
+            Statement = "    `$m = @(Import-Module `$manifest -Force -PassThru)" }
+        # Import-PfbTestModule cannot honour these, and emitting the helper call anyway would
+        # drop them with nothing on screen to say so. Reject instead of rewriting.
+        @{ Name = 'ExtraParameterErrorAction'
+            Statement = "    Import-Module `$manifest -Force -ErrorAction Stop" }
+        @{ Name = 'ExtraParameterGlobal'
+            Statement = "    `$m = Import-Module `$manifest -Force -PassThru -Global" }
+    ) {
+        $path = Join-Path $script:sandbox "$Name.Tests.ps1"
+        $original = "BeforeAll {`n$Statement`n}`n"
+        [System.IO.File]::WriteAllText($path, $original)
+
+        $summary = & $script:rewriter -TestRoot $script:sandbox -WarningAction SilentlyContinue
+        $summary.Changed.Count | Should -Be 0
+        $summary.Unrecognised.Count | Should -Be 1
+        $summary.Unchanged | Should -Be 1
+        [System.IO.File]::ReadAllText($path) | Should -Be $original
+    }
+
     It 'never emits -Fresh or a PfbTestModulePrepared assignment' {
         $source = [System.IO.File]::ReadAllText($script:rewriter)
         $source.Contains('PfbTestModulePrepared') | Should -BeFalse
