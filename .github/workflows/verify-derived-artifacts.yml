@@ -5,7 +5,7 @@ name: Verify Derived Artifacts
 # but only on schedule, on push to main, and on workflow_dispatch. So a PR that changed a
 # generator, or added a Public/ cmdlet the generators read, landed with stale committed
 # artifacts and a green CI run -- drift that then had to be found by hand twice
-# (issues #96, #97). This asks one question, on the PR that causes it: does every committed
+# (PRs #96, #97). This asks one question, on the PR that causes it: does every committed
 # artifact still match what its generator produces?
 #
 # WHY THIS ONE CAN BE BLOCKING WHEN THE EXISTING CHECK COULD NOT. Every generator reads
