@@ -29,9 +29,14 @@ $script:PfbModuleName = 'PureStorageFlashBladePowerShell'
 
 function Get-PfbTestImportAst {
     <#
-        Parse one file and return every CommandAst in it. Throws on a parse error rather
-        than returning a partial tree -- a file we cannot parse is a file we cannot make
-        any claim about, and silently returning zero matches would read as "clean".
+        Parse one file and return the AST ROOT (the ScriptBlockAst) for it -- not the
+        imports, and not a CommandAst list. Use Get-PfbCommandAst on the returned root to
+        get the CommandAst nodes. The name is retained because Task 3's rewriter and the
+        Task 5 guard test are both written against it.
+
+        Throws on a parse error rather than returning a partial tree -- a file we cannot
+        parse is a file we cannot make any claim about, and silently returning zero
+        matches would read as "clean".
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory = $true)][string]$Path)
@@ -58,11 +63,20 @@ function Get-PfbCommandAst {
 function Get-PfbTestManifestImport {
     <#
         Returns one record per `Import-Module <manifest> -Force` in the file, classified
-        into one of the five known call-site forms, or 'Unrecognised'.
+        into one of the six known call-site forms -- Manifest, PSScriptRoot, JoinPath,
+        NestedJoinPath, ScriptManifest, PassThru -- or 'Unrecognised'.
 
         Unrecognised is never dropped: a silent skip reads as "covered everything", which
         is the specific mistake tools/Update-PfbContextHelp.ps1 documents at length.
-        Offsets are byte-exact so a caller can splice without re-finding the text.
+
+        OFFSETS ARE CHARACTER OFFSETS, NOT BYTE OFFSETS. StartOffset/EndOffset index into
+        the DECODED text of the file (EndOffset is exclusive), so a consumer must splice a
+        decoded string -- [System.IO.File]::ReadAllText($path) followed by
+        .Substring($StartOffset, $EndOffset - $StartOffset) -- and must NEVER index a byte
+        array with them. Eight test files in this tree contain multi-byte UTF-8, where the
+        two counts diverge; today only one of those carries a manifest import and its
+        import happens to precede the non-ASCII, so byte-indexing would work there by luck
+        alone. Do not rely on that.
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory = $true)][string]$Path)

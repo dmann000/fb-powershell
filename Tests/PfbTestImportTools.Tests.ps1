@@ -41,6 +41,21 @@ BeforeAll {
         $found = @(Get-PfbTestManifestImport -Path $path)
         $found.Count | Should -Be 1
         $found[0].Form | Should -Be 'NestedJoinPath'
+
+        # The offset contract Task 3 splices on, pinned against the fixture's own text.
+        # These are CHARACTER offsets into the decoded file with an exclusive EndOffset,
+        # so ReadAllText + Substring must round-trip the returned Text exactly. Asserted
+        # on the multi-line case specifically: a first-line-only extent (stopping at the
+        # backtick) or an off-by-one would corrupt the file byte-wise when spliced.
+        $raw = [System.IO.File]::ReadAllText($path)
+        $slice = $raw.Substring($found[0].StartOffset, $found[0].EndOffset - $found[0].StartOffset)
+        $slice | Should -BeExactly $found[0].Text
+
+        # Begins with the command and ends with the trailing parameter: proves the extent
+        # spans the whole two-line command rather than truncating at the continuation.
+        $found[0].Text | Should -BeLike 'Import-Module*'
+        $found[0].Text | Should -Match '-Force\s*$'
+        $found[0].Text.Split("`n").Count | Should -BeGreaterThan 1
     }
 
     It 'does not match the separate-runspace AddCommand call' {
@@ -96,6 +111,18 @@ Describe 'Test-PfbTestModuleUsage detects the module-use obligation structurally
         $path = Join-Path $script:usageDir ((New-Guid).Guid + '.Tests.ps1')
         Set-Content -LiteralPath $path -Value "BeforeAll {`n$Body`n}" -Encoding UTF8
         (Test-PfbTestModuleUsage -Path $path -ExportedFunction $script:exported).Uses | Should -Be $Uses
+    }
+
+    It 'names the reason it fired, not just that it fired' {
+        # Reasons is what a Task 4/5 guard failure quotes back to a maintainer, so pin
+        # that it identifies the actual trigger -- the cmdlet and its line -- rather than
+        # only agreeing with the Uses boolean.
+        $path = Join-Path $script:usageDir 'reasons.Tests.ps1'
+        Set-Content -LiteralPath $path -Value "BeforeAll {`n    `$null = Get-PfbArray -Array `$a`n}" -Encoding UTF8
+        $result = Test-PfbTestModuleUsage -Path $path -ExportedFunction $script:exported
+        $result.Uses | Should -BeTrue
+        @($result.Reasons).Count | Should -Be 1
+        $result.Reasons[0] | Should -BeExactly 'calls exported cmdlet Get-PfbArray (line 2)'
     }
 
     It 'reports CallsHelper when the file loads via Import-PfbTestModule' {
