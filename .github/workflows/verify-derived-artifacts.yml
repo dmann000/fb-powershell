@@ -21,8 +21,11 @@ name: Verify Derived Artifacts
 # locally before pushing (see Reports/README.md) and so it is diffable, testable
 # (Tests/AssertDerivedArtifacts.Tests.ps1) and runnable outside Actions.
 #
-# Not `push`: update-api-capability-map.yml already owns the main branch and opens a PR when
-# it finds drift, so a second gate there would only duplicate it.
+# Not `push`: update-api-capability-map.yml already owns the `main` path -- it regenerates on
+# every `Public/**` push to main and weekly on a Monday cron, and opens a PR when it finds
+# drift -- so a second gate there would mostly duplicate it. It is not blanket coverage (a
+# `tools/**`-only merge waits for the cron), but the gap is bounded by a week and this
+# workflow has already answered the same question on the PR that caused it.
 #
 # The Pester suite is deliberately absent -- cross-platform-tests.yml already runs on every
 # PR. This workflow answers one question.
@@ -35,6 +38,13 @@ on:
       - 'tools/**'
       - 'Data/**'
       - 'Reports/**'
+      # The gate's own two files. An edit to either is the change most likely to break the
+      # gate, and it is the only change no other check covers -- without these globs a PR
+      # touching only the gate never runs it. Deliberately not extended further: each glob
+      # costs a ~5-minute job, and nothing outside this list can change what the generators
+      # produce.
+      - '.github/workflows/verify-derived-artifacts.yml'
+      - 'scripts/Assert-PfbDerivedArtifacts.ps1'
   workflow_dispatch: {}
 
 jobs:
