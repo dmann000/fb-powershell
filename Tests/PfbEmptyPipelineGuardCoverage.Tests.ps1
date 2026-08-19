@@ -135,26 +135,121 @@ BeforeAll {
                     }
                 }
 
-                # Any unconditional index-write to the guarded hashtable AFTER the guard makes the
-                # guard unable to fire for the very key it is supposed to see missing.
+                # Any write to the guarded hashtable AFTER the guard makes the guard unable to fire
+                # for the very key it is supposed to see missing.
+                #
+                # An index-assignment-only detector is NOT enough, and the mirror harm is worse than
+                # the one this rail was written for: hoisting a guard above
+                # `Add-PfbCommonQueryParams -Into $queryParams` leaves the guard reading an empty
+                # hashtable on EVERY piped invocation, so a legitimate piped read carrying names
+                # silently returns nothing. That shape passes a literal-key detector and also
+                # satisfies the generator's AlreadyPresent recognizer. (This repo has already paid
+                # once for a literal-key-only detector -- see the 269-endpoint drift blind spot.)
+                #
+                # So match every write form the language offers on a variable we already know by
+                # name: $q[...] = , $q.Foo = , $q.Add()/.Remove()/.Clear()/.set_Item(), and any
+                # command handing the variable to an -Into parameter (the repo's writer convention).
                 $queryWriteAfterGuard = $false
                 if ($guardCalls.Count -gt 0 -and $guardQueryVars.Count -gt 0) {
                     $firstGuardOffset = ($guardCalls |
                         ForEach-Object { $_.Extent.StartOffset } |
                         Measure-Object -Minimum).Minimum
 
-                    $indexAssignments = @($endBlock.FindAll({
+                    $mutatingMethods = @('add', 'remove', 'clear', 'set_item')
+
+                    $writeSites = @($endBlock.FindAll({
                                 param($node)
-                                $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
-                                $node.Left -is [System.Management.Automation.Language.IndexExpressionAst] -and
-                                $node.Left.Target -is [System.Management.Automation.Language.VariableExpressionAst]
+
+                                # $q['k'] = v   /   $q.k = v
+                                if ($node -is [System.Management.Automation.Language.AssignmentStatementAst]) {
+                                    $left = $node.Left
+                                    if ($left -is [System.Management.Automation.Language.IndexExpressionAst] -and
+                                        $left.Target -is [System.Management.Automation.Language.VariableExpressionAst]) {
+                                        return $true
+                                    }
+                                    if ($left -is [System.Management.Automation.Language.MemberExpressionAst] -and
+                                        $left.Expression -is [System.Management.Automation.Language.VariableExpressionAst]) {
+                                        return $true
+                                    }
+                                    return $false
+                                }
+
+                                # $q.Add(...) and friends
+                                if ($node -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
+                                    return ($node.Expression -is [System.Management.Automation.Language.VariableExpressionAst])
+                                }
+
+                                # Add-PfbCommonQueryParams -Into $q
+                                if ($node -is [System.Management.Automation.Language.CommandAst]) {
+                                    return $true
+                                }
+
+                                return $false
                             }, $true))
 
-                    foreach ($assignment in $indexAssignments) {
-                        if ($assignment.Left.Target.VariablePath.UserPath -notin $guardQueryVars) { continue }
-                        if ($assignment.Extent.StartOffset -gt $firstGuardOffset) {
+                    foreach ($site in $writeSites) {
+                        if ($site.Extent.StartOffset -le $firstGuardOffset) { continue }
+
+                        $writtenVar = $null
+                        if ($site -is [System.Management.Automation.Language.AssignmentStatementAst]) {
+                            $left = $site.Left
+                            if ($left -is [System.Management.Automation.Language.IndexExpressionAst]) {
+                                $writtenVar = $left.Target.VariablePath.UserPath
+                            }
+                            else {
+                                $writtenVar = $left.Expression.VariablePath.UserPath
+                            }
+                        }
+                        elseif ($site -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
+                            $memberName = "$($site.Member)"
+                            if ($memberName.ToLowerInvariant() -notin $mutatingMethods) { continue }
+                            $writtenVar = $site.Expression.VariablePath.UserPath
+                        }
+                        else {
+                            $writtenVar = Get-PfbParameterVariableName -Command $site -ParameterName 'Into'
+                        }
+
+                        if ($writtenVar -and $writtenVar -in $guardQueryVars) {
                             $queryWriteAfterGuard = $true
                         }
+                    }
+                }
+
+                # I-1, first half: a guard that runs AFTER the request cannot stop it. Offsets, not
+                # statement indexes, so this survives any nesting the other rails allow.
+                $guardAfterSomeInvoke = $false
+                if ($guardCalls.Count -gt 0 -and $invokeCalls.Count -gt 0) {
+                    $firstGuardOffset = ($guardCalls |
+                        ForEach-Object { $_.Extent.StartOffset } |
+                        Measure-Object -Minimum).Minimum
+                    $firstInvokeOffset = ($invokeCalls |
+                        ForEach-Object { $_.Extent.StartOffset } |
+                        Measure-Object -Minimum).Minimum
+                    $guardAfterSomeInvoke = ($firstGuardOffset -gt $firstInvokeOffset)
+                }
+
+                # I-1, second half: the predicate is only a guard if its answer is acted on. A bare
+                # `Test-PfbEmptyPipelineRead ...` statement, or `$null = Test-...`, evaluates the
+                # predicate and discards it -- and still counts as AlreadyPresent to the generator.
+                # Require the call to BE the condition of an if whose taken branch returns.
+                $guardReturns = $false
+                foreach ($guard in $guardCalls) {
+                    $pipeline = $guard.Parent
+                    if ($pipeline -isnot [System.Management.Automation.Language.PipelineAst]) { continue }
+                    $ifStatement = $pipeline.Parent
+                    if ($ifStatement -isnot [System.Management.Automation.Language.IfStatementAst]) { continue }
+
+                    foreach ($clause in $ifStatement.Clauses) {
+                        if (-not [object]::ReferenceEquals($clause.Item1, $pipeline)) { continue }
+                        $returns = @($clause.Item2.FindAll({
+                                    param($node)
+                                    $node -is [System.Management.Automation.Language.ReturnStatementAst]
+                                }, $true) | Where-Object {
+                                # A return inside a scriptblock in the branch returns from the
+                                # scriptblock, not the cmdlet.
+                                -not (Test-PfbNestedInScriptBlockExpression -Node $_ -Stop $clause.Item2)
+                            })
+                        if ($returns.Count -gt 0) { $guardReturns = $true }
                     }
                 }
 
@@ -172,6 +267,8 @@ BeforeAll {
                     GuardNestedInScriptBlockExpression  = ($nestedGuards.Count -gt 0)
                     QueryVarMismatch                    = $queryVarMismatch
                     QueryWriteAfterGuard                = $queryWriteAfterGuard
+                    GuardAfterSomeInvoke                = $guardAfterSomeInvoke
+                    GuardReturns                        = $guardReturns
                 }
             }
         }
@@ -182,6 +279,8 @@ BeforeAll {
         })
     $script:totalInvokeCalls = (@($script:records | ForEach-Object { $_.InvokeCallsTotal }) |
         Measure-Object -Sum).Sum
+    $script:endBlockInvokeCalls = (@($script:records | ForEach-Object { $_.InvokeCallsInEnd }) |
+        Measure-Object -Sum).Sum
 }
 
 Describe 'Empty-pipeline guard coverage' {
@@ -189,9 +288,16 @@ Describe 'Empty-pipeline guard coverage' {
     It 'scans a population large enough for the other assertions to mean something' {
         # Not a pinned census -- the shipped rail must not red on legitimate surface growth.
         # These floors only prove the AST walk found the surface at all.
+        #
+        # The load-bearing one is $script:qualifying (130 measured): it is computed from
+        # InvokeCallsInEnd, so an end-block detector regression drives it to zero and reds the
+        # rail rather than silently emptying the coverage It. The end-block call floor is set on
+        # that same metric for the same reason. The whole-function total is the loosest of the
+        # three and is floored with headroom, so a consolidation refactor cannot red it.
         $script:records.Count | Should -BeGreaterThan 400
         $script:qualifying.Count | Should -BeGreaterThan 100
-        $script:totalInvokeCalls | Should -BeGreaterThan 500
+        $script:endBlockInvokeCalls | Should -BeGreaterThan 250
+        $script:totalInvokeCalls | Should -BeGreaterThan 400
     }
 
     It 'guards every collect-in-process function that issues its request from end' {
@@ -204,7 +310,6 @@ Describe 'Empty-pipeline guard coverage' {
                 $_.GuardCallsInEnd -eq 0 -and $_.Function -notin $allowedUnguarded
             })
         $detail = @($offenders | ForEach-Object { "$($_.File): $($_.Function)" }) -join "`n"
-
         $detail | Should -BeNullOrEmpty -Because "every collect-in-process/request-in-end function must guard an empty pipeline; offenders:`n$detail"
     }
 
@@ -214,7 +319,6 @@ Describe 'Empty-pipeline guard coverage' {
         $detail = @($nested | ForEach-Object {
                 "$($_.File):$($_.NestedInvokeLines -join ',') $($_.Function)"
             }) -join "`n"
-
         $detail | Should -BeNullOrEmpty -Because "Invoke-PfbApiRequest must stay directly in the cmdlet block; nested sites:`n$detail"
     }
 
@@ -232,7 +336,6 @@ Describe 'Empty-pipeline guard coverage' {
                 $_.Function -notin $allowedPostGuardWrite
             })
         $detail = @($postGuardWriters | ForEach-Object { "$($_.File): $($_.Function)" }) -join "`n"
-
         $detail | Should -BeNullOrEmpty -Because "a query key written after the guard makes the guard unable to fire; offenders:`n$detail"
     }
 
@@ -256,5 +359,66 @@ Describe 'Empty-pipeline guard coverage' {
             })
         $mismatchDetail = @($mismatched | ForEach-Object { "$($_.File): $($_.Function)" }) -join "`n"
         $mismatchDetail | Should -BeNullOrEmpty -Because "a guard must read the same hashtable the request is handed; offenders:`n$mismatchDetail"
+    }
+
+    It 'runs every guard before the request, and acts on its answer' {
+        # Existence, placement and subject are not enough. Two more shapes are inert AND still
+        # satisfy the generator's AlreadyPresent recognizer, so without these the drift gate and
+        # this rail would both read green on a guard that does nothing:
+        #   - a guard sitting BELOW the Invoke-PfbApiRequest it is meant to stop;
+        #   - a bare `Test-PfbEmptyPipelineRead ...` (or `$null = Test-...`) whose boolean is
+        #     evaluated and thrown away.
+        # Both allowlists are explicit and empty.
+        $allowedGuardAfterInvoke = @()
+        $allowedGuardWithoutReturn = @()
+
+        $late = @($script:records | Where-Object {
+                $_.GuardAfterSomeInvoke -and $_.Function -notin $allowedGuardAfterInvoke
+            })
+        $lateDetail = @($late | ForEach-Object { "$($_.File): $($_.Function)" }) -join "`n"
+        $lateDetail | Should -BeNullOrEmpty -Because "a guard below the request cannot stop it; offenders:`n$lateDetail"
+
+        $inert = @($script:records | Where-Object {
+                $_.GuardCallsInEnd -gt 0 -and -not $_.GuardReturns -and
+                $_.Function -notin $allowedGuardWithoutReturn
+            })
+        $inertDetail = @($inert | ForEach-Object { "$($_.File): $($_.Function)" }) -join "`n"
+        $inertDetail | Should -BeNullOrEmpty -Because "a guard whose answer is discarded never returns; offenders:`n$inertDetail"
+    }
+
+    It 'has a working scriptblock-nesting detector' {
+        # The one one-way predicate in this file. Every other detector fails safe -- a broken
+        # Get-PfbParameterVariableName drives QueryVarMismatch true and reds, a broken guard
+        # finder reds the coverage It -- but if Test-PfbNestedInScriptBlockExpression regressed to
+        # always returning $false, the call-shape It and the nested half of the placement It would
+        # both pass vacuously and no floor would notice. So assert the predicate against a fixture
+        # with a known answer in each direction, independent of the tree.
+        $fixture = @'
+function Test-Fixture {
+    end {
+        Invoke-PfbApiRequest -Endpoint 'direct'
+        1..2 | ForEach-Object { Invoke-PfbApiRequest -Endpoint 'nested' }
+    }
+}
+'@
+        $fixtureAst = [System.Management.Automation.Language.Parser]::ParseInput(
+            $fixture, [ref]$null, [ref]$null)
+        $fixtureFunction = $fixtureAst.Find({
+                param($node)
+                $node -is [System.Management.Automation.Language.FunctionDefinitionAst]
+            }, $true)
+
+        $calls = @($fixtureFunction.FindAll({
+                    param($node)
+                    $node -is [System.Management.Automation.Language.CommandAst] -and
+                    $node.GetCommandName() -eq 'Invoke-PfbApiRequest'
+                }, $true))
+        $calls.Count | Should -Be 2
+
+        $answers = @($calls | ForEach-Object {
+                Test-PfbNestedInScriptBlockExpression -Node $_ -Stop $fixtureFunction
+            })
+        $answers[0] | Should -BeFalse -Because 'the first call is a direct statement of the end block'
+        $answers[1] | Should -BeTrue -Because 'the second call is inside a ForEach-Object scriptblock'
     }
 }
