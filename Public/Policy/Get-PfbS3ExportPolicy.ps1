@@ -61,6 +61,7 @@ function Get-PfbS3ExportPolicy {
         $queryParams = @{}
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 's3-export-policies' -QueryParams $queryParams -AutoPaginate
     }
 }

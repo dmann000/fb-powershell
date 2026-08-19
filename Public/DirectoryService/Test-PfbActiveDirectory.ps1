@@ -51,6 +51,7 @@ function Test-PfbActiveDirectory {
         if ($allNames.Count -gt 0) { $queryParams['names'] = $allNames -join ',' }
         if ($allIds.Count -gt 0)   { $queryParams['ids']   = $allIds -join ',' }
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'active-directory/test' -QueryParams $queryParams -AutoPaginate
     }
 }

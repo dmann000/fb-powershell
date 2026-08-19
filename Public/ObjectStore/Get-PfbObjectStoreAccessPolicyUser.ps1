@@ -75,6 +75,7 @@ function Get-PfbObjectStoreAccessPolicyUser {
         if ($allMemberNames.Count -gt 0) { $queryParams['member_names'] = $allMemberNames -join ',' }
         if ($allMemberIds.Count -gt 0)   { $queryParams['member_ids']   = $allMemberIds -join ',' }
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         $response = Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'object-store-access-policies/object-store-users' -QueryParams $queryParams -AutoPaginate
         foreach ($item in $response) {
             if ($null -ne $item) {

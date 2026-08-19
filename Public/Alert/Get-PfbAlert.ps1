@@ -52,6 +52,7 @@ function Get-PfbAlert {
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
         if ($PSBoundParameters.ContainsKey('Flagged'))    { $queryParams['flagged'] = ([bool]$Flagged).ToString().ToLower() }
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'alerts' -QueryParams $queryParams -AutoPaginate
     }
 }

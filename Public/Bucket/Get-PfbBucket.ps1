@@ -68,6 +68,7 @@ function Get-PfbBucket {
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
         if ($Destroyed)            { $queryParams['destroyed']  = 'true' }
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'buckets' -QueryParams $queryParams -AutoPaginate
     }
 }

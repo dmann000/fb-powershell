@@ -72,6 +72,7 @@ function Get-PfbFileSystemSnapshot {
         if ($SourceName)           { $queryParams['source_names']  = $SourceName }
         if ($Destroyed)            { $queryParams['destroyed']     = 'true' }
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'file-system-snapshots' -QueryParams $queryParams -AutoPaginate
     }
 }

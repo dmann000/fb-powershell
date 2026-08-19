@@ -66,6 +66,7 @@ function Get-PfbNetworkInterfaceNeighbor {
         if ($allLocalPortNames.Count -gt 0) {
             $queryParams['local_port_names'] = $allLocalPortNames -join ','
         }
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'network-interfaces/neighbors' -QueryParams $queryParams -AutoPaginate
     }
 }

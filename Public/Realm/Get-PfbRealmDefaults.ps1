@@ -62,6 +62,7 @@ function Get-PfbRealmDefaults {
         if ($allRealmNames.Count -gt 0) {
             $queryParams['realm_names'] = $allRealmNames -join ','
         }
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'realms/defaults' -QueryParams $queryParams -AutoPaginate
     }
 }

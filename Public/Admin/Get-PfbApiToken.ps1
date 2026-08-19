@@ -102,6 +102,7 @@ function Get-PfbApiToken {
         if ($allIds)   { $queryParams['admin_ids']   = $allIds   -join ',' }
         if ($ExposeApiToken) { $queryParams['expose_api_token'] = 'true' }
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'admins/api-tokens' -QueryParams $queryParams -AutoPaginate
     }
 }

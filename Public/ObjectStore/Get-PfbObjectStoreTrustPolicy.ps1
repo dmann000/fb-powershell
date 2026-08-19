@@ -62,6 +62,7 @@ function Get-PfbObjectStoreTrustPolicy {
         if ($allRoleNames.Count -gt 0) { $queryParams['role_names'] = $allRoleNames -join ',' }
         if ($allRoleIds.Count -gt 0)   { $queryParams['role_ids']   = $allRoleIds -join ',' }
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         $response = Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'object-store-roles/object-store-trust-policies' -QueryParams $queryParams -AutoPaginate
 
         # Lift the nested parent role name to a top-level property so that piping a trust policy

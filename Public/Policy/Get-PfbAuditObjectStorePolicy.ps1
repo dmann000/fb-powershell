@@ -60,6 +60,7 @@ function Get-PfbAuditObjectStorePolicy {
         $queryParams = @{}
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'audit-object-store-policies' -QueryParams $queryParams -AutoPaginate
     }
 }

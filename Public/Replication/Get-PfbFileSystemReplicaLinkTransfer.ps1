@@ -126,6 +126,7 @@ function Get-PfbFileSystemReplicaLinkTransfer {
         if ($RemoteName) { $queryParams['remote_names'] = $RemoteName -join ',' }
         if ($RemoteId)   { $queryParams['remote_ids']   = $RemoteId   -join ',' }
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'file-system-replica-links/transfer' -QueryParams $queryParams -AutoPaginate
     }
 }

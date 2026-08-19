@@ -60,6 +60,7 @@ function Get-PfbSmbSharePolicy {
         $queryParams = @{}
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'smb-share-policies' -QueryParams $queryParams -AutoPaginate
     }
 }

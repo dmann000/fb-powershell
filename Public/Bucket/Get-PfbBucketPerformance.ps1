@@ -71,6 +71,7 @@ function Get-PfbBucketPerformance {
         if ($EndTime)              { $queryParams['end_time']   = $EndTime }
         if ($Resolution)           { $queryParams['resolution'] = $Resolution }
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'buckets/performance' -QueryParams $queryParams -AutoPaginate
     }
 }

@@ -82,6 +82,7 @@ function Get-PfbArrayConnectionKey {
         # `names` for -Names. The key goes on the wire because the spec declares it, not because
         # it narrows anything -- see the note on -Name above.
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'array-connections/connection-key' -QueryParams $queryParams -AutoPaginate
     }
 }

@@ -75,6 +75,7 @@ function Get-PfbObjectStoreRoleAccessPolicy {
         if ($allMemberNames.Count -gt 0) { $queryParams['member_names'] = $allMemberNames -join ',' }
         if ($allMemberIds.Count -gt 0)   { $queryParams['member_ids']   = $allMemberIds -join ',' }
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'object-store-roles/object-store-access-policies' -QueryParams $queryParams -AutoPaginate
     }
 }
