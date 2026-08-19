@@ -85,6 +85,9 @@ Describe 'Update-PfbTestModuleImport rewrites each known form' -Skip:($PSVersion
         $summary = & $script:rewriter -TestRoot $script:sandbox -WarningAction SilentlyContinue
         $summary.Unrecognised.Count | Should -Be 1
         $summary.Changed.Count | Should -Be 0
+        # An Unrecognised-only file is still a file: it must land in a summary bucket, or the
+        # census cannot be reconciled against the file count.
+        $summary.Unchanged | Should -Be 1
         [System.IO.File]::ReadAllText($path) | Should -Be $original
     }
 
@@ -121,5 +124,179 @@ Describe 'Update-PfbTestModuleImport rewrites each known form' -Skip:($PSVersion
             $updated | Should -Not -Match "(?<!`r)`n"
         }
         (& $script:rewriter -TestRoot $script:sandbox).Changed | Should -BeNullOrEmpty
+    }
+
+    It 'rewrites the <Name> call-site form to exactly the expected two lines' -ForEach @(
+        @{ Name = 'Manifest'; Target = '$null'
+            Statement = '    Import-Module $manifest -Force' }
+        @{ Name = 'ScriptManifest'; Target = '$null'
+            Statement = '    Import-Module $script:manifest -Force' }
+        @{ Name = 'PSScriptRoot'; Target = '$null'
+            Statement = '    Import-Module "$PSScriptRoot/../PureStorageFlashBladePowerShell.psd1" -Force' }
+        @{ Name = 'JoinPath'; Target = '$null'
+            Statement = "    Import-Module (Join-Path `$moduleRoot 'PureStorageFlashBladePowerShell.psd1') -Force" }
+        @{ Name = 'PassThru'; Target = '$script:module'
+            Statement = "    `$script:module = Import-Module `$manifest -Force -PassThru" }
+        # The only form whose extent spans two physical lines (a backtick continuation), so
+        # the only one where the head/tail arithmetic is non-trivial. Two lines in, two out.
+        @{ Name = 'NestedJoinPath'; Target = '$null'
+            Statement = "    Import-Module (Join-Path (Split-Path -Parent `$PSScriptRoot) ``" + "`n" +
+                "            'PureStorageFlashBladePowerShell.psd1') -Force" }
+    ) {
+        $path = Join-Path $script:sandbox "$Name.Tests.ps1"
+        [System.IO.File]::WriteAllText($path, "BeforeAll {`n$Statement`n}`n")
+
+        $summary = & $script:rewriter -TestRoot $script:sandbox
+        $summary.Changed.Count | Should -Be 1
+        [System.IO.File]::ReadAllText($path) | Should -Be (
+            "BeforeAll {`n" +
+            "    . (Join-Path `$PSScriptRoot 'PfbTestModule.ps1')`n" +
+            "    $Target = Import-PfbTestModule`n" +
+            "}`n")
+    }
+
+    It 'never examines a file on the exclusion list, and reports it in Excluded' {
+        # Tests/PfbTestModule.Tests.ps1:126 force-imports the manifest ON PURPOSE, to install
+        # an unmarked module instance for the helper to notice. Rewriting it deletes the
+        # condition under test, so the rewriter must not even look at the file.
+        $path = Join-Path $script:sandbox 'PfbTestModule.Tests.ps1'
+        $original = "BeforeAll {`n        `$null = Import-Module -Name `$script:manifest -Force -PassThru`n}`n"
+        [System.IO.File]::WriteAllText($path, $original)
+
+        $summary = & $script:rewriter -TestRoot $script:sandbox
+        $summary.Changed.Count | Should -Be 0
+        $summary.Excluded.Count | Should -Be 1
+        $summary.Excluded[0] | Should -BeLike '*PfbTestModule.Tests.ps1'
+        [System.IO.File]::ReadAllText($path) | Should -Be $original
+    }
+
+    It 'Changed + Unchanged + Excluded accounts for every test file examined' {
+        [System.IO.File]::WriteAllText((Join-Path $script:sandbox 'J1.Tests.ps1'),
+            "BeforeAll {`n    Import-Module `$manifest -Force`n}`n")
+        [System.IO.File]::WriteAllText((Join-Path $script:sandbox 'J2.Tests.ps1'),
+            "BeforeAll {`n    . (Join-Path `$PSScriptRoot 'PfbTestModule.ps1')`n    `$null = Import-PfbTestModule`n}`n")
+        [System.IO.File]::WriteAllText((Join-Path $script:sandbox 'PfbTestModule.Tests.ps1'),
+            "BeforeAll {`n    Import-Module `$manifest -Force`n}`n")
+
+        $summary = & $script:rewriter -TestRoot $script:sandbox
+        $summary.Changed.Count | Should -Be 1
+        $summary.Unchanged | Should -Be 1
+        $summary.Excluded.Count | Should -Be 1
+        ($summary.Changed.Count + $summary.Unchanged + $summary.Excluded.Count) |
+            Should -Be @(Get-ChildItem -Path $script:sandbox -Filter '*.Tests.ps1' -File -Recurse).Count
+    }
+
+    It 'keeps the real assignment target and any statement earlier on the same line' {
+        # Hardcoding $script:module silently RENAMES the target (a throw under StrictMode);
+        # moving the splice left edge back to the indentation silently DELETES the sentinel.
+        $path = Join-Path $script:sandbox 'K.Tests.ps1'
+        [System.IO.File]::WriteAllText($path,
+            "BeforeAll {`n    `$script:sentinel = 42; `$myOwnName = Import-Module `$manifest -Force -PassThru`n}`n")
+
+        $null = & $script:rewriter -TestRoot $script:sandbox
+        [System.IO.File]::ReadAllText($path) | Should -Be (
+            "BeforeAll {`n" +
+            "    `$script:sentinel = 42; . (Join-Path `$PSScriptRoot 'PfbTestModule.ps1')`n" +
+            "    `$myOwnName = Import-PfbTestModule`n" +
+            "}`n")
+    }
+
+    It 'does not emit a dot-source as the right-hand side of an existing assignment' {
+        # `$null = . (Join-Path ...)` parses, so no parse check catches it -- assert the shape.
+        $path = Join-Path $script:sandbox 'L.Tests.ps1'
+        [System.IO.File]::WriteAllText($path, "BeforeAll {`n    `$null = Import-Module `$manifest -Force`n}`n")
+
+        $null = & $script:rewriter -TestRoot $script:sandbox
+        [System.IO.File]::ReadAllText($path) | Should -Be (
+            "BeforeAll {`n" +
+            "    . (Join-Path `$PSScriptRoot 'PfbTestModule.ps1')`n" +
+            "    `$null = Import-PfbTestModule`n" +
+            "}`n")
+    }
+
+    It 'preserves a trailing comment and a tab indent' {
+        $path = Join-Path $script:sandbox 'M.Tests.ps1'
+        [System.IO.File]::WriteAllText($path,
+            "BeforeAll {`n`t`tImport-Module `$manifest -Force  # keep me: issue #999`n}`n")
+
+        $null = & $script:rewriter -TestRoot $script:sandbox
+        [System.IO.File]::ReadAllText($path) | Should -Be (
+            "BeforeAll {`n" +
+            "`t`t. (Join-Path `$PSScriptRoot 'PfbTestModule.ps1')`n" +
+            "`t`t`$null = Import-PfbTestModule  # keep me: issue #999`n" +
+            "}`n")
+    }
+
+    It 'recovers the indent and the newline from the local line in a mixed-ending file' {
+        # LastIndexOf($nl, ...) skips lines ended with the other convention and recovers the
+        # indent of the wrong line -- an 8-space indent collapses to 4.
+        $path = Join-Path $script:sandbox 'N.Tests.ps1'
+        [System.IO.File]::WriteAllText($path,
+            "BeforeAll {`r`n    if (`$true) {`n        Import-Module `$manifest -Force`n    }`r`n}`r`n")
+
+        $null = & $script:rewriter -TestRoot $script:sandbox
+        [System.IO.File]::ReadAllText($path) | Should -Be (
+            "BeforeAll {`r`n" +
+            "    if (`$true) {`n" +
+            "        . (Join-Path `$PSScriptRoot 'PfbTestModule.ps1')`n" +
+            "        `$null = Import-PfbTestModule`n" +
+            "    }`r`n}`r`n")
+    }
+
+    It 'rewrites every import in a file that carries more than one' {
+        $path = Join-Path $script:sandbox 'O.Tests.ps1'
+        [System.IO.File]::WriteAllText($path,
+            "BeforeAll {`n    Import-Module `$manifest -Force`n}`nDescribe 'x' {`n    BeforeAll {`n        Import-Module `$script:manifest -Force`n    }`n}`n")
+
+        $null = & $script:rewriter -TestRoot $script:sandbox
+        $updated = [System.IO.File]::ReadAllText($path)
+        ([regex]::Matches($updated, [regex]::Escape('Import-PfbTestModule'))).Count | Should -Be 2
+        $updated | Should -Not -Match 'Import-Module'
+        $updated | Should -Match "    \. \(Join-Path \`$PSScriptRoot 'PfbTestModule\.ps1'\)"
+        $updated | Should -Match "        \. \(Join-Path \`$PSScriptRoot 'PfbTestModule\.ps1'\)"
+    }
+
+    It 'reports an import in an unmodelled syntactic position as Unrecognised' {
+        $path = Join-Path $script:sandbox 'P.Tests.ps1'
+        $original = "BeforeAll {`n    Import-Module `$manifest -Force | Out-Null`n}`n"
+        [System.IO.File]::WriteAllText($path, $original)
+
+        $summary = & $script:rewriter -TestRoot $script:sandbox -WarningAction SilentlyContinue
+        $summary.Changed.Count | Should -Be 0
+        $summary.Unrecognised.Count | Should -Be 1
+        [System.IO.File]::ReadAllText($path) | Should -Be $original
+    }
+
+    It 'finds a test file in a subfolder, because Pester Run.Path is recursive' {
+        $nested = Join-Path $script:sandbox 'Nested'
+        $null = New-Item -ItemType Directory -Path $nested -Force
+        [System.IO.File]::WriteAllText((Join-Path $nested 'Q.Tests.ps1'),
+            "BeforeAll {`n    Import-Module `$manifest -Force`n}`n")
+
+        (& $script:rewriter -TestRoot $script:sandbox).Changed.Count | Should -Be 1
+    }
+
+    It 'splices character offsets, not byte offsets, with multi-byte text ahead of the import' {
+        # 14 bytes of char/byte divergence BEFORE the import: an em dash, an e-acute, a CJK
+        # ideograph and an astral emoji (surrogate pair). Byte-indexing corrupts both sides.
+        $path = Join-Path $script:sandbox 'R.Tests.ps1'
+        $prose = "# tests $([char]0x2014) caf$([char]0xE9) $([char]0x4E2D) $([char]::ConvertFromUtf32(0x1F600))"
+        [System.IO.File]::WriteAllText($path,
+            "$prose`nBeforeAll {`n    Import-Module `$manifest -Force`n}`n",
+            (New-Object System.Text.UTF8Encoding($false)))
+
+        $null = & $script:rewriter -TestRoot $script:sandbox
+        [System.IO.File]::ReadAllText($path) | Should -Be (
+            "$prose`n" +
+            "BeforeAll {`n" +
+            "    . (Join-Path `$PSScriptRoot 'PfbTestModule.ps1')`n" +
+            "    `$null = Import-PfbTestModule`n" +
+            "}`n")
+    }
+
+    It 'never emits -Fresh or a PfbTestModulePrepared assignment' {
+        $source = [System.IO.File]::ReadAllText($script:rewriter)
+        $source.Contains('PfbTestModulePrepared') | Should -BeFalse
+        $source.Contains('-Fresh') | Should -BeFalse
     }
 }
