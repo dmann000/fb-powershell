@@ -75,6 +75,7 @@ function Get-PfbObjectStoreAccessPolicyRole {
         if ($allMemberNames.Count -gt 0) { $queryParams['member_names'] = $allMemberNames -join ',' }
         if ($allMemberIds.Count -gt 0)   { $queryParams['member_ids']   = $allMemberIds -join ',' }
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         $response = Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'object-store-access-policies/object-store-roles' -QueryParams $queryParams -AutoPaginate
 
         # Lift the nested parent names to top-level properties so that piping an association into a

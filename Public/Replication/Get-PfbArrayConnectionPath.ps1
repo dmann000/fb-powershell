@@ -93,6 +93,7 @@ function Get-PfbArrayConnectionPath {
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Ids $allIds
         if ($allRemoteNames.Count) { $queryParams['remote_names'] = $allRemoteNames -join ',' }
         if ($RemoteId) { $queryParams['remote_ids'] = $RemoteId -join ',' }
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'array-connections/path' -QueryParams $queryParams -AutoPaginate
     }
 }

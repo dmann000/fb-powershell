@@ -53,6 +53,9 @@ function Get-PfbRemoteArray {
     end {
         $queryParams = @{}
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
+        # The current_fleet_only key below is a scope flag, not a selector, and is written on
+        # every path -- so it must not count toward "a selector reached the query".
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         if ($CurrentFleetOnly) { $queryParams['current_fleet_only'] = 'true' } else { $queryParams['current_fleet_only'] = 'false' }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'remote-arrays' -QueryParams $queryParams -AutoPaginate
     }

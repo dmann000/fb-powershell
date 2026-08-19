@@ -72,6 +72,7 @@ function Get-PfbFileSystemStorageClass {
         $queryParams = @{}
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         try {
             Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'file-systems/space/storage-classes' -QueryParams $queryParams -AutoPaginate
         }

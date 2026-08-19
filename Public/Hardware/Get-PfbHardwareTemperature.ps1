@@ -50,6 +50,7 @@ function Get-PfbHardwareTemperature {
         # client-side post-filter applied after the temperature filtering below. The helper would
         # unconditionally send limit= server-side, changing results.
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         $hardware = Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'hardware' -QueryParams $queryParams -AutoPaginate
 
         # Filter to components that have temperature data

@@ -57,6 +57,7 @@ function Get-PfbUserGroupQuotaPolicy {
         $queryParams = @{}
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames.ToArray() -Ids $allIds.ToArray()
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'user-group-quota-policies' -QueryParams $queryParams -AutoPaginate
     }
 }

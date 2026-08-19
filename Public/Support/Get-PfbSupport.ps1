@@ -59,6 +59,7 @@ function Get-PfbSupport {
         $queryParams = @{}
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'support' -QueryParams $queryParams -AutoPaginate
     }
 }

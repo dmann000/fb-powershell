@@ -82,6 +82,7 @@ function Get-PfbCertificateGroupCertificate {
         if ($allCertificateGroupIds.Count -gt 0) {
             $queryParams['certificate_group_ids'] = $allCertificateGroupIds -join ','
         }
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'certificate-groups/certificates' -QueryParams $queryParams -AutoPaginate
     }
 }

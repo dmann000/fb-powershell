@@ -72,6 +72,7 @@ function Get-PfbLocalGroupMember {
         if ($allGroups.Count -gt 0) { $queryParams['group_names']  = $allGroups -join ',' }
         if ($Member)                { $queryParams['member_names'] = $Member -join ',' }
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         $response = Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'directory-services/local/groups/members' -QueryParams $queryParams -AutoPaginate
 
         # Lift the nested parent group name to a top-level property so that piping a membership into

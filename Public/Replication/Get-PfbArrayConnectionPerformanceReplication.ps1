@@ -106,6 +106,7 @@ function Get-PfbArrayConnectionPerformanceReplication {
         if ($EndTime) { $queryParams['end_time'] = $EndTime }
         if ($Resolution) { $queryParams['resolution'] = $Resolution }
         if ($Type) { $queryParams['type'] = $Type }
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'array-connections/performance/replication' -QueryParams $queryParams -AutoPaginate
     }
 }

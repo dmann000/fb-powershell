@@ -54,6 +54,7 @@ function Get-PfbResourceAccess {
     end {
         $queryParams = @{}
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Ids $allIds
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'resource-accesses' -QueryParams $queryParams -AutoPaginate
     }
 }

@@ -52,6 +52,7 @@ function Get-PfbStorageClassTieringPolicy {
     end {
         $queryParams = @{}
         Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames -Ids $allIds
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'storage-class-tiering-policies' -QueryParams $queryParams -AutoPaginate
     }
 }

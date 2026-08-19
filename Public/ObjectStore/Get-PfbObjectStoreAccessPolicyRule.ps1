@@ -70,6 +70,7 @@ function Get-PfbObjectStoreAccessPolicyRule {
         if ($allPolicyNames.Count -gt 0) { $queryParams['policy_names'] = $allPolicyNames -join ',' }
         if ($allPolicyIds.Count -gt 0)   { $queryParams['policy_ids']   = $allPolicyIds -join ',' }
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         $response = Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'object-store-access-policies/rules' -QueryParams $queryParams -AutoPaginate
 
         # Lift the nested parent policy name to a top-level property so that piping a rule into a

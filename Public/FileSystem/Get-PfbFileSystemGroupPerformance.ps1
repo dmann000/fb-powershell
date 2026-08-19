@@ -92,6 +92,7 @@ function Get-PfbFileSystemGroupPerformance {
         if ($EndTime -gt 0)       { $queryParams['end_time']   = $EndTime }
         if ($Resolution -gt 0)    { $queryParams['resolution'] = $Resolution }
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'file-systems/groups/performance' -QueryParams $queryParams -AutoPaginate
     }
 }

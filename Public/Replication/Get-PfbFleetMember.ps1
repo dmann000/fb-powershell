@@ -60,12 +60,16 @@ function Get-PfbFleetMember {
     Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'fleets/members' -QueryParams $queryParams -AutoPaginate |
         ForEach-Object {
             # Invoke-PfbApiRequest returns a bare { total_item_count = N } sentinel -- not a
-            # member -- when the API reports a count but no items (see its trailing return).
-            # A filter matching nothing takes that path. Decorating it would produce an
-            # object that LOOKS like a fleet member whose name is $null, which is the exact
-            # silent-wrong-binding failure this decoration exists to prevent: piping it into
-            # a context-scoping cmdlet would bind a $null name. Pass it through undecorated
-            # so the absence of MemberName fails loudly instead.
+            # member -- only for a request that explicitly asked for total_only=true. This
+            # cmdlet exposes no -TotalOnly parameter and so cannot set that key, which means
+            # today's response layer cannot hand this branch a sentinel at all.
+            #
+            # Kept as defence-in-depth rather than as a live path: if the response layer ever
+            # emits one again, decorating it would produce an object that LOOKS like a fleet
+            # member whose name is $null, and piping THAT into a context-scoping cmdlet would
+            # bind a $null name -- the exact silent-wrong-binding failure this decoration
+            # exists to prevent. Pass it through undecorated so the absence of MemberName
+            # fails loudly instead.
             if (($_.PSObject.Properties.Name -contains 'total_item_count') -and
                 ($_.PSObject.Properties.Name -notcontains 'member')) {
                 return $_

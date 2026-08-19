@@ -82,6 +82,7 @@ function Get-PfbBucketAccessPolicyRule {
         if ($allBucketNames.Count -gt 0) { $queryParams['bucket_names'] = $allBucketNames -join ',' }
         if ($PolicyName)                 { $queryParams['policy_names'] = $PolicyName -join ',' }
 
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         try {
             Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'buckets/bucket-access-policies/rules' -QueryParams $queryParams -AutoPaginate
         }

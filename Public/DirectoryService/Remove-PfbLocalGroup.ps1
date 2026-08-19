@@ -36,6 +36,7 @@ function Remove-PfbLocalGroup {
         $queryParams = @{}
         if ($allNames.Count -gt 0) { $queryParams['names'] = $allNames -join ',' }
         if ($allIds.Count -gt 0)   { $queryParams['ids']   = $allIds -join ',' }
+        if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
 
         $target = if ($allNames.Count -gt 0) { $allNames -join ',' } else { $allIds -join ',' }
         if ($PSCmdlet.ShouldProcess($target, 'Delete local group')) {
