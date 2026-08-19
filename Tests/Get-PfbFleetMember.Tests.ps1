@@ -127,13 +127,18 @@ Describe 'Get-PfbFleetMember - top-level MemberName/FleetName decoration' {
         @(Get-PfbFleetMember -Array $script:fakeConnection).Count | Should -Be 0
     }
 
-    It 'REGRESSION: does not decorate the total_item_count sentinel into a nameless member' {
+    It 'REGRESSION: a total_item_count sentinel, if the response layer ever emits one, is not decorated into a nameless member' {
         # Invoke-PfbApiRequest returns a bare { total_item_count = N } object -- NOT a member
-        # -- when the API reports a count but no items, which is what a filter matching
-        # nothing produces. Decorating it would emit something that looks like a fleet member
-        # with a $null name, and piping THAT into a context-scoping cmdlet would bind $null:
-        # the precise silent-wrong-binding failure this whole decoration exists to prevent.
-        # It must pass through WITHOUT MemberName, so the absence fails loudly instead.
+        # -- only for a request that explicitly asked for total_only=true. Get-PfbFleetMember
+        # exposes no -TotalOnly parameter, so it cannot produce one on today's response layer
+        # and the mocked input below is a deliberate synthetic rather than a live shape.
+        #
+        # The test's value is that it pins the decoration's behaviour against a future
+        # response-layer change: decorating such an object would emit something that looks
+        # like a fleet member with a $null name, and piping THAT into a context-scoping
+        # cmdlet would bind $null -- the precise silent-wrong-binding failure this whole
+        # decoration exists to prevent. It must pass through WITHOUT MemberName, so the
+        # absence fails loudly instead.
         Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest {
             [PSCustomObject]@{ total_item_count = 0 }
         }
