@@ -52,6 +52,8 @@ Describe 'Invoke-PfbApiRequest - empty results' {
         # Measure-Object, not .Count: @($null).Count is 1, so .Count cannot tell an empty
         # result from a one-element wrapper.
         ($result | Measure-Object).Count | Should -Be 0
+        # A zero count is equally satisfied by a request that never happened.
+        Should -Invoke Invoke-RestMethod -Times 1 -Exactly -ModuleName PureStorageFlashBladePowerShell
     }
 
     It 'returns a falsy value on an empty result, so "if (Get-PfbX ...)" does not fire' {
@@ -65,6 +67,7 @@ Describe 'Invoke-PfbApiRequest - empty results' {
         }
 
         [bool]$result | Should -BeFalse
+        Should -Invoke Invoke-RestMethod -Times 1 -Exactly -ModuleName PureStorageFlashBladePowerShell
     }
 
     It 'emits no object carrying total_item_count, so nothing can coerce into a selector' {
@@ -80,6 +83,7 @@ Describe 'Invoke-PfbApiRequest - empty results' {
         # This is the defect's actual harm: an object whose only property is total_item_count
         # binds ByValue to a -Name parameter as the string '@{total_item_count=0}'.
         @($result | ForEach-Object { $_.PSObject.Properties.Name }) | Should -Not -Contain 'total_item_count'
+        Should -Invoke Invoke-RestMethod -Times 1 -Exactly -ModuleName PureStorageFlashBladePowerShell
     }
 
     It 'iterates zero times when piped into ForEach-Object' {
@@ -93,6 +97,7 @@ Describe 'Invoke-PfbApiRequest - empty results' {
         } | ForEach-Object { 'iteration' }
 
         ($seen | Measure-Object).Count | Should -Be 0
+        Should -Invoke Invoke-RestMethod -Times 1 -Exactly -ModuleName PureStorageFlashBladePowerShell
     }
 
     It 'suppresses the wrapper even when the array reports a non-zero total against zero items' {
@@ -115,6 +120,7 @@ Describe 'Invoke-PfbApiRequest - empty results' {
         }
 
         ($result | Measure-Object).Count | Should -Be 0
+        Should -Invoke Invoke-RestMethod -Times 1 -Exactly -ModuleName PureStorageFlashBladePowerShell
     }
 
     It 'returns nothing when no QueryParams were supplied at all' {
@@ -129,6 +135,7 @@ Describe 'Invoke-PfbApiRequest - empty results' {
         }
 
         ($result | Measure-Object).Count | Should -Be 0
+        Should -Invoke Invoke-RestMethod -Times 1 -Exactly -ModuleName PureStorageFlashBladePowerShell
     }
 
     It 'returns nothing when auto-pagination collects no items across pages' {
@@ -153,6 +160,7 @@ Describe 'Invoke-PfbApiRequest - empty results' {
 
         ($result | Measure-Object).Count | Should -Be 0
         $script:emptyPageCount | Should -Be 2
+        Should -Invoke Invoke-RestMethod -Times 2 -Exactly -ModuleName PureStorageFlashBladePowerShell
     }
 }
 
@@ -217,6 +225,7 @@ Describe 'Invoke-PfbApiRequest - total_only reads keep their count' {
         }
 
         ($result | Measure-Object).Count | Should -Be 0
+        Should -Invoke Invoke-RestMethod -Times 1 -Exactly -ModuleName PureStorageFlashBladePowerShell
     }
 }
 
@@ -246,6 +255,9 @@ Describe 'Invoke-PfbApiRequest - unaffected return paths' {
     }
 
     It 'treats a no-items total_item_count-only body as an ordinary empty list' {
+        # This is a response-SHAPE test. Leaving the capability gate live would couple it to
+        # whatever PfbCapabilityMap.json currently says about file-systems/open-files.
+        Mock -ModuleName PureStorageFlashBladePowerShell Assert-PfbApiCapability { }
         Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
             [PSCustomObject]@{ total_item_count = 0 }
         } -ParameterFilter { $Uri -like '*file-systems/open-files*' }
@@ -260,6 +272,30 @@ Describe 'Invoke-PfbApiRequest - unaffected return paths' {
         }
 
         ($result | Measure-Object).Count | Should -Be 0
+        Should -Invoke Invoke-RestMethod -Times 1 -Exactly -ModuleName PureStorageFlashBladePowerShell
+    }
+
+    It 'returns a multi-key body carrying total_item_count as direct data' {
+        # The classifier's MIDDLE case, and the one a silent broadening would eat: a body with
+        # total_item_count PLUS another key, with no total_only requested, is direct data.
+        # Rewriting the exactly-one-key check as `$responseKeys -contains 'total_item_count'`
+        # passes every other test in this file and fails only this one.
+        Mock -ModuleName PureStorageFlashBladePowerShell Assert-PfbApiCapability { }
+        Mock -ModuleName PureStorageFlashBladePowerShell Invoke-RestMethod {
+            [PSCustomObject]@{ total_item_count = 0; continuation_token = $null }
+        } -ParameterFilter { $Uri -like '*buckets*' }
+
+        $result = InModuleScope PureStorageFlashBladePowerShell {
+            $array = [PSCustomObject]@{
+                Endpoint = 'fb.test'; ApiVersion = '2.26'; AuthToken = 'tok'
+                ApiToken = $null; AuthMethod = 'ApiToken'; SkipCertificateCheck = $false
+            }
+            Invoke-PfbApiRequest -Array $array -Method GET -Endpoint 'buckets' -QueryParams @{}
+        }
+
+        ($result | Measure-Object).Count | Should -Be 1
+        $result.PSObject.Properties.Name | Should -Contain 'continuation_token'
+        Should -Invoke Invoke-RestMethod -Times 1 -Exactly -ModuleName PureStorageFlashBladePowerShell
     }
 
     It 'keeps a no-items total_item_count-only body when total_only was requested' {
