@@ -193,7 +193,33 @@ Describe 'Assert-PfbDerivedArtifacts comparison semantics' {
     It 'pins the spec set to the committed capability map generatedFrom list' {
         # Without the pin, a newly published REST version changes the drift report and reds an
         # unrelated PR -- the exact reason the pre-existing check was left advisory.
-        $gateSource | Should -Match 'generatedFrom'
+        #
+        # Asserted over the AST, not the raw text. `$gateSource | Should -Match 'generatedFrom'`
+        # -- what this test used to be -- also matches this very comment, the throw messages and
+        # the Write-Host progress line, so it stayed green with the pin deleted outright. It
+        # guarded the word, not the mechanism.
+        #
+        # The pin is two linked facts, and breaking either one unpins the run: $pinnedVersions
+        # is READ from the committed capability map's generatedFrom, and the staging loop
+        # ITERATES it. A gate that reads the pin but stages the whole cache is not pinned.
+        $pinAssignment = $gateAst.Find({
+            param($node)
+            $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+            $node.Left.Extent.Text -eq '$pinnedVersions'
+        }, $true)
+
+        $pinAssignment | Should -Not -BeNullOrEmpty -Because 'without an assignment to $pinnedVersions there is no pin at all'
+        $pinAssignment.Right.Extent.Text | Should -Match 'generatedFrom' -Because 'the pinned set must come from the committed map, not from whatever is in tools/specs'
+        $pinAssignment.Right.Extent.Text | Should -Match 'CapabilityMap' -Because 'generatedFrom must be read off the committed capability map specifically'
+
+        $stagingLoop = $gateAst.Find({
+            param($node)
+            $node -is [System.Management.Automation.Language.ForEachStatementAst] -and
+            $node.Condition.Extent.Text -eq '$pinnedVersions'
+        }, $true)
+
+        $stagingLoop | Should -Not -BeNullOrEmpty -Because 'a pin nothing iterates over is decoration -- staging must walk the pinned versions'
+        $stagingLoop.Body.Extent.Text | Should -Match 'Copy-Item' -Because 'the staging copy must happen once per pinned version, inside that loop'
     }
 }
 
@@ -300,7 +326,33 @@ Describe 'Assert-PfbDerivedArtifacts load-bearing decisions' {
         # -WorkDirectory tools would make the staging directory the real tools/specs, which the
         # forced recursive cleanup then deletes. New-Item -Force no-ops on an existing
         # directory, so nothing else stops it.
-        $gateSource | Should -Match 'already contains a .specs. or .out. subdirectory'
-        $gateSource | Should -Match 'resolves inside the repository'
+        #
+        # Asserted over the AST rather than against the throw messages -- this test used to
+        # match the error prose, which means rewording a sentence silently disarms the guard on
+        # the one code path that deletes directories with -Recurse -Force. Bind the CONDITIONS
+        # instead: what each guard compares, and that it refuses rather than repairs.
+        $guardIfs = @($gateAst.FindAll({
+            param($node)
+            $node -is [System.Management.Automation.Language.IfStatementAst]
+        }, $true) | Where-Object {
+            $_.Clauses[0].Item2.Extent.Text -match 'throw'
+        })
+
+        $containment = @($guardIfs | Where-Object { $_.Clauses[0].Item1.Extent.Text -match '\$resolvedWork' })
+        $containment.Count | Should -BeGreaterThan 0 -Because 'a scratch path inside the repo must be refused outright, never repaired'
+        $containment[0].Clauses[0].Item1.Extent.Text | Should -Match '\$resolvedRepo' -Because 'the refusal is meaningless unless it compares the scratch path against the repo root'
+
+        $reuse = @($guardIfs | Where-Object { $_.Clauses[0].Item1.Extent.Text -match '\$stagedSpecsDir' })
+        $reuse.Count | Should -BeGreaterThan 0 -Because 'a directory already holding specs/ or out/ must be refused -- cleanup deletes both'
+        $reuse[0].Clauses[0].Item1.Extent.Text | Should -Match '\$outRoot' -Because 'both subtrees the cleanup deletes must be checked, not just the specs one'
+
+        # Order matters as much as presence. A guard that fires after the directory exists has
+        # already lost: staging would have written into the repo, and $createdWorkDirectory
+        # would be set, which is what authorises the recursive delete in the finally block.
+        $createIndex = $gateSource.IndexOf('$createdWorkDirectory = $true')
+        $createIndex | Should -BeGreaterThan 0 -Because 'the anchor this ordering check depends on must still exist'
+        foreach ($guard in @($containment[0], $reuse[0])) {
+            $guard.Extent.StartOffset | Should -BeLessThan $createIndex -Because 'a guard cannot prevent a deletion that its own directory creation has already authorised'
+        }
     }
 }

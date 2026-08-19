@@ -45,9 +45,10 @@ on:
       - 'PureStorageFlashBladePowerShell.psd1'
       - 'PureStorageFlashBladePowerShell.psm1'
       # The gate's own two files. Not because nothing else covers them --
-      # Tests/AssertDerivedArtifacts.Tests.ps1 exercises the script on every PR via
-      # cross-platform-tests.yml, which has no paths filter -- but because no other check runs
-      # the gate END TO END, against the real generators and the real committed artifacts.
+      # Tests/AssertDerivedArtifacts.Tests.ps1 asserts contract guards over the script's
+      # SOURCE on every PR via cross-platform-tests.yml, which has no paths filter (it parses
+      # the file, it never runs it) -- but because no other check runs the gate END TO END,
+      # against the real generators and the real committed artifacts.
       # Without these globs, a PR editing only the gate never proves the gate still works.
       - '.github/workflows/verify-derived-artifacts.yml'
       - 'scripts/Assert-PfbDerivedArtifacts.ps1'
@@ -61,9 +62,10 @@ jobs:
   verify-derived-artifacts:
     name: Verify derived artifacts are not stale
     runs-on: ubuntu-latest
-    # A full eleven-artifact run measured 322s (~5.4 min) locally against a warm spec cache;
-    # CI will differ, and a cold cache adds the spec fetch on top. 20 gives nearly 4x
-    # headroom over the measured runtime -- enough that normal variance never flakes, tight
+    # Measured, not estimated: 322s (~5.4 min) locally against a warm spec cache, and 303-340s
+    # for the first three runs on ubuntu-latest with a cold one -- so the cold spec fetch costs
+    # far less than the regeneration itself, and the two environments agree closely. 20 gives
+    # ~3.5x headroom over the observed ceiling: enough that normal variance never flakes, tight
     # enough to actually catch a hung generator, which the default 360 would not.
     timeout-minutes: 20
     steps:
@@ -104,11 +106,30 @@ jobs:
       # `shell: pwsh` is what makes this legal, not a style choice: the generators this script
       # invokes are PowerShell 7 only.
       #
-      # The script's failure message is multi-line and PowerShell's error formatter wraps it,
-      # so the CI log is not the place to read which artifacts are stale. The script writes a
-      # Markdown result table to $GITHUB_STEP_SUMMARY (GitHub sets that variable for every
-      # step, so no wiring is needed) -- that table is the primary human-readable output.
-      # Improve it there rather than reshaping the throw.
+      # The script's failure message is multi-line and PowerShell's error formatter wraps it.
+      # Confirmed on a real red run: the throw renders in the log as ANSI-wrapped fragments,
+      # roughly one clause per line, interleaved with escape codes. So the CI log is not the
+      # place to read which artifacts are stale. The script writes a Markdown result table to
+      # $GITHUB_STEP_SUMMARY (GitHub sets that variable for every step, so no wiring is
+      # needed) -- that table is the primary human-readable output. Improve it there rather
+      # than reshaping the throw.
+      #
+      # -WorkDirectory and -KeepWorkDirectory exist for the step below. Left to itself the
+      # script scratches in $TEMP and deletes the tree on the way out, including on failure --
+      # which tells you WHICH artifact is stale and never HOW it differs. runner.temp is
+      # outside the workspace, so it also satisfies the script's own refusal to scratch
+      # anywhere under the repo.
       - name: Verify committed artifacts match a fresh regeneration
         shell: pwsh
-        run: ./scripts/Assert-PfbDerivedArtifacts.ps1
+        run: ./scripts/Assert-PfbDerivedArtifacts.ps1 -WorkDirectory "${{ runner.temp }}/pfb-derived" -KeepWorkDirectory
+
+      # Only the regenerated output, never the sibling specs/ directory -- that is the ~50MB
+      # pinned spec set, already reproducible from the cache, and it would dwarf the artifact.
+      # Diff a downloaded file against the committed one to see the actual drift.
+      - name: Upload the regenerated artifacts for diffing
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: pfb-regenerated-artifacts
+          path: ${{ runner.temp }}/pfb-derived/out
+          retention-days: 7

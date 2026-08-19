@@ -3,16 +3,23 @@
 Human/agent-facing advisory output from the `tools/` generator scripts. Nothing under
 this directory is read by the shipped module at runtime — see `Data/` for that (`Data/PfbCapabilityMap.json`, `Data/PfbVersionMap.json`).
 
-Regenerate everything here by running, in order (each requires `tools/specs/` cached
+Regenerate everything here by running, in this order (each requires `tools/specs/` cached
 locally first — see `tools/README.md`'s `Update-PfbApiSpecs.ps1` step):
 
 ```powershell
+./tools/Build-PfbCapabilityMap.ps1        # -> Data/
+./tools/Build-PfbResponseShapeMap.ps1     # -> Data/
 ./tools/Build-PfbValueEnumMap.ps1
 ./tools/Build-PfbFieldCmdletMap.ps1
-./tools/Build-PfbApiDriftReport.ps1
-./tools/Build-PfbDeadKeyReport.ps1
-./tools/Build-PfbPipelineSelectorMap.ps1
+./tools/Build-PfbPipelineSelectorMap.ps1  # reads the response shape map
+./tools/Build-PfbApiDriftReport.ps1       # reads the capability, shape and field-cmdlet maps
+./tools/Build-PfbDeadKeyReport.ps1        # reads the capability map
 ```
+
+Seven generators, eleven artifacts. The order is not cosmetic: the last three read the
+output of earlier ones, so running a downstream generator against stale upstream `Data/`
+files produces a report that is internally consistent and wrong. `scripts/Assert-PfbDerivedArtifacts.ps1`
+below encodes the same graph and is the authoritative copy of it.
 
 These artifacts are **gated on pull requests** (`.github/workflows/verify-derived-artifacts.yml`):
 a PR that changes a generator, or a `Public/` cmdlet the generators read, fails if the
@@ -23,7 +30,8 @@ pushing:
 ./scripts/Assert-PfbDerivedArtifacts.ps1
 ```
 
-A full run regenerates all eleven `Data/` and `Reports/` artifacts and takes a few minutes,
+A full run regenerates all eleven artifacts — the nine below plus `Data/PfbCapabilityMap.json`
+and `Data/PfbResponseShapeMap.json`, which are inputs to several of them — and takes a few minutes,
 so pass `-Artifact` to check only what you touched — just that artifact and the generators
 feeding it get run:
 
