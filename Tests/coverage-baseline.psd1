@@ -64,6 +64,21 @@
             'Committed dead-key report (REGRESSION guard, no spec cache required)'
             'Build-PfbDeadKeyReport regeneration (real spec cache required, PS7 only)'
             'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cache, PS7 only)'
+            # Issue #121 empty-pipeline guards. Listed under BOTH editions: neither block
+            # carries a PS7 gate, neither reads the spec cache, and the generator deliberately
+            # declares `#Requires -Version 5.1` rather than 7.0 so its real-tree check runs on
+            # either leg. Both therefore contribute executed tests everywhere.
+            #
+            # These two are the reason this list matters more than MaxSkipped for #121. The
+            # coverage block re-derives the qualifying population from the AST of the tracked
+            # Public/*.ps1 files and asserts all 130 carry a guard; the real-tree block asserts
+            # the generator is at a fixed point. Both are pure gain-nothing-lose-everything
+            # rails: break a guard and they go red, but DELETE either file and a skip ceiling
+            # sees nothing, because a file that never runs contributes neither a skip nor a
+            # pass. That is the issue-#63 shape one level down, which is what this list exists
+            # to catch.
+            'Empty-pipeline guard coverage'
+            'Update-PfbEmptyPipelineGuards - real tree'
         )
     }
     winps51 = @{
@@ -118,6 +133,13 @@
             # 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cache, PS7
             # only)', are deliberately absent from this list and appear under pwsh7 only.
             'Committed dead-key report (REGRESSION guard, no spec cache required)'
+            # Issue #121 empty-pipeline guards -- see the pwsh7 block for the full rationale.
+            # Unlike the dead-key and issue-#90 generator gates above, BOTH of these belong on
+            # this leg too: the guard generator declares `#Requires -Version 5.1`, so its
+            # real-tree fixed-point check is not PS7-only and requiring it here is not a false
+            # red. Measured 7 passed / 15 passed on 5.1 for the two files.
+            'Empty-pipeline guard coverage'
+            'Update-PfbEmptyPipelineGuards - real tree'
         )
     }
 }
