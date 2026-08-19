@@ -18,8 +18,18 @@ name: Tests
 # release only ships after passing on all 4 OS/PowerShell-edition combinations below --
 # not just whichever single platform a standalone Pester step would happen to run on.
 
+# `push` is filtered to main; `pull_request` is not. An unfiltered `push` matched every branch
+# commit, and a commit on a branch with an open PR ALSO matches `pull_request` -- so one push
+# ran the whole matrix twice, 10 jobs for one commit, with Windows pwsh alone near 17 minutes
+# on each side.
+#
+# Branch commits keep their coverage: `pull_request` fires on every push to a branch with an
+# open PR (the `synchronize` event). The only case that loses a run is a branch commit pushed
+# BEFORE its PR exists -- and a `pull_request` run is the better of the two anyway, because it
+# tests the MERGE commit rather than the branch tip, i.e. the tree that would actually ship.
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch: {}
   workflow_call: {}
