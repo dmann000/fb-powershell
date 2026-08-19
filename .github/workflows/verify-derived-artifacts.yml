@@ -38,13 +38,23 @@ on:
       - 'tools/**'
       - 'Data/**'
       - 'Reports/**'
-      # The gate's own two files. An edit to either is the change most likely to break the
-      # gate, and it is the only change no other check covers -- without these globs a PR
-      # touching only the gate never runs it. Deliberately not extended further: each glob
-      # costs a ~5-minute job, and nothing outside this list can change what the generators
-      # produce.
+      # The module manifest and root module decide which functions are exported, and
+      # Build-PfbPipelineSelectorMap.ps1 probes the exported set (tools/lib/
+      # PfbPipelineSelectorTools.ps1:123). So an added or removed export, or a change to the
+      # psm1 loader, moves Reports/PfbPipelineSelectorMap.json without touching Public/.
+      - 'PureStorageFlashBladePowerShell.psd1'
+      - 'PureStorageFlashBladePowerShell.psm1'
+      # The gate's own two files. Not because nothing else covers them --
+      # Tests/AssertDerivedArtifacts.Tests.ps1 exercises the script on every PR via
+      # cross-platform-tests.yml, which has no paths filter -- but because no other check runs
+      # the gate END TO END, against the real generators and the real committed artifacts.
+      # Without these globs, a PR editing only the gate never proves the gate still works.
       - '.github/workflows/verify-derived-artifacts.yml'
       - 'scripts/Assert-PfbDerivedArtifacts.ps1'
+      # This list is a best effort at "inputs that can move a derived artifact", not a proof
+      # of completeness -- the psd1/psm1 entries above were themselves a hole found in review.
+      # Each glob costs a ~5-minute job, so weigh a new one; but if you find another real
+      # generator input, add it rather than assuming the list is closed.
   workflow_dispatch: {}
 
 jobs:
