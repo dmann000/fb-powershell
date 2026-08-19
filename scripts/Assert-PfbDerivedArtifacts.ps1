@@ -88,9 +88,17 @@ $script:ArtifactPlan = @(
 
 $script:AllArtifacts = @($script:ArtifactPlan | ForEach-Object { $_.Artifacts })
 
-function ConvertTo-PfbRepoRelativePath {
-    # Accepts either slash so a caller can paste a path straight out of Windows tab-completion
-    # and still match the canonical forward-slash keys in $ArtifactPlan.
+function ConvertTo-PfbCanonicalArtifactPath {
+    # Canonicalises a user-supplied -Artifact key. Accepts either slash so a caller can paste a
+    # path straight out of Windows tab-completion and still match the forward-slash keys in
+    # $ArtifactPlan.
+    #
+    # Deliberately NOT named ConvertTo-PfbRepoRelativePath: tools/lib/PfbApiDriftTools.ps1:1573
+    # already owns that name with a different arity (-Path AND -RepoRoot) and different
+    # semantics. This script is the only one in the repo that invokes those generators
+    # in-process, so a same-named helper here is one dot-source away from silently shadowing
+    # theirs -- whichever loaded last would win and the loser's callers break on an unbindable
+    # -RepoRoot.
     param([string]$Path)
     return ($Path -replace '\\', '/') -replace '^\./', ''
 }
@@ -119,7 +127,7 @@ function Get-PfbNormalizedContentHash {
 # --- Resolve the requested artifact set -------------------------------------------------
 
 if ($Artifact) {
-    $requested = @($Artifact | ForEach-Object { ConvertTo-PfbRepoRelativePath $_ })
+    $requested = @($Artifact | ForEach-Object { ConvertTo-PfbCanonicalArtifactPath $_ })
     $unknown = @($requested | Where-Object { $script:AllArtifacts -notcontains $_ })
     if ($unknown.Count -gt 0) {
         throw "Unknown artifact(s): $($unknown -join ', '). Valid values are: $($script:AllArtifacts -join ', ')."
@@ -163,15 +171,36 @@ $createdWorkDirectory = $false
 if (-not $WorkDirectory) {
     $WorkDirectory = Join-Path ([System.IO.Path]::GetTempPath()) "PfbDerivedArtifacts-$([guid]::NewGuid().ToString('n'))"
 }
-if (-not (Test-Path -LiteralPath $WorkDirectory)) {
-    New-Item -ItemType Directory -Path $WorkDirectory -Force | Out-Null
-    $createdWorkDirectory = $true
-}
 
 $stagedSpecsDir = Join-Path $WorkDirectory 'specs'
 $outRoot        = Join-Path $WorkDirectory 'out'
 $outData        = Join-Path $outRoot 'Data'
 $outReports     = Join-Path $outRoot 'Reports'
+
+# The finally block below deletes 'specs' and 'out' under $WorkDirectory recursively and
+# forced, so the script must own both outright before it creates anything. Two ways a
+# caller-supplied path breaks that, and both are refused rather than repaired:
+#
+#   -WorkDirectory tools  ->  $stagedSpecsDir IS the real tools/specs. New-Item -Force no-ops
+#                             on an existing directory, so staging would write the pinned
+#                             specs into the live ~50MB cache and cleanup would then delete it.
+#   -WorkDirectory <repo> ->  nothing under the repo should ever be a scratch target, even if
+#                             the subdirectories do not exist yet.
+$resolvedWork = [System.IO.Path]::GetFullPath($WorkDirectory)
+$resolvedRepo = [System.IO.Path]::GetFullPath($repoRoot)
+if ($resolvedWork.Equals($resolvedRepo, [StringComparison]::OrdinalIgnoreCase) -or
+    $resolvedWork.StartsWith($resolvedRepo.TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "-WorkDirectory '$WorkDirectory' resolves inside the repository at '$repoRoot'. This script creates and then DELETES a 'specs' and an 'out' subdirectory beneath it, so it refuses any scratch location under the repo."
+}
+if ((Test-Path -LiteralPath $stagedSpecsDir) -or (Test-Path -LiteralPath $outRoot)) {
+    throw "-WorkDirectory '$WorkDirectory' already contains a 'specs' or 'out' subdirectory. This script creates and then DELETES both, so it refuses to reuse a directory whose contents it did not create."
+}
+
+# Created only after the guards pass, so a refusal leaves nothing behind.
+if (-not (Test-Path -LiteralPath $WorkDirectory)) {
+    New-Item -ItemType Directory -Path $WorkDirectory -Force | Out-Null
+    $createdWorkDirectory = $true
+}
 
 try {
     foreach ($dir in @($stagedSpecsDir, $outData, $outReports)) {
@@ -329,9 +358,14 @@ try {
         )
         throw @"
 $($stale.Count) committed artifact(s) do not match a fresh regeneration: $($staleNames -join ', ').
-Regenerate and commit them by running, from the repo root and in this order:
+
+RELIABLE FIX -- take the output this run already produced, which is by definition exactly what the comparison demanded:
+    ./scripts/Assert-PfbDerivedArtifacts.ps1 -Artifact $($staleNames -join ',') -KeepWorkDirectory
+then copy <work>/out/Data/* and <work>/out/Reports/* over the committed copies and commit them.
+
+Running the generators bare instead:
     $($fixSteps -join "`n    ")
-Then commit the resulting changes under Data/ and Reports/. This is drift caused by this branch, not by a newly published REST version -- the spec set was pinned to Data/PfbCapabilityMap.json's generatedFrom list.
+only reproduces this output when tools/specs/ holds EXACTLY the $($pinnedVersions.Count) pinned version(s) $($pinnedVersions[0])-$($pinnedVersions[-1]). This gate stages only those, but Build-PfbApiDriftReport.ps1, Build-PfbValueEnumMap.ps1 and Build-PfbFieldCmdletMap.ps1 scan the whole spec directory and record what they find there (availableSpecVersions, versionDivergenceWarning, processed-version counts). So if your spec cache holds anything newer -- which ./tools/Update-PfbApiSpecs.ps1 and the CI top-up step both produce -- a bare run writes different output and this gate will report the same artifact stale again.
 "@
     }
 
