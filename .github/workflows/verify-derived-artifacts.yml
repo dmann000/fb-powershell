@@ -58,6 +58,14 @@ on:
       # generator input, add it rather than assuming the list is closed.
   workflow_dispatch: {}
 
+# Read-only: this gate checks out, regenerates into a scratch tree and compares. It creates no
+# commit, opens no PR and touches the working tree not at all. Declared rather than inherited
+# because without a permissions block the GITHUB_TOKEN gets whatever the repo's
+# default_workflow_permissions setting happens to be -- a setting an admin can flip to write
+# with no change to any file here.
+permissions:
+  contents: read
+
 jobs:
   verify-derived-artifacts:
     name: Verify derived artifacts are not stale
