@@ -37,20 +37,36 @@ BeforeAll {
     }, $true)
 
     $script:planArtifacts = @()
+    $script:planEntries = @()
     if ($script:planAssignment) {
         $hashtables = $script:planAssignment.Right.FindAll({
             param($node)
             $node -is [System.Management.Automation.Language.HashtableAst]
         }, $true)
         foreach ($hashtable in $hashtables) {
+            $entryStep = ''
+            $entryDependsOn = @()
+            $entryArtifacts = @()
             foreach ($pair in $hashtable.KeyValuePairs) {
-                if ($pair.Item1.Extent.Text -eq 'Artifacts') {
-                    $literals = $pair.Item2.FindAll({
-                        param($node)
-                        $node -is [System.Management.Automation.Language.StringConstantExpressionAst]
-                    }, $true)
-                    foreach ($literal in $literals) { $script:planArtifacts += $literal.Value }
+                $literals = $pair.Item2.FindAll({
+                    param($node)
+                    $node -is [System.Management.Automation.Language.StringConstantExpressionAst]
+                }, $true)
+                $values = @($literals | ForEach-Object { $_.Value })
+
+                switch ($pair.Item1.Extent.Text) {
+                    'Step'      { if ($values.Count -gt 0) { $entryStep = $values[0] } }
+                    'DependsOn' { $entryDependsOn = $values }
+                    'Artifacts' {
+                        $entryArtifacts = $values
+                        $script:planArtifacts += $values
+                    }
                 }
+            }
+            $script:planEntries += [pscustomobject]@{
+                Step      = $entryStep
+                DependsOn = $entryDependsOn
+                Artifacts = $entryArtifacts
             }
         }
     }
@@ -202,13 +218,13 @@ Describe 'Assert-PfbDerivedArtifacts load-bearing decisions' {
     }
 
     It 'feeds every downstream generator the regenerated upstream, never the committed one' {
-        # This is the edge that can break SILENTLY. Build-PfbApiDriftReport.ps1 treats a missing
-        # -ResponseShapeMapPath as an optional degradation rather than an error, so dropping
-        # that DependsOn edge would not throw -- it would compare a report with empty response
-        # findings against the committed one. That reds today only because the committed report
-        # happens to carry non-empty responseFieldRemovals; if those ever legitimately empty
-        # out it becomes a false pass reachable only via the -Artifact subset path, which a
-        # full-set run can never exercise. Hence a structural assertion on the wiring.
+        # SCOPE: this binds the ARGUMENT EXPRESSIONS in $stepArguments -- what each generator is
+        # handed. It does NOT bind $ArtifactPlan's DependsOn column, which decides which steps a
+        # subset run actually EXECUTES. Both are needed and they fail differently: a wrong
+        # expression here points a generator at the committed tree, whereas a missing DependsOn
+        # edge leaves the expression correct but never regenerates the file it names, so the
+        # generator reads a stale or absent scratch upstream. The DependsOn edges have their own
+        # guard in the next test.
         $stepArgumentPairs.Count | Should -BeGreaterThan 0 -Because 'an empty extraction would make every assertion below vacuous'
 
         # Public/ and Private/ are the SOURCE being checked, not derived artifacts, so they are
@@ -225,6 +241,49 @@ Describe 'Assert-PfbDerivedArtifacts load-bearing decisions' {
             } elseif ($pair.Parameter -like '*Path') {
                 $pair.Expression | Should -Match '\$out|\$regenerated' -Because "$($pair.Step) -$($pair.Parameter) must point into the scratch tree"
             }
+        }
+    }
+
+    It 'declares the exact dependency edges that make a subset run regenerate its upstreams' {
+        # THE SUBSET PATH IS THE LOCAL PATH. CI always runs the full set, so every step executes
+        # there regardless of this column -- CI is a backstop. A developer running -Artifact
+        # before pushing is the one who gets burned, and the whole reason this logic lives in
+        # scripts/ rather than inline in the workflow is to be trustworthy at that moment.
+        #
+        # Worst case is ApiDriftReport -> ResponseShapeMap. Build-PfbApiDriftReport.ps1:141-156
+        # treats a missing -ResponseShapeMapPath as an OPTIONAL degradation rather than an
+        # error, so dropping that edge does not throw: the subset run simply never regenerates
+        # the shape map, the drift report is built with empty response findings, and it is
+        # compared against the committed copy. That reds today only because the committed report
+        # happens to carry non-empty responseFieldRemovals. If those ever legitimately empty
+        # out, it becomes a silent false pass on the subset path only.
+        #
+        # The other six edges fail safe -- their generators hard-throw on a missing upstream --
+        # but they are asserted too, so the table is pinned as a whole rather than at one spot.
+        $expectedEdges = @{
+            'CapabilityMap'       = @()
+            'ResponseShapeMap'    = @()
+            'ValueEnumMap'        = @()
+            'FieldCmdletMap'      = @()
+            'PipelineSelectorMap' = @('ResponseShapeMap')
+            'ApiDriftReport'      = @('CapabilityMap', 'ResponseShapeMap', 'FieldCmdletMap')
+            'DeadKeyReport'       = @('CapabilityMap')
+        }
+
+        $planEntries.Count | Should -Be 7 -Because 'an empty or partial extraction would make the edge assertions vacuous'
+
+        foreach ($step in $expectedEdges.Keys) {
+            $entry = @($planEntries | Where-Object { $_.Step -eq $step })
+            $entry.Count | Should -Be 1 -Because "step '$step' must appear exactly once in the plan"
+
+            $expected = $expectedEdges[$step]
+            $actual = $entry[0].DependsOn
+
+            $missing = @($expected | Where-Object { $actual -notcontains $_ })
+            $extra = @($actual | Where-Object { $expected -notcontains $_ })
+
+            $missing -join ', ' | Should -BeExactly '' -Because "$step must regenerate these upstreams before it runs on the -Artifact subset path"
+            $extra -join ', ' | Should -BeExactly '' -Because "$step declares a dependency it does not have, which needlessly slows a subset run"
         }
     }
 
