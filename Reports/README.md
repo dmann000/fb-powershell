@@ -53,11 +53,31 @@ newly published REST version does not show up as artifact drift.
 | `PfbFieldCmdletMapping.md` | Same, as a readable table. | `tools/Build-PfbFieldCmdletMap.ps1` |
 | `PfbApiDriftReport.json` / `.md` | "What's changed in the API that this module hasn't caught up to yet?" — new endpoints with no cmdlet, new parameters on endpoints we already call, drift on existing `ValidateSet`s, and new `ValidateSet` candidates. Pass `-SinceVersion '<prior version>'` to isolate just the newest release's additions (uncovered endpoints + parameter gaps only) instead of the full backlog. | `tools/Build-PfbApiDriftReport.ps1` |
 | `PfbDeadKeyReport.json` | "Which Public/ cmdlet query keys does the endpoint silently discard, and which cmdlet operations have no surviving selector?" | `tools/Build-PfbDeadKeyReport.ps1` |
-
 | `PfbPipelineSelectorMap.json` / `.md` | "Can a piped object bind this cmdlet's selector, or does it stringify into the filter?" — issue #90. Every pipeline-bound selector probed against its resource family's real response shape, by invoking the actual cmdlet with the HTTP layer shadowed. Verdicts are observed, never inferred. | `tools/Build-PfbPipelineSelectorMap.ps1` |
 
 All of the above are **reporting only** — none of them edit any `Public/` cmdlet. A human
 (or an agent, on request) reads a report and decides what, if anything, to build next.
+
+`tools/` holds a second class of generator, and the naming already encodes the distinction:
+`Build-Pfb*` emits `Data/` and `Reports/` artifacts, `Update-Pfb*` mutates tracked source in
+place. Two `Update-` scripts write `Public/` cmdlet source rather than a report:
+
+| Script | Generates | Drift asserted by |
+|---|---|---|
+| `tools/Update-PfbContextHelp.ps1` | the `<!-- PfbContext -->` context-requirement block in comment-based help | `Tests/Update-PfbContextHelp.Tests.ps1` |
+| `tools/Update-PfbEmptyPipelineGuards.ps1` | the empty-pipeline guard in read cmdlets — issue #121 | `Tests/Update-PfbEmptyPipelineGuards.Tests.ps1`, `Tests/PfbEmptyPipelineGuardCoverage.Tests.ps1` |
+
+Both replace a delimited region, so a re-run replaces rather than appends, and both are
+already drift-checked at the same strength as the gate above: a `-WhatIf` run against the
+real tree asserting zero would-be changes. That is a fixed-point assertion equivalent to
+write-twice-and-compare, with the advantage that a failure cannot dirty tracked `Public/`
+files.
+
+Don't add either to `$script:ArtifactPlan`. The assertion already exists in the right form,
+and the gate's mechanism does not fit: it runs a generator that writes its output fresh into
+a throwaway directory, whereas an `Update-` script reads tracked source and edits it in
+place. Adding a new source generator means giving it a `-WhatIf` fixed-point test alongside
+these two, not a row in the plan.
 
 ### `PfbDeadKeyReport.json` — what `noSurvivingSelector` does *not* cover
 
