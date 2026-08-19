@@ -35,24 +35,82 @@ Describe 'Import-PfbTestModule' {
 
     It 'resets the connection state, the credential cache and the module root on every call' {
         $module = Import-PfbTestModule
-        & $module {
-            $script:PfbDefaultArray = 'dirty'
-            $script:PfbArrays = @{ leaked = $true }
-            $script:PfbCachedCredential = 'leaked-credential'
-            $script:PfbModuleRoot = 'TestDrive:\nonexistent'
+        # Save and restore the two lazy caches: redirecting $script:PfbModuleRoot below
+        # deliberately trips the helper's synthetic-cache invalidation, and this test must
+        # not decide what state a LATER container inherits.
+        $savedCapability = & $module { $script:PfbCapabilityMap }
+        $savedVersion = & $module { $script:PfbVersionMap }
+        try {
+            & $module {
+                $script:PfbDefaultArray = 'dirty'
+                $script:PfbArrays = @{ leaked = $true }
+                $script:PfbCachedCredential = 'leaked-credential'
+                $script:PfbModuleRoot = 'TestDrive:\nonexistent'
+            }
+            $module = Import-PfbTestModule
+            (& $module { $script:PfbDefaultArray }) | Should -BeNullOrEmpty
+            (& $module { $script:PfbArrays.Count }) | Should -Be 0
+            (& $module { $script:PfbCachedCredential }) | Should -BeNullOrEmpty
+            (& $module { $script:PfbModuleRoot }) | Should -Be $module.ModuleBase
         }
-        $module = Import-PfbTestModule
-        (& $module { $script:PfbDefaultArray }) | Should -BeNullOrEmpty
-        (& $module { $script:PfbArrays.Count }) | Should -Be 0
-        (& $module { $script:PfbCachedCredential }) | Should -BeNullOrEmpty
-        (& $module { $script:PfbModuleRoot }) | Should -Be $module.ModuleBase
+        finally {
+            # param()-passing, NOT .GetNewClosure(): a closure fails under StrictMode and
+            # silently leaks the planted state instead.
+            & $module {
+                param($capability, $version)
+                $script:PfbCapabilityMap = $capability
+                $script:PfbVersionMap = $version
+            } $savedCapability $savedVersion
+        }
     }
 
-    It 'leaves the read-only JSON caches warm' {
+    It 'leaves both read-only JSON caches warm across an ordinary reuse' {
+        # This is the guard on the helper's conditional cache invalidation: on a plain
+        # reuse the invalidation branch must NOT be taken. A mis-typed comparison there
+        # would clear the caches on every single call and quietly give back part of the
+        # speedup while every test stayed green.
         $module = Import-PfbTestModule
-        & $module { $script:PfbCapabilityMap = 'warm-marker' }
+        $savedCapability = & $module { $script:PfbCapabilityMap }
+        $savedVersion = & $module { $script:PfbVersionMap }
+        try {
+            & $module {
+                $script:PfbCapabilityMap = 'warm-marker'
+                $script:PfbVersionMap = 'warm-version-marker'
+            }
+            $module = Import-PfbTestModule
+            (& $module { $script:PfbCapabilityMap }) | Should -Be 'warm-marker'
+            (& $module { $script:PfbVersionMap }) | Should -Be 'warm-version-marker'
+        }
+        finally {
+            & $module {
+                param($capability, $version)
+                $script:PfbCapabilityMap = $capability
+                $script:PfbVersionMap = $version
+            } $savedCapability $savedVersion
+        }
+    }
+
+    It 'invalidates both caches when the incoming module root is not the real module base' {
         $module = Import-PfbTestModule
-        (& $module { $script:PfbCapabilityMap }) | Should -Be 'warm-marker'
+        $savedCapability = & $module { $script:PfbCapabilityMap }
+        $savedVersion = & $module { $script:PfbVersionMap }
+        try {
+            & $module {
+                $script:PfbCapabilityMap = 'synthetic-map'
+                $script:PfbVersionMap = 'synthetic-version'
+                $script:PfbModuleRoot = 'TestDrive:\redirected'
+            }
+            $module = Import-PfbTestModule
+            (& $module { $script:PfbCapabilityMap }) | Should -BeNullOrEmpty
+            (& $module { $script:PfbVersionMap }) | Should -BeNullOrEmpty
+        }
+        finally {
+            & $module {
+                param($capability, $version)
+                $script:PfbCapabilityMap = $capability
+                $script:PfbVersionMap = $version
+            } $savedCapability $savedVersion
+        }
     }
 
     It '-Fresh rebuilds and deliberately does NOT mark the instance prepared' {
@@ -84,5 +142,18 @@ Describe 'Import-PfbTestModule' {
         [int]$global:PfbTestModuleForceCount | Should -Be ($before + 1)
         (& $module { (Get-Command Invoke-PfbApiRequest).Definition }) |
             Should -Not -Match 'PfbSelectorProbeCapture'
+    }
+
+    It 'accepts an explicit -ManifestPath and resolves the same already-prepared instance' {
+        $null = Import-PfbTestModule
+        $before = [int]$global:PfbTestModuleForceCount
+        $module = Import-PfbTestModule -ManifestPath $script:manifest
+        # Same manifest spelled explicitly must reach the SAME instance, i.e. cost no
+        # rebuild -- otherwise a call site that passes -ManifestPath silently pays a
+        # full import on every container.
+        [int]$global:PfbTestModuleForceCount | Should -Be $before
+        $module.Name | Should -Be 'PureStorageFlashBladePowerShell'
+        (ConvertTo-PfbTestPathKey $module.ModuleBase) |
+            Should -Be (ConvertTo-PfbTestPathKey $script:repoRoot)
     }
 }
