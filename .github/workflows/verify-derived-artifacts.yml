@@ -1,0 +1,94 @@
+name: Verify Derived Artifacts
+
+# A PR-time staleness gate for the eleven generated Data/ and Reports/ artifacts.
+# Nothing regenerated them on a pull request: update-api-capability-map.yml rebuilds them,
+# but only on schedule, on push to main, and on workflow_dispatch. So a PR that changed a
+# generator, or added a Public/ cmdlet the generators read, landed with stale committed
+# artifacts and a green CI run -- drift that then had to be found by hand twice
+# (issues #96, #97). This asks one question, on the PR that causes it: does every committed
+# artifact still match what its generator produces?
+#
+# WHY THIS ONE CAN BE BLOCKING WHEN THE EXISTING CHECK COULD NOT. Every generator reads
+# tools/specs/. A gate run against whatever spec versions happen to be on disk would red an
+# unrelated PR the moment a new REST version is published -- which is exactly why the
+# regeneration check in update-api-capability-map.yml was deliberately left advisory.
+# scripts/Assert-PfbDerivedArtifacts.ps1 instead pins the spec set to the committed
+# Data/PfbCapabilityMap.json's own `generatedFrom` list and stages only those files, which
+# separates PR-caused drift from spec-publication drift. That pinning is the whole reason
+# this gate is safe to fail a build on.
+#
+# The logic lives in scripts/, not inline here, so a developer can answer the same question
+# locally before pushing (see Reports/README.md) and so it is diffable, testable
+# (Tests/AssertDerivedArtifacts.Tests.ps1) and runnable outside Actions.
+#
+# Not `push`: update-api-capability-map.yml already owns the main branch and opens a PR when
+# it finds drift, so a second gate there would only duplicate it.
+#
+# The Pester suite is deliberately absent -- cross-platform-tests.yml already runs on every
+# PR. This workflow answers one question.
+
+on:
+  pull_request:
+    paths:
+      - 'Public/**'
+      - 'Private/**'
+      - 'tools/**'
+      - 'Data/**'
+      - 'Reports/**'
+  workflow_dispatch: {}
+
+jobs:
+  verify-derived-artifacts:
+    name: Verify derived artifacts are not stale
+    runs-on: ubuntu-latest
+    # A full eleven-artifact run measured 322s (~5.4 min) locally against a warm spec cache;
+    # CI will differ, and a cold cache adds the spec fetch on top. 20 gives nearly 4x
+    # headroom over the measured runtime -- enough that normal variance never flakes, tight
+    # enough to actually catch a hung generator, which the default 360 would not.
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Same key and restore-keys as cross-platform-tests.yml's prepare-specs job and
+      # update-api-capability-map.yml: the prefix is shared on purpose so a warm cache
+      # written by any workflow serves all of them.
+      - name: Restore cached spec files
+        uses: actions/cache/restore@v6
+        with:
+          path: tools/specs
+          key: pfb-specs-${{ github.run_id }}
+          restore-keys: |
+            pfb-specs-
+
+      # Tops up whatever the restore missed. Update-PfbApiSpecs.ps1 skips any version already
+      # on disk, so a cache hit means only newly-published versions get fetched instead of the
+      # full ~29-version history. Fetching more than the pinned set is harmless here: the gate
+      # stages only the `generatedFrom` versions and ignores the rest.
+      - name: Fetch any missing REST API spec versions
+        shell: pwsh
+        run: ./tools/Update-PfbApiSpecs.ps1
+
+      # An empty tools/specs/ would make the gate below fail on its missing-spec guard, which
+      # reads as artifact drift to anyone skimming. Assert the cache first so a restore-miss
+      # plus a fetch failure is named for what it is (issue #63).
+      - name: Assert the spec set is non-empty
+        shell: pwsh
+        run: ./scripts/Assert-PfbSpecCache.ps1
+
+      # Deliberately NO cache save step. A cache write from a pull_request run is scoped to
+      # the PR's own ref and counts against the shared `pfb-specs-` prefix, so it would evict
+      # entries the workflows that legitimately own the cache (cross-platform-tests.yml,
+      # update-api-capability-map.yml) already write for everyone.
+
+      # `shell: pwsh` is what makes this legal, not a style choice: the generators this script
+      # invokes are PowerShell 7 only.
+      #
+      # The script's failure message is multi-line and PowerShell's error formatter wraps it,
+      # so the CI log is not the place to read which artifacts are stale. The script writes a
+      # Markdown result table to $GITHUB_STEP_SUMMARY (GitHub sets that variable for every
+      # step, so no wiring is needed) -- that table is the primary human-readable output.
+      # Improve it there rather than reshaping the throw.
+      - name: Verify committed artifacts match a fresh regeneration
+        shell: pwsh
+        run: ./scripts/Assert-PfbDerivedArtifacts.ps1
