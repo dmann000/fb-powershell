@@ -352,6 +352,13 @@ function Invoke-PfbApiRequest {
             # Some endpoints return data directly (not wrapped in items). But a
             # total_item_count-only body is an empty list response unless the request asked for
             # total_only. Other no-items bodies are genuine direct-data responses and stay verbatim.
+            #
+            # This classifier is deliberately NOT restricted to total_item_count -eq 0, and that
+            # asymmetry with the final-return gate below -- which keeps its $allItems.Count -eq 0
+            # conjunct on purpose -- is intentional. The two do different jobs: this branch
+            # normalizes a body that carries no items at all, so there is nothing to preserve,
+            # while the gate preserves items that unexpectedly appear on a total-only read. Do not
+            # align either one with the other.
             $responseKeys = @($response.PSObject.Properties.Name)
             $isCountOnlyListResponse = ($responseKeys.Count -eq 1 -and
                 $responseKeys[0] -eq 'total_item_count')
