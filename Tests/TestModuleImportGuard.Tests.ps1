@@ -15,7 +15,13 @@ BeforeAll {
     . (Join-Path $script:repoRoot 'tools/lib/PfbTestImportTools.ps1')
     $script:exported = @(Get-PfbExportedFunctionName -ManifestPath (
         Join-Path $script:repoRoot 'PureStorageFlashBladePowerShell.psd1'))
-    $script:testFiles = @(Get-ChildItem -Path (Join-Path $script:repoRoot 'Tests') -Filter '*.Tests.ps1' -File)
+    # -Recurse so all three enumerations of Tests/ agree: the rewriter recurses, and the CI
+    # runner's Run.Path = 'Tests' is recursive too. There are no test files in subdirectories
+    # today, so this changes nothing observable -- it closes a future hole. The asymmetry that
+    # makes it worth closing: the second It below catches a file that uses the module without
+    # loading it through the helper, a failure invisible in a full-suite run and visible only
+    # in a standalone single-file run. A subdirectory file would escape that check silently.
+    $script:testFiles = @(Get-ChildItem -Path (Join-Path $script:repoRoot 'Tests') -Filter '*.Tests.ps1' -File -Recurse)
 
     # Files that legitimately force-import in their OWN process or runspace, or need a
     # genuinely virgin module and cannot use -Fresh. Kept as short as it can possibly be:
@@ -42,7 +48,22 @@ Describe 'Test-module import guard (AST, no spec cache required, every edition)'
                 $offenders += ("{0}:{1} -- {2}" -f $file.Name, $import.Line, $import.Text)
             }
         }
-        $offenders -join "`n" | Should -BeNullOrEmpty
+        # A bare list of offending lines says what is wrong and not what to do, so the
+        # correct shape ships with the failure. These are the exact two lines
+        # tools/Update-PfbTestModuleImport.ps1 emits.
+        $message = ''
+        if ($offenders.Count -gt 0) {
+            $message = ($offenders -join "`n") + "`n`n" + (@(
+                'Load the module through the shared helper instead. Inside BeforeAll:'
+                ''
+                "    . (Join-Path `$PSScriptRoot 'PfbTestModule.ps1')"
+                '    $null = Import-PfbTestModule'
+                ''
+                'Both lines must be INSIDE BeforeAll. ./tools/Update-PfbTestModuleImport.ps1'
+                'performs this rewrite automatically; run it with -WhatIf first.'
+            ) -join "`n")
+        }
+        $message | Should -BeNullOrEmpty
     }
 
     It 'finds no test file that uses the module without loading it through the helper' {
@@ -74,10 +95,14 @@ Describe 'Test-module import guard (AST, no spec cache required, every edition)'
         # That correctly excludes $script:PfbAllArraysSuffix (Private/PfbContext.ps1) and the
         # three constants in Private/PfbContextConstants.ps1.
         #
-        # This is a CHANGE DETECTOR, not a correctness assertion: the helper makes a
-        # documented decision per variable (reset the connection pair and the credential
-        # cache; leave the two JSON caches warm on purpose). If this list changes, decide
-        # which bucket the newcomer belongs in and update Tests/PfbTestModule.ps1 to match.
+        # This is a CHANGE DETECTOR, not a correctness assertion: the helper resets EVERY
+        # variable on this list unconditionally -- the connection pair, the credential cache,
+        # and both JSON caches. An earlier revision left the two JSON caches warm on the
+        # grounds that they were safe to reuse; commit d649d6d reversed exactly that, and
+        # Tests/PfbTestModule.ps1 argues at length that the reset must never become
+        # conditional again. If this list changes, decide whether the newcomer is volatile
+        # (per the assignment-position rule above) and update Tests/PfbTestModule.ps1 to
+        # reset it too.
         $sources = @()
         $sources += Get-Item (Join-Path $script:repoRoot 'PureStorageFlashBladePowerShell.psm1')
         $sources += Get-ChildItem (Join-Path $script:repoRoot 'Private') -Filter '*.ps1' -Recurse -File
@@ -136,5 +161,54 @@ Describe 'Test-module import guard (AST, no spec cache required, every edition)'
             '$script:PfbDefaultArray'
             '$script:PfbVersionMap'
         )
+    }
+
+    It 'keeps the guard allowlist and the rewriter exclusion set in lockstep' {
+        # Both lists name files that legitimately keep a raw -Force import, and the comment on
+        # $script:allowlist says they must stay in lockstep. This asserts it instead. The
+        # dangerous direction is an entry added to the allowlist but NOT to the rewriter's
+        # exclusion set: the rewriter would then convert a file this guard has stopped
+        # watching, or a real offender would sit permanently unexamined. Both are literal
+        # string arrays in tracked files, so the assertion is cheap and exact.
+        #
+        # Parsed with the AST rather than dot-sourced on purpose: the rewriter declares
+        # `#Requires -Version 7.0` and this file is deliberately ungated on edition, so
+        # dot-sourcing it would kill the whole container under Windows PowerShell 5.1.
+        $rewriterPath = Join-Path $script:repoRoot 'tools/Update-PfbTestModuleImport.ps1'
+        $tokens = $null
+        $errors = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+            $rewriterPath, [ref]$tokens, [ref]$errors)
+        if ($null -ne $errors -and $errors.Count -gt 0) {
+            throw ("Update-PfbTestModuleImport.ps1 failed to parse: {0}" -f $errors[0].Message)
+        }
+
+        $assignments = @($ast.FindAll({
+            param($node)
+            if (-not ($node -is [System.Management.Automation.Language.AssignmentStatementAst])) {
+                return $false
+            }
+            $left = $node.Left
+            if (-not ($left -is [System.Management.Automation.Language.VariableExpressionAst])) {
+                return $false
+            }
+            return ($left.VariablePath.UserPath -eq 'script:ExcludedFileName')
+        }, $true))
+
+        # Asserted as exactly one, not "at least one": if the variable is renamed or split,
+        # this must fail loudly rather than compare the allowlist against an empty set and
+        # report a false lockstep.
+        $assignments.Count | Should -Be 1 -Because 'ExcludedFileName must remain a single literal assignment in tools/Update-PfbTestModuleImport.ps1'
+
+        $exclusions = [string[]]@($assignments[0].Right.FindAll({
+            param($node)
+            return ($node -is [System.Management.Automation.Language.StringConstantExpressionAst])
+        }, $true) | ForEach-Object { $_.Value })
+        [Array]::Sort($exclusions, [System.StringComparer]::Ordinal)
+
+        $allowed = [string[]]@($script:allowlist)
+        [Array]::Sort($allowed, [System.StringComparer]::Ordinal)
+
+        ($exclusions -join ', ') | Should -Be ($allowed -join ', ')
     }
 }
