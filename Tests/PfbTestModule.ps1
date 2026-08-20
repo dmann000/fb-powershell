@@ -7,10 +7,15 @@
     dot-source at file scope: file-scope code runs during Pester's DISCOVERY phase,
     and a function left there is not in scope when the run phase executes an It.
 
-    Why this exists: 162 of 187 containers used to call `Import-Module <manifest> -Force`
-    in their BeforeAll, inside ONE host process. -Force discards and rebuilds the module,
-    re-dot-sourcing 544 .ps1 files, so 161 of those rebuilds were of an already loaded,
-    byte-identical module -- ~420-450 s of the Windows pwsh leg.
+    Why this exists: 165 containers used to call `Import-Module <manifest> -Force` in their
+    BeforeAll, inside ONE host process. -Force discards and rebuilds the module,
+    re-dot-sourcing the 574 .ps1 files under Public/ and Private/, so 164 of those rebuilds
+    were of an already loaded, byte-identical module -- ~420-450 s of the Windows pwsh leg.
+
+    Those are the re-measured figures for the tree this landed against, which had 194
+    containers. The originating spec says "162 of 187" and "544 .ps1 files"; that census
+    predates the merge of PR #125 and is low by three importers, seven containers and
+    thirty .ps1 files. Do not "correct" these back to the spec's numbers.
 
     Why -Force cannot simply be deleted: it was doing two pieces of real isolation work.
     (1) Module-scoped connection state and the redirectable $script:PfbModuleRoot must not
