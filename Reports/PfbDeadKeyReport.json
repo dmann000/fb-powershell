@@ -1,10 +1,10 @@
 {
   "specVersion": "2.28",
   "counts": {
-    "parametersInventoried": 2164,
-    "keysEvaluated": 1746,
-    "ok": 1661,
-    "deadKey": 85,
+    "parametersInventoried": 2165,
+    "keysEvaluated": 1747,
+    "ok": 1664,
+    "deadKey": 83,
     "skipReasons": {
       "wire name unresolved": 126,
       "body property": 278,
@@ -1100,41 +1100,6 @@
         "ids",
         "limit",
         "names"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Invoke-PfbNetworkPing",
-      "parameter": "SourceName",
-      "wireKey": "source.name",
-      "method": "GET",
-      "endpoint": "network-interfaces/ping",
-      "declared": [
-        "component_name",
-        "count",
-        "destination",
-        "packet_size",
-        "print_latency",
-        "resolve_hostname",
-        "source"
-      ]
-    },
-    {
-      "severity": "WRONG-RESULTS",
-      "cmdlet": "Invoke-PfbNetworkTrace",
-      "parameter": "SourceName",
-      "wireKey": "source.name",
-      "method": "GET",
-      "endpoint": "network-interfaces/trace",
-      "declared": [
-        "component_name",
-        "destination",
-        "discover_mtu",
-        "fragment_packet",
-        "method",
-        "port",
-        "resolve_hostname",
-        "source"
       ]
     },
     {

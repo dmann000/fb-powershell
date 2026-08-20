@@ -4058,8 +4058,7 @@
       "missingQueryParameters": [
         "component_name",
         "print_latency",
-        "resolve_hostname",
-        "source"
+        "resolve_hostname"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4081,8 +4080,7 @@
         "discover_mtu",
         "fragment_packet",
         "port",
-        "resolve_hostname",
-        "source"
+        "resolve_hostname"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -11825,7 +11823,6 @@
       "missingQueryParameters": [
         "context_names",
         "enforce_action_restrictions",
-        "names",
         "policy_ids"
       ],
       "missingBodyProperties": [
@@ -11840,7 +11837,7 @@
           "enumStatus": "not-found-in-resource",
           "target": {
             "file": "Public/ObjectStore/New-PfbObjectStoreAccessPolicyRule.ps1",
-            "paramBlockLine": 45,
+            "paramBlockLine": 51,
             "payloadVariable": "body",
             "assignmentStyle": "unknown",
             "hasAttributes": true
@@ -11857,7 +11854,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/ObjectStore/New-PfbObjectStoreAccessPolicyRule.ps1",
-            "paramBlockLine": 45,
+            "paramBlockLine": 51,
             "payloadVariable": "body",
             "assignmentStyle": "unknown",
             "hasAttributes": true
@@ -11877,7 +11874,7 @@
           "enumStatus": "matched",
           "target": {
             "file": "Public/ObjectStore/New-PfbObjectStoreAccessPolicyRule.ps1",
-            "paramBlockLine": 45,
+            "paramBlockLine": 51,
             "payloadVariable": "body",
             "assignmentStyle": "unknown",
             "hasAttributes": true
@@ -11894,7 +11891,7 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/ObjectStore/New-PfbObjectStoreAccessPolicyRule.ps1",
-            "paramBlockLine": 45,
+            "paramBlockLine": 51,
             "payloadVariable": "body",
             "assignmentStyle": "unknown",
             "hasAttributes": true
@@ -14620,8 +14617,8 @@
     },
     {
       "name": "names",
-      "endpointCount": 24,
-      "queryEndpointCount": 24,
+      "endpointCount": 23,
+      "queryEndpointCount": 23,
       "bodyEndpointCount": 0,
       "endpoints": [
         "GET /arrays/clients/performance",
@@ -14646,7 +14643,6 @@
         "PATCH /syslog-servers/settings",
         "POST /maintenance-windows",
         "POST /object-store-access-keys",
-        "POST /object-store-access-policies/rules",
         "POST /object-store-roles/object-store-trust-policies/rules"
       ],
       "annotations": []
@@ -15366,18 +15362,6 @@
         "PATCH /admins",
         "PATCH /directory-services/roles",
         "POST /directory-services/roles"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "source",
-      "endpointCount": 3,
-      "queryEndpointCount": 2,
-      "bodyEndpointCount": 1,
-      "endpoints": [
-        "GET /network-interfaces/ping",
-        "GET /network-interfaces/trace",
-        "POST /keytabs"
       ],
       "annotations": []
     },
@@ -17166,6 +17150,16 @@
       "annotations": []
     },
     {
+      "name": "source",
+      "endpointCount": 1,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 1,
+      "endpoints": [
+        "POST /keytabs"
+      ],
+      "annotations": []
+    },
+    {
       "name": "sp",
       "endpointCount": 1,
       "queryEndpointCount": 0,
@@ -17279,7 +17273,7 @@
   "conventionStrength": [
     {
       "name": "names",
-      "cmdletCount": 300,
+      "cmdletCount": 301,
       "cmdlets": [
         "Get-PfbActiveDirectory",
         "Get-PfbAdmin",
@@ -17418,6 +17412,7 @@
         "New-PfbNfsExportPolicy",
         "New-PfbNlmReclamation",
         "New-PfbObjectStoreAccessPolicy",
+        "New-PfbObjectStoreAccessPolicyRule",
         "New-PfbObjectStoreAccount",
         "New-PfbObjectStoreRemoteCredential",
         "New-PfbObjectStoreRole",
@@ -19147,6 +19142,15 @@
       ]
     },
     {
+      "name": "source",
+      "cmdletCount": 3,
+      "cmdlets": [
+        "Invoke-PfbNetworkPing",
+        "Invoke-PfbNetworkTrace",
+        "New-PfbFileSystem"
+      ]
+    },
+    {
       "name": "actions",
       "cmdletCount": 2,
       "cmdlets": [
@@ -19727,13 +19731,6 @@
       "cmdletCount": 1,
       "cmdlets": [
         "New-PfbNfsExportRule"
-      ]
-    },
-    {
-      "name": "source",
-      "cmdletCount": 1,
-      "cmdlets": [
-        "New-PfbFileSystem"
       ]
     },
     {
