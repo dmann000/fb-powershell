@@ -134,7 +134,34 @@
         # spec cache nor ConvertFrom-Json -Depth, so it executes on both legs and adds no skips.
         #
         # 273 keeps the same +16 headroom over an expected measured 257.
-        MaxSkipped        = 273
+        #
+        # RAISED 273 -> 313 for the test-module import branch. This is a REBASE RESOLUTION: that
+        # branch was cut before #112 landed and raised 268 -> 308 against its own measurement of
+        # 292, so the two raises collided in exactly the way the top of this block warns about.
+        # They are additive rather than competing, because they gate different files:
+        #
+        #   252  the figure that justified 268, from run 31830362870.
+        #   +5   Build-PfbCapabilityMap.ContextScopeDrift.Tests.ps1, from #112 (above).
+        #   +34  Update-PfbTestModuleImport.Tests.ps1, added by THIS branch -- 33 fixture Its
+        #        plus the one real-tree -WhatIf fixed-point It. The rewriter it tests declares
+        #        `#Requires -Version 7.0`, so a PS7 gate is correct for it, and the whole file
+        #        runs on 7 (that leg measures 2 skipped against its ceiling of 8).
+        #   +6   Build-PfbDeadKeyReport.Tests.ps1, which is from NEITHER branch. It arrived on
+        #        2026-08-16 in 302f9e4 (#120), two days AFTER 364a0fe set this ceiling to 268 on
+        #        2026-08-14. #120 had slack and passed without touching this file, so 268 was
+        #        already stale against main before either branch existed -- the exact "ceiling
+        #        measured before an unrelated merge goes stale" hazard described at the top of
+        #        this block, caught in a rebase rather than in CI.
+        #   ---
+        #   297  expected measured on the merged tree.
+        #
+        # The 292 half of that is a REAL CI figure, not a local one: run 32338515336
+        # (windows-latest, Windows PowerShell 5.1) reported 2984 passed / 0 failed / 292 skipped
+        # on the pre-rebase tree, matching the local run exactly. The +5 is #112's own
+        # measurement. 313 keeps the standing +16 headroom over 297. If CI reports materially
+        # more than 297, something other than these three files moved and the delta should be
+        # re-attributed before raising again.
+        MaxSkipped        = 313
         # Only the ungated blocks are required here. The six spec-cache blocks above are
         # PS7-gated by design, so requiring them on 5.1 would be a permanent false red.
         RequiredDescribes = @(
