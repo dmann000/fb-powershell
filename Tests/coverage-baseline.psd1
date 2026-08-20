@@ -48,6 +48,10 @@
             # Ungated for the same reason: it parses tracked .ps1 files via the AST, so it needs
             # neither the spec cache nor the generated manifest and has no skip path.
             'Build-PfbValueEnumMap: hand-written ValidateSet citations'
+            # Test-module import guard. Ungated -- pure AST over tracked .ps1 files, so it
+            # needs neither the spec cache nor PowerShell 7 and has no skip path. Listed
+            # under winps51 too, for that reason.
+            'Test-module import guard (AST, no spec cache required, every edition)'
             # Issue #90 pipeline-selector rails. Both are PS7-gated, so they belong to this
             # block and not to winps51. Rail B is the one this list exists for: it skips
             # GRACEFULLY when tools/specs is absent, the exact #63 shape a skip ceiling cannot
@@ -145,6 +149,10 @@
             # Ungated for the same reason: it parses tracked .ps1 files via the AST, so it needs
             # neither the spec cache nor the generated manifest and has no skip path.
             'Build-PfbValueEnumMap: hand-written ValidateSet citations'
+            # Test-module import guard. Ungated -- pure AST over tracked .ps1 files, so it
+            # needs neither the spec cache nor PowerShell 7 and has no skip path. Listed
+            # under winps51 too, for that reason.
+            'Test-module import guard (AST, no spec cache required, every edition)'
             # Dead-key gate, ungated half. It reads only the committed
             # Reports/PfbDeadKeyReport.json -- no spec cache, no PowerShell 7, no skip path --
             # so it must contribute executed tests on BOTH legs. Its two PS7-only siblings,
