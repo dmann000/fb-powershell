@@ -42,6 +42,18 @@ on:
       - 'v*'
   workflow_dispatch: {}
 
+# Read-only, despite being the release path. Publishing authenticates to the PowerShell Gallery
+# with PSGALLERY_API_KEY; nothing here writes to GitHub -- no release is created, no tag is
+# pushed, no PR is opened. scripts/Publish-Gallery.ps1 and scripts/build.ps1 are entirely local
+# file operations plus Publish-Module.
+#
+# WORKFLOW LEVEL ON PURPOSE, not on the publish job. A caller's permissions cap what a called
+# workflow receives, so this also covers the `test` job's workflow_call into
+# cross-platform-tests.yml. Declaring it only on `publish` would leave that call running on the
+# repository default -- which is the gap this closes.
+permissions:
+  contents: read
+
 jobs:
   test:
     uses: ./.github/workflows/cross-platform-tests.yml

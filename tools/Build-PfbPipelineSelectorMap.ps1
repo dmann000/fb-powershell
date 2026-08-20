@@ -42,6 +42,10 @@
 .PARAMETER OutputPath
     JSON output. Defaults to Reports/PfbPipelineSelectorMap.json. The .md companion is written
     alongside it, with the same base name.
+.PARAMETER ResponseShapeMapPath
+    Response-shape map input. Defaults to Data/PfbResponseShapeMap.json. Exists so a caller verifying
+    committed artifacts can point the generator at a freshly regenerated shape map rather than the
+    committed one.
 .NOTES
     Does NOT fetch specs. Run tools/Update-PfbApiSpecs.ps1 separately and deliberately.
 
@@ -51,7 +55,8 @@
 [CmdletBinding()]
 param(
     [string]$SpecsDirectory,
-    [string]$OutputPath
+    [string]$OutputPath,
+    [string]$ResponseShapeMapPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -59,6 +64,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 if (-not $SpecsDirectory) { $SpecsDirectory = Join-Path $PSScriptRoot 'specs' }
 if (-not $OutputPath) { $OutputPath = Join-Path $repoRoot 'Reports/PfbPipelineSelectorMap.json' }
+if (-not $ResponseShapeMapPath) { $ResponseShapeMapPath = Join-Path $repoRoot 'Data/PfbResponseShapeMap.json' }
 $markdownPath = [System.IO.Path]::ChangeExtension($OutputPath, '.md')
 
 . (Join-Path $PSScriptRoot 'lib/PfbSpecTools.ps1')
@@ -86,7 +92,7 @@ if (-not $newestSpec) { throw "No spec in '$SpecsDirectory' matched the expected
 
 $module = Initialize-PfbSelectorHarness -ManifestPath (Join-Path $repoRoot 'PureStorageFlashBladePowerShell.psd1')
 
-$shapeMap = Get-Content (Join-Path $repoRoot 'Data/PfbResponseShapeMap.json') -Raw | ConvertFrom-Json
+$shapeMap = Get-Content $ResponseShapeMapPath -Raw | ConvertFrom-Json
 $producerIndex = Get-PfbSelectorProducerIndex -ResponseShapeMap $shapeMap
 $endpointLiteral = Get-PfbCmdletEndpointLiteral -PublicDirectory (Join-Path $repoRoot 'Public')
 $exampleChain = Get-PfbHelpExampleChain -PublicDirectory (Join-Path $repoRoot 'Public')
