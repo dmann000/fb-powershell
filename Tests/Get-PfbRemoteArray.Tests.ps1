@@ -18,7 +18,8 @@
 
 BeforeAll {
     $moduleRoot = Split-Path -Parent $PSScriptRoot
-    Import-Module (Join-Path $moduleRoot 'PureStorageFlashBladePowerShell.psd1') -Force
+    . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
+    $null = Import-PfbTestModule
 
     $script:fakeConnection = [PSCustomObject]@{
         PSTypeName   = 'PureStorage.FlashBlade.Connection'

@@ -43,7 +43,8 @@ $supportedTotalOnlyCmdlets = @(
 BeforeAll {
     $repoRoot = Split-Path -Parent $PSScriptRoot
     $manifest = Join-Path $repoRoot 'PureStorageFlashBladePowerShell.psd1'
-    Import-Module $manifest -Force
+    . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
+    $null = Import-PfbTestModule
 
     $script:fakeArray = [PSCustomObject]@{ Endpoint = 'fb.example.test'; ApiVersion = '2.25'; AuthToken = 'x' }
 

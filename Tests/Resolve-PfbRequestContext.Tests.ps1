@@ -1,7 +1,8 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0' }
 
 BeforeAll {
-    Import-Module "$PSScriptRoot/../PureStorageFlashBladePowerShell.psd1" -Force
+    . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
+    $null = Import-PfbTestModule
 }
 
 # InModuleScope goes INSIDE each It, never around the Describe body: Describe-level

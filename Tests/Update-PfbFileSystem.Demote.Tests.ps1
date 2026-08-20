@@ -3,7 +3,8 @@
 BeforeAll {
     $moduleRoot = Split-Path -Parent $PSScriptRoot
     $manifest   = Join-Path $moduleRoot 'PureStorageFlashBladePowerShell.psd1'
-    Import-Module $manifest -Force
+    . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
+    $null = Import-PfbTestModule
 
     # A throwaway connection object; Assert-PfbConnection is mocked so its contents don't matter.
     $script:fakeArray = [PSCustomObject]@{ Endpoint = 'fb.example.test'; ApiVersion = '2.0'; AuthToken = 'x' }

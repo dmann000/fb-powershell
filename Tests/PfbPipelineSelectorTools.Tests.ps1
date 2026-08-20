@@ -22,7 +22,8 @@ BeforeAll {
         . (Join-Path $script:repoRoot 'tools/lib/PfbPipelineSelectorTools.ps1')
         . (Join-Path $script:repoRoot 'tools/lib/PfbCmdletParamTools.ps1')
 
-        $script:module = Import-Module (Join-Path $script:repoRoot 'PureStorageFlashBladePowerShell.psd1') -Force -PassThru
+        . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
+        $script:module = Import-PfbTestModule
         $script:bound = Get-PfbPipelineBoundParameter -Module $script:module
 
         $script:shapeMap = Get-Content (Join-Path $script:repoRoot 'Data/PfbResponseShapeMap.json') -Raw |

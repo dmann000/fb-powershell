@@ -9,7 +9,8 @@
 #>
 
 BeforeAll {
-    Import-Module "$PSScriptRoot/../PureStorageFlashBladePowerShell.psd1" -Force
+    . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
+    $null = Import-PfbTestModule
 }
 
 # InModuleScope inside each It, never around the Describe body (Describe-level fails at

@@ -1,5 +1,27 @@
 # Writing Pester tests in this repo
 
+## Loading the module
+
+Every test file loads the module through the shared helper, not with
+`Import-Module -Force`. Two lines, both **inside `BeforeAll`**:
+
+```powershell
+BeforeAll {
+    . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
+    $null = Import-PfbTestModule
+}
+```
+
+The dot-source has to be inside `BeforeAll` too. File-scope code runs during
+Pester's discovery phase, so a function dot-sourced at file scope is not in
+scope by the time an `It` runs.
+
+`Import-PfbTestModule` reuses the already-loaded module and resets the volatile
+module-scope state instead of paying a fresh import per container; see
+`Tests/PfbTestModule.ps1` for the reasoning. `Tests/TestModuleImportGuard.Tests.ps1`
+enforces the pattern, and `tools/Update-PfbTestModuleImport.ps1` applies it
+mechanically (`-WhatIf` first).
+
 ## Calling a private function
 
 Anything under `Private/` that is **not** listed in `FunctionsToExport` in
