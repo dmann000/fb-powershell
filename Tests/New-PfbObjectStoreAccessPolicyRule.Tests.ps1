@@ -102,7 +102,8 @@ class PfbRuleRecordingHost : System.Management.Automation.Host.PSHost {
 BeforeAll {
     $moduleRoot = Split-Path -Parent $PSScriptRoot
     $script:manifest = Join-Path $moduleRoot 'PureStorageFlashBladePowerShell.psd1'
-    Import-Module $script:manifest -Force
+    . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
+    $null = Import-PfbTestModule
 
     $script:fakeArray = [PSCustomObject]@{ Endpoint = 'fb.example.test'; ApiVersion = '2.25'; AuthToken = 'x' }
 }

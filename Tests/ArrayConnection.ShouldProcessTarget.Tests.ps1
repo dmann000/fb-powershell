@@ -162,7 +162,8 @@ Describe 'Array connection ShouldProcess target truthfulness' {
 
         $moduleRoot = Split-Path -Parent $PSScriptRoot
         $manifest = Join-Path $moduleRoot 'PureStorageFlashBladePowerShell.psd1'
-        Import-Module $manifest -Force
+        . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
+        $null = Import-PfbTestModule
 
         # The recording runspace runs the real Assert-PfbConnection, which is satisfied by any
         # object carrying an AuthToken -- no mock and no network access is involved, and -WhatIf

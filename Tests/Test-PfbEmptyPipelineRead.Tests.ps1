@@ -1,8 +1,8 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0' }
 
 BeforeAll {
-    Import-Module (Join-Path (Split-Path -Parent $PSScriptRoot) `
-            'PureStorageFlashBladePowerShell.psd1') -Force
+    . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
+    $null = Import-PfbTestModule
 }
 
 Describe 'Test-PfbEmptyPipelineRead' {

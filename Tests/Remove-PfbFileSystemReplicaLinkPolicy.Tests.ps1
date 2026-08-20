@@ -2,7 +2,8 @@
 
 BeforeAll {
     $moduleRoot = Split-Path -Parent $PSScriptRoot
-    Import-Module (Join-Path $moduleRoot 'PureStorageFlashBladePowerShell.psd1') -Force
+    . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
+    $null = Import-PfbTestModule
 
     $script:fakeArray  = [PSCustomObject]@{ Endpoint = 'fb.example.test'; ApiVersion = '2.0'; AuthToken = 'x' }
     $script:sourceFile = [System.IO.Path]::Combine($moduleRoot, 'Public', 'Replication', 'Remove-PfbFileSystemReplicaLinkPolicy.ps1')

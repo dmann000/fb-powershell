@@ -3,7 +3,8 @@
 BeforeAll {
     $moduleRoot = Split-Path -Parent $PSScriptRoot
     $manifest   = Join-Path $moduleRoot 'PureStorageFlashBladePowerShell.psd1'
-    Import-Module $manifest -Force
+    . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
+    $null = Import-PfbTestModule
 
     function New-MockHttpError {
         param([int]$StatusCode, [string]$Message = 'mock http error')

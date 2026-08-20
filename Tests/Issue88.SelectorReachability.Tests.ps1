@@ -189,7 +189,8 @@ $tableCoverageCase = @(
 
 BeforeAll {
     $moduleRoot = Split-Path -Parent $PSScriptRoot
-    Import-Module (Join-Path $moduleRoot 'PureStorageFlashBladePowerShell.psd1') -Force
+    . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
+    $null = Import-PfbTestModule
 
     $script:fakeArray = [PSCustomObject]@{ Endpoint = 'fb.example.test'; ApiVersion = '2.0'; AuthToken = 'x' }
 }
