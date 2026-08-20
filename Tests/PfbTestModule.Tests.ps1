@@ -35,9 +35,9 @@ Describe 'Import-PfbTestModule' {
 
     It 'resets the connection state, the credential cache and the module root on every call' {
         $module = Import-PfbTestModule
-        # Save and restore the two lazy caches: redirecting $script:PfbModuleRoot below
-        # deliberately trips the helper's synthetic-cache invalidation, and this test must
-        # not decide what state a LATER container inherits.
+        # Save and restore the two lazy caches: the helper nulls both on every call, so
+        # merely running this test would otherwise leave them cold, and this test must not
+        # decide what state a LATER container inherits.
         $savedCapability = & $module { $script:PfbCapabilityMap }
         $savedVersion = & $module { $script:PfbVersionMap }
         try {
@@ -64,11 +64,14 @@ Describe 'Import-PfbTestModule' {
         }
     }
 
-    It 'leaves both read-only JSON caches warm across an ordinary reuse' {
-        # This is the guard on the helper's conditional cache invalidation: on a plain
-        # reuse the invalidation branch must NOT be taken. A mis-typed comparison there
-        # would clear the caches on every single call and quietly give back part of the
-        # speedup while every test stayed green.
+    It 'clears both read-only JSON caches even on an ordinary reuse' {
+        # The ordinary-reuse case is the one that matters here: nothing about the incoming
+        # state hints that these caches need clearing, and they get cleared anyway. This
+        # test exists to stop anyone reintroducing CONDITIONAL invalidation as a speed
+        # optimisation. A conditional keyed on the incoming $script:PfbModuleRoot was tried
+        # and was wrong: a container that is about to redirect the root needs the cache
+        # empty, and no inspection of incoming state can predict that. See the long comment
+        # in PfbTestModule.ps1 for the exact failure it caused.
         $module = Import-PfbTestModule
         $savedCapability = & $module { $script:PfbCapabilityMap }
         $savedVersion = & $module { $script:PfbVersionMap }
@@ -78,8 +81,8 @@ Describe 'Import-PfbTestModule' {
                 $script:PfbVersionMap = 'warm-version-marker'
             }
             $module = Import-PfbTestModule
-            (& $module { $script:PfbCapabilityMap }) | Should -Be 'warm-marker'
-            (& $module { $script:PfbVersionMap }) | Should -Be 'warm-version-marker'
+            (& $module { $script:PfbCapabilityMap }) | Should -BeNullOrEmpty
+            (& $module { $script:PfbVersionMap }) | Should -BeNullOrEmpty
         }
         finally {
             & $module {
@@ -90,7 +93,12 @@ Describe 'Import-PfbTestModule' {
         }
     }
 
-    It 'invalidates both caches when the incoming module root is not the real module base' {
+    It 'clears both caches when a synthetic module root was left behind too' {
+        # A special case of the unconditional rule above, kept because it documents the
+        # ORIGINAL hazard: a previous container leaves a TestDrive:\ root behind and the
+        # caches it warmed are synthetic. The invalidation is not conditional on this --
+        # the caches are cleared whatever the incoming root says -- but this combination is
+        # the one that would corrupt real data if it ever stopped being covered.
         $module = Import-PfbTestModule
         $savedCapability = & $module { $script:PfbCapabilityMap }
         $savedVersion = & $module { $script:PfbVersionMap }

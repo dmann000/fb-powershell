@@ -193,8 +193,6 @@ function Import-PfbTestModule {
     # one code path. $script:PfbModuleRoot is NOT a constant: 12 lines across 4 test files
     # redirect it at TestDrive:\ so the cache getters load synthetic JSON, and a dead
     # TestDrive: path left here silently nulls both caches for every later file.
-    # The two JSON caches are deliberately NOT reset -- keeping them warm is part of the
-    # speedup, and they are lazy read-only reads of committed data.
     # $script:PfbCachedCredential is NOT declared in the .psm1 preamble -- it is created on
     # first write by Set-PfbCredential / Get-PfbCredential and cleared by
     # Clear-PfbCredential. No test exercises those three cmdlets today, so the leak is
@@ -202,30 +200,46 @@ function Import-PfbTestModule {
     # Set-PfbCredential leaves a credential cached for every later file, and
     # Get-PfbCredential silently returns it instead of prompting.
     #
-    # ...with ONE fail-safe exception. Dropping -Force means a synthetic JSON cache loaded
-    # under a redirected $script:PfbModuleRoot now outlives its container. Four test files
-    # redirect that root and all four restore it in an AfterEach today, but none of those
-    # restores is asserted anywhere, so "the caches are real" would rest entirely on other
-    # files' teardown remaining correct forever. Instead: invalidate the two caches only
-    # when the INCOMING root proves they may be synthetic. On any happy path -- a plain
-    # reuse, or the instant after a fresh import -- the incoming root already equals
-    # $module.ModuleBase, this branch is not taken, and the caches stay warm exactly as
-    # the design requires. If this comparison is ever mis-typed into always-true it would
-    # silently clear the caches on every call and give back part of the speedup, so there
-    # is a test asserting the branch is NOT taken on a plain reuse.
-    $incomingRoot = & $module { $script:PfbModuleRoot }
-    if ((ConvertTo-PfbTestPathKey $incomingRoot) -ine (ConvertTo-PfbTestPathKey $module.ModuleBase)) {
-        & $module {
-            $script:PfbCapabilityMap = $null
-            $script:PfbVersionMap = $null
-        }
-    }
-
+    # The two lazy JSON caches -- $script:PfbCapabilityMap and $script:PfbVersionMap -- are
+    # nulled UNCONDITIONALLY, and that must not be turned back into a conditional.
+    #
+    # An earlier version nulled them only when the INCOMING $script:PfbModuleRoot differed
+    # from $module.ModuleBase, on the theory that a matching root proves the caches are
+    # real and can stay warm. That is directionally half a test. It catches "a previous
+    # file left a synthetic root behind, so the cache may be synthetic". It cannot catch
+    # the opposite and far more common case: the cache holds REAL data, and the file about
+    # to run is going to redirect the root to TestDrive:\ and needs the cache EMPTY. The
+    # measured failure was
+    #   Get-PfbCapabilityMap.Tests.ps1 -- 'loads and returns the manifest from
+    #   Data/PfbCapabilityMap.json under the module root'
+    # which passes alone and fails when Tests/Connect-PfbArray.Context.Tests.ps1 runs
+    # first. That file populates the real capability map and correctly restores the root,
+    # so incoming == ModuleBase, the conditional declined to invalidate, and the real map
+    # survived into a container whose FIRST It redirects the root and expects synthetic
+    # JSON. (Its AfterEach nulls the cache, so only test 1 was exposed -- which is exactly
+    # why this went unnoticed.) All four root-redirecting files have the same hole:
+    # Assert-PfbApiCapability.Tests.ps1, Get-PfbCapabilityMap.Tests.ps1,
+    # Get-PfbVersionMap.Tests.ps1, Invoke-PfbApiRequest.CapabilityCheck.Tests.ps1.
+    #
+    # No inspection of incoming state can close this: whether the cache needs to be empty
+    # depends on what the container is about to do, and the helper cannot know the future.
+    # Snapshot-and-restore does not close it either -- these tests need the cache EMPTY at
+    # file start, which is what the old `Import-Module -Force` gave them incidentally; a
+    # faithfully restored REAL map fails the same assertion.
+    #
+    # The cost of doing it unconditionally is one re-parse per container that actually
+    # reads a map (Data/PfbCapabilityMap.json is ~351 KB, ~60 ms on pwsh 7 and ~80-160 ms
+    # on 5.1); most containers never touch either map. What it buys is exact -Force
+    # equivalence for these two variables, and that equivalence is the property that makes
+    # ~165 mechanically-rewritten containers trustworthy. Do not trade it back for a few
+    # seconds.
     & $module {
         param($root)
         $script:PfbDefaultArray = $null
         $script:PfbArrays = @{}
         $script:PfbCachedCredential = $null
+        $script:PfbCapabilityMap = $null
+        $script:PfbVersionMap = $null
         $script:PfbModuleRoot = $root
     } $module.ModuleBase
 
