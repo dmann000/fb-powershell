@@ -33,9 +33,9 @@ function Assert-PfbAdminNameNotCoerced {
         the silent-misbinding class this guard exists to remove. The imperative throw
         terminates the pipeline, which is the required behaviour.
 
-        Unlike Assert-PfbRemoteNameNotCoerced this returns NOTHING on success. That helper
-        ends with `return $true` and its callers invoke it bare, so it leaks a stray True
-        into each cmdlet's success stream. Do not reintroduce that here.
+        This imperative assertion helper returns NOTHING on success and reports failure
+        only through a terminating throw. Callers invoke it bare, so any success-stream
+        value it returned would leak into the cmdlet's own output.
     #>
     param([Parameter(Mandatory)] [object]$Value)
 

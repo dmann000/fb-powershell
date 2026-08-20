@@ -46,5 +46,4 @@ function Assert-PfbRemoteNameNotCoerced {
                   'Select-Object -ExpandProperty name | Get-PfbArrayConnectionPath, or pass -RemoteName explicitly.'
         }
     }
-    return $true
 }

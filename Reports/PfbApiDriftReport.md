@@ -23,7 +23,7 @@ This report accepts **false positives in order to eliminate false negatives**. A
 - Uncovered endpoints: 95
 - Endpoints with parameter gaps: 439
 - Missing body properties (addable): 426
-- Missing query parameters (addable): 883
+- Missing query parameters (addable): 880
 - Read-only body fields (not addable -- see the Read-only fields section below): 384
 - Phantom fields silently excluded (accumulated in the capability map, absent from the newest analysed spec): 40
 - Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 61
@@ -47,7 +47,7 @@ Showing the top 25 of 241 findings by endpoint count -- the full list is in the 
 | `allow_errors` | 118 | 118 | 0 | 0 | not yet implemented; deferred to Phase 2 |
 | `ids` | 38 | 38 | 0 | 220 |  |
 | `sort` | 28 | 28 | 0 | 179 |  |
-| `names` | 24 | 24 | 0 | 300 |  |
+| `names` | 23 | 23 | 0 | 301 |  |
 | `total_only` | 17 | 17 | 0 | 12 |  |
 | `policy_ids` | 16 | 16 | 0 | 97 |  |
 | `member_ids` | 14 | 14 | 0 | 81 |  |
@@ -254,8 +254,8 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `GET /network-interfaces/connectors/settings` | Get-PfbNetworkInterfaceConnectorSettings | ids |  | `high` |  |
 | `GET /network-interfaces/neighbors` | Get-PfbNetworkInterfaceNeighbor | total_item_count |  | `high` |  |
 | `GET /network-interfaces/network-connection-statistics` | Get-PfbNetworkConnectionStatistics | current_state, local_host, local_port, remote_host, remote_port |  | `high` |  |
-| `GET /network-interfaces/ping` | Invoke-PfbNetworkPing | component_name, print_latency, resolve_hostname, source |  | `high` |  |
-| `GET /network-interfaces/trace` | Invoke-PfbNetworkTrace | component_name, discover_mtu, fragment_packet, port, resolve_hostname, source |  | `high` |  |
+| `GET /network-interfaces/ping` | Invoke-PfbNetworkPing | component_name, print_latency, resolve_hostname |  | `high` |  |
+| `GET /network-interfaces/trace` | Invoke-PfbNetworkTrace | component_name, discover_mtu, fragment_packet, port, resolve_hostname |  | `high` |  |
 | `GET /nfs-export-policies` | Get-PfbNfsExportPolicy | allow_errors, context_names, workload_ids, workload_names |  | `high` |  |
 | `GET /nfs-export-policies/rules` | Get-PfbNfsExportRule | allow_errors, context_names, ids |  | `high` |  |
 | `GET /node-groups/nodes` | Get-PfbNodeGroupNode | node_group_ids, node_group_names, node_ids, node_names |  | `high` |  |
@@ -466,7 +466,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `POST /object-store-access-policies` | New-PfbObjectStoreAccessPolicy | context_names, enforce_action_restrictions | description, rules | `high` |  |
 | `POST /object-store-access-policies/object-store-roles` | New-PfbObjectStoreAccessPolicyRole | context_names, member_ids, policy_ids |  | `high` |  |
 | `POST /object-store-access-policies/object-store-users` | New-PfbObjectStoreAccessPolicyUser | context_names, member_ids, policy_ids |  | `high` |  |
-| `POST /object-store-access-policies/rules` | New-PfbObjectStoreAccessPolicyRule | context_names, enforce_action_restrictions, names, policy_ids | actions, conditions, effect, resources | `high` |  |
+| `POST /object-store-access-policies/rules` | New-PfbObjectStoreAccessPolicyRule | context_names, enforce_action_restrictions, policy_ids | actions, conditions, effect, resources | `high` |  |
 | `POST /object-store-account-exports` | New-PfbObjectStoreAccountExport | context_names |  | `high` |  |
 | `POST /object-store-accounts` | New-PfbObjectStoreAccount | context_names | account_exports, bucket_defaults, hard_limit_enabled, quota_limit | `high` |  |
 | `POST /object-store-remote-credentials` | New-PfbObjectStoreRemoteCredential | context_names | access_key_id, secret_access_key | `high` |  |

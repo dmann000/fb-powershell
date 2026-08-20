@@ -39,7 +39,7 @@ function Invoke-PfbNetworkTrace {
     begin { Assert-PfbConnection -Array ([ref]$Array) }
     process {
         $queryParams = @{ 'destination' = $Destination }
-        if ($SourceName) { $queryParams['source.name'] = $SourceName }
+        if ($SourceName) { $queryParams['source']      = $SourceName }
         if ($Method)     { $queryParams['method']       = $Method }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'network-interfaces/trace' -QueryParams $queryParams
     }

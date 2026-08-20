@@ -11130,7 +11130,7 @@
     {
       "cmdlet": "Invoke-PfbNetworkPing",
       "parameter": "SourceName",
-      "wireName": "source.name",
+      "wireName": "source",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -11150,7 +11150,7 @@
     {
       "cmdlet": "Invoke-PfbNetworkTrace",
       "parameter": "SourceName",
-      "wireName": "source.name",
+      "wireName": "source",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
@@ -12821,6 +12821,16 @@
       "cmdlet": "New-PfbObjectStoreAccessPolicyRole",
       "parameter": "PolicyName",
       "wireName": "policy_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbObjectStoreAccessPolicyRule",
+      "parameter": "Name",
+      "wireName": "names",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,

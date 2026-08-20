@@ -40,7 +40,7 @@ function Invoke-PfbNetworkPing {
     begin { Assert-PfbConnection -Array ([ref]$Array) }
     process {
         $queryParams = @{ 'destination' = $Destination }
-        if ($SourceName)    { $queryParams['source.name']  = $SourceName }
+        if ($SourceName)    { $queryParams['source']       = $SourceName }
         if ($Count -gt 0)   { $queryParams['count']        = $Count }
         if ($PacketSize -gt 0) { $queryParams['packet_size'] = $PacketSize }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'network-interfaces/ping' -QueryParams $queryParams
