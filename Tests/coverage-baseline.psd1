@@ -79,6 +79,14 @@
             # to catch.
             'Empty-pipeline guard coverage'
             'Update-PfbEmptyPipelineGuards - real tree'
+            # Issue #112 contextScope version tripwire. PS7-gated (it parses every cached spec
+            # with ConvertFrom-Json -Depth), so it belongs to this block alone. It is exactly
+            # what this list exists for: it is VACUOUSLY green today -- every endpoint declaring
+            # a domains override declares it in one version only -- so a skip ceiling could never
+            # tell it from a block that stopped running. Its synthetic sibling is listed under
+            # both editions.
+            'contextScope stability across every cached REST version (issue #112)'
+            'Get-PfbContextScopeVersionFinding, against synthetic declarations'
         )
     }
     winps51 = @{
@@ -111,7 +119,18 @@
         # spec cache and so runs on both editions -- it adds no skips.
         #
         # 268 keeps the same +16 headroom over measured.
-        MaxSkipped        = 268
+        #
+        # RAISED 268 -> 273 for the issue #112 contextScope version tripwire. It adds one
+        # PS7-gated Describe of 5 It blocks to
+        # Build-PfbCapabilityMap.ContextScopeDrift.Tests.ps1, taking that file's 5.1 skips from
+        # 8 to 13 (measured locally under both editions: pwsh 7 20 passed / 0 skipped, 5.1
+        # 7 passed / 13 skipped, container ok on both). They RUN on 7, so this is the PS7 gate
+        # working, not lost coverage. The file's other new Describe -- the synthetic-input tests
+        # for Get-PfbContextScopeVersionFinding -- is deliberately UNGATED: it needs neither the
+        # spec cache nor ConvertFrom-Json -Depth, so it executes on both legs and adds no skips.
+        #
+        # 273 keeps the same +16 headroom over an expected measured 257.
+        MaxSkipped        = 273
         # Only the ungated blocks are required here. The six spec-cache blocks above are
         # PS7-gated by design, so requiring them on 5.1 would be a permanent false red.
         RequiredDescribes = @(
@@ -140,6 +159,11 @@
             # red. Measured 7 passed / 15 passed on 5.1 for the two files.
             'Empty-pipeline guard coverage'
             'Update-PfbEmptyPipelineGuards - real tree'
+            # Issue #112, synthetic half only. It reads no spec and uses no PS7-only syntax, so
+            # it runs on this leg (measured 7 passed on 5.1) and is the ONLY thing proving the
+            # comparison can produce a finding at all -- the real-spec half it guards is
+            # vacuously green and is PS7-gated, so it appears under pwsh7 alone.
+            'Get-PfbContextScopeVersionFinding, against synthetic declarations'
         )
     }
 }
