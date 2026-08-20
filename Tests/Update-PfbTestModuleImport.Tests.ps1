@@ -346,3 +346,11 @@ Describe 'Update-PfbTestModuleImport rewrites each known form' -Skip:($PSVersion
         $source.Contains('-Fresh') | Should -BeFalse
     }
 }
+
+Describe 'Update-PfbTestModuleImport is at a fixed point against the real tree' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    It 'reports zero changes and nothing unrecognised under -WhatIf' {
+        $summary = & $script:rewriter -WhatIf
+        $summary.Changed | Should -BeNullOrEmpty
+        $summary.Unrecognised | Should -BeNullOrEmpty
+    }
+}

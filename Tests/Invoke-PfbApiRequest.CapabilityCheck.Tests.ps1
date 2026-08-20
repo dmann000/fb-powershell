@@ -10,7 +10,8 @@
 #>
 
 BeforeAll {
-    Import-Module "$PSScriptRoot/../PureStorageFlashBladePowerShell.psd1" -Force
+    . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
+    $null = Import-PfbTestModule
 
     $script:originalModuleRoot = InModuleScope PureStorageFlashBladePowerShell { $script:PfbModuleRoot }
 

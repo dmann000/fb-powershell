@@ -18,7 +18,8 @@
 # without anyone editing it.
 
 BeforeAll {
-    Import-Module "$PSScriptRoot/../PureStorageFlashBladePowerShell.psd1" -Force
+    . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
+    $null = Import-PfbTestModule
 
     $script:PublicRoot = (Resolve-Path "$PSScriptRoot/../Public").Path
 

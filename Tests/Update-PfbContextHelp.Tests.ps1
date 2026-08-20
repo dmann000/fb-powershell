@@ -32,7 +32,8 @@ BeforeAll {
     $script:generator = Join-Path $script:repoRoot 'tools/Update-PfbContextHelp.ps1'
     $script:presetFile = Join-Path $script:repoRoot 'Public/Presets/New-PfbPresetWorkload.ps1'
     $script:manifest = Join-Path $script:repoRoot 'PureStorageFlashBladePowerShell.psd1'
-    Import-Module $script:manifest -Force
+    . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
+    $null = Import-PfbTestModule
 }
 
 Describe 'Update-PfbContextHelp' {
