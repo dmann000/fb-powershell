@@ -120,7 +120,19 @@ BeforeAll {
         'Remove-PfbNodeGroupNode|DELETE|node-groups/nodes'
     )
     # CEILINGS, not pins -- see the monotone note above.
-    $script:baselineDeadKeyCount = 85
+    #
+    # LOWERED 85 -> 83. PR #134 fixed #119, which removed the two Invoke-PfbNetworkPing /
+    # Invoke-PfbNetworkTrace `source.name` records (one of them a severity WRONG-RESULTS
+    # entry), and the committed report went 85 -> 83. Nothing red, because 85 is a ceiling and
+    # a DROP is the direction it calls better -- which is exactly why this needs re-lowering
+    # by hand: left at 85 the gate silently tolerates two brand-new dead keys, and would
+    # report safety it is no longer providing.
+    #
+    # Re-lower this whenever a fix drops the count. It stays a CEILING rather than becoming a
+    # pin: dead keys legitimately fall as fixes land, and a pin would red every such fix and
+    # make the gate a tax on doing the right thing. The cost of the ceiling is precisely the
+    # slack being closed here, so closing it promptly is the whole discipline.
+    $script:baselineDeadKeyCount = 83
     $script:baselineNoSurvivingSelectorCount = 6
     $script:baselineSkipReasons = @{
         # New-PfbBucketAuditFilter|Name was introduced by 9d08ecc as a new parameter, so
