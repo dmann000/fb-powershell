@@ -18,7 +18,7 @@ no request leaves the machine, and nothing here is inferred from pattern-matchin
 | `findingPairs` | 101 |
 | `confirmationRate` | 0.4197 |
 | `controlLeakage` | 0 |
-| `assistedRows` | 213 |
+| `assistedRows` | 212 |
 
 `findings` counts probe ROWS; `findingPairs` counts distinct (cmdlet, parameter) pairs. One
 defect appears once per producing endpoint, so rows always exceed pairs.
@@ -27,13 +27,13 @@ defect appears once per producing endpoint, so rows always exceed pairs.
 
 | Outcome | Rows | Finding? |
 |---|---:|---|
-| `BindError` | 2 | triage -- the harness never invoked, the only unmeasured outcome |
-| `Bound` | 578 | no -- the selector bound as intended |
+| `BindError` | 4 | triage -- the harness never invoked, the only unmeasured outcome |
+| `Bound` | 577 | no -- the selector bound as intended |
 | `CmdletError` | 6 | no -- the cmdlet threw before any request was built |
 | `Coerced` | 264 | **yes** -- a stringified object reached the wire |
 | `Guarded` | 116 | no -- a #64/#90 coercion guard fired |
 | `NoSelector` | 47 | no -- reported observation |
-| `Unbindable` | 234 | no -- PowerShell declined to bind this probe object at all. Note that pass 4 is ByPropertyName WITH coercion, so a ByPropertyName-only parameter whose alias matches an object-valued property CAN still coerce; this outcome is not a structural immunity |
+| `Unbindable` | 233 | no -- PowerShell declined to bind this probe object at all. Note that pass 4 is ByPropertyName WITH coercion, so a ByPropertyName-only parameter whose alias matches an object-valued property CAN still coerce; this outcome is not a structural immunity |
 
 ## Findings
 
