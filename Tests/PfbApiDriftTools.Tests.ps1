@@ -1018,15 +1018,21 @@ Describe 'Get-PfbDriftAnnotations / Find-PfbDriftAnnotation (Task 6: recorded de
         @(Find-PfbDriftAnnotation -Annotations $null -FieldName 'context_names').Count | Should -Be 0
     }
 
-    It 'the real checked-in docs/drift-annotations.json loads and carries both required seed entries' {
+    It 'the real checked-in docs/drift-annotations.json loads and carries its required seed entries' {
         $realPath = Join-Path $repoRoot 'docs/drift-annotations.json'
         Test-Path $realPath | Should -BeTrue
         # @(...) wraps each call itself -- see the file-keyed test above for why a bare
         # single-match result silently fails .Count on Windows PowerShell 5.1.
         $realAnnotations = Get-PfbDriftAnnotations -Path $realPath
-        @(Find-PfbDriftAnnotation -Annotations $realAnnotations -FieldName 'context_names').Count | Should -Be 1
         @(Find-PfbDriftAnnotation -Annotations $realAnnotations -FieldName 'allow_errors').Count | Should -Be 1
         @(Find-PfbDriftAnnotation -Annotations $realAnnotations -Endpoint 'DELETE /management-access-policies').Count | Should -Be 1
+
+        # The context_names annotation existed only to explain why a DELIVERED feature was
+        # still being reported as a gap, and it named issue #113 as the reason. With #113
+        # fixed the gap is gone, so the note has nothing left to annotate -- an annotation for
+        # a field that is no longer reported is dead config that silently never matches.
+        # Asserted as an absence so it cannot be reintroduced without a deliberate decision.
+        @(Find-PfbDriftAnnotation -Annotations $realAnnotations -FieldName 'context_names').Count | Should -Be 0
     }
 }
 
@@ -1162,6 +1168,162 @@ function Test-PfbFixtureMixed {
         $injectionSites | Where-Object { $_.Key -eq 'X-Request-ID' } | Should -BeNullOrEmpty
         $injectionSites | Where-Object { $_.Key -eq 'offset' } | Should -BeNullOrEmpty
     }
+
+    It 'records a literal key as KeySource literal, so issue #113''s constant resolution does not reclassify existing sites' {
+        ($injectionSites | Where-Object { $_.Key -eq 'continuation_token' }).KeySource | Should -Be 'literal'
+    }
+}
+
+Describe 'Private callers are not public surface (issue #113)' {
+    It 'Get-PfbModuleCalledEndpoints records which tree each calling function came from' {
+        $pub = @($script:calledEndpoints | Where-Object { $_.IsPublic })
+        $priv = @($script:calledEndpoints | Where-Object { -not $_.IsPublic })
+        $pub | Should -Not -BeNullOrEmpty
+        $priv | Should -Not -BeNullOrEmpty
+        $priv | ForEach-Object { $_.File | Should -Match 'Private' }
+    }
+
+    It 'the real GET /admins gap omits Resolve-PfbAdminLocality while the endpoint stays covered' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+        # Asserted against the REAL capability map rather than a synthetic one: this is the
+        # single occurrence the issue was raised for, and hand-building a stand-in map only
+        # tests my model of its shape. Both halves are asserted together because dropping the
+        # private caller from COVERAGE as well would turn a presentation fix into a
+        # manufactured uncovered-endpoint finding.
+        $capMapPath = Join-Path $repoRoot 'Data/PfbCapabilityMap.json'
+        if (-not (Test-Path $capMapPath)) { Set-ItResult -Skipped -Because 'Data/PfbCapabilityMap.json not present locally'; return }
+
+        $capMap = Get-Content -Path $capMapPath -Raw | ConvertFrom-Json -Depth 20
+        $called = @(Get-PfbModuleCalledEndpoints -PublicDirectory (Join-Path $repoRoot 'Public') -PrivateDirectory (Join-Path $repoRoot 'Private'))
+        $inventory = @(Get-PfbCmdletParameterInventory -PublicDirectory (Join-Path $repoRoot 'Public'))
+
+        $gaps = @(Get-PfbParameterCoverageGaps -CapabilityMap $capMap -CalledEndpoints $called -CmdletInventory $inventory)
+        $adminGap = $gaps | Where-Object { $_.Endpoint -eq 'GET /admins' }
+        if (-not $adminGap) { Set-ItResult -Skipped -Because 'GET /admins currently has no parameter gap to attribute'; return }
+        $adminGap.Cmdlets | Should -Contain 'Get-PfbAdmin'
+        $adminGap.Cmdlets | Should -Not -Contain 'Resolve-PfbAdminLocality'
+
+        $uncovered = @(Get-PfbEndpointCoverageGaps -CapabilityMap $capMap -CalledEndpoints $called)
+        $uncovered.Endpoint | Should -Not -Contain 'GET /admins'
+    }
+
+    It 'the real GET /admins gap no longer credits Resolve-PfbAdminLocality' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+        $real = @(Get-PfbModuleCalledEndpoints -PublicDirectory (Join-Path $repoRoot 'Public') -PrivateDirectory (Join-Path $repoRoot 'Private'))
+        $adminCalls = @($real | Where-Object { $_.Key -eq 'GET /admins' })
+        # Still SCANNED -- the private caller is recorded, just not presented as a cmdlet.
+        $adminCalls.Cmdlet | Should -Contain 'Resolve-PfbAdminLocality'
+        ($adminCalls | Where-Object { $_.Cmdlet -eq 'Resolve-PfbAdminLocality' }).IsPublic | Should -BeFalse
+        ($adminCalls | Where-Object { $_.Cmdlet -eq 'Get-PfbAdmin' }).IsPublic | Should -BeTrue
+    }
+}
+
+Describe 'Get-PfbCentralInjectionSites: variable-keyed injection (issue #113)' {
+    # The detector originally required the index to be a literal StringConstantExpressionAst,
+    # so `$QueryParams[$script:PfbContextParameterName] = ...` was invisible and context_names
+    # stayed a 268-endpoint systemic gap for the whole of Fusion Phase 1 while the module was
+    # in fact injecting it on every request. `continuation_token` is injected a few lines away
+    # in the same real function and WAS detected -- the only difference was the literal key.
+    #
+    # Resolving the constant is deliberately preferred over adding context_names to the
+    # hand-written $script:PfbNonActionableParameters list: it generalises to the next key
+    # injected the same way, and it keeps allow_errors (declared in the same constants file
+    # but injected nowhere) correctly reported as the still-open gap it is.
+    BeforeAll {
+        $script:constKeyDir = Join-Path $TestDrive 'ConstKeyPrivate'
+        New-Item -ItemType Directory -Path $constKeyDir -Force | Out-Null
+
+        # Mirrors the real Private/PfbContextConstants.ps1 + Private/Invoke-PfbApiRequest.ps1
+        # pair: the constant is defined at file scope in one file and used as an index
+        # expression in another, so resolution cannot be function-local.
+        Set-Content -Path (Join-Path $constKeyDir 'PfbFixtureConstants.ps1') -Value @'
+$script:PfbFixtureContextParameterName = 'fixture_context_names'
+$script:PfbFixtureAllowErrorsName       = 'fixture_allow_errors'
+'@
+
+        Set-Content -Path (Join-Path $constKeyDir 'Invoke-PfbFixtureContextRequest.ps1') -Value @'
+function Invoke-PfbFixtureContextRequest {
+    [CmdletBinding()]
+    param([hashtable]$QueryParams)
+    $hasContext = $true
+    $resolvedContext = [PSCustomObject]@{ Entries = @('a') }
+    if ($hasContext) {
+        $QueryParams[$script:PfbFixtureContextParameterName] = @($resolvedContext.Entries) -join ','
+    }
+}
+'@
+
+        $script:constKeySites = Get-PfbCentralInjectionSites -PrivateDirectory $constKeyDir
+    }
+
+    It 'resolves a $script: constant used as the index and records the constant''s VALUE as the key' {
+        $site = @($constKeySites | Where-Object { $_.Key -eq 'fixture_context_names' })
+        $site.Count | Should -Be 1
+    }
+
+    It 'records how the key was obtained, so a resolved key is distinguishable from a literal one' {
+        ($constKeySites | Where-Object { $_.Key -eq 'fixture_context_names' }).KeySource | Should -Be 'constant'
+    }
+
+    It 'never records the variable NAME as the key' {
+        # The failure this guards is silent and plausible-looking: a key of
+        # 'PfbFixtureContextParameterName' would match no capability-map field, so it would
+        # simply never intersect a gap and the fix would read as working.
+        $constKeySites.Key | Should -Not -Contain 'PfbFixtureContextParameterName'
+    }
+
+    It 'classifies the resolved site by the same rules as a literal one -- here server-or-internal-derived' {
+        # RHS references $resolvedContext (a local, not a parameter) and the guard is the bare
+        # local $hasContext, so neither tracing rule fires. Same shape as the real injection.
+        ($constKeySites | Where-Object { $_.Key -eq 'fixture_context_names' }).Classification |
+            Should -Be 'server-or-internal-derived'
+    }
+
+    It 'a constant that is DEFINED but never used as an index produces no site' {
+        # allow_errors' real situation: it lives in the same constants file as context_names
+        # and is genuinely unimplemented, so it must stay a reported gap. Resolving constants
+        # must not conjure a site out of a mere definition.
+        $constKeySites.Key | Should -Not -Contain 'fixture_allow_errors'
+    }
+
+    It 'derives the resolved key as a non-actionable parameter' {
+        $derived = Get-PfbDerivedNonActionableParameters -InjectionSites $constKeySites
+        $derived.Name | Should -Contain 'fixture_context_names'
+        $derived.Name | Should -Not -Contain 'fixture_allow_errors'
+    }
+
+    It 'refuses to resolve a variable index that is not a known constant, rather than guessing' {
+        $unknownDir = Join-Path $TestDrive 'UnknownKeyPrivate'
+        New-Item -ItemType Directory -Path $unknownDir -Force | Out-Null
+        Set-Content -Path (Join-Path $unknownDir 'Invoke-PfbFixtureUnknownKey.ps1') -Value @'
+function Invoke-PfbFixtureUnknownKey {
+    [CmdletBinding()]
+    param([hashtable]$QueryParams, [string]$KeyName)
+    $QueryParams[$KeyName] = 'x'
+}
+'@
+        $sites = @(Get-PfbCentralInjectionSites -PrivateDirectory $unknownDir)
+        $sites.Count | Should -Be 0
+    }
+
+    It 'refuses a constant whose name is assigned two different literals' {
+        # Never-guess, matching the rest of these scanners: an ambiguous constant resolves to
+        # nothing rather than to whichever assignment the file walk happened to reach last,
+        # which would make the result depend on filesystem enumeration order.
+        $ambiguousDir = Join-Path $TestDrive 'AmbiguousConstPrivate'
+        New-Item -ItemType Directory -Path $ambiguousDir -Force | Out-Null
+        Set-Content -Path (Join-Path $ambiguousDir 'PfbFixtureAmbiguous.ps1') -Value @'
+$script:PfbFixtureAmbiguousKey = 'first_value'
+$script:PfbFixtureAmbiguousKey = 'second_value'
+function Invoke-PfbFixtureAmbiguous {
+    [CmdletBinding()]
+    param([hashtable]$QueryParams)
+    $QueryParams[$script:PfbFixtureAmbiguousKey] = 'x'
+}
+'@
+        $sites = @(Get-PfbCentralInjectionSites -PrivateDirectory $ambiguousDir)
+        $sites.Key | Should -Not -Contain 'first_value'
+        $sites.Key | Should -Not -Contain 'second_value'
+    }
+
 }
 
 Describe 'Central-injection detection against the REAL Private/ tree (confirms the acceptance-critical claims for real)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
@@ -1212,6 +1374,30 @@ Describe 'Central-injection detection against the REAL Private/ tree (confirms t
         foreach ($key in @('filter', 'sort', 'limit', 'total_only', 'names', 'ids')) {
             $merged | Should -Not -Contain $key
         }
+    }
+
+    It 'context_names is detected in the real tree via its $script: constant, and allow_errors is not (issue #113)' {
+        # The pair is the whole point, which is why they are asserted together rather than in
+        # two tests. Both names live in Private/PfbContextConstants.ps1; only context_names is
+        # actually injected (Private/Invoke-PfbApiRequest.ps1). A fix that resolved constants
+        # by DEFINITION rather than by USE would drop both, silently deleting the 118-endpoint
+        # allow_errors gap that Phase 2 still owes -- and the report would look tidier for it.
+        $sites = Get-PfbCentralInjectionSites -PrivateDirectory $realPrivateDirectory
+
+        $contextSites = @($sites | Where-Object { $_.Key -eq 'context_names' })
+        $contextSites | Should -Not -BeNullOrEmpty
+        $contextSites | ForEach-Object { $_.KeySource | Should -Be 'constant' }
+        $contextSites | ForEach-Object { $_.Classification | Should -Be 'server-or-internal-derived' }
+
+        $sites | Where-Object { $_.Key -eq 'allow_errors' } | Should -BeNullOrEmpty
+
+        $derived = Get-PfbDerivedNonActionableParameters -InjectionSites $sites
+        $derived.Name | Should -Contain 'context_names'
+        $derived.Name | Should -Not -Contain 'allow_errors'
+
+        $merged = Get-PfbNonActionableParameters -PrivateDirectory $realPrivateDirectory
+        $merged | Should -Contain 'context_names'
+        $merged | Should -Not -Contain 'allow_errors'
     }
 }
 
@@ -1285,15 +1471,35 @@ Describe 'Task 6 real-data invariants (systemic gaps + convention strength, skip
     # value AT THE TIME -- kept here as institutional memory, not as a hardcoded expectation.
     # See docs/superpowers/plans/2026-07-30-drift-report-acceptance-figure-invariants.md for
     # why exact real-data counts are the wrong assertion for an ever-growing API surface.
-    It 'systemic-gaps EndpointCount for allow_errors/context_names matches an independent recount straight from the same $realGaps2 fed to Get-PfbSystemicGaps' {
+    It 'systemic-gaps EndpointCount for allow_errors matches an independent recount straight from the same $realGaps2 fed to Get-PfbSystemicGaps' {
         if (-not $hasRealData) { Set-ItResult -Skipped -Because 'Data/PfbCapabilityMap.json not present locally'; return }
-        foreach ($fieldName in @('allow_errors', 'context_names')) {
+        # context_names was asserted here alongside allow_errors until issue #113. It is no
+        # longer a systemic gap -- the module injects it centrally, and the detector can now
+        # see that -- so requiring it to still be one would pin the very defect #113 fixed.
+        # Its absence is asserted as its own expectation in the test below rather than merely
+        # dropped, because "the name disappeared" and "the aggregation broke" look identical
+        # from here otherwise.
+        foreach ($fieldName in @('allow_errors')) {
             $finding = $realSystemicGaps2 | Where-Object { $_.Name -eq $fieldName }
             $finding | Should -Not -BeNullOrEmpty -Because "$fieldName is expected to still be a systemic gap in the real API surface"
             $recount = Get-RealRecountedEndpointCount2 -Gaps $realGaps2 -FieldName $fieldName
             $finding.EndpointCount | Should -Be $recount -Because 'EndpointCount must equal a fresh tally over the same input gaps, independent of Get-PfbSystemicGaps'' own aggregation'
             $finding.EndpointCount | Should -BeGreaterThan 0 -Because 'a vacuous/zero count would mean the field silently stopped being a systemic gap without anyone noticing here'
         }
+    }
+
+    It 'context_names is NO LONGER a systemic gap, while allow_errors still is (issue #113)' {
+        if (-not $hasRealData) { Set-ItResult -Skipped -Because 'Data/PfbCapabilityMap.json not present locally'; return }
+        # The asymmetry is the assertion. Both names are declared in the same file
+        # (Private/PfbContextConstants.ps1); only context_names is actually injected. A
+        # regression in either direction is a real defect with a different cause:
+        #   context_names reappears -> the constant stopped resolving, and the module's
+        #                              delivered Fusion targeting is being reported as missing
+        #                              on 268 endpoints again.
+        #   allow_errors disappears  -> something started crediting a name from its DEFINITION
+        #                              rather than its USE, silently deleting a Phase 2 gap.
+        $realSystemicGaps2.Name | Should -Not -Contain 'context_names'
+        $realSystemicGaps2.Name | Should -Contain 'allow_errors'
     }
 
     It 'convention strength: names/ids have a non-vacuous, established convention; context_names has none (0 cmdlets, by design)' {

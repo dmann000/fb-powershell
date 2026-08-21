@@ -467,255 +467,6 @@
       "annotations": []
     },
     {
-      "endpoint": "DELETE /admins/api-tokens",
-      "cmdlets": [
-        "Remove-PfbApiToken"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /admins/cache",
-      "cmdlets": [
-        "Remove-PfbAdminCache"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /admins/management-access-policies",
-      "cmdlets": [
-        "Remove-PfbAdminManagementAccessPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": [
-        {
-          "matchType": "endpoint",
-          "match": "management-access-policies",
-          "kind": "liveTestingHazard",
-          "note": "POST/PATCH/DELETE return 403 regardless of account; not an implementation bug",
-          "reference": null
-        }
-      ]
-    },
-    {
-      "endpoint": "DELETE /admins/ssh-certificate-authority-policies",
-      "cmdlets": [
-        "Remove-PfbAdminSshCaPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /array-connections",
-      "cmdlets": [
-        "Remove-PfbArrayConnection"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /arrays/ssh-certificate-authority-policies",
-      "cmdlets": [
-        "Remove-PfbArraySshCaPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /audit-file-systems-policies",
-      "cmdlets": [
-        "Remove-PfbAuditFileSystemPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /audit-file-systems-policies/members",
-      "cmdlets": [
-        "Remove-PfbAuditFileSystemPolicyMember"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /audit-object-store-policies",
-      "cmdlets": [
-        "Remove-PfbAuditObjectStorePolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /audit-object-store-policies/members",
-      "cmdlets": [
-        "Remove-PfbAuditObjectStorePolicyMember"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /buckets",
-      "cmdlets": [
-        "Remove-PfbBucket"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "partial",
-        "unresolvedParameters": [
-          {
-            "parameter": "Eradicate",
-            "surface": "TypedUnresolved",
-            "file": "Public/Bucket/Remove-PfbBucket.ps1",
-            "line": 27
-          }
-        ],
-        "escapeHatchOnly": [],
-        "caveat": "one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability"
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /buckets/audit-filters",
-      "cmdlets": [
-        "Remove-PfbBucketAuditFilter"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /buckets/bucket-access-policies",
-      "cmdlets": [
-        "Remove-PfbBucketAccessPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "DELETE /buckets/bucket-access-policies/rules",
       "cmdlets": [
         "Remove-PfbBucketAccessPolicyRule"
@@ -723,26 +474,7 @@
       "missingQueryParameters": [
         "bucket_ids",
         "bucket_names",
-        "context_names",
         "policy_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /buckets/cross-origin-resource-sharing-policies",
-      "cmdlets": [
-        "Remove-PfbBucketCorsPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -762,7 +494,6 @@
       "missingQueryParameters": [
         "bucket_ids",
         "bucket_names",
-        "context_names",
         "policy_names"
       ],
       "missingBodyProperties": [],
@@ -795,48 +526,11 @@
       "annotations": []
     },
     {
-      "endpoint": "DELETE /data-eviction-policies",
-      "cmdlets": [
-        "Remove-PfbDataEvictionPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /data-eviction-policies/file-systems",
-      "cmdlets": [
-        "Remove-PfbDataEvictionPolicyFileSystem"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "DELETE /directory-services/local/groups",
       "cmdlets": [
         "Remove-PfbLocalGroup"
       ],
       "missingQueryParameters": [
-        "context_names",
         "gids",
         "local_directory_service_ids",
         "local_directory_service_names",
@@ -858,7 +552,6 @@
         "Remove-PfbLocalGroupMember"
       ],
       "missingQueryParameters": [
-        "context_names",
         "group_gids",
         "group_sids",
         "local_directory_service_ids",
@@ -878,48 +571,11 @@
       "annotations": []
     },
     {
-      "endpoint": "DELETE /dns",
-      "cmdlets": [
-        "Remove-PfbDns"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /file-system-exports",
-      "cmdlets": [
-        "Remove-PfbFileSystemExport"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "DELETE /file-system-replica-links",
       "cmdlets": [
         "Remove-PfbFileSystemReplicaLink"
       ],
       "missingQueryParameters": [
-        "context_names",
         "local_file_system_ids",
         "remote_file_system_ids"
       ],
@@ -939,113 +595,8 @@
         "Remove-PfbFileSystemReplicaLinkPolicy"
       ],
       "missingQueryParameters": [
-        "context_names",
         "local_file_system_ids",
         "local_file_system_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /file-system-snapshots",
-      "cmdlets": [
-        "Remove-PfbFileSystemSnapshot"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "partial",
-        "unresolvedParameters": [
-          {
-            "parameter": "Eradicate",
-            "surface": "TypedUnresolved",
-            "file": "Public/FileSystemSnapshot/Remove-PfbFileSystemSnapshot.ps1",
-            "line": 24
-          }
-        ],
-        "escapeHatchOnly": [],
-        "caveat": "one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability"
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /file-system-snapshots/policies",
-      "cmdlets": [
-        "Remove-PfbFileSystemSnapshotPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /file-system-snapshots/transfer",
-      "cmdlets": [
-        "Remove-PfbFileSystemSnapshotTransfer"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /file-systems",
-      "cmdlets": [
-        "Remove-PfbFileSystem"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "partial",
-        "unresolvedParameters": [
-          {
-            "parameter": "Eradicate",
-            "surface": "TypedUnresolved",
-            "file": "Public/FileSystem/Remove-PfbFileSystem.ps1",
-            "line": 38
-          }
-        ],
-        "escapeHatchOnly": [],
-        "caveat": "one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability"
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /file-systems/audit-policies",
-      "cmdlets": [
-        "Remove-PfbFileSystemAuditPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -1064,30 +615,11 @@
       ],
       "missingQueryParameters": [
         "client_names",
-        "context_names",
         "file_system_ids",
         "file_system_names",
         "inodes",
         "paths",
         "recursive"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /file-systems/policies",
-      "cmdlets": [
-        "Remove-PfbFileSystemPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -1106,7 +638,6 @@
       ],
       "missingQueryParameters": [
         "client_names",
-        "context_names",
         "disruptive",
         "user_names"
       ],
@@ -1124,24 +655,6 @@
         ],
         "escapeHatchOnly": [],
         "caveat": "one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability"
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /file-systems/user-group-quota-policies",
-      "cmdlets": [
-        "Remove-PfbFileSystemUserGroupQuotaPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
       },
       "annotations": []
     },
@@ -1171,8 +684,7 @@
       ],
       "missingQueryParameters": [
         "bucket_ids",
-        "bucket_names",
-        "context_names"
+        "bucket_names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -1183,94 +695,6 @@
         "caveat": ""
       },
       "annotations": []
-    },
-    {
-      "endpoint": "DELETE /log-targets/file-systems",
-      "cmdlets": [
-        "Remove-PfbLogTargetFileSystem"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /log-targets/object-store",
-      "cmdlets": [
-        "Remove-PfbLogTargetObjectStore"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /management-access-policies",
-      "cmdlets": [
-        "Remove-PfbManagementAccessPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": [
-        {
-          "matchType": "endpoint",
-          "match": "management-access-policies",
-          "kind": "liveTestingHazard",
-          "note": "POST/PATCH/DELETE return 403 regardless of account; not an implementation bug",
-          "reference": null
-        }
-      ]
-    },
-    {
-      "endpoint": "DELETE /management-access-policies/admins",
-      "cmdlets": [
-        "Remove-PfbManagementAccessPolicyAdmin"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": [
-        {
-          "matchType": "endpoint",
-          "match": "management-access-policies",
-          "kind": "liveTestingHazard",
-          "note": "POST/PATCH/DELETE return 403 regardless of account; not an implementation bug",
-          "reference": null
-        }
-      ]
     },
     {
       "endpoint": "DELETE /network-access-policies/rules",
@@ -1316,7 +740,6 @@
         "Remove-PfbNfsExportPolicy"
       ],
       "missingQueryParameters": [
-        "context_names",
         "versions"
       ],
       "missingBodyProperties": [],
@@ -1335,7 +758,6 @@
         "Remove-PfbNfsExportRule"
       ],
       "missingQueryParameters": [
-        "context_names",
         "ids",
         "versions"
       ],
@@ -1371,48 +793,11 @@
       "annotations": []
     },
     {
-      "endpoint": "DELETE /object-store-access-keys",
-      "cmdlets": [
-        "Remove-PfbObjectStoreAccessKey"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /object-store-access-policies",
-      "cmdlets": [
-        "Remove-PfbObjectStoreAccessPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "DELETE /object-store-access-policies/object-store-roles",
       "cmdlets": [
         "Remove-PfbObjectStoreAccessPolicyRole"
       ],
       "missingQueryParameters": [
-        "context_names",
         "member_ids",
         "policy_ids"
       ],
@@ -1432,7 +817,6 @@
         "Remove-PfbObjectStoreAccessPolicyUser"
       ],
       "missingQueryParameters": [
-        "context_names",
         "member_ids",
         "policy_ids"
       ],
@@ -1452,80 +836,7 @@
         "Remove-PfbObjectStoreAccessPolicyRule"
       ],
       "missingQueryParameters": [
-        "context_names",
         "policy_ids"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /object-store-account-exports",
-      "cmdlets": [
-        "Remove-PfbObjectStoreAccountExport"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /object-store-accounts",
-      "cmdlets": [
-        "Remove-PfbObjectStoreAccount"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /object-store-remote-credentials",
-      "cmdlets": [
-        "Remove-PfbObjectStoreRemoteCredential"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /object-store-roles",
-      "cmdlets": [
-        "Remove-PfbObjectStoreRole"
-      ],
-      "missingQueryParameters": [
-        "context_names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -1543,7 +854,6 @@
         "Remove-PfbObjectStoreRoleAccessPolicy"
       ],
       "missingQueryParameters": [
-        "context_names",
         "member_ids",
         "policy_ids",
         "policy_names"
@@ -1564,28 +874,9 @@
         "Remove-PfbObjectStoreTrustPolicyRule"
       ],
       "missingQueryParameters": [
-        "context_names",
         "indices",
         "role_ids",
         "role_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /object-store-users",
-      "cmdlets": [
-        "Remove-PfbObjectStoreUser"
-      ],
-      "missingQueryParameters": [
-        "context_names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -1603,45 +894,8 @@
         "Remove-PfbObjectStoreUserAccessPolicy"
       ],
       "missingQueryParameters": [
-        "context_names",
         "member_ids",
         "policy_ids"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /object-store-virtual-hosts",
-      "cmdlets": [
-        "Remove-PfbObjectStoreVirtualHost"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /policies",
-      "cmdlets": [
-        "Remove-PfbPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -1659,63 +913,8 @@
         "Remove-PfbPolicyFileSystemReplicaLink"
       ],
       "missingQueryParameters": [
-        "context_names",
         "local_file_system_ids",
         "local_file_system_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /policies/file-systems",
-      "cmdlets": [
-        "Remove-PfbPolicyFileSystem"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /presets/workload",
-      "cmdlets": [
-        "Remove-PfbPresetWorkload"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /qos-policies",
-      "cmdlets": [
-        "Remove-PfbQosPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -1733,7 +932,6 @@
         "Remove-PfbQosPolicyMember"
       ],
       "missingQueryParameters": [
-        "context_names",
         "member_types"
       ],
       "missingBodyProperties": [],
@@ -1752,7 +950,6 @@
         "Remove-PfbQuotaGroup"
       ],
       "missingQueryParameters": [
-        "context_names",
         "file_system_ids",
         "file_system_names",
         "gids",
@@ -1794,7 +991,6 @@
         "Remove-PfbQuotaUser"
       ],
       "missingQueryParameters": [
-        "context_names",
         "file_system_ids",
         "file_system_names",
         "names",
@@ -1825,42 +1021,6 @@
       "annotations": []
     },
     {
-      "endpoint": "DELETE /s3-export-policies",
-      "cmdlets": [
-        "Remove-PfbS3ExportPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /s3-export-policies/rules",
-      "cmdlets": [
-        "Remove-PfbS3ExportRule"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "DELETE /servers",
       "cmdlets": [
         "Remove-PfbServer"
@@ -1886,50 +1046,13 @@
       "annotations": []
     },
     {
-      "endpoint": "DELETE /smb-client-policies",
-      "cmdlets": [
-        "Remove-PfbSmbClientPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "DELETE /smb-client-policies/rules",
       "cmdlets": [
         "Remove-PfbSmbClientRule"
       ],
       "missingQueryParameters": [
-        "context_names",
         "ids",
         "versions"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /smb-share-policies",
-      "cmdlets": [
-        "Remove-PfbSmbSharePolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -1947,152 +1070,7 @@
         "Remove-PfbSmbShareRule"
       ],
       "missingQueryParameters": [
-        "context_names",
         "ids"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /ssh-certificate-authority-policies/admins",
-      "cmdlets": [
-        "Remove-PfbSshCaPolicyAdmin"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /ssh-certificate-authority-policies/arrays",
-      "cmdlets": [
-        "Remove-PfbSshCaPolicyArray"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /user-group-quota-policies",
-      "cmdlets": [
-        "Remove-PfbUserGroupQuotaPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /user-group-quota-policies/file-systems",
-      "cmdlets": [
-        "Remove-PfbUserGroupQuotaPolicyFileSystem"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /user-group-quota-policies/rules",
-      "cmdlets": [
-        "Remove-PfbUserGroupQuotaPolicyRule"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /workloads",
-      "cmdlets": [
-        "Remove-PfbWorkload"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /workloads/tags",
-      "cmdlets": [
-        "Remove-PfbWorkloadTag"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "DELETE /worm-data-policies",
-      "cmdlets": [
-        "Remove-PfbWormPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2131,7 +1109,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "filter",
         "limit",
         "sort"
@@ -2149,12 +1126,10 @@
     {
       "endpoint": "GET /admins",
       "cmdlets": [
-        "Get-PfbAdmin",
-        "Resolve-PfbAdminLocality"
+        "Get-PfbAdmin"
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "expose_api_token"
       ],
       "missingBodyProperties": [],
@@ -2173,8 +1148,7 @@
         "Get-PfbApiToken"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2193,7 +1167,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "refresh"
       ],
       "missingBodyProperties": [],
@@ -2213,7 +1186,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "sort"
       ],
       "missingBodyProperties": [],
@@ -2241,7 +1213,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "sort"
       ],
       "missingBodyProperties": [],
@@ -2279,8 +1250,7 @@
         "Get-PfbArrayConnection"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2316,8 +1286,7 @@
         "Get-PfbArrayConnectionPath"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2354,8 +1323,7 @@
         "Test-PfbConnection"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2419,8 +1387,7 @@
         "Get-PfbArrayHttpPerformance"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2438,8 +1405,7 @@
         "Get-PfbArrayNfsPerformance"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2457,8 +1423,7 @@
         "Get-PfbArrayPerformance"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2476,8 +1441,7 @@
         "Get-PfbArrayPerformanceReplication"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2495,8 +1459,7 @@
         "Get-PfbArrayS3Performance"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2515,7 +1478,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "end_time",
         "resolution",
         "start_time"
@@ -2559,7 +1521,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "sort"
       ],
       "missingBodyProperties": [],
@@ -2596,8 +1557,7 @@
         "Get-PfbAuditFileSystemPolicy"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2615,8 +1575,7 @@
         "Get-PfbAuditFileSystemPolicyMember"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2635,7 +1594,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "names"
       ],
       "missingBodyProperties": [],
@@ -2654,8 +1612,7 @@
         "Get-PfbAuditObjectStorePolicy"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2673,8 +1630,7 @@
         "Get-PfbAuditObjectStorePolicyMember"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2692,8 +1648,7 @@
         "Get-PfbAudit"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2731,7 +1686,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "names"
       ],
       "missingBodyProperties": [],
@@ -2751,7 +1705,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "local_bucket_ids",
         "total_only"
       ],
@@ -2771,8 +1724,7 @@
         "Get-PfbBucket"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2790,8 +1742,7 @@
         "Get-PfbBucketAuditFilter"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2809,8 +1760,7 @@
         "Get-PfbBucketAccessPolicy"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2829,8 +1779,7 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "bucket_ids",
-        "context_names"
+        "bucket_ids"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2848,8 +1797,7 @@
         "Get-PfbBucketCorsPolicy"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2868,8 +1816,7 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "bucket_ids",
-        "context_names"
+        "bucket_ids"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2962,8 +1909,7 @@
         "Get-PfbDataEvictionPolicy"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -2981,8 +1927,7 @@
         "Get-PfbDataEvictionPolicyFileSystem"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -3000,8 +1945,7 @@
         "Get-PfbDataEvictionPolicyMember"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -3040,7 +1984,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "destroyed",
         "total_item_count"
       ],
@@ -3061,7 +2004,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "gids",
         "sids",
         "total_item_count"
@@ -3083,7 +2025,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "group_gids",
         "group_sids",
         "member_ids",
@@ -3153,7 +2094,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "filter",
         "ids",
         "limit",
@@ -3177,7 +2117,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "ids",
         "names"
       ],
@@ -3216,7 +2155,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "workload_ids",
         "workload_names"
       ],
@@ -3236,8 +2174,7 @@
         "Get-PfbFileSystemGroupQuota"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -3256,7 +2193,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "local_file_system_ids",
         "remote_file_system_ids"
       ],
@@ -3277,7 +2213,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "local_file_system_ids",
         "local_file_system_names",
         "remote_file_system_ids",
@@ -3299,8 +2234,7 @@
         "Get-PfbFileSystemReplicaLinkTransfer"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -3319,7 +2253,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "names_or_owner_names",
         "owner_ids"
       ],
@@ -3339,8 +2272,7 @@
         "Get-PfbFileSystemSnapshotPolicy"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -3359,7 +2291,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "names_or_owner_names"
       ],
       "missingBodyProperties": [],
@@ -3378,8 +2309,7 @@
         "Get-PfbFileSystemUserQuota"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -3398,7 +2328,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "workload_ids",
         "workload_names"
       ],
@@ -3418,8 +2347,7 @@
         "Get-PfbFileSystemAuditPolicy"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -3437,8 +2365,7 @@
         "Get-PfbFileSystemGroup"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -3478,7 +2405,6 @@
       "missingQueryParameters": [
         "allow_errors",
         "client_names",
-        "context_names",
         "file_system_ids",
         "file_system_names",
         "inodes",
@@ -3500,8 +2426,7 @@
         "Get-PfbFileLockClient"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -3543,8 +2468,7 @@
         "Get-PfbFileSystemPolicy"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -3564,7 +2488,6 @@
       "missingQueryParameters": [
         "allow_errors",
         "client_names",
-        "context_names",
         "user_names"
       ],
       "missingBodyProperties": [],
@@ -3601,8 +2524,7 @@
         "Get-PfbFileSystemUserGroupQuotaPolicy"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -3620,8 +2542,7 @@
         "Get-PfbFileSystemUser"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -3659,8 +2580,7 @@
         "Get-PfbFileSystemWormPolicy"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -3795,8 +2715,7 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "bucket_ids",
-        "context_names"
+        "bucket_ids"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -3814,8 +2733,7 @@
         "Get-PfbLogTargetFileSystem"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -3833,8 +2751,7 @@
         "Get-PfbLogTargetObjectStore"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -3852,8 +2769,7 @@
         "Get-PfbManagementAccessPolicy"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -3880,7 +2796,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "sort"
       ],
       "missingBodyProperties": [],
@@ -3934,7 +2849,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "sort"
       ],
       "missingBodyProperties": [],
@@ -4099,7 +3013,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "workload_ids",
         "workload_names"
       ],
@@ -4120,7 +3033,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "ids"
       ],
       "missingBodyProperties": [],
@@ -4196,8 +3108,7 @@
         "Get-PfbObjectStoreAccessKey"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4216,7 +3127,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "exclude_rules"
       ],
       "missingBodyProperties": [],
@@ -4235,8 +3145,7 @@
         "Get-PfbObjectStoreAccessPolicyRole"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4254,8 +3163,7 @@
         "Get-PfbObjectStoreAccessPolicyUser"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4273,8 +3181,7 @@
         "Get-PfbObjectStoreAccessPolicyRule"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4293,7 +3200,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "names"
       ],
       "missingBodyProperties": [],
@@ -4312,8 +3218,7 @@
         "Get-PfbObjectStoreAccountExport"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4331,8 +3236,7 @@
         "Get-PfbObjectStoreAccount"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4350,8 +3254,7 @@
         "Get-PfbObjectStoreRemoteCredential"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4369,8 +3272,7 @@
         "Get-PfbObjectStoreRole"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4389,7 +3291,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "policy_ids",
         "policy_names"
       ],
@@ -4410,7 +3311,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "names"
       ],
       "missingBodyProperties": [],
@@ -4430,7 +3330,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "indices",
         "role_ids",
         "role_names"
@@ -4451,8 +3350,7 @@
         "Get-PfbObjectStoreUser"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4470,8 +3368,7 @@
         "Get-PfbObjectStoreUserAccessPolicy"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4489,8 +3386,7 @@
         "Get-PfbObjectStoreVirtualHost"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4528,7 +3424,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "workload_ids",
         "workload_names"
       ],
@@ -4548,8 +3443,7 @@
         "Get-PfbPolicyAll"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4568,7 +3462,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "local_file_system_ids",
         "local_file_system_names",
         "remote_file_system_ids",
@@ -4592,7 +3485,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "local_file_system_ids",
         "local_file_system_names",
         "remote_file_system_ids",
@@ -4615,8 +3507,7 @@
         "Get-PfbPolicyFileSystemSnapshot"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4634,26 +3525,7 @@
         "Get-PfbPolicyFileSystem"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "GET /presets/workload",
-      "cmdlets": [
-        "Get-PfbPresetWorkload"
-      ],
-      "missingQueryParameters": [
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4689,8 +3561,7 @@
         "Get-PfbQosPolicy"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4709,7 +3580,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "sort"
       ],
       "missingBodyProperties": [],
@@ -4729,7 +3599,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "sort"
       ],
       "missingBodyProperties": [],
@@ -4749,7 +3618,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "member_types",
         "sort"
       ],
@@ -4770,7 +3638,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "file_system_ids",
         "gids",
         "group_names"
@@ -4811,7 +3678,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "file_system_ids",
         "uids",
         "user_names"
@@ -4832,8 +3698,7 @@
         "Get-PfbRealm"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4852,7 +3717,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "realm_ids"
       ],
       "missingBodyProperties": [],
@@ -4953,8 +3817,7 @@
         "Get-PfbS3ExportPolicy"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4972,8 +3835,7 @@
         "Get-PfbS3ExportRule"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -4991,8 +3853,7 @@
         "Get-PfbServer"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -5011,7 +3872,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "workload_ids",
         "workload_names"
       ],
@@ -5032,7 +3892,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "ids"
       ],
       "missingBodyProperties": [],
@@ -5052,7 +3911,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "workload_ids",
         "workload_names"
       ],
@@ -5073,7 +3931,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "ids"
       ],
       "missingBodyProperties": [],
@@ -5174,8 +4031,7 @@
         "Get-PfbSshCaPolicy"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -5194,7 +4050,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "sort"
       ],
       "missingBodyProperties": [],
@@ -5214,7 +4069,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "sort"
       ],
       "missingBodyProperties": [],
@@ -5234,7 +4088,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "sort"
       ],
       "missingBodyProperties": [],
@@ -5274,7 +4127,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "sort"
       ],
       "missingBodyProperties": [],
@@ -5330,8 +4182,7 @@
         "Get-PfbSyslogServer"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -5368,8 +4219,7 @@
         "Get-PfbTarget"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -5444,7 +4294,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "file_system_ids",
         "gids",
         "group_names"
@@ -5466,7 +4315,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "file_system_ids",
         "uids",
         "user_names"
@@ -5488,7 +4336,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "ids",
         "names"
       ],
@@ -5521,8 +4368,7 @@
         "Get-PfbUserGroupQuotaPolicyFileSystem"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -5540,8 +4386,7 @@
         "Get-PfbUserGroupQuotaPolicyMember"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -5559,8 +4404,7 @@
         "Get-PfbUserGroupQuotaPolicyRule"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -5578,8 +4422,7 @@
         "Get-PfbWorkload"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -5597,8 +4440,7 @@
         "Get-PfbWorkloadPlacementRecommendation"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -5616,8 +4458,7 @@
         "Get-PfbWorkloadTag"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -5635,8 +4476,7 @@
         "Get-PfbWormPolicy"
       ],
       "missingQueryParameters": [
-        "allow_errors",
-        "context_names"
+        "allow_errors"
       ],
       "missingBodyProperties": [],
       "readOnlyFields": [],
@@ -5655,7 +4495,6 @@
       ],
       "missingQueryParameters": [
         "allow_errors",
-        "context_names",
         "sort"
       ],
       "missingBodyProperties": [],
@@ -5673,9 +4512,7 @@
       "cmdlets": [
         "Update-PfbAdmin"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         {
           "name": "role",
@@ -5894,9 +4731,7 @@
       "cmdlets": [
         "Update-PfbArrayConnection"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [],
       "readOnlyFields": [
         "context",
@@ -6139,9 +4974,7 @@
       "cmdlets": [
         "Update-PfbAuditFileSystemPolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "add_log_targets",
         "control_type",
@@ -6180,9 +5013,7 @@
       "cmdlets": [
         "Update-PfbAuditObjectStorePolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "add_log_targets",
         "enabled",
@@ -6222,7 +5053,6 @@
       ],
       "missingQueryParameters": [
         "cancel_in_progress_storage_class_transition",
-        "context_names",
         "ignore_usage"
       ],
       "missingBodyProperties": [
@@ -6260,24 +5090,6 @@
       "annotations": []
     },
     {
-      "endpoint": "PATCH /buckets/audit-filters",
-      "cmdlets": [
-        "Update-PfbBucketAuditFilter"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "PATCH /certificates",
       "cmdlets": [
         "Update-PfbCertificate"
@@ -6305,9 +5117,7 @@
       "cmdlets": [
         "Update-PfbDataEvictionPolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "enabled",
         "location"
@@ -6423,9 +5233,7 @@
       "cmdlets": [
         "Update-PfbDns"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [],
       "readOnlyFields": [
         "context",
@@ -6445,9 +5253,7 @@
       "cmdlets": [
         "Update-PfbFileSystemExport"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [],
       "readOnlyFields": [
         "context",
@@ -6471,7 +5277,6 @@
         "Remove-PfbFileSystemSnapshot"
       ],
       "missingQueryParameters": [
-        "context_names",
         "latest_replica"
       ],
       "missingBodyProperties": [
@@ -6513,7 +5318,6 @@
       ],
       "missingQueryParameters": [
         "cancel_in_progress_storage_class_transition",
-        "context_names",
         "discard_detailed_permissions",
         "ignore_usage"
       ],
@@ -6717,31 +5521,11 @@
       "annotations": []
     },
     {
-      "endpoint": "PATCH /lifecycle-rules",
-      "cmdlets": [
-        "Update-PfbLifecycleRule"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "PATCH /log-targets/file-systems",
       "cmdlets": [
         "Update-PfbLogTargetFileSystem"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [],
       "readOnlyFields": [
         "id"
@@ -6759,9 +5543,7 @@
       "cmdlets": [
         "Update-PfbLogTargetObjectStore"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [],
       "readOnlyFields": [
         "id"
@@ -6802,9 +5584,7 @@
       "cmdlets": [
         "Update-PfbManagementAccessPolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [],
       "readOnlyFields": [
         "context",
@@ -7015,7 +5795,6 @@
         "Update-PfbNfsExportPolicy"
       ],
       "missingQueryParameters": [
-        "context_names",
         "versions"
       ],
       "missingBodyProperties": [
@@ -7056,7 +5835,6 @@
       "missingQueryParameters": [
         "before_rule_id",
         "before_rule_name",
-        "context_names",
         "ids",
         "versions"
       ],
@@ -7299,7 +6077,6 @@
         "Update-PfbObjectStoreAccessPolicyRule"
       ],
       "missingQueryParameters": [
-        "context_names",
         "enforce_action_restrictions",
         "policy_ids",
         "policy_names"
@@ -7387,31 +6164,11 @@
       "annotations": []
     },
     {
-      "endpoint": "PATCH /object-store-account-exports",
-      "cmdlets": [
-        "Update-PfbObjectStoreAccountExport"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "PATCH /object-store-remote-credentials",
       "cmdlets": [
         "Update-PfbObjectStoreRemoteCredential"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [],
       "readOnlyFields": [
         "context",
@@ -7431,9 +6188,7 @@
       "cmdlets": [
         "Update-PfbObjectStoreRole"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [],
       "readOnlyFields": [
         "context",
@@ -7457,7 +6212,6 @@
         "Update-PfbObjectStoreTrustPolicyRule"
       ],
       "missingQueryParameters": [
-        "context_names",
         "indices",
         "policy_names",
         "role_ids",
@@ -7549,9 +6303,7 @@
       "cmdlets": [
         "Update-PfbObjectStoreVirtualHost"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [],
       "readOnlyFields": [
         "id"
@@ -7816,7 +6568,6 @@
         "Update-PfbPolicy"
       ],
       "missingQueryParameters": [
-        "context_names",
         "destroy_snapshots"
       ],
       "missingBodyProperties": [
@@ -7851,31 +6602,11 @@
       "annotations": []
     },
     {
-      "endpoint": "PATCH /presets/workload",
-      "cmdlets": [
-        "Update-PfbPresetWorkload"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "PATCH /qos-policies",
       "cmdlets": [
         "Update-PfbQosPolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [],
       "readOnlyFields": [
         "context",
@@ -7898,7 +6629,6 @@
         "Update-PfbQuotaGroup"
       ],
       "missingQueryParameters": [
-        "context_names",
         "file_system_ids",
         "file_system_names",
         "gids",
@@ -8000,7 +6730,6 @@
         "Update-PfbQuotaUser"
       ],
       "missingQueryParameters": [
-        "context_names",
         "file_system_ids",
         "file_system_names",
         "names",
@@ -8129,9 +6858,7 @@
       "cmdlets": [
         "Update-PfbRealmDefaults"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [],
       "readOnlyFields": [
         "context",
@@ -8150,9 +6877,7 @@
       "cmdlets": [
         "Update-PfbS3ExportPolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "enabled",
         "name",
@@ -8182,7 +6907,6 @@
         "Update-PfbS3ExportRule"
       ],
       "missingQueryParameters": [
-        "context_names",
         "policy_ids",
         "policy_names"
       ],
@@ -8253,9 +6977,7 @@
       "cmdlets": [
         "Update-PfbSmbClientPolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "access_based_enumeration_enabled",
         "enabled",
@@ -8295,7 +7017,6 @@
       "missingQueryParameters": [
         "before_rule_id",
         "before_rule_name",
-        "context_names",
         "ids",
         "versions"
       ],
@@ -8412,9 +7133,7 @@
       "cmdlets": [
         "Update-PfbSmbSharePolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "enabled",
         "location",
@@ -8450,7 +7169,6 @@
         "Update-PfbSmbShareRule"
       ],
       "missingQueryParameters": [
-        "context_names",
         "ids",
         "policy_ids",
         "policy_names"
@@ -9040,9 +7758,7 @@
       "cmdlets": [
         "Update-PfbUserGroupQuotaPolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "enabled",
         "name"
@@ -9077,9 +7793,7 @@
       "cmdlets": [
         "Update-PfbUserGroupQuotaPolicyRule"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [],
       "readOnlyFields": [
         "id",
@@ -9098,9 +7812,7 @@
       "cmdlets": [
         "Update-PfbWorkload"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "destroyed"
       ],
@@ -9125,9 +7837,7 @@
       "cmdlets": [
         "Update-PfbWormPolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [],
       "readOnlyFields": [
         "context",
@@ -9184,68 +7894,6 @@
           "Name"
         ],
         "caveat": "body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability"
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "POST /admins/api-tokens",
-      "cmdlets": [
-        "New-PfbApiToken"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "POST /admins/management-access-policies",
-      "cmdlets": [
-        "New-PfbAdminManagementAccessPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": [
-        {
-          "matchType": "endpoint",
-          "match": "management-access-policies",
-          "kind": "liveTestingHazard",
-          "note": "POST/PATCH/DELETE return 403 regardless of account; not an implementation bug",
-          "reference": null
-        }
-      ]
-    },
-    {
-      "endpoint": "POST /admins/ssh-certificate-authority-policies",
-      "cmdlets": [
-        "New-PfbAdminSshCaPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
       },
       "annotations": []
     },
@@ -9322,9 +7970,7 @@
       "cmdlets": [
         "New-PfbArrayConnection"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [],
       "readOnlyFields": [
         "context",
@@ -9363,31 +8009,11 @@
       "annotations": []
     },
     {
-      "endpoint": "POST /arrays/ssh-certificate-authority-policies",
-      "cmdlets": [
-        "New-PfbArraySshCaPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "POST /audit-file-systems-policies",
       "cmdlets": [
         "New-PfbAuditFileSystemPolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "control_type",
         "enabled",
@@ -9420,31 +8046,11 @@
       "annotations": []
     },
     {
-      "endpoint": "POST /audit-file-systems-policies/members",
-      "cmdlets": [
-        "New-PfbAuditFileSystemPolicyMember"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "POST /audit-object-store-policies",
       "cmdlets": [
         "New-PfbAuditObjectStorePolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "enabled",
         "location",
@@ -9475,31 +8081,11 @@
       "annotations": []
     },
     {
-      "endpoint": "POST /audit-object-store-policies/members",
-      "cmdlets": [
-        "New-PfbAuditObjectStorePolicyMember"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "POST /buckets",
       "cmdlets": [
         "New-PfbBucket"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         {
           "name": "bucket_type",
@@ -9609,7 +8195,6 @@
       ],
       "missingQueryParameters": [
         "bucket_ids",
-        "context_names",
         "names"
       ],
       "missingBodyProperties": [
@@ -9640,8 +8225,7 @@
         "New-PfbBucketAccessPolicy"
       ],
       "missingQueryParameters": [
-        "bucket_ids",
-        "context_names"
+        "bucket_ids"
       ],
       "missingBodyProperties": [
         {
@@ -9677,8 +8261,7 @@
         "New-PfbBucketAccessPolicyRule"
       ],
       "missingQueryParameters": [
-        "bucket_ids",
-        "context_names"
+        "bucket_ids"
       ],
       "missingBodyProperties": [
         {
@@ -9750,8 +8333,7 @@
         "New-PfbBucketCorsPolicy"
       ],
       "missingQueryParameters": [
-        "bucket_ids",
-        "context_names"
+        "bucket_ids"
       ],
       "missingBodyProperties": [
         {
@@ -9787,8 +8369,7 @@
         "New-PfbBucketCorsPolicyRule"
       ],
       "missingQueryParameters": [
-        "bucket_ids",
-        "context_names"
+        "bucket_ids"
       ],
       "missingBodyProperties": [
         {
@@ -10191,9 +8772,7 @@
       "cmdlets": [
         "New-PfbDataEvictionPolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "enabled",
         "location",
@@ -10221,48 +8800,11 @@
       "annotations": []
     },
     {
-      "endpoint": "POST /data-eviction-policies/file-systems",
-      "cmdlets": [
-        "Add-PfbDataEvictionPolicyFileSystem"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "POST /directory-services/local/directory-services",
-      "cmdlets": [
-        "New-PfbLocalDirectoryService"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "POST /directory-services/local/groups",
       "cmdlets": [
         "New-PfbLocalGroup"
       ],
       "missingQueryParameters": [
-        "context_names",
         "local_directory_service_ids",
         "local_directory_service_names"
       ],
@@ -10282,7 +8824,6 @@
         "New-PfbLocalGroupMember"
       ],
       "missingQueryParameters": [
-        "context_names",
         "group_gids",
         "group_sids",
         "local_directory_service_ids"
@@ -10397,7 +8938,6 @@
         "New-PfbDns"
       ],
       "missingQueryParameters": [
-        "context_names",
         "names"
       ],
       "missingBodyProperties": [
@@ -10432,7 +8972,6 @@
         "New-PfbFileSystemExport"
       ],
       "missingQueryParameters": [
-        "context_names",
         "member_ids",
         "policy_ids"
       ],
@@ -10452,7 +8991,6 @@
         "New-PfbFileSystemReplicaLink"
       ],
       "missingQueryParameters": [
-        "context_names",
         "local_file_system_ids"
       ],
       "missingBodyProperties": [
@@ -10579,30 +9117,11 @@
       "annotations": []
     },
     {
-      "endpoint": "POST /file-system-replica-links/policies",
-      "cmdlets": [
-        "New-PfbFileSystemReplicaLinkPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "POST /file-system-snapshots",
       "cmdlets": [
         "New-PfbFileSystemSnapshot"
       ],
       "missingQueryParameters": [
-        "context_names",
         "source_ids",
         "source_names"
       ],
@@ -10629,7 +9148,6 @@
         "New-PfbFileSystem"
       ],
       "missingQueryParameters": [
-        "context_names",
         "default_exports",
         "discard_non_snapshotted_data",
         "include_snapshot",
@@ -10783,78 +9301,6 @@
       "annotations": []
     },
     {
-      "endpoint": "POST /file-systems/audit-policies",
-      "cmdlets": [
-        "New-PfbFileSystemAuditPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "POST /file-systems/locks/nlm-reclamations",
-      "cmdlets": [
-        "New-PfbNlmReclamation"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "POST /file-systems/policies",
-      "cmdlets": [
-        "New-PfbFileSystemPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "POST /file-systems/user-group-quota-policies",
-      "cmdlets": [
-        "New-PfbFileSystemUserGroupQuotaPolicy"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "POST /fleets",
       "cmdlets": [
         "New-PfbFleet"
@@ -10997,8 +9443,7 @@
         "New-PfbLifecycleRule"
       ],
       "missingQueryParameters": [
-        "confirm_date",
-        "context_names"
+        "confirm_date"
       ],
       "missingBodyProperties": [
         {
@@ -11154,9 +9599,7 @@
       "cmdlets": [
         "New-PfbLogTargetFileSystem"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         {
           "name": "file_system",
@@ -11243,9 +9686,7 @@
       "cmdlets": [
         "New-PfbLogTargetObjectStore"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         {
           "name": "bucket",
@@ -11368,9 +9809,7 @@
       "cmdlets": [
         "New-PfbManagementAccessPolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         {
           "name": "aggregation_strategy",
@@ -11481,32 +9920,6 @@
       ]
     },
     {
-      "endpoint": "POST /management-access-policies/admins",
-      "cmdlets": [
-        "New-PfbManagementAccessPolicyAdmin"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": [
-        {
-          "matchType": "endpoint",
-          "match": "management-access-policies",
-          "kind": "liveTestingHazard",
-          "note": "POST/PATCH/DELETE return 403 regardless of account; not an implementation bug",
-          "reference": null
-        }
-      ]
-    },
-    {
       "endpoint": "POST /network-access-policies/rules",
       "cmdlets": [
         "New-PfbNetworkAccessRule"
@@ -11568,9 +9981,7 @@
       "cmdlets": [
         "New-PfbNfsExportPolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "enabled",
         "location",
@@ -11605,9 +10016,7 @@
       "cmdlets": [
         "New-PfbNfsExportRule"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [],
       "readOnlyFields": [
         "context",
@@ -11656,7 +10065,6 @@
         "New-PfbObjectStoreAccessKey"
       ],
       "missingQueryParameters": [
-        "context_names",
         "names"
       ],
       "missingBodyProperties": [
@@ -11693,7 +10101,6 @@
         "New-PfbObjectStoreAccessPolicy"
       ],
       "missingQueryParameters": [
-        "context_names",
         "enforce_action_restrictions"
       ],
       "missingBodyProperties": [
@@ -11747,7 +10154,6 @@
         "New-PfbObjectStoreAccessPolicyRole"
       ],
       "missingQueryParameters": [
-        "context_names",
         "member_ids",
         "policy_ids"
       ],
@@ -11767,7 +10173,6 @@
         "New-PfbObjectStoreAccessPolicyUser"
       ],
       "missingQueryParameters": [
-        "context_names",
         "member_ids",
         "policy_ids"
       ],
@@ -11787,7 +10192,6 @@
         "New-PfbObjectStoreAccessPolicyRule"
       ],
       "missingQueryParameters": [
-        "context_names",
         "enforce_action_restrictions",
         "policy_ids"
       ],
@@ -11874,31 +10278,11 @@
       "annotations": []
     },
     {
-      "endpoint": "POST /object-store-account-exports",
-      "cmdlets": [
-        "New-PfbObjectStoreAccountExport"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "POST /object-store-accounts",
       "cmdlets": [
         "New-PfbObjectStoreAccount"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         {
           "name": "account_exports",
@@ -11983,9 +10367,7 @@
       "cmdlets": [
         "New-PfbObjectStoreRemoteCredential"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         {
           "name": "access_key_id",
@@ -12036,9 +10418,7 @@
       "cmdlets": [
         "New-PfbObjectStoreRole"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         {
           "name": "max_session_duration",
@@ -12073,7 +10453,6 @@
         "New-PfbObjectStoreRoleAccessPolicy"
       ],
       "missingQueryParameters": [
-        "context_names",
         "member_ids",
         "policy_ids",
         "policy_names"
@@ -12094,7 +10473,6 @@
         "New-PfbObjectStoreTrustPolicyRule"
       ],
       "missingQueryParameters": [
-        "context_names",
         "names",
         "role_ids",
         "role_names"
@@ -12186,7 +10564,6 @@
         "New-PfbObjectStoreUser"
       ],
       "missingQueryParameters": [
-        "context_names",
         "full_access"
       ],
       "missingBodyProperties": [],
@@ -12205,7 +10582,6 @@
         "New-PfbObjectStoreUserAccessPolicy"
       ],
       "missingQueryParameters": [
-        "context_names",
         "member_ids",
         "policy_ids"
       ],
@@ -12224,9 +10600,7 @@
       "cmdlets": [
         "New-PfbObjectStoreVirtualHost"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         {
           "name": "attached_servers",
@@ -12265,9 +10639,7 @@
       "cmdlets": [
         "New-PfbPolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "enabled",
         "location",
@@ -12298,49 +10670,11 @@
       "annotations": []
     },
     {
-      "endpoint": "POST /policies/file-system-replica-links",
-      "cmdlets": [
-        "New-PfbPolicyFileSystemReplicaLink"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "POST /policies/file-systems",
-      "cmdlets": [
-        "New-PfbPolicyFileSystem"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "POST /presets/workload",
       "cmdlets": [
         "New-PfbPresetWorkload"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         {
           "name": "description",
@@ -12634,9 +10968,7 @@
       "cmdlets": [
         "New-PfbQosPolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         {
           "name": "enabled",
@@ -12740,30 +11072,11 @@
       "annotations": []
     },
     {
-      "endpoint": "POST /qos-policies/members",
-      "cmdlets": [
-        "New-PfbQosPolicyMember"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "POST /quotas/groups",
       "cmdlets": [
         "New-PfbQuotaGroup"
       ],
       "missingQueryParameters": [
-        "context_names",
         "file_system_ids",
         "file_system_names",
         "gids",
@@ -12810,7 +11123,6 @@
         "New-PfbQuotaUser"
       ],
       "missingQueryParameters": [
-        "context_names",
         "file_system_ids",
         "file_system_names",
         "uids",
@@ -12874,9 +11186,7 @@
       "cmdlets": [
         "New-PfbS3ExportPolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "enabled",
         "rules"
@@ -12896,24 +11206,6 @@
           "Enabled"
         ],
         "caveat": "body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability"
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "POST /s3-export-policies/rules",
-      "cmdlets": [
-        "New-PfbS3ExportRule"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
       },
       "annotations": []
     },
@@ -12950,9 +11242,7 @@
       "cmdlets": [
         "New-PfbSmbClientPolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "access_based_enumeration_enabled",
         "enabled",
@@ -12988,9 +11278,7 @@
       "cmdlets": [
         "New-PfbSmbClientRule"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [],
       "readOnlyFields": [
         "id",
@@ -13009,9 +11297,7 @@
       "cmdlets": [
         "New-PfbSmbSharePolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "enabled",
         "location",
@@ -13046,9 +11332,7 @@
       "cmdlets": [
         "New-PfbSmbShareRule"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [],
       "readOnlyFields": [
         "id",
@@ -13149,42 +11433,6 @@
           "Name"
         ],
         "caveat": "body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability"
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "POST /ssh-certificate-authority-policies/admins",
-      "cmdlets": [
-        "New-PfbSshCaPolicyAdmin"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
-      "endpoint": "POST /ssh-certificate-authority-policies/arrays",
-      "cmdlets": [
-        "New-PfbSshCaPolicyArray"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
       },
       "annotations": []
     },
@@ -13583,9 +11831,7 @@
       "cmdlets": [
         "New-PfbUserGroupQuotaPolicy"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "enabled",
         "name"
@@ -13614,31 +11860,11 @@
       "annotations": []
     },
     {
-      "endpoint": "POST /user-group-quota-policies/file-systems",
-      "cmdlets": [
-        "New-PfbUserGroupQuotaPolicyFileSystem"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "POST /user-group-quota-policies/rules",
       "cmdlets": [
         "New-PfbUserGroupQuotaPolicyRule"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "enforced"
       ],
@@ -13661,31 +11887,11 @@
       "annotations": []
     },
     {
-      "endpoint": "POST /workloads",
-      "cmdlets": [
-        "New-PfbWorkload"
-      ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "high",
-        "unresolvedParameters": [],
-        "escapeHatchOnly": [],
-        "caveat": ""
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "POST /workloads/placement-recommendations",
       "cmdlets": [
         "New-PfbWorkloadPlacementRecommendation"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "additional_constraints",
         "parameters",
@@ -13726,7 +11932,6 @@
         "New-PfbWormPolicy"
       ],
       "missingQueryParameters": [
-        "context_names",
         "names"
       ],
       "missingBodyProperties": [
@@ -13768,9 +11973,7 @@
       "cmdlets": [
         "Set-PfbPresetWorkload"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         {
           "name": "description",
@@ -14049,9 +12252,7 @@
       "cmdlets": [
         "Set-PfbWorkloadTag"
       ],
-      "missingQueryParameters": [
-        "context_names"
-      ],
+      "missingQueryParameters": [],
       "missingBodyProperties": [
         "copyable",
         "key",
@@ -14077,291 +12278,6 @@
     }
   ],
   "systemicGaps": [
-    {
-      "name": "context_names",
-      "endpointCount": 268,
-      "queryEndpointCount": 268,
-      "bodyEndpointCount": 0,
-      "endpoints": [
-        "DELETE /admins/api-tokens",
-        "DELETE /admins/cache",
-        "DELETE /admins/management-access-policies",
-        "DELETE /admins/ssh-certificate-authority-policies",
-        "DELETE /array-connections",
-        "DELETE /arrays/ssh-certificate-authority-policies",
-        "DELETE /audit-file-systems-policies",
-        "DELETE /audit-file-systems-policies/members",
-        "DELETE /audit-object-store-policies",
-        "DELETE /audit-object-store-policies/members",
-        "DELETE /buckets/audit-filters",
-        "DELETE /buckets/bucket-access-policies",
-        "DELETE /buckets/bucket-access-policies/rules",
-        "DELETE /buckets/cross-origin-resource-sharing-policies",
-        "DELETE /buckets/cross-origin-resource-sharing-policies/rules",
-        "DELETE /data-eviction-policies",
-        "DELETE /data-eviction-policies/file-systems",
-        "DELETE /directory-services/local/groups",
-        "DELETE /directory-services/local/groups/members",
-        "DELETE /dns",
-        "DELETE /file-system-exports",
-        "DELETE /file-system-replica-links",
-        "DELETE /file-system-replica-links/policies",
-        "DELETE /file-system-snapshots/policies",
-        "DELETE /file-system-snapshots/transfer",
-        "DELETE /file-systems/audit-policies",
-        "DELETE /file-systems/locks",
-        "DELETE /file-systems/policies",
-        "DELETE /file-systems/user-group-quota-policies",
-        "DELETE /lifecycle-rules",
-        "DELETE /log-targets/file-systems",
-        "DELETE /log-targets/object-store",
-        "DELETE /management-access-policies",
-        "DELETE /management-access-policies/admins",
-        "DELETE /nfs-export-policies",
-        "DELETE /nfs-export-policies/rules",
-        "DELETE /object-store-access-keys",
-        "DELETE /object-store-access-policies",
-        "DELETE /object-store-access-policies/object-store-roles",
-        "DELETE /object-store-access-policies/object-store-users",
-        "DELETE /object-store-access-policies/rules",
-        "DELETE /object-store-account-exports",
-        "DELETE /object-store-accounts",
-        "DELETE /object-store-remote-credentials",
-        "DELETE /object-store-roles",
-        "DELETE /object-store-roles/object-store-access-policies",
-        "DELETE /object-store-roles/object-store-trust-policies/rules",
-        "DELETE /object-store-users",
-        "DELETE /object-store-users/object-store-access-policies",
-        "DELETE /object-store-virtual-hosts",
-        "DELETE /policies",
-        "DELETE /policies/file-system-replica-links",
-        "DELETE /policies/file-systems",
-        "DELETE /presets/workload",
-        "DELETE /qos-policies",
-        "DELETE /qos-policies/members",
-        "DELETE /s3-export-policies",
-        "DELETE /s3-export-policies/rules",
-        "DELETE /smb-client-policies",
-        "DELETE /smb-client-policies/rules",
-        "DELETE /smb-share-policies",
-        "DELETE /smb-share-policies/rules",
-        "DELETE /ssh-certificate-authority-policies/admins",
-        "DELETE /ssh-certificate-authority-policies/arrays",
-        "DELETE /user-group-quota-policies",
-        "DELETE /user-group-quota-policies/file-systems",
-        "DELETE /user-group-quota-policies/rules",
-        "DELETE /workloads",
-        "DELETE /workloads/tags",
-        "DELETE /worm-data-policies",
-        "GET /active-directory/test",
-        "GET /admins",
-        "GET /admins/api-tokens",
-        "GET /admins/cache",
-        "GET /admins/management-access-policies",
-        "GET /admins/ssh-certificate-authority-policies",
-        "GET /array-connections",
-        "GET /array-connections/path",
-        "GET /arrays/http-specific-performance",
-        "GET /arrays/nfs-specific-performance",
-        "GET /arrays/performance",
-        "GET /arrays/performance/replication",
-        "GET /arrays/s3-specific-performance",
-        "GET /arrays/space",
-        "GET /arrays/ssh-certificate-authority-policies",
-        "GET /audit-file-systems-policies",
-        "GET /audit-file-systems-policies/members",
-        "GET /audit-file-systems-policy-operations",
-        "GET /audit-object-store-policies",
-        "GET /audit-object-store-policies/members",
-        "GET /audits",
-        "GET /bucket-audit-filter-actions",
-        "GET /bucket-replica-links",
-        "GET /buckets",
-        "GET /buckets/audit-filters",
-        "GET /buckets/bucket-access-policies",
-        "GET /buckets/bucket-access-policies/rules",
-        "GET /buckets/cross-origin-resource-sharing-policies",
-        "GET /buckets/cross-origin-resource-sharing-policies/rules",
-        "GET /data-eviction-policies",
-        "GET /data-eviction-policies/file-systems",
-        "GET /data-eviction-policies/members",
-        "GET /directory-services/local/directory-services",
-        "GET /directory-services/local/groups",
-        "GET /directory-services/local/groups/members",
-        "GET /directory-services/test",
-        "GET /dns",
-        "GET /file-system-exports",
-        "GET /file-system-group-quotas",
-        "GET /file-system-replica-links",
-        "GET /file-system-replica-links/policies",
-        "GET /file-system-replica-links/transfer",
-        "GET /file-system-snapshots",
-        "GET /file-system-snapshots/policies",
-        "GET /file-system-snapshots/transfer",
-        "GET /file-system-user-quotas",
-        "GET /file-systems",
-        "GET /file-systems/audit-policies",
-        "GET /file-systems/groups",
-        "GET /file-systems/locks",
-        "GET /file-systems/locks/clients",
-        "GET /file-systems/policies",
-        "GET /file-systems/sessions",
-        "GET /file-systems/user-group-quota-policies",
-        "GET /file-systems/users",
-        "GET /file-systems/worm-data-policies",
-        "GET /lifecycle-rules",
-        "GET /log-targets/file-systems",
-        "GET /log-targets/object-store",
-        "GET /management-access-policies",
-        "GET /management-access-policies/admins",
-        "GET /management-access-policies/members",
-        "GET /nfs-export-policies",
-        "GET /nfs-export-policies/rules",
-        "GET /object-store-access-keys",
-        "GET /object-store-access-policies",
-        "GET /object-store-access-policies/object-store-roles",
-        "GET /object-store-access-policies/object-store-users",
-        "GET /object-store-access-policies/rules",
-        "GET /object-store-access-policy-actions",
-        "GET /object-store-account-exports",
-        "GET /object-store-accounts",
-        "GET /object-store-remote-credentials",
-        "GET /object-store-roles",
-        "GET /object-store-roles/object-store-access-policies",
-        "GET /object-store-roles/object-store-trust-policies",
-        "GET /object-store-roles/object-store-trust-policies/rules",
-        "GET /object-store-users",
-        "GET /object-store-users/object-store-access-policies",
-        "GET /object-store-virtual-hosts",
-        "GET /policies",
-        "GET /policies-all",
-        "GET /policies-all/members",
-        "GET /policies/file-system-replica-links",
-        "GET /policies/file-system-snapshots",
-        "GET /policies/file-systems",
-        "GET /presets/workload",
-        "GET /qos-policies",
-        "GET /qos-policies/buckets",
-        "GET /qos-policies/file-systems",
-        "GET /qos-policies/members",
-        "GET /quotas/groups",
-        "GET /quotas/users",
-        "GET /realms",
-        "GET /realms/defaults",
-        "GET /s3-export-policies",
-        "GET /s3-export-policies/rules",
-        "GET /servers",
-        "GET /smb-client-policies",
-        "GET /smb-client-policies/rules",
-        "GET /smb-share-policies",
-        "GET /smb-share-policies/rules",
-        "GET /ssh-certificate-authority-policies",
-        "GET /ssh-certificate-authority-policies/admins",
-        "GET /ssh-certificate-authority-policies/arrays",
-        "GET /ssh-certificate-authority-policies/members",
-        "GET /storage-class-tiering-policies/members",
-        "GET /syslog-servers",
-        "GET /targets",
-        "GET /usage/groups",
-        "GET /usage/users",
-        "GET /user-group-quota-policies/file-systems",
-        "GET /user-group-quota-policies/members",
-        "GET /user-group-quota-policies/rules",
-        "GET /workloads",
-        "GET /workloads/placement-recommendations",
-        "GET /workloads/tags",
-        "GET /worm-data-policies",
-        "GET /worm-data-policies/members",
-        "PATCH /admins",
-        "PATCH /array-connections",
-        "PATCH /buckets/audit-filters",
-        "PATCH /dns",
-        "PATCH /file-system-exports",
-        "PATCH /lifecycle-rules",
-        "PATCH /log-targets/file-systems",
-        "PATCH /log-targets/object-store",
-        "PATCH /management-access-policies",
-        "PATCH /nfs-export-policies/rules",
-        "PATCH /object-store-access-policies/rules",
-        "PATCH /object-store-account-exports",
-        "PATCH /object-store-remote-credentials",
-        "PATCH /object-store-roles",
-        "PATCH /object-store-roles/object-store-trust-policies/rules",
-        "PATCH /object-store-virtual-hosts",
-        "PATCH /presets/workload",
-        "PATCH /qos-policies",
-        "PATCH /realms/defaults",
-        "PATCH /s3-export-policies/rules",
-        "PATCH /smb-client-policies/rules",
-        "PATCH /smb-share-policies/rules",
-        "PATCH /user-group-quota-policies/rules",
-        "PATCH /worm-data-policies",
-        "POST /admins/api-tokens",
-        "POST /admins/management-access-policies",
-        "POST /admins/ssh-certificate-authority-policies",
-        "POST /array-connections",
-        "POST /arrays/ssh-certificate-authority-policies",
-        "POST /audit-file-systems-policies/members",
-        "POST /audit-object-store-policies/members",
-        "POST /buckets",
-        "POST /buckets/bucket-access-policies",
-        "POST /buckets/bucket-access-policies/rules",
-        "POST /buckets/cross-origin-resource-sharing-policies",
-        "POST /buckets/cross-origin-resource-sharing-policies/rules",
-        "POST /data-eviction-policies/file-systems",
-        "POST /directory-services/local/directory-services",
-        "POST /directory-services/local/groups",
-        "POST /file-system-exports",
-        "POST /file-system-replica-links",
-        "POST /file-system-replica-links/policies",
-        "POST /file-systems/audit-policies",
-        "POST /file-systems/locks/nlm-reclamations",
-        "POST /file-systems/policies",
-        "POST /file-systems/user-group-quota-policies",
-        "POST /lifecycle-rules",
-        "POST /log-targets/file-systems",
-        "POST /log-targets/object-store",
-        "POST /management-access-policies",
-        "POST /management-access-policies/admins",
-        "POST /nfs-export-policies/rules",
-        "POST /object-store-access-keys",
-        "POST /object-store-access-policies",
-        "POST /object-store-access-policies/object-store-roles",
-        "POST /object-store-access-policies/object-store-users",
-        "POST /object-store-access-policies/rules",
-        "POST /object-store-account-exports",
-        "POST /object-store-accounts",
-        "POST /object-store-remote-credentials",
-        "POST /object-store-roles",
-        "POST /object-store-roles/object-store-access-policies",
-        "POST /object-store-roles/object-store-trust-policies/rules",
-        "POST /object-store-users",
-        "POST /object-store-users/object-store-access-policies",
-        "POST /object-store-virtual-hosts",
-        "POST /policies/file-system-replica-links",
-        "POST /policies/file-systems",
-        "POST /presets/workload",
-        "POST /qos-policies",
-        "POST /qos-policies/members",
-        "POST /s3-export-policies/rules",
-        "POST /smb-client-policies/rules",
-        "POST /smb-share-policies/rules",
-        "POST /ssh-certificate-authority-policies/admins",
-        "POST /ssh-certificate-authority-policies/arrays",
-        "POST /user-group-quota-policies/file-systems",
-        "POST /workloads",
-        "PUT /presets/workload"
-      ],
-      "annotations": [
-        {
-          "matchType": "field",
-          "match": "context_names",
-          "kind": "designDecision",
-          "note": "implemented in Phase 1 via central injection; still listed as a gap because the drift detector does not resolve the variable-keyed injection site (issue #113)",
-          "reference": "docs/design/fusion-context-phase-1-spec.md"
-        }
-      ]
-    },
     {
       "name": "allow_errors",
       "endpointCount": 118,
@@ -19831,11 +17747,6 @@
     },
     {
       "name": "contact",
-      "cmdletCount": 0,
-      "cmdlets": []
-    },
-    {
-      "name": "context_names",
       "cmdletCount": 0,
       "cmdlets": []
     },

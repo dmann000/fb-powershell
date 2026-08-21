@@ -491,8 +491,17 @@ Describe 'Build-PfbApiDriftReport (real generated artifacts, skips gracefully if
         # rather than "the detail rows currently total exactly N", which breaks the instant
         # an unrelated PR adds or removes one endpoint missing context_names/allow_errors.
         # See docs/superpowers/plans/2026-07-30-drift-report-acceptance-figure-invariants.md.
+        #
+        # context_names was asserted here alongside allow_errors until issue #113 taught the
+        # injection detector to resolve a $script:-held wire key. The module has injected it
+        # centrally since Fusion Phase 1, so it is no longer a gap, and requiring it to still
+        # be one would pin the very defect that fix removed. Its ABSENCE is asserted here
+        # rather than the name merely dropped, because "the field correctly disappeared" and
+        # "the aggregation silently broke" are indistinguishable from a missing assertion.
         $highConfidenceGaps = @($realManifest.parameterGaps | Where-Object { $_.confidence.level -eq 'high' })
-        foreach ($fieldName in @('context_names', 'allow_errors')) {
+        @($realManifest.systemicGaps | Where-Object { $_.name -eq 'context_names' }) |
+            Should -BeNullOrEmpty -Because 'context_names is centrally injected, so it must no longer be reported as a systemic gap (#113)'
+        foreach ($fieldName in @('allow_errors')) {
             $finding = $realManifest.systemicGaps | Where-Object { $_.name -eq $fieldName }
             $finding | Should -Not -BeNullOrEmpty -Because "$fieldName is expected to still be a systemic gap in the real API surface"
             $recount = Get-RealRecountedEndpointCount -Gaps $highConfidenceGaps -FieldName $fieldName
@@ -519,12 +528,20 @@ Describe 'Build-PfbApiDriftReport (real generated artifacts, skips gracefully if
             $entry.cmdletCount | Should -BeGreaterThan 0 -Because "$fieldName is a widely-adopted convention; a drop to zero would be a real regression worth failing loudly for"
         }
 
-        # context_names is the ONE name this report expects to have NO adopting cmdlets --
-        # Get-PfbConventionStrength's own docstring: "that zero IS the finding for names like
-        # context_names". This is an architectural fact (see the Fusion context_names design
-        # conclusion), not a live-count regression canary -- it stays an exact pin
-        # deliberately, unlike names/ids above.
-        ($realManifest.conventionStrength | Where-Object { $_.name -eq 'context_names' }).cmdletCount | Should -Be 0
+        # context_names used to be pinned here at cmdletCount 0 -- Get-PfbConventionStrength's
+        # "that zero IS the finding" case. It is no longer present at all, and that is correct
+        # rather than a loss: conventionStrength is computed over the systemicGaps NAMES
+        # (tools/Build-PfbApiDriftReport.ps1 passes `-Names @($systemicGapsRaw.Name)`), and
+        # issue #113 removed context_names from systemicGaps because the module injects it
+        # centrally. A field that is no longer a gap has no convention strength to report.
+        #
+        # The architectural fact the old pin encoded -- that no cmdlet exposes context_names as
+        # a typed parameter, by design -- has not changed and is still asserted directly, on
+        # Get-PfbConventionStrength itself rather than on this manifest, in
+        # Tests/PfbApiDriftTools.Tests.ps1 ('convention strength: names/ids have a non-vacuous,
+        # established convention; context_names has none'), which passes the name in explicitly
+        # and so does not depend on it being a gap.
+        $realManifest.conventionStrength.name | Should -Not -Contain 'context_names' -Because 'it is no longer a systemic gap, so it is not scored for convention strength (#113)'
     }
 
     It 'Task 7: carries every field annotation from docs/drift-annotations.json onto its systemic-gap finding, verbatim' {

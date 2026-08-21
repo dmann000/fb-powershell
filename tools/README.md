@@ -334,14 +334,22 @@ Run in this order:
    would overstate a confidence the endpoint's own row already warns against). Each finding is
    `{ name, endpointCount, queryEndpointCount, bodyEndpointCount, endpoints, annotations }` --
    turning hundreds of per-endpoint rows into a handful of real, actionable decisions: e.g.
-   `context_names` and `allow_errors` are each one decision, not one finding per affected
-   endpoint. `conventionStrength` then ranks each systemic-gap name by how many existing `Public/`
+   `allow_errors` is one decision, not one finding per affected endpoint.
+   `conventionStrength` then ranks each systemic-gap name by how many existing `Public/`
    cmdlets already expose it as a `Typed` parameter somewhere in the module (`Get-PfbConventionStrength`),
-   sorted by that count descending: a high count (`names` at 306 cmdlets) means closing the
-   remaining gaps for that name is a mechanical batch fix; a count of zero (`context_names`, 0 --
+   sorted by that count descending: a high count (`names`, in the hundreds) means closing the
+   remaining gaps for that name is a mechanical batch fix; a count of zero (`allow_errors`, 0 --
    no cmdlet anywhere in the module has ever exposed this name as a `Typed` parameter) means no
    established convention exists to extend at all, and closing it is an architectural decision,
-   not a mechanical one. Both keys read `docs/drift-annotations.json` (via
+   not a mechanical one.
+
+   `context_names` was this section's running example of both until issue #113, and is no longer a
+   systemic gap at all: the module injects it centrally in `Private/Invoke-PfbApiRequest.ps1`, and
+   the injection detector now resolves the `$script:` constant holding the key, so there is nothing
+   left to report. Worth keeping as a worked example of the failure mode -- the detector matched
+   only literal keys, so a delivered feature read as missing on 268 endpoints for the whole life of
+   Fusion Phase 1, while `continuation_token`, injected a few lines away with an inline key, was
+   detected correctly the entire time. Both keys read `docs/drift-annotations.json` (via
    `Get-PfbDriftAnnotations`/`Find-PfbDriftAnnotation`) for recorded design decisions, prior
    conclusions, or live-testing hazards matched by field name (`systemicGaps[].annotations`) or by
    endpoint (`parameterGaps[].annotations`) -- the file is optional; its absence degrades every
@@ -356,7 +364,7 @@ Run in this order:
    partial-confidence rows and are therefore absent from both `systemicGaps` and
    `conventionStrength` entirely** (e.g. `base_dn`, `bind_password`, `domain`, `nameservers`,
    `qos_policy`, `storage_class`, `owner`, ...), and a name that DOES appear can still undercount:
-   `context_names`'s high-confidence-only `systemicGaps` figure is smaller than its true
+   `allow_errors`'s high-confidence-only `systemicGaps` figure is smaller than its true
    cross-confidence total across every endpoint, by design (that's the limitation described
    above, not a discrepancy worth investigating). No individual endpoint's own
    `missingQueryParameters`/`missingBodyProperties` row is affected -- this is purely a gap in the
