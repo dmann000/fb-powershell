@@ -15,16 +15,16 @@
     "findingPairs": 101,
     "confirmationRate": 0.4197,
     "controlLeakage": 0,
-    "assistedRows": 213
+    "assistedRows": 212
   },
   "outcomeBreakdown": [
     {
       "Outcome": "BindError",
-      "Count": 2
+      "Count": 4
     },
     {
       "Outcome": "Bound",
-      "Count": 578
+      "Count": 577
     },
     {
       "Outcome": "CmdletError",
@@ -44,7 +44,7 @@
     },
     {
       "Outcome": "Unbindable",
-      "Count": 234
+      "Count": 233
     }
   ],
   "gateBreakdown": [
@@ -42765,11 +42765,11 @@
       "IsCandidate": false,
       "Gate": "Matched",
       "ValueFromPipeline": false,
-      "Outcome": "Bound",
-      "Evidence": "names=PROBE-name (from property 'name')",
-      "BoundWireKey": "names",
-      "BoundValue": "PROBE-name",
-      "ErrorKind": null,
+      "Outcome": "BindError",
+      "Evidence": "would prompt for an unbound mandatory parameter -- __AllParameterSets: Released",
+      "BoundWireKey": null,
+      "BoundValue": null,
+      "ErrorKind": "HarnessRefusal",
       "FilledParameter": [],
       "ProbeProperties": [
         "description",
@@ -42795,14 +42795,12 @@
       "IsCandidate": true,
       "Gate": "Candidate",
       "ValueFromPipeline": false,
-      "Outcome": "Unbindable",
-      "Evidence": "The input object cannot be bound to any parameters for the command either because the command does not take pipeline input or the input and its properties do not match any of the parameters that take pipeline input.",
+      "Outcome": "BindError",
+      "Evidence": "would prompt for an unbound mandatory parameter -- __AllParameterSets: Name, Released",
       "BoundWireKey": null,
       "BoundValue": null,
-      "ErrorKind": "InputObjectNotBound",
-      "FilledParameter": [
-        "Name"
-      ],
+      "ErrorKind": "HarnessRefusal",
+      "FilledParameter": [],
       "ProbeProperties": [
         "file_system",
         "legal_hold",

@@ -11249,8 +11249,28 @@
     },
     {
       "cmdlet": "New-PfbApiClient",
+      "parameter": "MaxRole",
+      "wireName": "max_role",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbApiClient",
       "parameter": "Name",
       "wireName": "names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "New-PfbApiClient",
+      "parameter": "PublicKey",
+      "wireName": "public_key",
       "status": "no-spec-enum-found",
       "matchedKey": null,
       "specValues": null,
