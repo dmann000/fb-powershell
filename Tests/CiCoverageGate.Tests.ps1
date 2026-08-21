@@ -27,13 +27,26 @@ BeforeAll {
         return [pscustomobject]@{ Path = $Path; Result = $Result }
     }
 
+    # The fake container paths must be PLATFORM-NATIVE, and both halves of that matter. A
+    # hardcoded 'C:\repo\Tests' broke the ubuntu and macos legs two ways at once: Join-Path
+    # throws DriveNotFoundException for a drive letter that does not exist, and even as a bare
+    # literal, Split-Path -Leaf does not treat '\' as a separator off Windows -- so the gate
+    # would key attribution on the whole string and every leaf lookup would silently miss.
+    # Building from the temp path keeps the root real enough for Join-Path on every platform
+    # while staying obviously fake; nothing here is ever created on disk.
+    $script:fakeTestsDir = Join-Path (Join-Path ([System.IO.Path]::GetTempPath()) 'pfb-fake-repo') 'Tests'
+
     # One entry per test FILE, mirroring $Result.Containers. The .Item shape matters: on a real
     # run it is a FileInfo, and the gate reads .FullName off it, so the stand-in carries a
     # FullName rather than a bare string.
     function New-FakeContainer {
-        param([string]$File, [int]$Passed = 0, [int]$Failed = 0, [int]$Skipped = 0, [int]$NotRun = 0)
+        param(
+            [string]$File,
+            [int]$Passed = 0, [int]$Failed = 0, [int]$Skipped = 0, [int]$NotRun = 0,
+            [string]$Dir = $script:fakeTestsDir
+        )
         return [pscustomobject]@{
-            Item         = [pscustomobject]@{ FullName = (Join-Path 'C:\repo\Tests' $File) }
+            Item         = [pscustomobject]@{ FullName = (Join-Path $Dir $File) }
             PassedCount  = $Passed
             FailedCount  = $Failed
             SkippedCount = $Skipped
@@ -223,10 +236,9 @@ Describe 'Assert-PfbTestCoverage (issue #63 coverage gate)' {
         $result = New-FakeResult -Passed 2 -Skipped 3 -Tests (New-HealthyDescribeTests) -Containers @(
             (New-FakeContainer -File 'Ungated.Tests.ps1' -Passed 2),
             (New-FakeContainer -File 'Gated.Tests.ps1' -Skipped 3),
-            ([pscustomobject]@{
-                Item         = [pscustomobject]@{ FullName = 'C:\repo\Tests\Nested\Gated.Tests.ps1' }
-                PassedCount  = 0; FailedCount = 0; SkippedCount = 0; NotRunCount = 0
-            })
+            # Same leaf, different parent -- so -Dir, not a hardcoded literal, or the collision
+            # this test exists to provoke never happens off Windows.
+            (New-FakeContainer -File 'Gated.Tests.ps1' -Dir (Join-Path $script:fakeTestsDir 'Nested'))
         )
         { & $gateScript -Result $result -Edition pwsh7 -BaselinePath $baselineFile } |
             Should -Throw -ExpectedMessage '*coverage gate failed*'
