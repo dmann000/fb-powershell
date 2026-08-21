@@ -112,8 +112,15 @@ Describe 'Build-PfbPipelineSelectorMap' {
         # Unbindable and CmdletError are VERDICTS -- PowerShell declining to bind at all, and
         # the cmdlet throwing before the shim. Collapsing them into BindError is what made 8
         # measured pairs look like blind spots in the first revision of the audit.
+        #
+        # RE-BASELINED 2 -> 4 alongside the twin pin in PfbPipelineSelectorRail.Tests.ps1, which
+        # carries the full account: making Update-PfbLegalHoldEntity -Released mandatory (#106
+        # Part 2) means the probe can no longer construct a call for that cmdlet, so its two rows
+        # move from Bound/Unbindable to a HarnessRefusal BindError. Unlike its twin, this
+        # assertion reads the COMMITTED report instead of regenerating, so it is not PS7-gated
+        # and reds on Windows PowerShell 5.1 too.
         $report = Get-Content $script:reportPath -Raw | ConvertFrom-Json
-        @($report.results | Where-Object Outcome -eq 'BindError').Count | Should -Be 2
+        @($report.results | Where-Object Outcome -eq 'BindError').Count | Should -Be 4
         @($report.results | Where-Object Outcome -eq 'Unbindable').Count | Should -BeGreaterThan 0
     }
 

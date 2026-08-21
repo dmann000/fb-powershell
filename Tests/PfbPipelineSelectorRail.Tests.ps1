@@ -244,17 +244,34 @@ Describe 'Rail A - no unwaived selector coercion' -Skip:($PSVersionTable.PSVersi
         $stale -join ', ' | Should -BeNullOrEmpty
     }
 
-    It 'still measures every pair it used to: BindError stays at 2 rows' {
+    It 'still measures every pair it used to: BindError stays at 4 rows' {
         # Only BindError means UNMEASURED -- Unbindable (PowerShell declined to bind at all)
         # and CmdletError (the cmdlet threw before the shim) are verdicts carrying evidence.
         # A rise here means the harness has started refusing cmdlets it used to measure, which
         # is precisely the regression that produced the original 33-pair blind spot.
         #
-        # BindError is an OUTCOME, not an ErrorKind. ErrorKind is non-null on 358 rows (234
-        # InputObjectNotBound, 122 CmdletError, 2 ParameterBindingError); only the 2
-        # ParameterBindingError rows classify as the BindError outcome, and only that outcome
-        # means unmeasured. Asserting on ErrorKind -eq 'BindError' matches nothing at all.
-        @($script:measured | Where-Object { $_.Outcome -eq 'BindError' }).Count | Should -Be 2
+        # BindError is an OUTCOME, not an ErrorKind. ErrorKind is non-null on 359 rows (233
+        # InputObjectNotBound, 122 CmdletError, 2 ParameterBindingError, 2 HarnessRefusal);
+        # only the ParameterBindingError and HarnessRefusal rows classify as the BindError
+        # outcome, and only that outcome means unmeasured. Asserting on
+        # ErrorKind -eq 'BindError' matches nothing at all.
+        #
+        # RE-BASELINED 2 -> 4, with the movement accounted for rather than absorbed. The two
+        # new rows are both Update-PfbLegalHoldEntity/Name, refused as "would prompt for an
+        # unbound mandatory parameter" once -Released became mandatory (the required-query-key
+        # fix for dmann000/fb-powershell#106 Part 2). They were Bound and Unbindable before.
+        #
+        # This is the honest cost of that fix and not a harness regression: the probe supplies
+        # a selector and nothing else, so a REQUIRED parameter it does not know to supply
+        # cannot be bound, and the row it replaces measured `names=PROBE-name` on a key that
+        # cannot identify a held entity anyway (#139).
+        #
+        # It does generalise, which is what a future reader needs to know: any fix that
+        # correctly makes a required parameter mandatory converts that cmdlet's
+        # pipeline-selector coverage into a triage row. If this number climbs again for that
+        # reason, the answer is probably to teach the probe generator to satisfy mandatory
+        # parameters outside the selector under test -- not to keep re-baselining.
+        @($script:measured | Where-Object { $_.Outcome -eq 'BindError' }).Count | Should -Be 4
     }
 }
 
