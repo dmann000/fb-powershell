@@ -9267,9 +9267,9 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Admin/New-PfbApiClient.ps1",
-            "paramBlockLine": 36,
+            "paramBlockLine": 58,
             "payloadVariable": "body",
-            "assignmentStyle": "unknown",
+            "assignmentStyle": "literal",
             "hasAttributes": true
           }
         },
@@ -9284,9 +9284,9 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Admin/New-PfbApiClient.ps1",
-            "paramBlockLine": 36,
+            "paramBlockLine": 58,
             "payloadVariable": "body",
-            "assignmentStyle": "unknown",
+            "assignmentStyle": "literal",
             "hasAttributes": true
           }
         },
@@ -9301,43 +9301,9 @@
           "enumStatus": "no-spec-enum-found",
           "target": {
             "file": "Public/Admin/New-PfbApiClient.ps1",
-            "paramBlockLine": 36,
+            "paramBlockLine": 58,
             "payloadVariable": "body",
-            "assignmentStyle": "unknown",
-            "hasAttributes": true
-          }
-        },
-        {
-          "name": "max_role",
-          "type": null,
-          "format": null,
-          "specRequired": false,
-          "synopsis": "Deprecated.",
-          "suggestedPowerShellType": "[object]",
-          "enumValues": [],
-          "enumStatus": "no-spec-enum-found",
-          "target": {
-            "file": "Public/Admin/New-PfbApiClient.ps1",
-            "paramBlockLine": 36,
-            "payloadVariable": "body",
-            "assignmentStyle": "unknown",
-            "hasAttributes": true
-          }
-        },
-        {
-          "name": "public_key",
-          "type": "string",
-          "format": null,
-          "specRequired": true,
-          "synopsis": "The API client's PEM formatted (Base64 encoded) RSA public key.",
-          "suggestedPowerShellType": "[string]",
-          "enumValues": [],
-          "enumStatus": "no-spec-enum-found",
-          "target": {
-            "file": "Public/Admin/New-PfbApiClient.ps1",
-            "paramBlockLine": 36,
-            "payloadVariable": "body",
-            "assignmentStyle": "unknown",
+            "assignmentStyle": "literal",
             "hasAttributes": true
           }
         }
@@ -15533,17 +15499,6 @@
       "annotations": []
     },
     {
-      "name": "max_role",
-      "endpointCount": 2,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 2,
-      "endpoints": [
-        "PATCH /api-clients",
-        "POST /api-clients"
-      ],
-      "annotations": []
-    },
-    {
       "name": "member_sids",
       "endpointCount": 2,
       "queryEndpointCount": 2,
@@ -15683,17 +15638,6 @@
       "endpoints": [
         "POST /presets/workload",
         "PUT /presets/workload"
-      ],
-      "annotations": []
-    },
-    {
-      "name": "public_key",
-      "endpointCount": 2,
-      "queryEndpointCount": 0,
-      "bodyEndpointCount": 2,
-      "endpoints": [
-        "POST /api-clients",
-        "POST /public-keys"
       ],
       "annotations": []
     },
@@ -16680,6 +16624,16 @@
       "annotations": []
     },
     {
+      "name": "max_role",
+      "endpointCount": 1,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 1,
+      "endpoints": [
+        "PATCH /api-clients"
+      ],
+      "annotations": []
+    },
+    {
       "name": "max_session_duration",
       "endpointCount": 1,
       "queryEndpointCount": 0,
@@ -16926,6 +16880,16 @@
       "bodyEndpointCount": 1,
       "endpoints": [
         "PATCH /support"
+      ],
+      "annotations": []
+    },
+    {
+      "name": "public_key",
+      "endpointCount": 1,
+      "queryEndpointCount": 0,
+      "bodyEndpointCount": 1,
+      "endpoints": [
+        "POST /public-keys"
       ],
       "annotations": []
     },
@@ -19247,6 +19211,14 @@
       ]
     },
     {
+      "name": "public_key",
+      "cmdletCount": 2,
+      "cmdlets": [
+        "New-PfbApiClient",
+        "Update-PfbAdmin"
+      ]
+    },
+    {
       "name": "recursive",
       "cmdletCount": 2,
       "cmdlets": [
@@ -19559,6 +19531,13 @@
       ]
     },
     {
+      "name": "max_role",
+      "cmdletCount": 1,
+      "cmdlets": [
+        "New-PfbApiClient"
+      ]
+    },
+    {
       "name": "max_session_duration",
       "cmdletCount": 1,
       "cmdlets": [
@@ -19661,13 +19640,6 @@
       "cmdletCount": 1,
       "cmdlets": [
         "Get-PfbArrayPerformance"
-      ]
-    },
-    {
-      "name": "public_key",
-      "cmdletCount": 1,
-      "cmdlets": [
-        "Update-PfbAdmin"
       ]
     },
     {
@@ -20069,11 +20041,6 @@
     },
     {
       "name": "max_password_age",
-      "cmdletCount": 0,
-      "cmdlets": []
-    },
-    {
-      "name": "max_role",
       "cmdletCount": 0,
       "cmdlets": []
     },

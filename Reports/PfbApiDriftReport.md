@@ -22,7 +22,7 @@ This report accepts **false positives in order to eliminate false negatives**. A
 
 - Uncovered endpoints: 95
 - Endpoints with parameter gaps: 439
-- Missing body properties (addable): 426
+- Missing body properties (addable): 424
 - Missing query parameters (addable): 880
 - Read-only body fields (not addable -- see the Read-only fields section below): 384
 - Phantom fields silently excluded (accumulated in the capability map, absent from the newest analysed spec): 40
@@ -414,7 +414,7 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `POST /admins/api-tokens` | New-PfbApiToken | context_names |  | `high` |  |
 | `POST /admins/management-access-policies` | New-PfbAdminManagementAccessPolicy | context_names |  | `high` | POST/PATCH/DELETE return 403 regardless of account; not an implementation bug |
 | `POST /admins/ssh-certificate-authority-policies` | New-PfbAdminSshCaPolicy | context_names |  | `high` |  |
-| `POST /api-clients` | New-PfbApiClient |  | access_policies, access_token_ttl_in_ms, issuer, max_role, public_key | `high` |  |
+| `POST /api-clients` | New-PfbApiClient |  | access_policies, access_token_ttl_in_ms, issuer | `high` |  |
 | `POST /array-connections` | New-PfbArrayConnection | context_names |  | `high` |  |
 | `POST /arrays/erasures` | New-PfbArrayErasure | eradicate_all_data, preserve_configuration_data, skip_phonehome_check |  | `high` |  |
 | `POST /arrays/ssh-certificate-authority-policies` | New-PfbArraySshCaPolicy | context_names |  | `high` |  |
