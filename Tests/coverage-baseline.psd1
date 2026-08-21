@@ -242,7 +242,10 @@
             # is a real signal rather than noise.
             'Build-PfbValueEnumMap.Tests.ps1'                    = 14
             'Build-PfbCapabilityMap.ContextScopeDrift.Tests.ps1' = 13
-            'PfbApiDriftTools.Tests.ps1'                         = 8
+            # 8 -> 12 for issue #113: four new tests assert against the REAL Public/Private
+            # tree and the real capability map, so they carry the file's existing PS7 gate.
+            # Measured on Windows PowerShell 5.1, not inferred -- 125 passed / 12 skipped.
+            'PfbApiDriftTools.Tests.ps1'                         = 12
             'PfbValueEnumTools.Tests.ps1'                        = 8
             'PfbSpecTools.Tests.ps1'                             = 6
             'PfbSpecTools.ContextScope.Tests.ps1'                = 4

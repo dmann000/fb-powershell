@@ -98,10 +98,20 @@ function Get-PfbModuleCalledEndpoints {
         "<METHOD> /<endpoint>" key format Data/PfbCapabilityMap.json uses (see
         Private/Assert-PfbApiCapability.ps1:40-41).
     .OUTPUTS
-        [PSCustomObject]@{ Key; Method; Endpoint; Resolved; Cmdlet; File }[] -- Resolved
-        is $false (Key/Method/Endpoint all $null) when a call's -Endpoint isn't a plain
-        string literal (built dynamically via interpolation or a variable), never
+        [PSCustomObject]@{ Key; Method; Endpoint; Resolved; Cmdlet; IsPublic; File }[] --
+        Resolved is $false (Key/Method/Endpoint all $null) when a call's -Endpoint isn't a
+        plain string literal (built dynamically via interpolation or a variable), never
         silently dropped or guessed at.
+
+        IsPublic (issue #113) says which tree the calling FUNCTION was found in. A function
+        under Private/ genuinely calls the endpoint, so it belongs in a scan of what the
+        module touches -- but it is not a cmdlet, is not exported, and cannot be invoked by a
+        user, so it must not be presented as the public surface covering that endpoint. The
+        real case is Resolve-PfbAdminLocality reading is_local from GET /admins, which the
+        report listed next to Get-PfbAdmin as though the two were peers. Consumers that mean
+        "public surface" filter on this; consumers that mean "anything that touches the wire"
+        do not. Get-PfbEndpointCoverageGaps deliberately still counts BOTH, since an endpoint
+        a private helper reaches is not an uncovered endpoint.
     #>
     [CmdletBinding()]
     param(
@@ -113,10 +123,20 @@ function Get-PfbModuleCalledEndpoints {
     # Belt-and-braces only -- the load-bearing sort is on the records at the end of this
     # function (issue #85). Public/ and Private/ are sorted separately, preserving the
     # Public-then-Private grouping this scan has always emitted in.
-    $files = @(Get-ChildItem -Path $PublicDirectory -Filter '*.ps1' -Recurse -File | Sort-Object -Property FullName -Culture '') +
-             @(Get-ChildItem -Path $PrivateDirectory -Filter '*.ps1' -Recurse -File | Sort-Object -Property FullName -Culture '')
+    #
+    # Provenance is carried per file rather than re-derived from the path afterwards (issue
+    # #113): a path regex would have to cope with both separators and with a repo checked out
+    # under a directory that itself contains 'Private', whereas the caller has already told us
+    # which tree each file came from.
+    $publicFiles = @(Get-ChildItem -Path $PublicDirectory -Filter '*.ps1' -Recurse -File | Sort-Object -Property FullName -Culture '')
+    $privateFiles = @(Get-ChildItem -Path $PrivateDirectory -Filter '*.ps1' -Recurse -File | Sort-Object -Property FullName -Culture '')
+    $isPublicByPath = @{}
+    foreach ($f in $publicFiles) { $isPublicByPath[$f.FullName] = $true }
+    foreach ($f in $privateFiles) { if (-not $isPublicByPath.ContainsKey($f.FullName)) { $isPublicByPath[$f.FullName] = $false } }
+    $files = $publicFiles + $privateFiles
 
     foreach ($file in $files) {
+        $isPublicFile = $isPublicByPath[$file.FullName]
         $tokens = $null; $parseErrors = $null
         $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$parseErrors)
         $functionAsts = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)
@@ -152,6 +172,7 @@ function Get-PfbModuleCalledEndpoints {
                         Endpoint = $normalizedEndpoint
                         Resolved = $true
                         Cmdlet   = $funcAst.Name
+                        IsPublic = $isPublicFile
                         File     = $file.FullName
                     })
                 }
@@ -162,6 +183,7 @@ function Get-PfbModuleCalledEndpoints {
                         Endpoint = $null
                         Resolved = $false
                         Cmdlet   = $funcAst.Name
+                        IsPublic = $isPublicFile
                         File     = $file.FullName
                     })
                 }
@@ -325,11 +347,26 @@ function Get-PfbParameterCoverageGaps {
         $entry = $CapabilityMap.endpoints.$key
         if (-not $entry) { continue }
 
+        # Public callers only (issue #113). This field is read as "the public surface covering
+        # this endpoint", and a Private/ helper is not that -- it is unexported and a user
+        # cannot invoke it. Listing Resolve-PfbAdminLocality beside Get-PfbAdmin under
+        # GET /admins made one field mean two things, and only one of them is what a coverage
+        # report is read for. The filter is on the whole gap's cmdlet list, NOT on the endpoint
+        # grouping above: an endpoint a private helper reaches is still a reached endpoint, so
+        # Get-PfbEndpointCoverageGaps must keep counting it or this fix would manufacture
+        # uncovered-endpoint findings out of a presentation problem.
+        #
         # Sort-Object -Unique, not Select-Object -Unique: the latter preserves INPUT order and
         # does not sort, which is the intra-row cmdlet flip observed in issue #85
         # (`Get-PfbArray, Test-PfbConnection` becoming `Test-PfbConnection, Get-PfbArray`).
         # Matches the already-correct pattern in Get-PfbConventionStrength below.
-        $cmdlets = @($group.Group.Cmdlet | Sort-Object -Unique -Culture '')
+        #
+        # `-ne $false` rather than `-eq $true`: a caller passing hand-built call records that
+        # predate IsPublic leaves it $null, and treating an unknown provenance as private
+        # would silently empty this list. Records from Get-PfbModuleCalledEndpoints always
+        # carry the real boolean.
+        $cmdlets = @($group.Group | Where-Object { $_.IsPublic -ne $false } |
+                ForEach-Object { $_.Cmdlet } | Sort-Object -Unique -Culture '')
 
         $exposedWireNames = [System.Collections.Generic.HashSet[string]]::new()
         $unresolved = [System.Collections.Generic.List[object]]::new()
@@ -1235,6 +1272,114 @@ function Test-PfbGuardedByParameterCondition {
     return $false
 }
 
+function Get-PfbPrivateScriptConstant {
+    <#
+    .SYNOPSIS
+        Maps every unambiguous `$script:Name = '<literal>'` in -PrivateDirectory to its string
+        value, so Get-PfbCentralInjectionSites can resolve a wire key held in a constant
+        instead of written inline.
+    .DESCRIPTION
+        Exists because of issue #113. The injection detector originally required the index of
+        `$Var[<index>] = <rhs>` to be a literal string, so
+        `$QueryParams[$script:PfbContextParameterName] = ...`
+        (Private/Invoke-PfbApiRequest.ps1, the Fusion Phase 1 central injection) was invisible
+        to it, and `context_names` stayed a 268-endpoint systemic gap for the entire life of a
+        feature that was already injecting it on every request. `continuation_token` is
+        injected a few lines away in the same function and WAS detected -- the only difference
+        was the literal key.
+
+        Keys are the AST's own `VariablePath.UserPath`, which retains the `script:` prefix
+        (`script:PfbContextParameterName`). That is deliberate: the definition site and the use
+        site produce the identical string, so no normalisation step can drift between them.
+
+        Never guesses, matching every other scanner in this file and in
+        tools/lib/PfbCmdletParamTools.ps1:
+
+          - only `$script:`-scoped targets, since a function-local of the same name is a
+            different variable and this walk has no scope model to tell them apart;
+          - only a right-hand side that is a single string literal. An expression, a
+            concatenation or an array is not a constant this scan can safely evaluate, and
+            evaluating it would mean executing module code from a report generator;
+          - a name assigned two DIFFERENT literals resolves to nothing. Taking the last one
+            would make the result depend on filesystem enumeration order, which is the same
+            defect class as issue #85. Re-assigning the same literal twice is harmless and
+            stays resolved.
+
+        Note the scan is over definitions only. A constant that is defined but never used as
+        an index yields no injection site, which is load-bearing rather than incidental:
+        `allow_errors` sits in Private/PfbContextConstants.ps1 next to `context_names` and is
+        genuinely unimplemented (deferred to Phase 2). Resolving by definition rather than by
+        use would silently delete its 118-endpoint gap.
+    .OUTPUTS
+        [hashtable] -- VariablePath.UserPath -> [string] value. Ambiguous names are absent.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$PrivateDirectory
+    )
+
+    $values = @{}
+    $ambiguous = [System.Collections.Generic.HashSet[string]]::new([string[]]@(), [System.StringComparer]::Ordinal)
+
+    # Sorted for the same reason as every other walk in this file (#85): an unsorted recursive
+    # Get-ChildItem is filesystem-ordered, and while the ambiguity rule below makes the RESULT
+    # order-independent, the walk itself should still be reproducible for debugging.
+    $files = @(Get-ChildItem -Path $PrivateDirectory -Filter '*.ps1' -Recurse -File | Sort-Object -Property FullName -Culture '')
+
+    foreach ($file in $files) {
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$null)
+
+        foreach ($assign in $ast.FindAll({
+                    param($n)
+                    $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+                    $n.Left -is [System.Management.Automation.Language.VariableExpressionAst]
+                }, $true)) {
+
+            $target = $assign.Left -as [System.Management.Automation.Language.VariableExpressionAst]
+            if (-not $target.VariablePath.IsScript) { continue }
+            $name = $target.VariablePath.UserPath
+
+            # The parser wraps a bare expression right-hand side in a CommandExpressionAst,
+            # sometimes inside a single-element PipelineAst. Casting without peeling yields
+            # $null, which reads as "not a literal" rather than "wrong layer" -- the same trap
+            # documented on Resolve-PfbSingleExpression in tools/lib/PfbCmdletParamTools.ps1,
+            # peeled inline here because this file does not dot-source that one.
+            $node = $assign.Right
+            for ($i = 0; $i -lt 3; $i++) {
+                if ($node -is [System.Management.Automation.Language.PipelineAst]) {
+                    if ($node.PipelineElements.Count -ne 1) { break }
+                    $node = $node.PipelineElements[0]
+                    continue
+                }
+                if ($node -is [System.Management.Automation.Language.CommandExpressionAst]) {
+                    $node = $node.Expression
+                    continue
+                }
+                break
+            }
+
+            $literal = $node -as [System.Management.Automation.Language.StringConstantExpressionAst]
+            if (-not $literal) {
+                # A non-literal assignment to a name makes that name unresolvable, rather than
+                # leaving an earlier literal standing: the later assignment is what the module
+                # would actually be holding by the time the injection runs.
+                [void]$ambiguous.Add($name)
+                continue
+            }
+
+            if ($values.ContainsKey($name) -and $values[$name] -cne $literal.Value) {
+                [void]$ambiguous.Add($name)
+                continue
+            }
+            $values[$name] = $literal.Value
+        }
+    }
+
+    foreach ($name in $ambiguous) { $values.Remove($name) }
+    return $values
+}
+
 function Get-PfbCentralInjectionSites {
     <#
     .SYNOPSIS
@@ -1281,9 +1426,14 @@ function Get-PfbCentralInjectionSites {
         to Assert-PfbApiCapability (the module's actual parameter-support gate) -- an
         assignment could in principle run before or after that gate in a way this scan
         does not model.
+        The index is read as a literal string, or -- issue #113 -- as a `$script:` constant
+        resolved by Get-PfbPrivateScriptConstant, which is how the Fusion central injection
+        `$QueryParams[$script:PfbContextParameterName] = ...` is seen at all. KeySource records
+        which of the two applied. Any other index shape is skipped rather than guessed at.
     .OUTPUTS
-        [PSCustomObject]@{ Key; File; Function; Line; TargetVariable; ParameterTraced;
-        Classification; Caveat }[] -- Classification is 'parameter-sourced' (traces to a
+        [PSCustomObject]@{ Key; KeySource; File; Function; Line; TargetVariable;
+        ParameterTraced; Classification; Caveat }[] -- KeySource is 'literal' or 'constant'.
+        Classification is 'parameter-sourced' (traces to a
         cmdlet/caller parameter; must NEVER become a candidate for
         $script:PfbNonActionableParameters) or 'server-or-internal-derived' (a candidate --
         see Get-PfbDerivedNonActionableParameters for how candidates are reduced to a final
@@ -1297,6 +1447,12 @@ function Get-PfbCentralInjectionSites {
 
     $targetVarNames = @('queryparams', 'body', 'into')
     $coverageCaveat = 'coverage claim only -- this AST scan cannot verify injection ordering relative to Assert-PfbApiCapability'
+
+    # Issue #113: the key may be held in a $script: constant rather than written inline. Built
+    # once for the whole directory because the constant and its use site live in different
+    # files (Private/PfbContextConstants.ps1 defines it, Private/Invoke-PfbApiRequest.ps1 uses
+    # it), so this cannot be resolved per-file or per-function.
+    $scriptConstants = Get-PfbPrivateScriptConstant -PrivateDirectory $PrivateDirectory
 
     $results = [System.Collections.Generic.List[object]]::new()
     # Belt-and-braces only -- see the record-level sort at the end of this function (#85).
@@ -1326,8 +1482,26 @@ function Get-PfbCentralInjectionSites {
                 if (-not $targetVar) { continue }
                 if ($targetVarNames -notcontains $targetVar.VariablePath.UserPath.ToLowerInvariant()) { continue }
 
+                # Two key shapes, in order. A literal index is the common case; a $script:
+                # constant is the Fusion central-injection case (#113). Anything else -- a
+                # local, a parameter, an expression -- resolves to nothing and the site is
+                # skipped, because a key this scan cannot name is a key it cannot intersect
+                # against the capability map, and guessing would invent a field.
                 $keyExpr = $indexExpr.Index -as [System.Management.Automation.Language.StringConstantExpressionAst]
-                if (-not $keyExpr) { continue }
+                $keyName = $null
+                $keySource = $null
+                if ($keyExpr) {
+                    $keyName = $keyExpr.Value
+                    $keySource = 'literal'
+                }
+                else {
+                    $indexVar = $indexExpr.Index -as [System.Management.Automation.Language.VariableExpressionAst]
+                    if ($indexVar -and $scriptConstants.ContainsKey($indexVar.VariablePath.UserPath)) {
+                        $keyName = $scriptConstants[$indexVar.VariablePath.UserPath]
+                        $keySource = 'constant'
+                    }
+                }
+                if ($null -eq $keyName) { continue }
 
                 $rhsTraced = Test-PfbExpressionReferencesParameter -ExpressionAst $assign.Right -ParameterNames $paramNames
                 $conditionTraced = Test-PfbGuardedByParameterCondition -Assignment $assign -ParameterNames $paramNames
@@ -1335,7 +1509,8 @@ function Get-PfbCentralInjectionSites {
                 $classification = if ($traced) { 'parameter-sourced' } else { 'server-or-internal-derived' }
 
                 $results.Add([PSCustomObject]@{
-                        Key             = $keyExpr.Value
+                        Key             = $keyName
+                        KeySource       = $keySource
                         File            = $file.FullName
                         Function        = $funcAst.Name
                         Line            = $assign.Extent.StartLineNumber

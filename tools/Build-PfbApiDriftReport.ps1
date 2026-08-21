@@ -476,9 +476,12 @@ $systemicGaps = @($systemicGapsRaw | ForEach-Object {
 # a table built ONCE (Get-PfbWireNameCmdletCounts), so every systemic-gap name gets ranked
 # here -- nothing is silently dropped from this list. Re-sorted by CmdletCount descending
 # (Get-PfbConventionStrength itself preserves -Names' input order, ranking is this script's
-# own choice) since a mechanical batch-fix candidate (high CmdletCount, e.g. `names` at
-# 306) and an architectural gap (zero CmdletCount, e.g. `context_names`) are the two ends
-# of this ranking a reader most wants surfaced first/last.
+# own choice) since a mechanical batch-fix candidate (high CmdletCount, e.g. `names`, in the
+# hundreds) and an architectural gap (zero CmdletCount, e.g. `allow_errors`) are the two ends
+# of this ranking a reader most wants surfaced first/last. `context_names` was the standing
+# example of the architectural end until issue #113 removed it from systemicGaps entirely --
+# which makes a coupling worth stating explicit: this list is built from the systemicGaps
+# NAMES, so a name that stops being a gap stops being scored here at all.
 $conventionStrengthRaw = @(if ($systemicGapsRaw.Count -gt 0) { Get-PfbConventionStrength -CmdletInventory $inventory -Names @($systemicGapsRaw.Name) } else { @() })
 $conventionStrength = @($conventionStrengthRaw | Sort-Object -Property @{ Expression = 'CmdletCount'; Descending = $true }, Name |
         ForEach-Object { [ordered]@{ name = $_.Name; cmdletCount = $_.CmdletCount; cmdlets = @($_.Cmdlets) } })
