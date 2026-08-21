@@ -102,23 +102,43 @@ is CI's job and is not worth simulating.
 
 Two independent assertions guard against tests silently vanishing:
 
-- **`MaxSkipped`** — a per-edition ceiling on skipped tests, catching a Describe
-  that starts skipping. It is a ceiling *with headroom*, not a pin. Raise it
-  deliberately, in a reviewed diff, and say why in the commit message.
+- **`ExpectedSkips`** — a per-edition, per-**file** expected skipped-test count.
+  These are exact numbers, not ceilings. If a file's count moves in either
+  direction the gate reds and names the file; update that file's line in the
+  same diff and say why in the commit message. Only files that actually skip
+  appear (19 of 199 on 5.1, 2 on pwsh 7), so it is a short list rather than a
+  census.
 - **`RequiredDescribes`** — names Describes that must appear in the result tree.
   Blocks that skip *gracefully* (their guard evaluates false at `BeforeAll`
-  time) contribute neither a pass nor a skip, so a skip ceiling cannot see them
+  time) contribute neither a pass nor a skip, so a skip count cannot see them
   disappear at all.
+
+Three rails come with the map, in `scripts/Assert-PfbTestCoverage.ps1`: no test
+file may run **empty** (contributing neither an executed nor a skipped test), no
+**undeclared** file may skip, and a declared file that stops running at all is a
+violation rather than a stale entry to delete.
 
 The two editions differ by a wide margin — every Describe in the tooling test
 files carries `-Skip:($PSVersionTable.PSVersion.Major -lt 7)`, so the 5.1 leg
-skips all of them by design. One shared ceiling would be either a permanent
-false red on 5.1 or useless on 7.
+skips all of them by design. One shared map would be either a permanent false
+red on 5.1 or useless on 7.
+
+**Why exact and not a ceiling.** `ExpectedSkips` replaced a single global
+`MaxSkipped` ceiling per edition (issue #132). That ceiling carried deliberate
+headroom, and the headroom was the defect rather than the mitigation: it did not
+prevent false reds, it converted an *attributable* red on the PR that moved the
+number into an *unattributable* red on a later, innocent PR — and it hid a real
+coverage regression of up to `ceiling - measured` tests, the issue-#63 failure
+shape merely bounded in size. It happened once with exact arithmetic: a 5.1 run
+measured 292 against a ceiling of 268, and six of the +40 belonged to #120 two
+days earlier, which had slack and passed without touching the baseline. Do not
+reintroduce headroom, globally or per file.
 
 One non-obvious way this gate reds without your branch changing: a
-`pull_request` run tests the **merge** commit, so a ceiling measured before an
+`pull_request` run tests the **merge** commit, so a map measured before an
 unrelated merge to `main` can go stale on its own. That is worth a red build,
-not a suppression.
+not a suppression — and it is now attributed to the file the merge moved, which
+is the whole improvement.
 
 ## Tooling tests need the spec cache
 

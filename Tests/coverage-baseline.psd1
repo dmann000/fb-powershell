@@ -5,26 +5,59 @@
     #
     # Two independent assertions, because either alone has a gap:
     #
-    #   MaxSkipped        catches a Describe that starts reporting skips.
+    #   ExpectedSkips     an EXACT skipped-test count per test file. Catches a file that starts
+    #                     or stops reporting skips, and says which file.
     #   RequiredDescribes catches a Describe that vanishes from the result tree entirely.
     #                     These blocks skip GRACEFULLY: when their guard evaluates false at
     #                     BeforeAll time, or the file is filtered out of a run, they contribute
-    #                     NEITHER a skip NOR a pass. A skip ceiling cannot see that, and a
+    #                     NEITHER a skip NOR a pass. A skip count cannot see that, and a
     #                     green summary is then indistinguishable from a silently-absent
     #                     assertion -- the same failure shape as #63, one level down.
     #
-    # MaxSkipped is a CEILING WITH HEADROOM, not a pin. Raise it deliberately in a reviewed
-    # diff when a change legitimately adds skipped tests, and say why in the commit message.
+    # ExpectedSkips REPLACED a single global MaxSkipped ceiling per edition (issue #132). The
+    # ceiling carried deliberate headroom, and that headroom was the defect rather than the
+    # mitigation. It did not prevent false reds; it converted an ATTRIBUTABLE red on the PR
+    # that moved the number into an UNATTRIBUTABLE red on a later, innocent PR, and it hid a
+    # real coverage regression of up to (ceiling - measured) tests -- the #63 failure shape,
+    # merely bounded in size.
+    #
+    # That is not hypothetical and the arithmetic was exact. A 5.1 run measured 292 against a
+    # ceiling of 268. Of the +40, six belonged to #120 two days EARLIER, which had slack and
+    # passed without touching this file; the next branch across the line was billed for all
+    # forty, including those six. The history of raises left in the winps51 block below is the
+    # audit trail of the same mechanism firing repeatedly.
+    #
+    # So these numbers are PINS, not ceilings. Any movement -- up or down -- reds the build,
+    # names the file, and is fixed by editing that file's line in the same diff that moved it.
+    # Do not reintroduce headroom, per-file or global; a per-file ceiling would be the same
+    # defect wearing a smaller hat.
+    #
+    # Three rails come with the map, in scripts/Assert-PfbTestCoverage.ps1: no test file may
+    # run EMPTY (contributing neither an executed nor a skipped test -- the #63 shape below
+    # the granularity RequiredDescribes can reach), no UNDECLARED file may skip, and a declared
+    # file that stops running at all is a violation rather than a stale entry to delete.
+    #
+    # Only files that actually skip appear here -- 19 of 199 on 5.1, 2 on pwsh 7 -- so this is
+    # a short list, not a per-file census. Attribution is by leaf file name, which is sound
+    # because Tests/ is flat and no two *.Tests.ps1 files share a leaf; the gate fails loudly
+    # if that ever stops being true.
     #
     # The two editions differ by design and by a wide margin: every Describe in the tooling
     # test files carries -Skip:($PSVersionTable.PSVersion.Major -lt 7), so the 5.1 leg skips
-    # all of them. A single shared ceiling would be either a permanent false red on 5.1 or
+    # all of them. A single shared map would be either a permanent false red on 5.1 or
     # useless on 7.
     pwsh7   = @{
-        # Measured 2 on run 31359783827 (ubuntu-latest, pwsh, spec cache restored): 1842
-        # passed / 0 failed / 2 skipped. 8 leaves room for a handful of legitimate additions
-        # without going so loose that a real regression hides under it.
-        MaxSkipped        = 8
+        # Seeded from run 32392093324 on main@98c7a16 (2026-08-20): 3328 passed / 0 failed /
+        # 2 skipped, and the same two files on all three pwsh legs -- ubuntu-latest,
+        # windows-latest and macos-latest agreed exactly, which is what makes one shared pwsh7
+        # map correct rather than a windows-only measurement generalised.
+        #
+        # These two are ordinary per-test -Skip: guards on platform-specific behaviour, not
+        # the PS7 gating that dominates the winps51 block. Total: 2.
+        ExpectedSkips     = @{
+            'New-PfbJwtToken.Tests.ps1'    = 1
+            'Set-PfbTlsProtocol.Tests.ps1' = 1
+        }
         RequiredDescribes = @(
             # Ungated -- these run on every leg and are the #63 regression guards themselves.
             'Committed drift report (REGRESSION guard, no spec cache required)'
@@ -94,6 +127,15 @@
         )
     }
     winps51 = @{
+        # ---------------------------------------------------------------------------------
+        # RETAINED HISTORY of the MaxSkipped ceiling this block used to carry, kept verbatim
+        # because it is the evidence for issue #132 rather than a record of how to maintain
+        # anything. Read it as an audit trail: five deliberate raises, and by the last one the
+        # raise notes are visibly diagnosing the mechanism instead of the branches -- "268 was
+        # already stale against main before either branch existed". The numbers below are dead;
+        # nothing reads MaxSkipped any more. The live gate is the ExpectedSkips map after it.
+        # ---------------------------------------------------------------------------------
+        #
         # Re-measured 190 on run 31670025630 (windows-latest, Windows PowerShell 5.1): 1818
         # passed / 0 failed / 190 skipped. The gap versus pwsh7's 2 is the PS7-gated tooling
         # Describes, skipping exactly as designed -- not a defect.
@@ -161,7 +203,56 @@
         # measurement. 313 keeps the standing +16 headroom over 297. If CI reports materially
         # more than 297, something other than these three files moved and the delta should be
         # re-attributed before raising again.
-        MaxSkipped        = 313
+        #
+        # ---------------------------------------------------------------------------------
+        # END OF RETAINED HISTORY. Live gate below.
+        # ---------------------------------------------------------------------------------
+        #
+        # Seeded from run 32392093324 on main@98c7a16 (2026-08-20, windows-latest, Windows
+        # PowerShell 5.1): 3033 passed / 0 failed / 297 skipped / 0 not-run, attributed across
+        # 19 files. The entries sum to exactly 297, which reconciles with the run's own total --
+        # the gate asserts that reconciliation on every run, so a container the walk misses is
+        # a red rather than a quietly smaller number.
+        #
+        # Every entry is the same cause: a Describe carrying
+        # -Skip:($PSVersionTable.PSVersion.Major -lt 7), or a whole tooling file gated that way,
+        # because the generator or spec-walking code under test needs pwsh 7. They RUN on 7 --
+        # that leg skips 2 in total -- so these are the PS7 gate working as designed, not lost
+        # coverage. That is why the two editions need separate maps.
+        #
+        # When one of these numbers moves, the gate names the file and the delta. Update the
+        # line and say why in the commit message. Do NOT pad it.
+        ExpectedSkips     = @{
+            # Tooling files gated wholesale: no executed tests on 5.1 at all. These are the
+            # ones the empty-container rail would flag if their -Skip: guards were ever
+            # replaced with `#Requires -Version 7.0`, which would take them out of the skip
+            # count entirely and make them invisible here.
+            'Build-PfbApiDriftReport.Tests.ps1'                  = 65
+            'Build-PfbCapabilityMap.Tests.ps1'                   = 50
+            'Update-PfbTestModuleImport.Tests.ps1'               = 34
+            'PfbPipelineSelectorTools.Tests.ps1'                 = 33
+            'PfbSelectorProbeHarness.Tests.ps1'                  = 16
+            'Build-PfbFieldCmdletMap.Tests.ps1'                  = 15
+            'PfbPipelineSelectorRail.Tests.ps1'                  = 11
+            'Build-PfbResponseShapeMap.Tests.ps1'                = 9
+            'Build-PfbDeadKeyReport.Tests.ps1'                   = 6
+            # Mixed files: some Describes PS7-gated, others deliberately ungated so they
+            # execute on both legs. The passing halves are what several RequiredDescribes
+            # entries above are asserting, so these two numbers moving in opposite directions
+            # is a real signal rather than noise.
+            'Build-PfbValueEnumMap.Tests.ps1'                    = 14
+            'Build-PfbCapabilityMap.ContextScopeDrift.Tests.ps1' = 13
+            'PfbApiDriftTools.Tests.ps1'                         = 8
+            'PfbValueEnumTools.Tests.ps1'                        = 8
+            'PfbSpecTools.Tests.ps1'                             = 6
+            'PfbSpecTools.ContextScope.Tests.ps1'                = 4
+            'Issue31.DriftConfidence.Tests.ps1'                  = 1
+            # Not PS7 gating: ordinary per-test guards on platform or edition behaviour. The
+            # first two also appear in the pwsh7 map, at lower counts.
+            'New-PfbJwtToken.Tests.ps1'                          = 2
+            'Set-PfbTlsProtocol.Tests.ps1'                       = 1
+            'Connect-PfbArray.OAuth2TokenRefresh.Tests.ps1'      = 1
+        }
         # Only the ungated blocks are required here. The six spec-cache blocks above are
         # PS7-gated by design, so requiring them on 5.1 would be a permanent false red.
         RequiredDescribes = @(
