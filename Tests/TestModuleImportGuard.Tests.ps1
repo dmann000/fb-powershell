@@ -2,7 +2,7 @@
 <#
     UNGATED on edition, on purpose: pure AST plus file IO, 5.1-safe, no spec cache, and
     no graceful-skip path. It must contribute executed tests on both legs, which is why it
-    is listed in RequiredDescribes in BOTH blocks of coverage-baseline.psd1 -- MaxSkipped
+    is listed in RequiredDescribes in BOTH blocks of coverage-baseline.psd1 -- a skip count
     cannot see a Describe that vanishes without skipping.
 
     Deliberately does NOT try to detect a leaked shim. A test asserting "the module I can
