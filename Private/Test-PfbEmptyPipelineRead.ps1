@@ -34,12 +34,19 @@ function Test-PfbEmptyPipelineRead {
 
         Known and deliberate gap 2: this classifies on key PRESENCE and never inspects the value.
         @{ names = $null } and @{ names = '' } are both "a selector is present", so both issue --
-        and an empty selector reaching the wire is #121's exact harm. It is LATENT, not live: no
-        guarded cmdlet writes an empty selector today, because Add-PfbCommonQueryParams gates
-        names/ids on being non-empty, and the only unconditional query writes in Public/ are in
-        Get-PfbLog.ps1 and Remove-PfbFileSystemSession.ps1, neither of which is guarded. Adding a
-        value check would be a behaviour change beyond the #126 spec, so the current behaviour is
-        pinned by test rather than altered here.
+        and an empty selector reaching the wire is #121's exact harm. It is LATENT, not live, and
+        the reason is a property of THE GUARDED SET rather than of Public/ as a whole: the 130
+        guarded cmdlets are the only population this predicate can ever inspect, so an unguarded
+        cmdlet's unconditional write is out of reach by construction. Across those 130 files, all
+        73 selector writes sit behind a non-empty gate. Add-PfbCommonQueryParams gates names/ids on
+        truthiness (Add-PfbCommonQueryParams.ps1:22-23), and the four writes that look
+        unconditional to a grep are each inside a `.Count -gt 0` block --
+        Get-PfbCertificateGroupCertificate.ps1:79-84 (two of them),
+        Get-PfbNetworkInterfaceNeighbor.ps1:66-68 and Get-PfbRealmDefaults.ps1:62-64. Cmdlets that
+        DO write a selector unconditionally exist -- Remove-PfbFleetMember.ps1:38-39 and
+        New-PfbBucketAuditFilter.ps1:62-63 among about fifteen -- but none of them is guarded, so
+        none can reach this predicate. Adding a value check would be a behaviour change beyond the
+        #126 spec, so the current behaviour is pinned by test rather than altered here.
 
         Case sensitivity is part of the policy, not an oversight. $script:PfbNonSelectorQueryKeys
         uses StringComparer::Ordinal, so `LIMIT` does not match `limit`: it reads as unclassified,

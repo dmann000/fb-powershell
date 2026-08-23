@@ -266,10 +266,18 @@ Describe 'Test-PfbEmptyPipelineRead' {
         # both "a selector is present" and both issue. An empty selector reaching the wire is
         # #121's exact harm.
         #
-        # It is LATENT, not live: no guarded cmdlet writes an empty selector today.
-        # Add-PfbCommonQueryParams gates names/ids on being non-empty, and the only unconditional
-        # query writes in Public/ are in Get-PfbLog.ps1 and Remove-PfbFileSystemSession.ps1,
-        # neither of which is guarded.
+        # It is LATENT, not live, and the reason is a property of THE GUARDED SET rather than of
+        # Public/ as a whole: the 130 guarded cmdlets are the only population this predicate can
+        # ever inspect, so an unguarded cmdlet's unconditional write is out of reach by
+        # construction. Across those 130 files, all 73 selector writes sit behind a non-empty gate.
+        # Add-PfbCommonQueryParams gates names/ids on truthiness
+        # (Add-PfbCommonQueryParams.ps1:22-23), and the four writes that look unconditional to a
+        # grep are each inside a `.Count -gt 0` block --
+        # Get-PfbCertificateGroupCertificate.ps1:79-84 (two of them),
+        # Get-PfbNetworkInterfaceNeighbor.ps1:66-68 and Get-PfbRealmDefaults.ps1:62-64. Cmdlets
+        # that DO write a selector unconditionally exist -- Remove-PfbFleetMember.ps1:38-39 and
+        # New-PfbBucketAuditFilter.ps1:62-63 among about fifteen -- but none of them is guarded, so
+        # none can reach this predicate.
         #
         # This pins CURRENT behaviour so a future value check is a visible decision. Adding one
         # here would be a behaviour change beyond the spec.

@@ -28,12 +28,27 @@ function Write-PfbEmptyPipelineDiagnostic {
         returned rows before #126. Measured on both editions and pinned by
         Tests/Test-PfbEmptyPipelineRead.Tests.ps1.
 
-        This is ACCEPTED as opt-in rather than overlooked, and the asymmetry with the error case is
-        the reason. -ErrorAction Stop is set by scripts that want to stop on FAILURES, and a
-        suppressed pipeline is not one, so an error would break callers who never asked for it.
+        This is ACCEPTED, for three reasons of which the first is decisive.
+
+        First, THERE IS NO ALTERNATIVE. PowerShell offers no warning that is exempt from
+        $WarningPreference short of writing straight to the host, which is worse in every other
+        respect -- unsuppressible, uncapturable, and invisible to a transcript. The choice is
+        therefore not "warn loudly or warn quietly"; it is warn and accept this edge, or do not
+        warn at all. Having decided above that the caller who typed -Limit 10 is owed a reason,
+        this edge arrives with that decision and cannot be engineered away.
+
+        Second, the asymmetry with the error case is real rather than special pleading.
+        -ErrorAction Stop is set by scripts that want to stop on FAILURES, and a suppressed
+        pipeline is not one, so an error would break callers who never asked for it.
         -WarningAction Stop is a caller stating that a warning alone is enough to stop them, and
-        this is a warning -- so the throw is the behaviour they configured. The no-keys path is
-        verbose-only and is unaffected by either preference.
+        this is a warning -- so the throw is the behaviour they configured.
+
+        Third, the affected populations differ by orders of magnitude.
+        $ErrorActionPreference = 'Stop' is near-universal script hygiene, while
+        $WarningPreference = 'Stop' is rare and always deliberate. The option rejected in the
+        paragraph above would have hit most scripts; this one hits the few that asked for it.
+
+        The no-keys path is verbose-only and is unaffected by either preference.
 
         Writes through $Caller rather than Write-Verbose/Write-Warning so the record is attributed
         to the public cmdlet and honours ITS -Verbose and -WarningAction. Measured on both
