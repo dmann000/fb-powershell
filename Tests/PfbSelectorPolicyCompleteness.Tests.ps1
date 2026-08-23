@@ -57,6 +57,88 @@ BeforeAll {
         return $null
     }
 
+    # Every key written to one of the named query-hashtable variables in a function. Kept separate
+    # from guarded-function detection so the same scanner can cover Add-PfbCommonQueryParams's
+    # $Into parameter without pretending that helper is itself a guarded cmdlet.
+    function Get-PfbQueryKeyWrite {
+        param(
+            [System.Management.Automation.Language.FunctionDefinitionAst]$Function,
+            [string[]]$VariableName,
+            [string]$Label
+        )
+
+        $records = [System.Collections.Generic.List[object]]::new()
+        foreach ($node in @($Function.FindAll({ param($n) $true }, $true))) {
+
+            if ($node -is [System.Management.Automation.Language.AssignmentStatementAst]) {
+                $left = $node.Left
+
+                # $q['key'] = v
+                if ($left -is [System.Management.Automation.Language.IndexExpressionAst] -and
+                    $left.Target -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                    $VariableName -contains $left.Target.VariablePath.UserPath) {
+                    $records.Add([PSCustomObject]@{
+                            Source = $Label
+                            Key    = $left.Index.Extent.Text.Trim("'", '"')
+                            Shape  = 'index-assign'
+                            Line   = $left.Extent.StartLineNumber
+                        })
+                }
+                # $q.key = v
+                elseif ($left -is [System.Management.Automation.Language.MemberExpressionAst] -and
+                    $left.Expression -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                    $VariableName -contains $left.Expression.VariablePath.UserPath) {
+                    $records.Add([PSCustomObject]@{
+                            Source = $Label
+                            Key    = "$($left.Member)"
+                            Shape  = 'member-assign'
+                            Line   = $left.Extent.StartLineNumber
+                        })
+                }
+                # $q = @{ key = v }
+                elseif ($left -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                    $VariableName -contains $left.VariablePath.UserPath) {
+                    $right = $node.Right
+                    $table = $null
+                    if ($right -is [System.Management.Automation.Language.CommandExpressionAst]) {
+                        $table = $right.Expression
+                    }
+                    if ($table -is [System.Management.Automation.Language.ConvertExpressionAst]) {
+                        $table = $table.Child
+                    }
+                    if ($table -is [System.Management.Automation.Language.HashtableAst]) {
+                        foreach ($pair in $table.KeyValuePairs) {
+                            $records.Add([PSCustomObject]@{
+                                    Source = $Label
+                                    Key    = $pair.Item1.Extent.Text.Trim("'", '"')
+                                    Shape  = 'hashtable-literal'
+                                    Line   = $pair.Item1.Extent.StartLineNumber
+                                })
+                        }
+                    }
+                }
+                continue
+            }
+
+            # $q.Add('key', v) / $q.set_Item('key', v)
+            if ($node -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and
+                $node.Expression -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                $VariableName -contains $node.Expression.VariablePath.UserPath) {
+                $member = "$($node.Member)".ToLowerInvariant()
+                if ($member -in @('add', 'set_item') -and @($node.Arguments).Count -ge 1) {
+                    $records.Add([PSCustomObject]@{
+                            Source = $Label
+                            Key    = $node.Arguments[0].Extent.Text.Trim("'", '"')
+                            Shape  = "method-$member"
+                            Line   = $node.Extent.StartLineNumber
+                        })
+                }
+            }
+        }
+
+        return @($records)
+    }
+
     # Every query key a guarded function writes, as records. Takes a FunctionDefinitionAst so the
     # same code runs over Public/ and over the synthetic fixtures below -- a gate whose scanner is
     # only ever pointed at the real tree cannot be shown to red.
@@ -83,7 +165,17 @@ BeforeAll {
 
         foreach ($invoke in $invokes) {
             $argument = Get-PfbParameterArgumentAst -Command $invoke -ParameterName 'QueryParams'
-            if ($null -eq $argument) { continue }
+            if ($null -eq $argument) {
+                # A splatted call has no named -QueryParams element for this AST walk. Treat absence
+                # as unscannable rather than assuming the request has no query hashtable.
+                $records.Add([PSCustomObject]@{
+                        Source = $Label
+                        Key    = $null
+                        Shape  = 'unscannable-query-argument'
+                        Line   = $invoke.Extent.StartLineNumber
+                    })
+                continue
+            }
 
             if ($argument -is [System.Management.Automation.Language.VariableExpressionAst]) {
                 $name = $argument.VariablePath.UserPath
@@ -100,75 +192,23 @@ BeforeAll {
                         })
                 }
             }
+            else {
+                # Unknown forms fail closed. A splat, subexpression, member access, or future AST
+                # shape must teach this scanner how to resolve the query source before it can ship.
+                $records.Add([PSCustomObject]@{
+                        Source = $Label
+                        Key    = $null
+                        Shape  = 'unscannable-query-argument'
+                        Line   = $argument.Extent.StartLineNumber
+                    })
+            }
         }
 
         if ($queryVars.Count -eq 0) { return @($records) }
 
-        foreach ($node in @($Function.FindAll({ param($n) $true }, $true))) {
-
-            if ($node -is [System.Management.Automation.Language.AssignmentStatementAst]) {
-                $left = $node.Left
-
-                # $q['key'] = v
-                if ($left -is [System.Management.Automation.Language.IndexExpressionAst] -and
-                    $left.Target -is [System.Management.Automation.Language.VariableExpressionAst] -and
-                    $queryVars -contains $left.Target.VariablePath.UserPath) {
-                    $records.Add([PSCustomObject]@{
-                            Source = $Label
-                            Key    = $left.Index.Extent.Text.Trim("'", '"')
-                            Shape  = 'index-assign'
-                            Line   = $left.Extent.StartLineNumber
-                        })
-                }
-                # $q.key = v
-                elseif ($left -is [System.Management.Automation.Language.MemberExpressionAst] -and
-                    $left.Expression -is [System.Management.Automation.Language.VariableExpressionAst] -and
-                    $queryVars -contains $left.Expression.VariablePath.UserPath) {
-                    $records.Add([PSCustomObject]@{
-                            Source = $Label
-                            Key    = "$($left.Member)"
-                            Shape  = 'member-assign'
-                            Line   = $left.Extent.StartLineNumber
-                        })
-                }
-                # $q = @{ key = v }
-                elseif ($left -is [System.Management.Automation.Language.VariableExpressionAst] -and
-                    $queryVars -contains $left.VariablePath.UserPath) {
-                    $right = $node.Right
-                    $table = $null
-                    if ($right -is [System.Management.Automation.Language.CommandExpressionAst]) {
-                        $table = $right.Expression
-                    }
-                    if ($table -is [System.Management.Automation.Language.HashtableAst]) {
-                        foreach ($pair in $table.KeyValuePairs) {
-                            $records.Add([PSCustomObject]@{
-                                    Source = $Label
-                                    Key    = $pair.Item1.Extent.Text.Trim("'", '"')
-                                    Shape  = 'hashtable-literal'
-                                    Line   = $pair.Item1.Extent.StartLineNumber
-                                })
-                        }
-                    }
-                }
-                continue
-            }
-
-            # $q.Add('key', v) / $q.set_Item('key', v)
-            if ($node -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and
-                $node.Expression -is [System.Management.Automation.Language.VariableExpressionAst] -and
-                $queryVars -contains $node.Expression.VariablePath.UserPath) {
-                $member = "$($node.Member)".ToLowerInvariant()
-                if ($member -in @('add', 'set_item') -and @($node.Arguments).Count -ge 1) {
-                    $records.Add([PSCustomObject]@{
-                            Source = $Label
-                            Key    = $node.Arguments[0].Extent.Text.Trim("'", '"')
-                            Shape  = "method-$member"
-                            Line   = $node.Extent.StartLineNumber
-                        })
-                }
-            }
+        foreach ($record in @(Get-PfbQueryKeyWrite -Function $Function -VariableName $queryVars -Label $Label)) {
+            $records.Add($record)
         }
-
         return @($records)
     }
 
@@ -185,6 +225,7 @@ BeforeAll {
     }
 
     $script:guardedFunctionCount = 0
+    $script:guardCallSiteCount = 0
     $script:keyRecords = @(
         foreach ($file in (Get-ChildItem -Path $script:publicRoot -Filter '*.ps1' -Recurse -File)) {
             $relative = $file.FullName.Substring($script:moduleRoot.Length).TrimStart('\', '/').Replace('\', '/')
@@ -195,6 +236,12 @@ BeforeAll {
             if ($errors.Count -gt 0) {
                 throw "Parse errors in ${relative}: $(($errors | ForEach-Object { $_.Message }) -join '; ')"
             }
+
+            $script:guardCallSiteCount += @($ast.FindAll({
+                        param($node)
+                        $node -is [System.Management.Automation.Language.CommandAst] -and
+                        $node.GetCommandName() -eq 'Test-PfbEmptyPipelineRead'
+                    }, $true)).Count
 
             foreach ($function in @($ast.FindAll({
                             param($node)
@@ -218,19 +265,48 @@ BeforeAll {
         }
     )
 
-    $script:nonSelectorKeys = InModuleScope PureStorageFlashBladePowerShell {
+    $helperPath = Join-Path $script:moduleRoot 'Private/Add-PfbCommonQueryParams.ps1'
+    $helperErrors = $null
+    $helperAst = [System.Management.Automation.Language.Parser]::ParseFile(
+        $helperPath, [ref]$null, [ref]$helperErrors)
+    if ($helperErrors.Count -gt 0) {
+        throw "Parse errors in Private/Add-PfbCommonQueryParams.ps1: $(($helperErrors | ForEach-Object { $_.Message }) -join '; ')"
+    }
+    $helperFunction = $helperAst.Find({
+            param($node)
+            $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+            $node.Name -eq 'Add-PfbCommonQueryParams'
+        }, $true)
+    $script:helperKeyRecords = @(Get-PfbQueryKeyWrite -Function $helperFunction -VariableName 'Into' -Label 'Private/Add-PfbCommonQueryParams.ps1: Add-PfbCommonQueryParams')
+    $script:classificationKeyRecords = @($script:keyRecords) + @($script:helperKeyRecords)
+
+    $nonSelectorValues = InModuleScope PureStorageFlashBladePowerShell {
         [string[]]@($script:PfbNonSelectorQueryKeys)
     }
+    $script:nonSelectorKeys = [System.Collections.Generic.HashSet[string]]::new(
+        [string[]]@($nonSelectorValues),
+        [System.StringComparer]::Ordinal)
+    # These three shared-helper writes are deliberate selectors. Keep the exemptions literal: a
+    # pattern broad enough to admit a future helper key would recreate the hole this scan closes.
+    $script:sharedSelectorKeys = [System.Collections.Generic.HashSet[string]]::new(
+        [string[]]@('filter', 'names', 'ids'),
+        [System.StringComparer]::Ordinal)
 }
 
 Describe 'Selector policy completeness' {
 
-    It 'scans a guarded population large enough for the other assertions to mean something' {
-        # A floor, not a pinned census -- the gate must not red on legitimate surface growth. Its
-        # only job is to stop the whole file passing vacuously if the guarded-population detector
-        # regresses to finding nothing. Measured at 130 guarded functions and 107 write sites.
-        $script:guardedFunctionCount | Should -BeGreaterThan 100
-        @($script:keyRecords).Count | Should -BeGreaterThan 80
+    It 'scans exactly the population protected by the empty-pipeline guard' {
+        # Both counts come from the tree, so legitimate surface growth moves them together. A floor
+        # allowed the structural scanner to lose almost a quarter of the guarded population while
+        # this test stayed green; equality turns any missing or extra scanner member into a red.
+        $script:guardedFunctionCount | Should -Be $script:guardCallSiteCount
+    }
+
+    It 'can scan every guarded QueryParams argument' {
+        $unscannable = @($script:keyRecords | Where-Object { $_.Shape -eq 'unscannable-query-argument' })
+        $detail = @($unscannable | ForEach-Object { "$($_.Source) line $($_.Line)" }) -join "`n"
+
+        $detail | Should -BeNullOrEmpty -Because "every guarded Invoke-PfbApiRequest -QueryParams argument must have a scanner-supported shape; teach the scanner before shipping:`n$detail"
     }
 
     It 'classifies every query key written by a guarded cmdlet' {
@@ -243,8 +319,11 @@ Describe 'Selector policy completeness' {
         # Private/PfbSelectorPolicyConstants.ps1 WITH the one-line reason the others carry. The
         # test for a key nobody has classified: if the SERVER decides how many objects come back,
         # it is scope.
-        $unclassified = @($script:keyRecords | Where-Object {
-                $_.Key -notin $script:nonSelectorKeys -and -not (Test-PfbIdentityShapedKey -WireName $_.Key)
+        $unclassified = @($script:classificationKeyRecords | Where-Object {
+                $_.Shape -ne 'unscannable-query-argument' -and
+                -not $script:nonSelectorKeys.Contains([string]$_.Key) -and
+                -not $script:sharedSelectorKeys.Contains([string]$_.Key) -and
+                -not (Test-PfbIdentityShapedKey -WireName $_.Key)
             })
 
         $detail = @($unclassified | ForEach-Object { "$($_.Source) [$($_.Shape)] line $($_.Line): $($_.Key)" }) -join "`n"
@@ -314,7 +393,7 @@ function Get-PfbFixture {
                 Should -BeGreaterThan 0 -Because "the scanner must see the key in the $($fixture.Label) shape"
 
             $unclassified = @($records | Where-Object {
-                    $_.Key -notin $script:nonSelectorKeys -and -not (Test-PfbIdentityShapedKey -WireName $_.Key)
+                    -not $script:nonSelectorKeys.Contains([string]$_.Key) -and -not (Test-PfbIdentityShapedKey -WireName $_.Key)
                 })
             @($unclassified).Count |
                 Should -BeGreaterThan 0 -Because "the $($fixture.Label) fixture must red the gate"
@@ -339,7 +418,7 @@ function Get-PfbFixture {
         @($records).Count | Should -Be 2
 
         $unclassified = @($records | Where-Object {
-                $_.Key -notin $script:nonSelectorKeys -and -not (Test-PfbIdentityShapedKey -WireName $_.Key)
+                -not $script:nonSelectorKeys.Contains([string]$_.Key) -and -not (Test-PfbIdentityShapedKey -WireName $_.Key)
             })
         @($unclassified).Count | Should -Be 0
     }
@@ -362,6 +441,75 @@ function Get-PfbFixture {
         @(Get-PfbFixtureQueryKey -Source $unguarded -Label 'unguarded').Count | Should -Be 0
     }
 
+    It 'scans the keys written by the shared common-query helper' {
+        $expected = @('filter', 'sort', 'limit', 'total_only', 'names', 'ids')
+        $written = [System.Collections.Generic.HashSet[string]]::new(
+            [string[]]@($script:helperKeyRecords | ForEach-Object { $_.Key }),
+            [System.StringComparer]::Ordinal)
+        $missing = @($expected | Where-Object { -not $written.Contains($_) })
+
+        ($missing -join ', ') | Should -BeNullOrEmpty -Because "the shared helper scanner must see every established write; missing: $($missing -join ', ')"
+    }
+
+    It 'classifies an unlisted shared-helper key as an offender' {
+        $helperWrite = [PSCustomObject]@{
+            Source = 'Private/Add-PfbCommonQueryParams.ps1: Add-PfbCommonQueryParams'
+            Key    = 'some_future_shared_flag'
+            Shape  = 'index-assign'
+            Line   = 1
+        }
+        $unclassified = @($helperWrite | Where-Object {
+                -not $script:nonSelectorKeys.Contains([string]$_.Key) -and
+                -not $script:sharedSelectorKeys.Contains([string]$_.Key) -and
+                -not (Test-PfbIdentityShapedKey -WireName $_.Key)
+            })
+
+        @($unclassified).Count | Should -Be 1
+    }
+
+    It 'matches the runtime denylist comparer exactly' {
+        $script:nonSelectorKeys.Contains('destroyed') | Should -BeTrue
+        $script:nonSelectorKeys.Contains('DESTROYED') | Should -BeFalse
+    }
+
+    It 'detects keys in an ordered hashtable initializer' {
+        $fixture = @'
+function Get-PfbFixture {
+    process { }
+    end {
+        $q = [ordered]@{ some_future_flag = 'true' }
+        Invoke-PfbApiRequest -Method GET -Endpoint 'x' -QueryParams $q
+    }
+}
+'@
+        $records = Get-PfbFixtureQueryKey -Source $fixture -Label 'ordered-hashtable'
+        $unclassified = @($records | Where-Object {
+                -not $script:nonSelectorKeys.Contains([string]$_.Key) -and
+                -not (Test-PfbIdentityShapedKey -WireName $_.Key)
+            })
+
+        @($records).Count | Should -Be 1
+        $records[0].Key | Should -BeExactly 'some_future_flag'
+        @($unclassified).Count | Should -Be 1
+    }
+
+    It 'fails closed when a QueryParams argument cannot be resolved' {
+        $fixture = @'
+function Get-PfbFixture {
+    process { }
+    end {
+        $q = @{}
+        Invoke-PfbApiRequest -Method GET -Endpoint 'x' -QueryParams $state.Query
+    }
+}
+'@
+        $records = Get-PfbFixtureQueryKey -Source $fixture -Label 'unresolvable'
+        $unscannable = @($records | Where-Object { $_.Shape -eq 'unscannable-query-argument' })
+
+        @($unscannable).Count | Should -Be 1
+        $unscannable[0].Source | Should -Be 'unresolvable'
+    }
+
     It 'has no unreachable entry among the per-cmdlet non-selectors' {
         # Every one of the nine per-cmdlet entries must actually be written by a guarded cmdlet. A
         # dead entry reads as coverage and is not.
@@ -374,12 +522,16 @@ function Get-PfbFixture {
         # remove -Flagged from Get-PfbAlert, and #127 removes Remove-PfbLocalGroup from the guarded
         # population. When it reds, PRUNE the list entry -- do not add the key to the exemption
         # below.
-        $helperWritten = @('limit', 'sort', 'total_only')
-        $perCmdlet = @($script:nonSelectorKeys | Where-Object { $_ -notin $helperWritten })
+        $helperWritten = [System.Collections.Generic.HashSet[string]]::new(
+            [string[]]@('limit', 'sort', 'total_only'),
+            [System.StringComparer]::Ordinal)
+        $perCmdlet = @($script:nonSelectorKeys | Where-Object { -not $helperWritten.Contains($_) })
         @($perCmdlet).Count | Should -Be 9
 
-        $written = @($script:keyRecords | ForEach-Object { $_.Key } | Select-Object -Unique)
-        $unreachable = @($perCmdlet | Where-Object { $_ -notin $written })
+        $written = [System.Collections.Generic.HashSet[string]]::new(
+            [string[]]@($script:keyRecords | ForEach-Object { $_.Key }),
+            [System.StringComparer]::Ordinal)
+        $unreachable = @($perCmdlet | Where-Object { -not $written.Contains($_) })
 
         ($unreachable -join ', ') | Should -BeNullOrEmpty -Because "a listed non-selector no guarded cmdlet writes is a dead entry; prune it: $($unreachable -join ', ')"
     }
