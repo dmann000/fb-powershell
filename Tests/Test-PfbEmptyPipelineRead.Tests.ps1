@@ -234,4 +234,93 @@ Describe 'Test-PfbEmptyPipelineRead' {
             $verbose[0].Message | Should -Be $expected
         }
     }
+
+    It 'issues on an uppercase non-selector key, because the list is matched ordinally' {
+        # $script:PfbNonSelectorQueryKeys is built with StringComparer::Ordinal, so LIMIT is not
+        # limit: it is unclassified, and an unclassified key reads as a SELECTOR. The request
+        # therefore issues.
+        #
+        # This is deliberate and it is the safe direction. A case-insensitive comparer would make
+        # the miss direction SUPPRESS -- a call that worked before #126 silently returning nothing
+        # because of how its key was spelled. Ordinal's miss direction is to ISSUE, which is
+        # exactly the pre-#126 behaviour of that call, so the worst case is a guard that does not
+        # fire rather than a working pipeline that breaks.
+        #
+        # Nothing in the module writes a query key in any casing but lower snake_case, so this
+        # pins a property rather than a live path. It was already pinned against the CI gate's
+        # mirror HashSet; this pins it against the predicate that actually decides.
+        InModuleScope PureStorageFlashBladePowerShell {
+            function Invoke-PredicateFixture {
+                [CmdletBinding()]
+                param([Parameter(ValueFromPipeline)][string]$Name)
+                end { Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams @{ LIMIT = 10 } }
+            }
+
+            @() | Invoke-PredicateFixture | Should -BeFalse
+        }
+    }
+
+    It 'classifies on key presence and never inspects the value, empty selector included' {
+        # Second known gap, documented in the function's comment block. The predicate asks only
+        # whether a key is on the non-selector list; @{ names = $null } and @{ names = '' } are
+        # both "a selector is present" and both issue. An empty selector reaching the wire is
+        # #121's exact harm.
+        #
+        # It is LATENT, not live: no guarded cmdlet writes an empty selector today.
+        # Add-PfbCommonQueryParams gates names/ids on being non-empty, and the only unconditional
+        # query writes in Public/ are in Get-PfbLog.ps1 and Remove-PfbFileSystemSession.ps1,
+        # neither of which is guarded.
+        #
+        # This pins CURRENT behaviour so a future value check is a visible decision. Adding one
+        # here would be a behaviour change beyond the spec.
+        InModuleScope PureStorageFlashBladePowerShell {
+            function Invoke-NullSelector {
+                [CmdletBinding()]
+                param([Parameter(ValueFromPipeline)][string]$Name)
+                end { Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams @{ names = $null } }
+            }
+            function Invoke-EmptySelector {
+                [CmdletBinding()]
+                param([Parameter(ValueFromPipeline)][string]$Name)
+                end { Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams @{ names = '' } }
+            }
+
+            @() | Invoke-NullSelector | Should -BeFalse
+            @() | Invoke-EmptySelector | Should -BeFalse
+        }
+    }
+
+    It 'throws under -WarningAction Stop where the same call returned data before #126' {
+        # The compatibility edge of emitting a warning at all. A scope-only suppression writes a
+        # warning, so a caller running -WarningAction Stop (or inheriting $WarningPreference =
+        # 'Stop') now gets a terminating ActionPreferenceStopException where the pre-#126 call
+        # returned rows.
+        #
+        # Accepted as OPT-IN: -WarningAction Stop is a caller explicitly asking to be stopped by
+        # warnings, and this is a warning. Noted because the writer's own comment block rejects a
+        # non-terminating error precisely to avoid breaking -ErrorAction Stop scripts, and the
+        # warning has the same effect on the warning preference; see the matching paragraph in
+        # Private/Write-PfbEmptyPipelineDiagnostic.ps1.
+        InModuleScope PureStorageFlashBladePowerShell {
+            function Invoke-ScopeOnlyStop {
+                [CmdletBinding()]
+                param([Parameter(ValueFromPipeline)][string]$Name, [int]$Limit)
+                end {
+                    $null = Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams @{ limit = 10 }
+                }
+            }
+            function Invoke-NoKeysStop {
+                [CmdletBinding()]
+                param([Parameter(ValueFromPipeline)][string]$Name)
+                end { $null = Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams @{} }
+            }
+
+            { @() | Invoke-ScopeOnlyStop -Limit 10 -WarningAction Stop } |
+                Should -Throw -ExceptionType ([System.Management.Automation.ActionPreferenceStopException])
+
+            # The control: the no-keys path is verbose-only, so it is unaffected by the warning
+            # preference. Without this, the test above would also pass if suppression itself threw.
+            { @() | Invoke-NoKeysStop -WarningAction Stop } | Should -Not -Throw
+        }
+    }
 }

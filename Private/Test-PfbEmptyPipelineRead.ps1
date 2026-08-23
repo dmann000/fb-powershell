@@ -26,11 +26,26 @@ function Test-PfbEmptyPipelineRead {
         continuation_token is written inside the pagination loop. Central injection needs its own
         tests, separate from this predicate's.
 
-        Known and deliberate gap: a key with selector SPELLING can sit on a parameter addressing a
-        CONTAINER rather than the returned objects, so
+        Known and deliberate gap 1: a key with selector SPELLING can sit on a parameter addressing
+        a CONTAINER rather than the returned objects, so
         `@() | Get-PfbBucketAccessPolicyRule -PolicyName 'x'` still returns every rule of that
         policy across all buckets. No per-key list can express that, because the harm is
         per-(key, cmdlet, which-parameter-is-piped). It is a missed guard rather than new harm.
+
+        Known and deliberate gap 2: this classifies on key PRESENCE and never inspects the value.
+        @{ names = $null } and @{ names = '' } are both "a selector is present", so both issue --
+        and an empty selector reaching the wire is #121's exact harm. It is LATENT, not live: no
+        guarded cmdlet writes an empty selector today, because Add-PfbCommonQueryParams gates
+        names/ids on being non-empty, and the only unconditional query writes in Public/ are in
+        Get-PfbLog.ps1 and Remove-PfbFileSystemSession.ps1, neither of which is guarded. Adding a
+        value check would be a behaviour change beyond the #126 spec, so the current behaviour is
+        pinned by test rather than altered here.
+
+        Case sensitivity is part of the policy, not an oversight. $script:PfbNonSelectorQueryKeys
+        uses StringComparer::Ordinal, so `LIMIT` does not match `limit`: it reads as unclassified,
+        therefore as a selector, and the request issues. That is the safe direction -- a
+        case-insensitive comparer would make the miss direction SUPPRESS a previously working call,
+        while Ordinal's miss direction is to issue, which is that call's pre-#126 behaviour.
     .PARAMETER Caller
         The public cmdlet's $PSCmdlet.
     .PARAMETER QueryParams

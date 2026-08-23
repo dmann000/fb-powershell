@@ -21,6 +21,20 @@ function Write-PfbEmptyPipelineDiagnostic {
         which would break any script running -ErrorAction Stop over a previously working pipeline
         -- is not warranted.
 
+        THE WARNING HAS THE SAME EDGE, ONE PREFERENCE OVER. The paragraph above rejects an error
+        for breaking -ErrorAction Stop scripts; a warning does exactly that to -WarningAction Stop
+        scripts. Under -WarningAction Stop, or an inherited $WarningPreference = 'Stop', a
+        discarding suppression now throws ActionPreferenceStopException where the same call
+        returned rows before #126. Measured on both editions and pinned by
+        Tests/Test-PfbEmptyPipelineRead.Tests.ps1.
+
+        This is ACCEPTED as opt-in rather than overlooked, and the asymmetry with the error case is
+        the reason. -ErrorAction Stop is set by scripts that want to stop on FAILURES, and a
+        suppressed pipeline is not one, so an error would break callers who never asked for it.
+        -WarningAction Stop is a caller stating that a warning alone is enough to stop them, and
+        this is a warning -- so the throw is the behaviour they configured. The no-keys path is
+        verbose-only and is unaffected by either preference.
+
         Writes through $Caller rather than Write-Verbose/Write-Warning so the record is attributed
         to the public cmdlet and honours ITS -Verbose and -WarningAction. Measured on both
         editions.
