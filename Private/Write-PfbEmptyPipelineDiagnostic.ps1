@@ -65,9 +65,20 @@ function Write-PfbEmptyPipelineDiagnostic {
             Resolve-PfbQueryKeyDisplayName -Caller $Caller -WireName $_
         })
 
+    # "can only ... not select objects" is a modal, so ONE construction is grammatical for both a
+    # single discarded key and several -- no branch on $rendered.Count.
+    #
+    # The remediation sentence must be true for all 130 guarded cmdlets. "Call <cmdlet> without
+    # piping to read unfiltered" was not: Get-PfbFileSystemUserPerformance,
+    # Get-PfbFileSystemGroupPerformance, Get-PfbObjectStoreTrustPolicyRule and Get-PfbS3ExportRule
+    # carry a mandatory selector in EVERY parameter set, so a bare call prompts rather than reading
+    # unfiltered. Advising on INTENT instead of promising an unfiltered read is universally true --
+    # for those four, calling directly prompts for the selector they genuinely require -- and
+    # avoids runtime parameter-set analysis for an advisory sentence covering 4 of 130.
     $message = "$cmdletName received an empty pipeline, so no object was selected. " +
-    "$($rendered -join ', ') narrow or shape a result set but do not select objects, " +
-    "so no request was issued. Call $cmdletName without piping to read unfiltered."
+    "$($rendered -join ', ') can only narrow or shape a result set, not select objects, " +
+    "so no request was issued. If you did not intend to filter, call $cmdletName directly " +
+    "instead of piping to it."
 
     $Caller.WriteVerbose($message)
     $Caller.WriteWarning($message)

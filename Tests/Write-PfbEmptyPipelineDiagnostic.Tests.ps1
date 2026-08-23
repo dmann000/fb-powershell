@@ -104,6 +104,36 @@ Describe 'Write-PfbEmptyPipelineDiagnostic' {
             $text | Should -BeLike '*Invoke-DiagFixture*'
             $text | Should -BeLike '*-Limit*'
             $text | Should -BeLike "*'protocols'*"
+
+            # Pinned whole, not by substring: concatenating four fragments is exactly where a
+            # missing or doubled space hides, and a -BeLike per clause cannot see one.
+            $text | Should -Be (
+                'Invoke-DiagFixture received an empty pipeline, so no object was selected. ' +
+                "-Limit, 'protocols' can only narrow or shape a result set, not select objects, " +
+                'so no request was issued. If you did not intend to filter, call ' +
+                'Invoke-DiagFixture directly instead of piping to it.')
+        }
+    }
+
+    It 'reads grammatically when exactly one key was discarded' {
+        # The single-key case is the common one, and "-Limit narrow or shape a result set" was not
+        # a sentence. The modal has to carry both numbers without branching on the count.
+        InModuleScope PureStorageFlashBladePowerShell {
+            function Invoke-DiagFixture {
+                [CmdletBinding()]
+                param([Parameter(ValueFromPipeline)][string]$Name, [int]$Limit)
+                end { Write-PfbEmptyPipelineDiagnostic -Caller $PSCmdlet -DiscardedKey @('limit') }
+            }
+
+            $warning = @(@() | Invoke-DiagFixture -Limit 10 3>&1 |
+                    Where-Object { $_ -is [System.Management.Automation.WarningRecord] })
+            $warning.Count | Should -Be 1
+
+            [string]$warning[0].Message | Should -Be (
+                'Invoke-DiagFixture received an empty pipeline, so no object was selected. ' +
+                '-Limit can only narrow or shape a result set, not select objects, ' +
+                'so no request was issued. If you did not intend to filter, call ' +
+                'Invoke-DiagFixture directly instead of piping to it.')
         }
     }
 
