@@ -107,6 +107,16 @@ function Test-PfbDeadKeySelectorName {
 
     # Exact anchors are intentional. In particular, do not use a suffix regex that would
     # classify usernames, grids, ids_or_names, or context_names as selectors.
+    #
+    # This is NOT the empty-pipeline selector policy, and the two deliberately differ (#126).
+    # That one is a DENYLIST in Private/PfbSelectorPolicyConstants.ps1: anything not listed reads
+    # as a selector, including context_names, and it admits no singular name/id. This one excludes
+    # context_names and ids_or_names explicitly and does admit the singular forms (harmless today
+    # -- neither is written as a query key anywhere in Public/).
+    #
+    # The divergence is intended because the failure directions are opposite. A report that
+    # misclassifies produces a wrong ROW; the runtime policy DISCARDS A REQUEST. Reconcile them
+    # only with a reason that survives that asymmetry -- do not "fix" one to match the other.
     if ($WireName -in @('names', 'ids', 'name', 'id')) { return $true }
     if ($WireName -in @('context_names', 'ids_or_names')) { return $false }
     return $WireName.EndsWith('_names', [System.StringComparison]::Ordinal) -or
