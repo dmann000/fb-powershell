@@ -67,8 +67,8 @@ function Get-PfbRemoteArray {
         # One consequence of the placement, measured rather than assumed: because the guard runs
         # BEFORE the write, `@() | Get-PfbRemoteArray -CurrentFleetOnly` reaches the guard with an
         # EMPTY query and so takes the no-keys path -- verbose only, no warning. Below the write it
-        # would warn on every empty-pipe call of this cmdlet, since current_fleet_only is always
-        # present. Quiet is the better trade here; do not "fix" it by moving the guard.
+        # would warn on every empty-pipe call this guard SUPPRESSES, since current_fleet_only is
+        # always present. Quiet is the better trade here; do not "fix" it by moving the guard.
         if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
         if ($CurrentFleetOnly) { $queryParams['current_fleet_only'] = 'true' } else { $queryParams['current_fleet_only'] = 'false' }
         Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'remote-arrays' -QueryParams $queryParams -AutoPaginate

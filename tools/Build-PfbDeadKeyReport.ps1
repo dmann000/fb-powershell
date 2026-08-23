@@ -109,17 +109,27 @@ function Test-PfbDeadKeySelectorName {
     # classify usernames, grids, ids_or_names, or context_names as selectors.
     #
     # This is NOT the empty-pipeline selector policy, and the two deliberately differ (#126).
-    # That one is a DENYLIST in Private/PfbSelectorPolicyConstants.ps1: anything not listed reads
-    # as a selector. The real divergence is narrow -- this function excludes context_names and
-    # ids_or_names explicitly, while the denylist does not name them and therefore reads both as
-    # selectors.
+    # They differ in KIND, not in a handful of keys. This function is an ALLOWLIST of identity
+    # shapes; Private/PfbSelectorPolicyConstants.ps1 is a DENYLIST of twelve scope keys where
+    # anything unlisted reads as a selector. So they disagree on every key that is neither
+    # identity-shaped nor denylisted -- measured in August 2026, 198 of the 261 names in this
+    # report's domain and 34 of the 93 query keys actually written in Public/. Those counts will
+    # drift; the structural reason will not. Do not describe the divergence as narrow.
     #
-    # Note where the two AGREE, because the shape of this function invites the opposite
+    # The disagreement that can actually bite is 'filter'. This function calls it not-a-selector;
+    # the runtime calls it a selector, deliberately, because it is the module's one caller-authored
+    # predicate. Each is right for its own purpose.
+    #
+    # By contrast the two keys this function excludes BY NAME -- context_names and ids_or_names --
+    # cannot reach the runtime policy at all: context_names is injected into a CLONE inside
+    # Invoke-PfbApiRequest after the guard has run, and ids_or_names is never written as a query
+    # key in Public/. An explicit exclusion here is therefore not evidence of a runtime divergence.
+    #
+    # Note also where the two AGREE, because the shape of this function invites the opposite
     # assumption: singular name/id are absent from the denylist too, so the runtime reads them as
     # selectors exactly as the first line here does. The classifier that genuinely rejects the
     # singular forms is neither of these -- it is Test-PfbIdentityShapedKey in
-    # Tests/PfbSelectorPolicyCompleteness.Tests.ps1, which matches @('names', 'ids') exactly. Do
-    # not attribute that behaviour to the runtime denylist.
+    # Tests/PfbSelectorPolicyCompleteness.Tests.ps1, which matches @('names', 'ids') exactly.
     #
     # The divergence is intended because the failure directions are opposite. A report that
     # misclassifies produces a wrong ROW; the runtime policy DISCARDS A REQUEST. Reconcile them
