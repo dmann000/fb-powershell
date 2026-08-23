@@ -1,12 +1,40 @@
 function Test-PfbEmptyPipelineRead {
     <#
     .SYNOPSIS
-        Detects an empty pipeline invocation that would issue an unfiltered request.
+        Detects an empty pipeline invocation that would issue a request the caller did not address.
     .DESCRIPTION
-        Public collect-in-process cmdlets call this from end after building their final
-        query hashtable. A piped invocation with no final query key received no object to
-        select; issuing the request would turn that absence into an unfiltered read/write.
-        Direct calls are not suppressed, and any surviving query key leaves the request alone.
+        Public collect-in-process cmdlets call this from end after building their final query
+        hashtable. A piped invocation that produced no SELECTOR received no object to select;
+        issuing the request would turn that absence into an unfiltered read or write.
+
+        A SELECTOR is a query key whose bound the caller can enumerate or author -- identity
+        (names, ids, *_names, *_ids) or a caller-authored predicate, which today means 'filter'
+        alone. A key on $script:PfbNonSelectorQueryKeys narrows or shapes a result set the caller
+        did not choose, so it does not rescue the request. Issue #126; design spec at
+        docs/design/empty-pipeline-selector-policy-spec.md.
+
+        Two properties of this function are load-bearing:
+
+          - Direct calls are NEVER suppressed. ExpectingInput gates everything, so
+            `Get-PfbX -Limit 10` remains the deliberate unfiltered read it has always been.
+          - THE LIST DECIDES, NOT A SPELLING TEST. The shape test used by
+            Tests/PfbSelectorPolicyCompleteness.Tests.ps1 is a CI construct and must never be
+            consulted here -- it classifies context_names as a selector and the list does not.
+
+        Its input is the PRE-REQUEST query state, not the fully built wire query: context_names is
+        injected into a clone inside Invoke-PfbApiRequest after this returns, and
+        continuation_token is written inside the pagination loop. Central injection needs its own
+        tests, separate from this predicate's.
+
+        Known and deliberate gap: a key with selector SPELLING can sit on a parameter addressing a
+        CONTAINER rather than the returned objects, so
+        `@() | Get-PfbBucketAccessPolicyRule -PolicyName 'x'` still returns every rule of that
+        policy across all buckets. No per-key list can express that, because the harm is
+        per-(key, cmdlet, which-parameter-is-piped). It is a missed guard rather than new harm.
+    .PARAMETER Caller
+        The public cmdlet's $PSCmdlet.
+    .PARAMETER QueryParams
+        The final query hashtable the request is about to receive.
     #>
     [CmdletBinding()]
     [OutputType([bool])]
@@ -19,5 +47,17 @@ function Test-PfbEmptyPipelineRead {
     )
 
     if (-not $Caller.MyInvocation.ExpectingInput) { return $false }
-    return ($null -eq $QueryParams -or $QueryParams.Count -eq 0)
+
+    $discarded = [System.Collections.Generic.List[string]]::new()
+    if ($null -ne $QueryParams) {
+        foreach ($key in $QueryParams.Keys) {
+            $name = [string]$key
+            # First selector wins: the request is legitimate and nothing else needs examining.
+            if (-not $script:PfbNonSelectorQueryKeys.Contains($name)) { return $false }
+            $discarded.Add($name)
+        }
+    }
+
+    Write-PfbEmptyPipelineDiagnostic -Caller $Caller -DiscardedKey $discarded.ToArray()
+    return $true
 }
