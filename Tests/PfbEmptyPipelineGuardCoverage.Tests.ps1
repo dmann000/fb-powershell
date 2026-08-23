@@ -131,6 +131,66 @@ BeforeAll {
         return $null
     }
 
+    # Issue #126. Does the function carry a mandatory parameter on EVERY path a caller can take?
+    #
+    # True when either (a) some mandatory parameter declares no ParameterSetName, so it applies to
+    # all sets, or (b) every declared parameter set name has at least one mandatory parameter.
+    # A function with no parameter sets and no set-less mandatory parameter is $false -- a bare
+    # call binds successfully, which is exactly the property being tested for.
+    #
+    # `[Parameter(Mandatory)]` omits the expression, so ExpressionOmitted has to be treated as
+    # $true; the generated tree uses that form as well as `Mandatory = $true`.
+    function Test-PfbMandatoryInEveryParameterSet {
+        param(
+            [System.Management.Automation.Language.FunctionDefinitionAst]$Function
+        )
+
+        $paramBlock = $Function.Body.ParamBlock
+        if ($null -eq $paramBlock) { return $false }
+
+        $declaredSets = @()
+        $mandatorySets = @()
+        $mandatoryInAllSets = $false
+
+        foreach ($parameter in $paramBlock.Parameters) {
+            foreach ($attribute in $parameter.Attributes) {
+                if ($attribute -isnot [System.Management.Automation.Language.AttributeAst]) { continue }
+                if ($attribute.TypeName.Name -notin @('Parameter', 'ParameterAttribute')) { continue }
+
+                $isMandatory = $false
+                $setName = $null
+
+                foreach ($named in $attribute.NamedArguments) {
+                    if ($named.ArgumentName -eq 'Mandatory') {
+                        if ($named.ExpressionOmitted) { $isMandatory = $true }
+                        elseif ($named.Argument.Extent.Text -eq '$true') { $isMandatory = $true }
+                    }
+                    elseif ($named.ArgumentName -eq 'ParameterSetName') {
+                        if (-not $named.ExpressionOmitted -and
+                            $named.Argument -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
+                            $setName = $named.Argument.Value
+                        }
+                    }
+                }
+
+                if ($null -ne $setName -and $setName -notin $declaredSets) {
+                    $declaredSets += $setName
+                }
+                if ($isMandatory) {
+                    if ($null -eq $setName) { $mandatoryInAllSets = $true }
+                    elseif ($setName -notin $mandatorySets) { $mandatorySets += $setName }
+                }
+            }
+        }
+
+        if ($mandatoryInAllSets) { return $true }
+        if ($declaredSets.Count -eq 0) { return $false }
+        foreach ($set in $declaredSets) {
+            if ($set -notin $mandatorySets) { return $false }
+        }
+        return $true
+    }
+
     # Issue #128. Extracted from the file-walk loop so the same computation can be run against a
     # synthetic fixture. That is not tidiness: #128 requires proving the new dominance rail is not
     # duplicating GuardReturns, which means evaluating the EXISTING properties on the mutant, and
@@ -327,6 +387,7 @@ BeforeAll {
         [PSCustomObject]@{
             File                                = $File
             Function                            = $Function.Name
+            Verb                                = ($Function.Name -split '-', 2)[0]
             Line                                = $Function.Extent.StartLineNumber
             HasProcess                          = $hasProcess
             HasNamedEnd                         = $hasNamedEnd
@@ -342,6 +403,7 @@ BeforeAll {
             GuardReturns                        = $guardReturns
             GuardInConditionalBlock             = ($conditionalKinds.Count -gt 0)
             GuardConditionalKinds               = $conditionalKinds
+            MandatoryInEveryParameterSet        = (Test-PfbMandatoryInEveryParameterSet -Function $Function)
         }
     }
 
@@ -388,8 +450,16 @@ Describe 'Empty-pipeline guard coverage' {
         # rail rather than silently emptying the coverage It. The end-block call floor is set on
         # that same metric for the same reason. The whole-function total is the loosest of the
         # three and is floored with headroom, so a consolidation refactor cannot red it.
+        #
+        # The $script:qualifying floor is deliberately tight (120 against 130 measured). Its job is
+        # to catch a PARTIAL detector regression, not just a total collapse: at 100 a defect that
+        # silently dropped 29 cmdlets from the guarded population would still pass. The headroom
+        # that remains absorbs a small, legitimate shrink -- a handful of cmdlets consolidated or
+        # retired -- without a test edit. It stays a floor rather than an equality on purpose: the
+        # review proved by mutation that the sibling gate's equality passes vacuously (0 -eq 0)
+        # under total detector collapse, and a floor cannot false-positive on surface growth.
         $script:records.Count | Should -BeGreaterThan 400
-        $script:qualifying.Count | Should -BeGreaterThan 100
+        $script:qualifying.Count | Should -BeGreaterThan 120
         $script:endBlockInvokeCalls | Should -BeGreaterThan 250
         $script:totalInvokeCalls | Should -BeGreaterThan 400
     }
@@ -405,6 +475,33 @@ Describe 'Empty-pipeline guard coverage' {
             })
         $detail = @($offenders | ForEach-Object { "$($_.File): $($_.Function)" }) -join "`n"
         $detail | Should -BeNullOrEmpty -Because "every collect-in-process/request-in-end function must guard an empty pipeline; offenders:`n$detail"
+    }
+
+    It 'makes the diagnostic remediation safe for every state-changing guarded cmdlet' {
+        # Issue #126. Write-PfbEmptyPipelineDiagnostic tells the caller to "call <cmdlet> directly
+        # instead of piping to it". For a read verb the worst case of following that advice is an
+        # unfiltered read. For anything else it could mean an UNSCOPED DESTRUCTIVE call -- unless
+        # the cmdlet carries a mandatory selector on every path, in which case a bare call prompts
+        # for the scope it genuinely requires instead of running unscoped.
+        #
+        # That property used to be asserted by a hand-maintained list of cmdlet names in the
+        # diagnostic's own comment, and the list went stale. This derives it instead.
+        #
+        # Get and Test are the read verbs; EVERYTHING ELSE is treated as state-changing, so a newly
+        # introduced verb fails closed and has to be considered. That matches the denylist
+        # philosophy the whole feature is built on.
+        $readVerbs = @('Get', 'Test')
+
+        $stateChanging = @($script:qualifying | Where-Object { $_.Verb -notin $readVerbs })
+
+        # Not vacuous: if the verb classification or the guarded-set derivation regresses, this
+        # population empties and the offender assertion below would pass having checked nothing.
+        $stateChanging.Count |
+            Should -BeGreaterThan 0 -Because 'the guarded set must still contain at least one state-changing cmdlet for this assertion to mean anything'
+
+        $offenders = @($stateChanging | Where-Object { -not $_.MandatoryInEveryParameterSet })
+        $detail = @($offenders | ForEach-Object { "$($_.File): $($_.Function)" }) -join "`n"
+        $detail | Should -BeNullOrEmpty -Because "a state-changing guarded cmdlet without a mandatory parameter in every parameter set turns the diagnostic's `"call it directly`" advice into an unscoped destructive call; offenders:`n$detail"
     }
 
     It 'keeps every Invoke-PfbApiRequest call directly in the cmdlet block' {

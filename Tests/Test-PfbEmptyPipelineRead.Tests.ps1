@@ -114,6 +114,44 @@ Describe 'Test-PfbEmptyPipelineRead' {
         }
     }
 
+    It 'suppresses a piped invocation whose only surviving key is flagged' {
+        # The regression test for the false claim that classifying `flagged` "changes no behaviour
+        # until #142 lands". Dead-key-ness is a SERVER-side property; this predicate decides on key
+        # PRESENCE and never reaches the server, so the classification is live today. Get-PfbAlert
+        # writes the key under ContainsKey and nothing blocks the send, which makes
+        # `@() | Get-PfbAlert -Flagged $true` an unfiltered read of every alert on main and a
+        # suppression here. A behavioural test on this key would have caught the claim; that is why
+        # it exists as its own It rather than being folded into the multi-key case above.
+        InModuleScope PureStorageFlashBladePowerShell {
+            function Invoke-PredicateFixture {
+                [CmdletBinding()]
+                param([Parameter(ValueFromPipeline)][string]$Name)
+                end {
+                    Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams @{ flagged = 'true' }
+                }
+            }
+
+            @() | Invoke-PredicateFixture -WarningAction SilentlyContinue | Should -BeTrue
+        }
+    }
+
+    It 'suppresses a piped invocation whose only surviving key is expose_api_token' {
+        # The other denylist member worth a behavioural case: it exposes a real credential, so
+        # "changes only response shape" must not be allowed to drift into "is a selector".
+        InModuleScope PureStorageFlashBladePowerShell {
+            function Invoke-PredicateFixture {
+                [CmdletBinding()]
+                param([Parameter(ValueFromPipeline)][string]$Name)
+                end {
+                    Test-PfbEmptyPipelineRead -Caller $PSCmdlet `
+                        -QueryParams @{ expose_api_token = 'true' }
+                }
+            }
+
+            @() | Invoke-PredicateFixture -WarningAction SilentlyContinue | Should -BeTrue
+        }
+    }
+
     It 'issues when a selector survives alongside a non-selector' {
         # The mirror of the case above, and the assertion that stops this becoming "suppress every
         # piped call". A single selector rescues the request no matter how much scope rides along.
