@@ -203,9 +203,13 @@ Notes that make individual entries reviewable:
 - **`expose_api_token` exposes a real credential.** It is still not a selector — it changes whether a
   field is populated, not which objects return — but it is the live example of why the unclassified
   default needed closing rather than defending.
-- **`flagged` is a dead key today** (#142 — undeclared in all 29 published versions), so classifying
-  it changes no behaviour until #142 lands. `Get-PfbAlert` writes it via `ContainsKey`, so
-  `-Flagged:$false` also writes the key.
+- **`flagged` is a dead key server-side** (#142 — undeclared in all 29 published versions), but
+  classifying it **changes behaviour today**: the predicate decides on key *presence* and never
+  reaches the server, so server-side dead-ness does not make the classification inert.
+  `Get-PfbAlert` writes it via `ContainsKey`, so `-Flagged:$false` also writes the key, and
+  `@() | Get-PfbAlert -Flagged $true` is suppressed here where `main` returns every alert. It is
+  the only denylist member whose classification demonstrably alters a shipped cmdlet's output on
+  the current tree.
 - **`source_names` is classified a selector and is also a dead key.** PR #125's live run found
   `Get-PfbFileSystemSnapshot -SourceName` does not filter; the endpoint declares
   `names_or_owner_names`. Classification is about what the parameter means, not whether it works.

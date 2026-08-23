@@ -98,12 +98,13 @@ function Write-PfbEmptyPipelineDiagnostic {
     # single discarded key and several -- no branch on $rendered.Count.
     #
     # The remediation sentence must be true for all 130 guarded cmdlets. "Call <cmdlet> without
-    # piping to read unfiltered" was not: Get-PfbFileSystemUserPerformance,
-    # Get-PfbFileSystemGroupPerformance, Get-PfbObjectStoreTrustPolicyRule and Get-PfbS3ExportRule
-    # carry a mandatory selector in EVERY parameter set, so a bare call prompts rather than reading
-    # unfiltered. Advising on INTENT instead of promising an unfiltered read is universally true --
-    # for those four, calling directly prompts for the selector they genuinely require -- and
-    # avoids runtime parameter-set analysis for an advisory sentence covering 4 of 130.
+    # piping to read unfiltered" was not: a minority carry a mandatory selector in EVERY parameter
+    # set, so a bare call prompts for it rather than reading unfiltered. Advising on INTENT instead
+    # of promising an unfiltered read is universally true -- for those, calling directly prompts for
+    # the selector they genuinely require -- and avoids runtime parameter-set analysis for an
+    # advisory sentence. The membership is deliberately NOT enumerated here: a hand-maintained list
+    # is what went stale. It is derived and asserted in
+    # Tests/PfbEmptyPipelineGuardCoverage.Tests.ps1 instead, where it cannot.
     $message = "$cmdletName received an empty pipeline, so no object was selected. " +
     "$($rendered -join ', ') can only narrow or shape a result set, not select objects, " +
     "so no request was issued. If you did not intend to filter, call $cmdletName directly " +

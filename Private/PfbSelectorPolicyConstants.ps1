@@ -50,8 +50,13 @@ $script:PfbNonSelectorQueryKeys = [System.Collections.Generic.HashSet[string]]::
         'protocols',          # protocol partition; the caller cannot enumerate the members. Our own
                               # -Protocol help reads as selection, but the PUBLISHED parameter
                               # description is a bare value list with no verb, and that governs
-        'flagged',            # boolean partition. Dead key today (#142), so this changes no
-                              # behaviour until #142 lands
+        'flagged',            # boolean partition. A dead key SERVER-SIDE (#142, undeclared in all
+                              # 29 published versions) -- but classifying it changes behaviour
+                              # TODAY, because this predicate decides on key PRESENCE and never
+                              # reaches the server. Get-PfbAlert writes it under ContainsKey and
+                              # nothing blocks the send, so `@() | Get-PfbAlert -Flagged $true`
+                              # returns every alert on main and is suppressed here. Pinned by a
+                              # behavioural test in Tests/Test-PfbEmptyPipelineRead.Tests.ps1
         'expose_api_token'    # response projection: changes whether a field is populated, not
                               # which objects return. The live example of why the unclassified
                               # default needed closing rather than defending
