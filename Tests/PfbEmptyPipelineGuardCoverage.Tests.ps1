@@ -59,6 +59,211 @@ BeforeAll {
         return $null
     }
 
+    # Issue #128. Extracted from the file-walk loop so the same computation can be run against a
+    # synthetic fixture. That is not tidiness: #128 requires proving the new dominance rail is not
+    # duplicating GuardReturns, which means evaluating the EXISTING properties on the mutant, and
+    # GuardReturns is twenty lines of logic that must not be duplicated into the proof.
+    function Get-PfbGuardRecord {
+        param(
+            [System.Management.Automation.Language.FunctionDefinitionAst]$Function,
+            [string]$File
+        )
+
+        $endBlock = $Function.Body.EndBlock
+        $processBlock = $Function.Body.ProcessBlock
+        $hasNamedEnd = ($null -ne $endBlock -and -not $endBlock.Unnamed)
+        $hasProcess = ($null -ne $processBlock -and -not $processBlock.Unnamed)
+
+        $invokeCalls = @()
+        $guardCalls = @()
+        if ($null -ne $endBlock) {
+            $invokeCalls = @($endBlock.FindAll({
+                        param($node)
+                        $node -is [System.Management.Automation.Language.CommandAst] -and
+                        $node.GetCommandName() -eq 'Invoke-PfbApiRequest'
+                    }, $true))
+
+            $guardCalls = @($endBlock.FindAll({
+                        param($node)
+                        $node -is [System.Management.Automation.Language.CommandAst] -and
+                        $node.GetCommandName() -eq 'Test-PfbEmptyPipelineRead'
+                    }, $true))
+        }
+
+        # Call-shape invariant: the request must stay a direct statement of the cmdlet block, not
+        # a statement of some nested scriptblock.
+        $allInvokes = @($Function.FindAll({
+                    param($node)
+                    $node -is [System.Management.Automation.Language.CommandAst] -and
+                    $node.GetCommandName() -eq 'Invoke-PfbApiRequest'
+                }, $true))
+        $nestedInvokes = @($allInvokes | Where-Object {
+                Test-PfbNestedInScriptBlockExpression -Node $_ -Stop $Function
+            })
+
+        # Guard placement: a guard nested in a scriptblock returns from the scriptblock.
+        $nestedGuards = @($guardCalls | Where-Object {
+                Test-PfbNestedInScriptBlockExpression -Node $_ -Stop $endBlock
+            })
+
+        $guardQueryVars = @($guardCalls |
+            ForEach-Object { Get-PfbParameterVariableName -Command $_ -ParameterName 'QueryParams' } |
+            Where-Object { $_ })
+        $invokeQueryVars = @($invokeCalls |
+            ForEach-Object { Get-PfbParameterVariableName -Command $_ -ParameterName 'QueryParams' } |
+            Where-Object { $_ })
+
+        # Does the guard read the same hashtable the request is handed? A guard on some
+        # other variable is inert.
+        $queryVarMismatch = $false
+        if ($guardCalls.Count -gt 0) {
+            if ($guardQueryVars.Count -ne $guardCalls.Count) {
+                $queryVarMismatch = $true
+            }
+            else {
+                foreach ($name in $invokeQueryVars) {
+                    if ($name -notin $guardQueryVars) { $queryVarMismatch = $true }
+                }
+            }
+        }
+
+        # Any write to the guarded hashtable AFTER the guard makes the guard unable to fire
+        # for the very key it is supposed to see missing.
+        #
+        # An index-assignment-only detector is NOT enough, and the mirror harm is worse than
+        # the one this rail was written for: hoisting a guard above
+        # `Add-PfbCommonQueryParams -Into $queryParams` leaves the guard reading an empty
+        # hashtable on EVERY piped invocation, so a legitimate piped read carrying names
+        # silently returns nothing. That shape passes a literal-key detector and also
+        # satisfies the generator's AlreadyPresent recognizer. (This repo has already paid
+        # once for a literal-key-only detector -- see the 269-endpoint drift blind spot.)
+        #
+        # So match every write form the language offers on a variable we already know by
+        # name: $q[...] = , $q.Foo = , $q.Add()/.Remove()/.Clear()/.set_Item(), and any
+        # command handing the variable to an -Into parameter (the repo's writer convention).
+        $queryWriteAfterGuard = $false
+        if ($guardCalls.Count -gt 0 -and $guardQueryVars.Count -gt 0) {
+            $firstGuardOffset = ($guardCalls |
+                ForEach-Object { $_.Extent.StartOffset } |
+                Measure-Object -Minimum).Minimum
+
+            $mutatingMethods = @('add', 'remove', 'clear', 'set_item')
+
+            $writeSites = @($endBlock.FindAll({
+                        param($node)
+
+                        # $q['k'] = v   /   $q.k = v
+                        if ($node -is [System.Management.Automation.Language.AssignmentStatementAst]) {
+                            $left = $node.Left
+                            if ($left -is [System.Management.Automation.Language.IndexExpressionAst] -and
+                                $left.Target -is [System.Management.Automation.Language.VariableExpressionAst]) {
+                                return $true
+                            }
+                            if ($left -is [System.Management.Automation.Language.MemberExpressionAst] -and
+                                $left.Expression -is [System.Management.Automation.Language.VariableExpressionAst]) {
+                                return $true
+                            }
+                            return $false
+                        }
+
+                        # $q.Add(...) and friends
+                        if ($node -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
+                            return ($node.Expression -is [System.Management.Automation.Language.VariableExpressionAst])
+                        }
+
+                        # Add-PfbCommonQueryParams -Into $q
+                        if ($node -is [System.Management.Automation.Language.CommandAst]) {
+                            return $true
+                        }
+
+                        return $false
+                    }, $true))
+
+            foreach ($site in $writeSites) {
+                if ($site.Extent.StartOffset -le $firstGuardOffset) { continue }
+
+                $writtenVar = $null
+                if ($site -is [System.Management.Automation.Language.AssignmentStatementAst]) {
+                    $left = $site.Left
+                    if ($left -is [System.Management.Automation.Language.IndexExpressionAst]) {
+                        $writtenVar = $left.Target.VariablePath.UserPath
+                    }
+                    else {
+                        $writtenVar = $left.Expression.VariablePath.UserPath
+                    }
+                }
+                elseif ($site -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
+                    $memberName = "$($site.Member)"
+                    if ($memberName.ToLowerInvariant() -notin $mutatingMethods) { continue }
+                    $writtenVar = $site.Expression.VariablePath.UserPath
+                }
+                else {
+                    $writtenVar = Get-PfbParameterVariableName -Command $site -ParameterName 'Into'
+                }
+
+                if ($writtenVar -and $writtenVar -in $guardQueryVars) {
+                    $queryWriteAfterGuard = $true
+                }
+            }
+        }
+
+        # I-1, first half: a guard that runs AFTER the request cannot stop it. Offsets, not
+        # statement indexes, so this survives any nesting the other rails allow.
+        $guardAfterSomeInvoke = $false
+        if ($guardCalls.Count -gt 0 -and $invokeCalls.Count -gt 0) {
+            $firstGuardOffset = ($guardCalls |
+                ForEach-Object { $_.Extent.StartOffset } |
+                Measure-Object -Minimum).Minimum
+            $firstInvokeOffset = ($invokeCalls |
+                ForEach-Object { $_.Extent.StartOffset } |
+                Measure-Object -Minimum).Minimum
+            $guardAfterSomeInvoke = ($firstGuardOffset -gt $firstInvokeOffset)
+        }
+
+        # I-1, second half: the predicate is only a guard if its answer is acted on. A bare
+        # `Test-PfbEmptyPipelineRead ...` statement, or `$null = Test-...`, evaluates the
+        # predicate and discards it -- and still counts as AlreadyPresent to the generator.
+        # Require the call to BE the condition of an if whose taken branch returns.
+        $guardReturns = $false
+        foreach ($guard in $guardCalls) {
+            $pipeline = $guard.Parent
+            if ($pipeline -isnot [System.Management.Automation.Language.PipelineAst]) { continue }
+            $ifStatement = $pipeline.Parent
+            if ($ifStatement -isnot [System.Management.Automation.Language.IfStatementAst]) { continue }
+
+            foreach ($clause in $ifStatement.Clauses) {
+                if (-not [object]::ReferenceEquals($clause.Item1, $pipeline)) { continue }
+                $returns = @($clause.Item2.FindAll({
+                            param($node)
+                            $node -is [System.Management.Automation.Language.ReturnStatementAst]
+                        }, $true) | Where-Object {
+                        # A return inside a scriptblock in the branch returns from the
+                        # scriptblock, not the cmdlet.
+                        -not (Test-PfbNestedInScriptBlockExpression -Node $_ -Stop $clause.Item2)
+                    })
+                if ($returns.Count -gt 0) { $guardReturns = $true }
+            }
+        }
+
+        [PSCustomObject]@{
+            File                                = $File
+            Function                            = $Function.Name
+            Line                                = $Function.Extent.StartLineNumber
+            HasProcess                          = $hasProcess
+            HasNamedEnd                         = $hasNamedEnd
+            InvokeCallsInEnd                    = $invokeCalls.Count
+            InvokeCallsTotal                    = $allInvokes.Count
+            GuardCallsInEnd                     = $guardCalls.Count
+            InvokeNestedInScriptBlockExpression = ($nestedInvokes.Count -gt 0)
+            NestedInvokeLines                   = @($nestedInvokes | ForEach-Object { $_.Extent.StartLineNumber })
+            GuardNestedInScriptBlockExpression  = ($nestedGuards.Count -gt 0)
+            QueryVarMismatch                    = $queryVarMismatch
+            QueryWriteAfterGuard                = $queryWriteAfterGuard
+            GuardAfterSomeInvoke                = $guardAfterSomeInvoke
+            GuardReturns                        = $guardReturns
+        }
+    }
+
     $script:records = @(
         foreach ($file in (Get-ChildItem -Path $script:publicRoot -Filter '*.ps1' -Recurse -File)) {
             $relative = $file.FullName.Substring($script:moduleRoot.Length).TrimStart('\', '/').Replace('\', '/')
@@ -77,199 +282,7 @@ BeforeAll {
                     }, $true))
 
             foreach ($function in $functions) {
-                $endBlock = $function.Body.EndBlock
-                $processBlock = $function.Body.ProcessBlock
-                $hasNamedEnd = ($null -ne $endBlock -and -not $endBlock.Unnamed)
-                $hasProcess = ($null -ne $processBlock -and -not $processBlock.Unnamed)
-
-                $invokeCalls = @()
-                $guardCalls = @()
-                if ($null -ne $endBlock) {
-                    $invokeCalls = @($endBlock.FindAll({
-                                param($node)
-                                $node -is [System.Management.Automation.Language.CommandAst] -and
-                                $node.GetCommandName() -eq 'Invoke-PfbApiRequest'
-                            }, $true))
-
-                    $guardCalls = @($endBlock.FindAll({
-                                param($node)
-                                $node -is [System.Management.Automation.Language.CommandAst] -and
-                                $node.GetCommandName() -eq 'Test-PfbEmptyPipelineRead'
-                            }, $true))
-                }
-
-                # Call-shape invariant: the request must stay a direct statement of the cmdlet
-                # block, not a statement of some nested scriptblock.
-                $allInvokes = @($function.FindAll({
-                            param($node)
-                            $node -is [System.Management.Automation.Language.CommandAst] -and
-                            $node.GetCommandName() -eq 'Invoke-PfbApiRequest'
-                        }, $true))
-                $nestedInvokes = @($allInvokes | Where-Object {
-                        Test-PfbNestedInScriptBlockExpression -Node $_ -Stop $function
-                    })
-
-                # Guard placement: a guard nested in a scriptblock returns from the scriptblock.
-                $nestedGuards = @($guardCalls | Where-Object {
-                        Test-PfbNestedInScriptBlockExpression -Node $_ -Stop $endBlock
-                    })
-
-                $guardQueryVars = @($guardCalls |
-                    ForEach-Object { Get-PfbParameterVariableName -Command $_ -ParameterName 'QueryParams' } |
-                    Where-Object { $_ })
-                $invokeQueryVars = @($invokeCalls |
-                    ForEach-Object { Get-PfbParameterVariableName -Command $_ -ParameterName 'QueryParams' } |
-                    Where-Object { $_ })
-
-                # Does the guard read the same hashtable the request is handed? A guard on some
-                # other variable is inert.
-                $queryVarMismatch = $false
-                if ($guardCalls.Count -gt 0) {
-                    if ($guardQueryVars.Count -ne $guardCalls.Count) {
-                        $queryVarMismatch = $true
-                    }
-                    else {
-                        foreach ($name in $invokeQueryVars) {
-                            if ($name -notin $guardQueryVars) { $queryVarMismatch = $true }
-                        }
-                    }
-                }
-
-                # Any write to the guarded hashtable AFTER the guard makes the guard unable to fire
-                # for the very key it is supposed to see missing.
-                #
-                # An index-assignment-only detector is NOT enough, and the mirror harm is worse than
-                # the one this rail was written for: hoisting a guard above
-                # `Add-PfbCommonQueryParams -Into $queryParams` leaves the guard reading an empty
-                # hashtable on EVERY piped invocation, so a legitimate piped read carrying names
-                # silently returns nothing. That shape passes a literal-key detector and also
-                # satisfies the generator's AlreadyPresent recognizer. (This repo has already paid
-                # once for a literal-key-only detector -- see the 269-endpoint drift blind spot.)
-                #
-                # So match every write form the language offers on a variable we already know by
-                # name: $q[...] = , $q.Foo = , $q.Add()/.Remove()/.Clear()/.set_Item(), and any
-                # command handing the variable to an -Into parameter (the repo's writer convention).
-                $queryWriteAfterGuard = $false
-                if ($guardCalls.Count -gt 0 -and $guardQueryVars.Count -gt 0) {
-                    $firstGuardOffset = ($guardCalls |
-                        ForEach-Object { $_.Extent.StartOffset } |
-                        Measure-Object -Minimum).Minimum
-
-                    $mutatingMethods = @('add', 'remove', 'clear', 'set_item')
-
-                    $writeSites = @($endBlock.FindAll({
-                                param($node)
-
-                                # $q['k'] = v   /   $q.k = v
-                                if ($node -is [System.Management.Automation.Language.AssignmentStatementAst]) {
-                                    $left = $node.Left
-                                    if ($left -is [System.Management.Automation.Language.IndexExpressionAst] -and
-                                        $left.Target -is [System.Management.Automation.Language.VariableExpressionAst]) {
-                                        return $true
-                                    }
-                                    if ($left -is [System.Management.Automation.Language.MemberExpressionAst] -and
-                                        $left.Expression -is [System.Management.Automation.Language.VariableExpressionAst]) {
-                                        return $true
-                                    }
-                                    return $false
-                                }
-
-                                # $q.Add(...) and friends
-                                if ($node -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
-                                    return ($node.Expression -is [System.Management.Automation.Language.VariableExpressionAst])
-                                }
-
-                                # Add-PfbCommonQueryParams -Into $q
-                                if ($node -is [System.Management.Automation.Language.CommandAst]) {
-                                    return $true
-                                }
-
-                                return $false
-                            }, $true))
-
-                    foreach ($site in $writeSites) {
-                        if ($site.Extent.StartOffset -le $firstGuardOffset) { continue }
-
-                        $writtenVar = $null
-                        if ($site -is [System.Management.Automation.Language.AssignmentStatementAst]) {
-                            $left = $site.Left
-                            if ($left -is [System.Management.Automation.Language.IndexExpressionAst]) {
-                                $writtenVar = $left.Target.VariablePath.UserPath
-                            }
-                            else {
-                                $writtenVar = $left.Expression.VariablePath.UserPath
-                            }
-                        }
-                        elseif ($site -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
-                            $memberName = "$($site.Member)"
-                            if ($memberName.ToLowerInvariant() -notin $mutatingMethods) { continue }
-                            $writtenVar = $site.Expression.VariablePath.UserPath
-                        }
-                        else {
-                            $writtenVar = Get-PfbParameterVariableName -Command $site -ParameterName 'Into'
-                        }
-
-                        if ($writtenVar -and $writtenVar -in $guardQueryVars) {
-                            $queryWriteAfterGuard = $true
-                        }
-                    }
-                }
-
-                # I-1, first half: a guard that runs AFTER the request cannot stop it. Offsets, not
-                # statement indexes, so this survives any nesting the other rails allow.
-                $guardAfterSomeInvoke = $false
-                if ($guardCalls.Count -gt 0 -and $invokeCalls.Count -gt 0) {
-                    $firstGuardOffset = ($guardCalls |
-                        ForEach-Object { $_.Extent.StartOffset } |
-                        Measure-Object -Minimum).Minimum
-                    $firstInvokeOffset = ($invokeCalls |
-                        ForEach-Object { $_.Extent.StartOffset } |
-                        Measure-Object -Minimum).Minimum
-                    $guardAfterSomeInvoke = ($firstGuardOffset -gt $firstInvokeOffset)
-                }
-
-                # I-1, second half: the predicate is only a guard if its answer is acted on. A bare
-                # `Test-PfbEmptyPipelineRead ...` statement, or `$null = Test-...`, evaluates the
-                # predicate and discards it -- and still counts as AlreadyPresent to the generator.
-                # Require the call to BE the condition of an if whose taken branch returns.
-                $guardReturns = $false
-                foreach ($guard in $guardCalls) {
-                    $pipeline = $guard.Parent
-                    if ($pipeline -isnot [System.Management.Automation.Language.PipelineAst]) { continue }
-                    $ifStatement = $pipeline.Parent
-                    if ($ifStatement -isnot [System.Management.Automation.Language.IfStatementAst]) { continue }
-
-                    foreach ($clause in $ifStatement.Clauses) {
-                        if (-not [object]::ReferenceEquals($clause.Item1, $pipeline)) { continue }
-                        $returns = @($clause.Item2.FindAll({
-                                    param($node)
-                                    $node -is [System.Management.Automation.Language.ReturnStatementAst]
-                                }, $true) | Where-Object {
-                                # A return inside a scriptblock in the branch returns from the
-                                # scriptblock, not the cmdlet.
-                                -not (Test-PfbNestedInScriptBlockExpression -Node $_ -Stop $clause.Item2)
-                            })
-                        if ($returns.Count -gt 0) { $guardReturns = $true }
-                    }
-                }
-
-                [PSCustomObject]@{
-                    File                                = $relative
-                    Function                            = $function.Name
-                    Line                                = $function.Extent.StartLineNumber
-                    HasProcess                          = $hasProcess
-                    HasNamedEnd                         = $hasNamedEnd
-                    InvokeCallsInEnd                    = $invokeCalls.Count
-                    InvokeCallsTotal                    = $allInvokes.Count
-                    GuardCallsInEnd                     = $guardCalls.Count
-                    InvokeNestedInScriptBlockExpression = ($nestedInvokes.Count -gt 0)
-                    NestedInvokeLines                   = @($nestedInvokes | ForEach-Object { $_.Extent.StartLineNumber })
-                    GuardNestedInScriptBlockExpression  = ($nestedGuards.Count -gt 0)
-                    QueryVarMismatch                    = $queryVarMismatch
-                    QueryWriteAfterGuard                = $queryWriteAfterGuard
-                    GuardAfterSomeInvoke                = $guardAfterSomeInvoke
-                    GuardReturns                        = $guardReturns
-                }
+                Get-PfbGuardRecord -Function $function -File $relative
             }
         }
     )
