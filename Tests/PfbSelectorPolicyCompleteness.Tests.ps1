@@ -308,6 +308,13 @@ Describe 'Selector policy completeness' {
     }
 
     It 'can scan every guarded QueryParams argument' {
+        # KNOWN LIMIT, stated because it is the one hole the escape hatch does NOT cover: a write
+        # through an ALIAS of the query hashtable (`$alias = $queryParams; $alias['k'] = 'v'`)
+        # defeats the gate silently. The -QueryParams argument is still a bare variable, so it
+        # scans cleanly and produces no 'unscannable-query-argument' record, but the key write is
+        # attributed to $alias and Get-PfbQueryKeyWrite is only ever asked about the names the
+        # request itself receives. Zero occurrences in Public/ today and no runtime effect; noted
+        # so a future scanner change knows the escape hatch is not a complete backstop.
         $unscannable = @($script:keyRecords | Where-Object { $_.Shape -eq 'unscannable-query-argument' })
         $detail = @($unscannable | ForEach-Object { "$($_.Source) line $($_.Line)" }) -join "`n"
 

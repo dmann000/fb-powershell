@@ -74,6 +74,19 @@ Describe 'Resolve-PfbQueryKeyDisplayName' {
         # Guards the transform against a key shape it cannot handle. Eleven resolve; 'protocols'
         # is the known and deliberate miss. If a twelfth ever starts missing, the message quietly
         # degrades to wire keys and nobody notices -- so pin the split.
+        #
+        # NOTE ON WHAT THIS ASSERTS. This block does NOT call Resolve-PfbQueryKeyDisplayName; it
+        # reimplements the transform below and asserts the TREE's conformance to it -- that each
+        # listed wire key does or does not correspond to a declared parameter on the shipped cmdlet
+        # that writes it. Calling the function here is not possible: its -Caller is a live
+        # [PSCmdlet], which the runtime only materialises inside an executing advanced function, so
+        # obtaining one for Get-PfbFileSystem would mean actually invoking Get-PfbFileSystem.
+        #
+        # The function's own behaviour is covered by the three Its above, which call it for real
+        # through fixture functions with a genuine $PSCmdlet, and end to end by
+        # Tests/Write-PfbEmptyPipelineDiagnostic.Tests.ps1, which pins the rendered message.
+        # What is duplicated here is the transform, and the two copies diverging is precisely what
+        # the three Its above would catch.
         $cases = @(
             @{ Key = 'limit';              Cmdlet = 'Get-PfbFileSystem';                          Expected = '-Limit' }
             @{ Key = 'sort';               Cmdlet = 'Get-PfbFileSystem';                          Expected = '-Sort' }
