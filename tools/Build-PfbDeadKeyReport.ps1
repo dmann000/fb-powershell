@@ -110,9 +110,16 @@ function Test-PfbDeadKeySelectorName {
     #
     # This is NOT the empty-pipeline selector policy, and the two deliberately differ (#126).
     # That one is a DENYLIST in Private/PfbSelectorPolicyConstants.ps1: anything not listed reads
-    # as a selector, including context_names, and it admits no singular name/id. This one excludes
-    # context_names and ids_or_names explicitly and does admit the singular forms (harmless today
-    # -- neither is written as a query key anywhere in Public/).
+    # as a selector. The real divergence is narrow -- this function excludes context_names and
+    # ids_or_names explicitly, while the denylist does not name them and therefore reads both as
+    # selectors.
+    #
+    # Note where the two AGREE, because the shape of this function invites the opposite
+    # assumption: singular name/id are absent from the denylist too, so the runtime reads them as
+    # selectors exactly as the first line here does. The classifier that genuinely rejects the
+    # singular forms is neither of these -- it is Test-PfbIdentityShapedKey in
+    # Tests/PfbSelectorPolicyCompleteness.Tests.ps1, which matches @('names', 'ids') exactly. Do
+    # not attribute that behaviour to the runtime denylist.
     #
     # The divergence is intended because the failure directions are opposite. A report that
     # misclassifies produces a wrong ROW; the runtime policy DISCARDS A REQUEST. Reconcile them

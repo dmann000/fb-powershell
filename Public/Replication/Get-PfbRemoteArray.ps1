@@ -56,8 +56,10 @@ function Get-PfbRemoteArray {
         # current_fleet_only is a scope flag, not a selector, and is written on every path -- so
         # it must not count toward "a selector reached the query". Since #126 the CLASSIFICATION
         # is what enforces that: the key is on $script:PfbNonSelectorQueryKeys
-        # (Private/PfbSelectorPolicyConstants.ps1) and the guard would behave identically below
-        # the write. The placement is kept because moving it buys nothing and would need a
+        # (Private/PfbSelectorPolicyConstants.ps1), so the guard reaches the same
+        # suppress-or-issue DECISION whether it sits above or below the write. The DIAGNOSTIC
+        # differs, and not in this cmdlet's favour -- see the last paragraph. The placement is
+        # kept because moving it buys nothing and would need a
         # matching change to $allowedPostGuardWrite in
         # Tests/PfbEmptyPipelineGuardCoverage.Tests.ps1, which still allowlists this cmdlet by
         # name for writing a query key after its guard.
