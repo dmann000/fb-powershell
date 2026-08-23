@@ -107,6 +107,40 @@ function Test-PfbDeadKeySelectorName {
 
     # Exact anchors are intentional. In particular, do not use a suffix regex that would
     # classify usernames, grids, ids_or_names, or context_names as selectors.
+    #
+    # This is NOT the empty-pipeline selector policy, and the two deliberately differ (#126).
+    # They differ in KIND, not in a handful of keys. This function is an ALLOWLIST of identity
+    # shapes; Private/PfbSelectorPolicyConstants.ps1 is a DENYLIST of twelve scope keys where
+    # anything unlisted reads as a selector. They therefore disagree on AT LEAST every key that is
+    # neither identity-shaped nor denylisted. Do not describe the divergence as narrow.
+    #
+    # Where it can actually BITE is far smaller, and worth stating exactly rather than by
+    # proportion: the only key both classifiers see and disagree about is 'filter'. This function
+    # calls it not-a-selector; the runtime calls it a selector, deliberately, because it is the
+    # module's one caller-authored predicate. Each is right for its own purpose. Of the 130 cmdlets
+    # carrying an empty-pipeline guard, 124 can put that key in a query -- the ones declaring
+    # -Filter, which always reaches the query through Add-PfbCommonQueryParams' ContainsKey gate
+    # rather than as a literal write.
+    #
+    # That set cannot grow unnoticed: a divergent key is by definition neither denylisted nor
+    # identity-shaped, and Tests/PfbSelectorPolicyCompleteness.Tests.ps1 reds the build when a
+    # guarded cmdlet writes exactly such a key. The COUNT will move as cmdlets are added; the SET
+    # will not change silently.
+    #
+    # By contrast the two keys this function excludes BY NAME -- context_names and ids_or_names --
+    # cannot reach the runtime policy at all: context_names is injected into a CLONE inside
+    # Invoke-PfbApiRequest after the guard has run, and ids_or_names is never written as a query
+    # key in Public/. An explicit exclusion here is therefore not evidence of a runtime divergence.
+    #
+    # Note also where the two AGREE, because the shape of this function invites the opposite
+    # assumption: singular name/id are absent from the denylist too, so the runtime reads them as
+    # selectors exactly as the first line here does. The classifier that genuinely rejects the
+    # singular forms is neither of these -- it is Test-PfbIdentityShapedKey in
+    # Tests/PfbSelectorPolicyCompleteness.Tests.ps1, which matches @('names', 'ids') exactly.
+    #
+    # The divergence is intended because the failure directions are opposite. A report that
+    # misclassifies produces a wrong ROW; the runtime policy DISCARDS A REQUEST. Reconcile them
+    # only with a reason that survives that asymmetry -- do not "fix" one to match the other.
     if ($WireName -in @('names', 'ids', 'name', 'id')) { return $true }
     if ($WireName -in @('context_names', 'ids_or_names')) { return $false }
     return $WireName.EndsWith('_names', [System.StringComparison]::Ordinal) -or
