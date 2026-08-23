@@ -68,9 +68,9 @@ BeforeAll {
     # body, a loop body, a switch clause, a catch, or a trap.
     #
     # THE TRAP: every one of the 130 guards has an IfStatementAst directly above it because
-    # `if (Test-PfbEmptyPipelineRead ...) { return }` IS the shipped shape. The guard sits in that
-    # if's CONDITION (Clauses[i].Item1), not in its BODY (Clauses[i].Item2). Compare against the
-    # body only, or the rail reds the entire population.
+    # `if (Test-PfbEmptyPipelineRead ...) { return }` IS the shipped shape. The leading if condition
+    # (Clauses[0].Item1) is unconditional, but an elseif condition (Clauses[i].Item1 for i > 0) is
+    # conditional on every earlier clause being false. Clause bodies (Item2) are hazards too.
     #
     # SwitchStatementAst derives from LabeledStatementAst, NOT LoopStatementAst, so it needs its
     # own branch -- a chain that only handles LoopStatementAst misses every switch.
@@ -88,7 +88,11 @@ BeforeAll {
             $hazard = $null
 
             if ($cursor -is [System.Management.Automation.Language.IfStatementAst]) {
-                foreach ($clause in $cursor.Clauses) {
+                for ($i = 0; $i -lt $cursor.Clauses.Count; $i++) {
+                    $clause = $cursor.Clauses[$i]
+                    if ($i -gt 0 -and [object]::ReferenceEquals($clause.Item1, $child)) {
+                        return 'elseif-condition'
+                    }
                     if ([object]::ReferenceEquals($clause.Item2, $child)) {
                         return 'if-clause-body'
                     }
@@ -513,6 +517,17 @@ function Get-PfbFixture {
 }
 '@
         $hazardFixtures = [ordered]@{
+            'elseif-condition' = @'
+function Get-PfbFixture {
+    process { }
+    end {
+        $queryParams = @{}
+        if ($condition) { $null = 1 }
+        elseif (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
+        Invoke-PfbApiRequest -Method GET -Endpoint 'x' -QueryParams $queryParams
+    }
+}
+'@
             'if-clause-body' = @'
 function Get-PfbFixture {
     process { }
