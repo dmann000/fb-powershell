@@ -19,7 +19,17 @@ function Test-PfbEmptyPipelineRead {
             `Get-PfbX -Limit 10` remains the deliberate unfiltered read it has always been.
           - THE LIST DECIDES, NOT A SPELLING TEST. The shape test used by
             Tests/PfbSelectorPolicyCompleteness.Tests.ps1 is a CI construct and must never be
-            consulted here -- it classifies context_names as a selector and the list does not.
+            consulted here, because the two have OPPOSITE DEFAULTS: an unmatched key is
+            NOT-a-selector to the shape test and IS a selector to this list. Consulting it would
+            reclassify 'filter' -- the module's one caller-authored predicate, which matches no
+            identity shape -- as scope, and suppress a legitimately filtered call.
+
+            The reason is NOT that the two disagree about context_names. They do not: it is
+            absent from this list, so the list reads it as a SELECTOR, the same answer the shape
+            test gives. It is moot in any case, because context_names is injected into a CLONE
+            inside Invoke-PfbApiRequest after this function returns and is never in the hashtable
+            inspected here. Earlier revisions of this comment asserted a disagreement; there is
+            none, and the same false claim is worth not reintroducing.
 
         Its input is the PRE-REQUEST query state, not the fully built wire query: context_names is
         injected into a clone inside Invoke-PfbApiRequest after this returns, and
