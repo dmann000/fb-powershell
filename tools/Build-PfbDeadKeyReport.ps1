@@ -111,14 +111,22 @@ function Test-PfbDeadKeySelectorName {
     # This is NOT the empty-pipeline selector policy, and the two deliberately differ (#126).
     # They differ in KIND, not in a handful of keys. This function is an ALLOWLIST of identity
     # shapes; Private/PfbSelectorPolicyConstants.ps1 is a DENYLIST of twelve scope keys where
-    # anything unlisted reads as a selector. So they disagree on every key that is neither
-    # identity-shaped nor denylisted -- measured in August 2026, 198 of the 261 names in this
-    # report's domain and 34 of the 93 query keys actually written in Public/. Those counts will
-    # drift; the structural reason will not. Do not describe the divergence as narrow.
+    # anything unlisted reads as a selector. They therefore disagree on AT LEAST every key that is
+    # neither identity-shaped nor denylisted, which on any inventory you care to measure is most of
+    # it. Do not describe the divergence as narrow.
     #
-    # The disagreement that can actually bite is 'filter'. This function calls it not-a-selector;
-    # the runtime calls it a selector, deliberately, because it is the module's one caller-authored
-    # predicate. Each is right for its own purpose.
+    # Where it can actually BITE is far smaller, and worth stating exactly rather than by
+    # proportion: the only key both classifiers see and disagree about is 'filter'. This function
+    # calls it not-a-selector; the runtime calls it a selector, deliberately, because it is the
+    # module's one caller-authored predicate. Each is right for its own purpose. Of the 130 cmdlets
+    # carrying an empty-pipeline guard, 124 can put that key in a query -- the ones declaring
+    # -Filter, which always reaches the query through Add-PfbCommonQueryParams' ContainsKey gate
+    # rather than as a literal write.
+    #
+    # That set cannot grow unnoticed: a divergent key is by definition neither denylisted nor
+    # identity-shaped, and Tests/PfbSelectorPolicyCompleteness.Tests.ps1 reds the build when a
+    # guarded cmdlet writes exactly such a key. The COUNT will move as cmdlets are added; the SET
+    # will not change silently.
     #
     # By contrast the two keys this function excludes BY NAME -- context_names and ids_or_names --
     # cannot reach the runtime policy at all: context_names is injected into a CLONE inside
