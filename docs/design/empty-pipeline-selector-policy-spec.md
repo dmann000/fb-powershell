@@ -4,8 +4,12 @@ Design spec for issue #126. Companion to #128, which lands with it.
 
 ## Status
 
-Proposed. Supersedes nothing; this is the first written statement of a policy the module has been
-approximating since PR #125.
+**Proposed, with three questions still open** — see *Open questions* at the end. Those are marked
+inline as **OPEN** where they bear on a section; everything else is settled.
+
+This is not the module's first selector classifier. `tools/Build-PfbDeadKeyReport.ps1` already has
+`Test-PfbDeadKeySelectorName`, used by the dead-key report. The two must be reconciled — see
+*Relationship to the existing classifier*.
 
 ## The problem
 
@@ -26,67 +30,80 @@ Any bound key at all leaves the hashtable non-empty and defeats the guard:
 ```
 
 The distinction the predicate is missing is not "bound versus unbound" — it is what the bound key
-*means*. `-Filter` addresses objects the caller chose. `-Limit`, `-Sort`, `-Destroyed`,
-`-StartTime` and `-ContextNames` do not; they shape or scope a result set the caller did not choose.
-So the harm #121 was filed for — an empty search silently becoming an unfiltered read — survives on
-every invocation that binds a non-selector.
+*means*. `-Filter` addresses objects the caller chose. `-Limit`, `-Sort`, `-Destroyed`, `-StartTime`
+and `-Resolution` do not; they shape or scope a result set the caller did not choose. So the harm
+#121 was filed for — an empty search silently becoming an unfiltered read — survives on every
+invocation that binds a non-selector.
 
-## Why this is a safety rail, not a pipeline-semantics rule
+Issue #126's own table lists `-ContextNames` among the offending parameters. That is incorrect and is
+not carried forward here: no guarded cmdlet has such a parameter. Fleet context arrives as session
+state and is injected inside `Invoke-PfbApiRequest`, after the guard has already run, so
+`@() | Get-PfbFileSystem` under a session context is **already suppressed today**.
 
-This framing decides the whole design, so it is stated before the mechanism.
+## The goal, and the gap this proposal leaves
 
-Issue #121's severity argument was about blast radius, not about pipeline etiquette: *"for a read
-whose output feeds a `Remove-*`, it is the case that destroys something the caller never selected"*,
-and *"silence is the dangerous direction — the caller has no signal that the filter did not apply."*
-The measured finding was `$empty | Get-PfbFileSystemSnapshot` returning 28 objects, the same count as
-an unfiltered read, because the endpoint ignored a malformed `names` key.
+The rule this spec works toward:
 
-PR #125 restated the goal in the same terms — "an empty pipeline no longer becomes an unfiltered read
-or write" — and it already made one classification of exactly this kind by hand, for
-`Get-PfbRemoteArray`, on the grounds that "`current_fleet_only` is a scope flag, not a selector."
+> An empty pipeline should not become a request that returns or mutates objects the caller did not
+> address.
 
-So the rule this spec defines is:
+Stated as a goal rather than an invariant, deliberately. **The policy below does not fully achieve
+it**, and saying otherwise would be false. Two residual gaps are known and named in this document —
+the unclassified-key default (*The decision*) and the container-scope case (*What a per-key list
+cannot express*). Whether to close the first is the main open question.
 
-> **An empty pipeline must never become a request that returns or mutates objects the caller did not
-> address.**
+### Why this is a safety concern and not a pipeline-semantics question
 
-The rejected alternative is worth recording because it is the more elegant rule and it is wrong for
-this issue. A pure pipeline-source reading — *"if the pipeline was the selector source and it
-produced nothing, issue nothing"* — needs no vocabulary at all: the guard can read
-`$Caller.MyInvocation.MyCommand.Parameters` for the `ValueFromPipeline` parameters and ask whether
-any appears in `$Caller.MyInvocation.BoundParameters`, which is about ten lines and no list to
-maintain. It is rejected because it also suppresses `@() | Get-PfbFileSystem -Filter "name='x'"`,
-where the caller *did* constrain scope and the array would have evaluated the constraint. That is a
-regression against today's behaviour in the one case #126's own table calls correct.
+Issue #121's severity argument was about blast radius: *"for a read whose output feeds a `Remove-*`,
+it is the case that destroys something the caller never selected"*, and *"silence is the dangerous
+direction — the caller has no signal that the filter did not apply."* The measured finding was
+`$empty | Get-PfbFileSystemSnapshot` returning 28 objects, the same count as an unfiltered read,
+because the endpoint ignored a malformed `names` key.
 
-## Decision: classify the non-selectors, not the selectors
+PR #125 restated the goal the same way — "an empty pipeline no longer becomes an unfiltered read or
+write" — and already made one classification of this kind by hand, for `Get-PfbRemoteArray`, on the
+grounds that "`current_fleet_only` is a scope flag, not a selector."
+
+## The decision
+
+**OPEN — see question 1.** The proposal below is a global non-selector list. A reviewer has argued
+for replacing it with a generated per-(cmdlet, endpoint, key) classification carrying an explicit
+`unresolved` state that fails CI. The list below survives either way as the runtime data; what is
+open is whether an *unclassified* key may default to "selector" at all.
 
 Issue #126 offers a module-wide convention keyed on `names`/`ids` and their non-generic equivalents.
-This spec inverts it: **enumerate the query keys that do *not* address objects, and treat everything
+This spec inverts it: **enumerate the query keys that do not address objects, and treat everything
 else as a selector.**
 
 ### Why the inversion, and not the allowlist
 
-The failure directions are asymmetric, and only one of them is acceptable under a safety rail:
+The two shapes fail differently:
 
 | Policy shape | A key nobody classified | Consequence |
 |---|---|---|
-| Allowlist of selector keys | reads as *not a selector* → **suppress** | Silently breaks a working call. New harm, in the same silent direction #121 was filed for, just pointed the other way |
-| Denylist of shaping keys | reads as *selector* → **issue** | Exactly today's behaviour. The guard simply has not been extended to that case yet |
+| Allowlist of selector keys | reads as *not a selector* → **suppress** | Silently breaks a working call — a new failure that did not exist before |
+| Denylist of shaping keys | reads as *selector* → **issue** | The guard does not fire. Matches the pre-#126 behaviour of that call |
 
-A forgotten key must degrade to a missed guard, never to an eaten request.
-
-The allowlist's failure mode is not hypothetical. `Private/Add-PfbCommonQueryParams.ps1` hardcodes
-the generic `names` and `ids` keys, so a convention derived from that helper does not see
+The allowlist's failure mode is concrete, not hypothetical. `Private/Add-PfbCommonQueryParams.ps1`
+hardcodes the generic `names` and `ids` keys, so a convention derived from that helper does not see
 `policy_names`, `remote_names`, `member_names` or `bucket_names` at all — it would classify the
-module's most common selectors as non-selectors, which is precisely the direction that issues the
-unfiltered read. Under the inversion those keys need no entry and cannot be got wrong.
+module's most common selectors as non-selectors, which is the direction that issues the unfiltered
+read. Under the inversion those keys need no entry and cannot be got wrong.
+
+**State the limit of this argument plainly, because an earlier draft overstated it.** "Matches the
+pre-#126 behaviour" is a compatibility property, not a safety property. A future key that broadens a
+result set — a projection switch, an all-contexts flag, a recursive option — would default to
+"selector", issue the request, and return a broader result than the caller addressed, with no
+warning, because the warning below fires only on *known* non-selectors. `expose_api_token` is a live
+example of the class and is caught only because it was hand-listed. The denylist's default is
+therefore *better* than the allowlist's, not *safe*. Question 1 asks whether to remove the default
+from the picture entirely by making the unclassified set provably empty.
 
 The inversion is also self-limiting. Shaping, paging and scoping vocabulary is REST-wide and changes
-rarely; selector vocabulary is per-resource and grows with every endpoint added. Measured over the
-130 guarded cmdlets, their own bodies write **32 distinct query keys** — this count excludes the keys
-written centrally, which are enumerated in full below — and **23 of the 32** are `*_names` / `*_ids`
-selectors:
+rarely; selector vocabulary is per-resource and grows with every endpoint. Measured over the 130
+guarded cmdlets, their own bodies write **32 distinct query keys** — and only **46 of the 130** write
+any key at all; the other 84 see nothing but `Add-PfbCommonQueryParams`'s output. **23 of the 32** are
+`*_names` / `*_ids` selectors:
 
 ```
 policy_names 13   policy_ids 10   bucket_names 6    member_names 5   remote_names 4
@@ -97,14 +114,12 @@ group_names 1     realm_names 1   source_names 1    local_port_names 1
 names_or_owner_names 1
 ```
 
-Every one of the 23 matches `names`, `ids`, or a `_names` / `_ids` suffix, which is what makes the
-shape test in the completeness rail below viable. The remaining **nine**, plus the three common and
-three centrally-injected keys, are the entire list to maintain — fifteen entries.
+Every one of the 23 matches `names`, `ids`, or a `_names` / `_ids` suffix. The remaining **nine** are
+the per-cmdlet non-selectors listed below.
 
 ## The non-selector list
 
-Fifteen entries, grouped by where the key is written. Each carries the reason it does not address
-objects, because that reason is the only thing that makes the entry reviewable.
+Twelve entries the predicate can actually see.
 
 ### Written by `Add-PfbCommonQueryParams`
 
@@ -112,180 +127,281 @@ objects, because that reason is the only thing that makes the entry reviewable.
 |---|---|
 | `limit` | Caps the size of a result set. Does not choose which objects are in it |
 | `sort` | Orders a result set |
-| `total_only` | Changes the response shape to a count. Harmless in effect, but it does not address objects |
+| `total_only` | Changes the response shape to a count |
 
-`filter` is written by the same helper and is **a selector**: the array evaluates it server-side to
-choose objects. This is the case that separates this spec from the pipeline-semantics alternative.
-
-### Injected centrally by `Invoke-PfbApiRequest`
-
-| Key | Why it is not a selector |
-|---|---|
-| `continuation_token` | Pagination cursor |
-| `context_names` | Scopes to arrays in a fleet — it *widens* the object set rather than narrowing it |
-| `allow_errors` | Error-handling behaviour, not object selection |
+`filter` is written by the same helper and is **a selector**: `components.parameters.Filter` in the
+published spec reads *"Narrows down the results to only the response objects that satisfy the filter
+criteria"* — server-side evaluated and object-narrowing.
 
 ### Written by individual guarded cmdlets
 
-| Key | Cmdlets | Why it is not a selector |
+Counts and cmdlet lists below are **the guarded population only**. Several of these keys are also
+written by non-guarded cmdlets, where this policy has no effect; those occurrences are excluded.
+
+| Key | Guarded cmdlets | Why it is not a selector |
 |---|---|---|
-| `start_time`, `end_time` | 16 performance/log cmdlets | Bounds a time window over whichever objects are in scope |
-| `resolution` | 15 performance cmdlets | Sample granularity |
-| `destroyed` | `Get-PfbBucket`, `Get-PfbFileSystem`, `Get-PfbFileSystemSnapshot`, `Get-PfbRealm`, `Get-PfbWorkload` | Scopes to a lifecycle subset. Every destroyed object, not chosen ones |
-| `current_fleet_only` | `Get-PfbRemoteArray` | Scope flag. Already classified this way by hand in PR #125 |
-| `type` | `Get-PfbArraySpace`, `Get-PfbArrayPerformanceReplication`, `Get-PfbArrayConnectionPerformanceReplication` | Narrows to a category of measurement, not to named objects |
-| `protocols` | `Get-PfbFileSystemSession` | Narrows to a protocol category |
-| `flagged` | `Get-PfbAlert` | Boolean subset scope. See the note below |
-| `expose_api_token` | `Get-PfbApiToken` | Response projection — decides whether a field is populated |
+| `start_time`, `end_time` | 8 each | Bounds a time window over whichever objects are in scope |
+| `resolution` | 8 | Sample granularity |
+| `destroyed` | 4 — `Get-PfbBucket`, `Get-PfbFileSystem`, `Get-PfbFileSystemSnapshot`, `Get-PfbRealm` | Lifecycle-state predicate. See the precision note below |
+| `current_fleet_only` | 1 — `Get-PfbRemoteArray` | Scope flag. Already classified this way by hand in PR #125 |
+| `type` | 1 — `Get-PfbArrayConnectionPerformanceReplication` | **OPEN, question 2** |
+| `protocols` | 1 — `Get-PfbFileSystemSession` | **OPEN, question 2** |
+| `flagged` | 1 — `Get-PfbAlert` | Boolean subset scope. Dead key today (#142) |
+| `expose_api_token` | 1 — `Get-PfbApiToken` | Response projection |
 
-Three of the per-cmdlet keys deserve a note so that a future reader does not read them as mistakes:
+Notes that make individual entries reviewable:
 
-- **`flagged` is a dead key today** (issue #142 — the endpoint declares no such parameter in any of
-  the 29 spec versions), so classifying it changes no behaviour until #142 lands. It is listed now
-  because the list should describe intent, not the current wire.
-- **`source_names` is classified as a selector and is also a dead key.** PR #125's live run found
+- **`destroyed` narrows; it does not "include".** The published parameter reads: `true` lists *only*
+  destroyed objects pending eradication, `false` lists *only* non-destroyed, omitted lists both.
+  Several cmdlet help strings say "Include destroyed…", which contradicts the published contract and
+  should be corrected separately. The module only ever writes `'true'`, from a switch.
+- **`expose_api_token`** changes whether a field is populated, not which objects are returned, so
+  suppressing on it alone can only suppress a call that returns objects the caller did not address.
+  Note it exposes a real credential, which is why it is a live example of the unclassified-key risk
+  described above rather than a reassurance.
+- **`flagged` is a dead key today** (#142 — undeclared in all 29 published versions), so classifying
+  it changes no behaviour until #142 lands. `Get-PfbAlert` writes it via `ContainsKey`, so
+  `-Flagged:$false` also writes the key.
+- **`source_names` is classified a selector and is also a dead key.** PR #125's live run found
   `Get-PfbFileSystemSnapshot -SourceName` does not filter; the endpoint declares
-  `names_or_owner_names`. Its classification is still *selector*, because the classification is about
-  what the parameter means, not whether it currently works.
-- **`expose_api_token` is security-relevant but is not a selector.** Suppressing on it alone would be
-  correct under this policy; nothing about the token surface changes.
+  `names_or_owner_names`. Classification is about what the parameter means, not whether it works.
+- **`protocols` has a `Protocols_required` variant** in the published spec, so on at least one
+  endpoint it is required. A required non-selector can never satisfy the guard by itself, which is
+  correct but surprising.
+
+### Not visible to the predicate — do not add these to the list
+
+An earlier draft listed `continuation_token`, `context_names` and `allow_errors` as centrally
+injected non-selectors. All three are wrong, for different reasons, and each would break the
+reachability rail below:
+
+- **`context_names`** is injected at `Private/Invoke-PfbApiRequest.ps1:83`, into a **clone** made one
+  line earlier specifically so the key cannot leak back to the caller. The guard runs in the caller's
+  `end`, before `Invoke-PfbApiRequest` is entered.
+- **`continuation_token`** is written inside the pagination loop, after a response.
+- **`allow_errors`** is never written into any query hashtable anywhere in the module. It exists only
+  as `$script:PfbAllowErrorsParameterName`, read as a capability-map discriminator.
+
+The predicate's input is therefore the **pre-request query state**, not the fully built wire query.
+The spec's wording should not imply otherwise, and central injection needs its own tests.
+
+## What a per-key list cannot express
+
+A key with selector spelling can sit on a parameter that addresses a *container* rather than the
+returned objects. `Get-PfbBucketAccessPolicyRule` binds `BucketName` from the pipeline;
+`-PolicyName` is `[Parameter()]` in every parameter set and writes `policy_names`:
+
+```powershell
+@() | Get-PfbBucketAccessPolicyRule -PolicyName 'read-only-policy'
+  -> GET buckets/bucket-access-policies/rules?policy_names=read-only-policy
+  -> every rule of that policy, across all buckets
+```
+
+That is #121's harm class, and this policy does **not** suppress it. `Get-PfbLocalGroupMember` has the
+same shape (`$Group` piped → `group_names`; `-Member` → `member_names`).
+
+No per-key list can express this, because the harm is per-(key, cmdlet, which-parameter-is-piped)
+rather than per-key. It is a missed guard rather than new harm, so it does not sink the approach —
+but "everything else is a selector" must not be read as coverage. Note that the rejected alternative
+below handles this case correctly; that is a genuine advantage it has over this proposal.
 
 ## Behaviour
 
-`Get-PfbFileSystem` as the worked example. Only the third row changes.
+`Get-PfbFileSystem` as the worked example.
 
 | Invocation | Today | Under this spec |
 |---|---|---|
-| `Get-PfbFileSystem` (direct, no args) | unfiltered read | unfiltered read — **unchanged**, direct calls are never suppressed |
-| `@() \| Get-PfbFileSystem` | suppressed, silent | suppressed, silent — unchanged |
-| `@() \| Get-PfbFileSystem -Limit 10` | **unfiltered read of 10** | **suppressed, with a warning** |
-| `@() \| Get-PfbFileSystem -Filter "name='x'"` | issued | issued — unchanged |
-| `'fs1' \| Get-PfbFileSystem -Limit 10` | issued | issued — unchanged |
-| `@() \| Get-PfbFileSystem -Name 'only-this'` | suppressed | suppressed — unchanged, and still the sharp edge PR #125 documented |
+| `Get-PfbFileSystem` (direct, no args) | unfiltered read | unchanged — direct calls are never suppressed |
+| `@() \| Get-PfbFileSystem` | suppressed, silent | unchanged |
+| `@() \| Get-PfbFileSystem -Limit 10` | **unfiltered read of 10** | **suppressed** |
+| `@() \| Get-PfbFileSystem -Filter "name='x'"` | issued | unchanged |
+| `'fs1' \| Get-PfbFileSystem -Limit 10` | issued | unchanged |
+| `@() \| Get-PfbFileSystem -Name 'only-this'` | suppressed | unchanged — the PR #125 sharp edge |
+| `@() \| Get-PfbFileSystem -Name 'x' -Limit 10` | **unfiltered read of 10** | **suppressed** |
 
-The last row is unchanged but remains counter-intuitive: `-Name` is the pipeline-bound parameter, so
-an empty pipeline means `process` never ran and the accumulator the query is built from stays empty.
-That is orthogonal to this spec and is not fixed by it.
+The last two rows together are a point in the proposal's favour: today the sharp edge is
+*inconsistent* — adding `-Limit` to an already-suppressed call revives it as an unfiltered read.
+Under this spec both suppress.
 
-## Diagnostics: warn where we discard something the caller typed
+## Diagnostics
 
-Suppression is silent today. Broadening it broadens silence, which is in tension with #121's own
-reasoning that silence is the dangerous direction — and PR #125 already paid that cost once, when
-eleven cmdlets lost an actionable `catch`-block warning on the empty-pipeline path because the guard
-now returns before the request that produced it.
+**OPEN — see question 3.** The rule below is proposed, not settled.
 
-So the rule is drawn on whether anything was discarded, not on severity:
+Suppression is silent today. Broadening it broadens silence, which is in tension with #121's
+reasoning that silence is the dangerous direction.
 
-- **No query keys at all → silent.** Already shipped across 130 cmdlets, and the caller passed
-  nothing to explain.
-- **Non-selector keys only → `Write-Warning`.** The caller typed `-Limit 10` and got nothing back;
-  they are owed the reason.
+Proposed: **no query keys at all → silent; non-selector keys only → `Write-Warning`.**
 
-The warning names the key that was insufficient, so the message is diagnostic rather than a
-restatement:
+Two honest caveats about the motivation usually given for this:
 
-```
-WARNING: Get-PfbFileSystem received no pipeline input, so no object was selected. -Limit
-shapes a result set but does not select objects, so no request was issued. Pass -Name, -Id
-or -Filter to read explicitly.
-```
+- PR #125's "eleven cmdlets lost an actionable warning" is a correct count, but only **four** of the
+  eleven catch a missing-selector error that would fire on a bare empty-pipeline call. The other
+  seven catch model or version capability errors that fire on direct calls too, and `Get-PfbNode`
+  lost a `/nodes` → `/blades` fallback rather than a warning.
+- **This proposal restores none of the four**, because they sit on the no-keys path, which stays
+  silent. The motivation and the rule do not meet, and the spec should not imply they do.
 
-This is what makes a hand-maintained list safe to ship: a misclassification surfaces as a complaint
-naming the key, instead of a request vanishing.
+The message must be generated per cmdlet, not fixed text. A literal "Pass `-Name`, `-Id` or `-Filter`"
+is wrong for the #90 specialized-selector cmdlets, which have no `-Name`/`-Id` and no alias for them —
+`Get-PfbNetworkInterfaceNeighbor` has `-LocalPortName`, `Get-PfbRealmDefaults` has `-RealmName` — and
+`Tests/PfbSpecializedSelectorKeys.Tests.ps1` actively asserts those parameters are absent.
 
 ## Completeness rail
 
-The list's risk is not being wrong, it is going stale. A new cmdlet writing a new shaping key
-inherits *selector* treatment, which is the safe direction but is still a silently missed guard.
+**Scope it to the 130 guarded cmdlets, not all of `Public/`.** An earlier draft said `Public/`, which
+was wrong twice over: it reds on the unmodified tree, and greening it would drag mutation controls
+(`cascade_delete`, `disruptive`, `recursive`) into a policy that only governs reads. It would also
+apply CI pressure in the unsafe direction — the natural way to green an unclassified-key failure is
+to add the key to the *non-selector* list, and `gids`, `uids` and `user_sids` are genuine selectors
+whose spelling the shape test cannot match. All three are written only by non-guarded cmdlets, so
+correct scoping removes them from the picture.
 
-Close it in CI rather than by review: assert that every query key written anywhere under `Public/` is
-either on the non-selector list or matches the selector shape (`names`, `ids`, or a `_names` / `_ids`
-suffix). An unclassified key that matches neither reds the build and names the file. The AST
-inventory this needs already exists — it is what produces `Reports/PfbFieldCmdletMap.json`.
+Scoped to the guarded population the rail is **clean today: all 32 keys are either on the list or
+match the shape, with zero unmatched.**
 
-Note the rail's boundary, which is deliberate and worth stating so nobody reads it as full coverage:
-scanning `Public/` does not see the seven keys written in `Private/` — `filter`, `sort`, `limit` and
-`total_only` from `Add-PfbCommonQueryParams`, and `continuation_token`, `context_names` and
-`allow_errors` from `Invoke-PfbApiRequest`. Six of those seven are on the non-selector list; `filter`
-is the selector among them. Those are a fixed, small set that changes only when the
-request layer changes, so they are pinned by name in the predicate's own tests rather than
-discovered. A key added to either helper without a matching test entry is the one gap this rail
-cannot close.
+Assert that every query key written by a guarded cmdlet is either on the non-selector list or matches
+`names` | `ids` | `*_names` | `*_ids`. An unclassified key reds the build and names the file.
 
-Two non-vacuity requirements, since a rail that cannot fail is worse than none:
+Three constraints on building it, each of which would otherwise produce a rail that cannot fail:
 
-- Prove the assertion discriminates by adding a fabricated key to a fixture and confirming the test
-  reds and names the offending file.
-- Assert the non-selector list is non-empty and that every entry is reachable from some cmdlet, so a
-  key deleted from `Public/` does not leave a permanent stale entry.
+- **It cannot be built on `Reports/PfbFieldCmdletMap.json`**, which an earlier draft claimed. That
+  artifact has zero entries for `type`, `protocols` and `flagged` — three of the nine — and `flagged`
+  is absent precisely because of the wire-name resolver gap in **#141**.
+- **`tools/lib/PfbCmdletParamTools.ps1` restricts assignment targets to variables named `body` or
+  `queryParams`.** In `Public/` many rows use `$q`, one uses `$destroyQuery`, and `Test-PfbConnection`
+  passes an inline `-QueryParams @{ limit = 1 }`. A rail reusing that machinery misses all of them.
+- **The non-vacuity test must therefore use `$q`-shaped and inline-literal fixtures**, not only a
+  `$queryParams` one — otherwise it passes while the gap above persists. Prove the assertion reds and
+  names the offending file.
+
+Drop the "every entry reachable from some cmdlet" assertion in its earlier form, or scope it to the
+nine per-cmdlet entries: the three `Add-PfbCommonQueryParams` keys are reachable from the helper
+rather than from any cmdlet body.
+
+## Relationship to the existing classifier
+
+`tools/Build-PfbDeadKeyReport.ps1` already defines `Test-PfbDeadKeySelectorName`, with a comment that
+warns against the exact formulation this spec adopts:
+
+```powershell
+# Exact anchors are intentional. In particular, do not use a suffix regex that would
+# classify usernames, grids, ids_or_names, or context_names as selectors.
+if ($WireName -in @('names', 'ids', 'name', 'id')) { return $true }
+if ($WireName -in @('context_names', 'ids_or_names')) { return $false }
+return $WireName.EndsWith('_names', ...) -or $WireName.EndsWith('_ids', ...)
+```
+
+It differs from this spec's shape in three ways: it excludes `context_names` and `ids_or_names`
+explicitly, and it admits singular `name`/`id` (harmless today — neither is written as a query key
+anywhere in `Public/`).
+
+The two serve different purposes and may legitimately differ — a report that misclassifies produces a
+wrong row, while this policy discards a request, so their failure directions are opposite. But the
+divergence must be deliberate and commented at both sites, not discovered later.
 
 ## Implementation notes
 
-- **The policy changes one file.** `Test-PfbEmptyPipelineRead` tests the *built* `$QueryParams`, not
-  the bound parameters, so none of the 130 call sites move. This is the property that makes the
-  decision cheap to adopt and cheap to revise.
+- **The policy changes one file.** `Test-PfbEmptyPipelineRead` tests the built `$QueryParams`, not the
+  bound parameters, so none of the 130 call sites move. Verified: the policy is computable from
+  `$Caller.MyInvocation.ExpectingInput` plus the keys of `$QueryParams`, needing nothing else.
 - The predicate's first line is unchanged: `ExpectingInput` still gates everything, so a direct call
   is never suppressed regardless of what it binds.
-- The non-selector list is module-internal data, not user-facing configuration. It should live where
-  the predicate can read it without a file load on every call.
-- **#128 lands with this.** The guard's body changes and its rails assert placement, so the two
-  should be reviewed together rather than leaving a window where the rails describe the old shape.
-  #128's own scope — asserting the guard *executes on every path* rather than merely precedes the
-  request — is unchanged by this spec.
+- **The list wins over the shape at runtime.** The shape test is a CI construct only and must never be
+  consulted by the predicate — it classifies `context_names` as a selector, which the list does not.
+- Store the list as a `$script:` constant in a `Private/Pfb*Constants.ps1`, following
+  `Private/PfbContextConstants.ps1`. Not a `.psd1` — the predicate is on a hot path.
+- **`Get-PfbRemoteArray`'s hand-placed guard becomes redundant.** PR #125 moved it above the
+  `current_fleet_only` write; once that key is on the list, placement no longer matters. Behaviour is
+  identical either way, but the comment there will read as stale. Leave the placement, update the
+  comment — and note this is the one call site that is not literally untouched.
+- **#128 lands with this**, since the guard's body changes and its rails assert placement.
 
 ## Testing
 
-- Per-key table-driven tests over the non-selector list: for each entry, an empty pipeline binding
-  only that key suppresses; an empty pipeline binding that key plus a selector issues.
-- The `filter`-is-a-selector case gets its own test, since it is the deliberate divergence from the
-  rejected alternative.
-- A direct-call control for at least one cmdlet, because a suppression assertion with no control
-  proves nothing about whether the request path still works.
-- Warning-emission assertions on the scope-only path and warning *absence* on the no-keys path.
-- Both PowerShell editions. The predicate and its data must stay inside the 5.1-compatible subset,
-  as the existing predicate and guard line already do.
+- Per-key table-driven tests over the list: for each entry, an empty pipeline binding only that key
+  suppresses; that key plus a selector issues.
+- `filter`-is-a-selector gets its own test — it is the deliberate divergence from the alternative.
+- A direct-call control for at least one cmdlet. A suppression assertion with no control proves
+  nothing about whether the request path still works.
+- Central injection (`context_names`, `continuation_token`) tested separately from the predicate,
+  since the predicate cannot see either.
+- Warning emission on the scope-only path, and warning *absence* on the no-keys path.
+- Both PowerShell editions; the predicate and its data stay in the 5.1-compatible subset.
+
+## The rejected alternative
+
+A pure pipeline-source rule: *if the pipeline was the selector source and it produced nothing, issue
+nothing.* It needs no vocabulary at all.
+
+**The mechanism, corrected.** An earlier draft described reading `ValueFromPipeline` parameters from
+`$Caller.MyInvocation.MyCommand.Parameters` and checking `$Caller.MyInvocation.BoundParameters`. Three
+corrections, all measured on both editions:
+
+- The retention premise is **sound**: after a non-empty pipeline, the pipeline-bound parameter is
+  present in `BoundParameters` in `end`; after `@()` it is absent.
+- **It must read `ValueFromPipelineByPropertyName` too.** Eight of the 130 guarded cmdlets have no
+  true `ValueFromPipeline` parameter — `Test-PfbSaml2Idp`, `Test-PfbActiveDirectory`,
+  `Get-PfbOpenFile`, `Get-PfbResourceAccess` and four object-store role/user getters. For those the
+  pipeline-parameter set is empty and the rule suppresses **every** piped invocation, including
+  working ones.
+- **`$null | cmd` binds the parameter** and runs `process` once. So the alternative fails to suppress
+  a case today's guard catches. It is differently aggressive, not uniformly more aggressive.
+
+**Why it is not adopted here — and why the earlier reasoning was too weak.** The draft rejected it
+solely because it also suppresses `@() | Get-PfbFileSystem -Filter "name='x'"`. That is not
+sufficient: whether an empty pipeline should veto an independent `-Filter` is a policy question, and
+the intersection reading ("zero upstream objects means zero work") is defensible. It is also
+repairable with a one-entry carve-out, which by this spec's own cost argument would favour it.
+
+The honest comparison is:
+
+- **For it:** one carve-out versus twelve list entries; and it handles the container-scope case above,
+  which no per-key list can.
+- **Against it:** the eight `ValueFromPipelineByPropertyName` cmdlets and the `$null` regression are
+  real defects needing real handling; and it changes the meaning of an explicit `-Filter`, which is a
+  user-visible contract change rather than a guard.
+
+This remains a live alternative rather than a closed question, and question 1 may reopen it.
 
 ## Non-goals
 
 - **Not a change to direct-call behaviour.** `Get-PfbX` with no arguments performs its unfiltered
-  read, as it always has. Nothing here makes an unfiltered read harder to ask for deliberately.
-- **Not a fix for dead keys.** #142 and the `source_names` case are classified here but repaired
+  read, as always.
+- **Not a fix for dead keys.** #142 and the `source_names` case are classified here, repaired
   elsewhere.
-- **Not a general selector vocabulary for the drift or dead-key tooling.** This list exists to decide
-  suppression at runtime. Tooling that wants a selector classification for reporting should not reuse
-  it without deciding its own failure direction, which is the opposite of this one: a report that
-  guesses wrong is a wrong row, not a discarded request.
-- **Not the `-Name`-with-empty-pipeline sharp edge**, which is a parameter-binding consequence rather
-  than a policy choice.
+- **Not a replacement for `Test-PfbDeadKeySelectorName`.** See above.
+- **Not the `-Name`-with-empty-pipeline sharp edge**, which is a parameter-binding consequence.
 
 ## Prior art
 
-The other Everpure PowerShell toolkit was checked before this policy was invented, on the theory
-that a solved problem should be copied rather than redesigned.
+The other Everpure PowerShell toolkit was checked before this policy was invented, on the theory that
+a solved problem should be copied rather than redesigned.
 
-`PureStoragePowerShellSDK2` (2.47.190, PowerShell Gallery) has the same architecture — a binary
-module whose generated cmdlets accumulate a pipeline-bound `-Name` in `ProcessRecord` and dispatch
-from `EndProcessing` — and **no equivalent guard**. Verified by reflection over the shipped assembly:
+`PureStoragePowerShellSDK2` (2.47.190, PowerShell Gallery) has the same architecture — a binary module
+whose generated cmdlets accumulate a pipeline-bound `-Name` in `ProcessRecord` and dispatch from
+`EndProcessing` — and **no equivalent guard**. Verified by reflection over the shipped assembly:
 `GetVolumeCmdlet::EndProcessing` normalizes an empty accumulator to `null`, which omits the `names`
-query key, and then dispatches unconditionally with no count test. `MyInvocation.ExpectingInput` is
-not consulted anywhere in the class, so that module cannot distinguish a deliberate unfiltered read
-from an accidental one. The same shape holds for its `Remove-*` cmdlets, where the only gate is
-`ShouldProcess` and its target string is empty when the accumulator is.
+query key, then dispatches unconditionally with no count test. `MyInvocation.ExpectingInput` is not
+consulted anywhere in the class, so that module cannot distinguish a deliberate unfiltered read from
+an accidental one.
 
 Two conclusions were drawn, and a third was explicitly not:
 
 - There is no precedent to copy, so the policy has to be decided here.
 - There is no compatibility argument in either direction, since no existing caller of that module
   depends on behaviour it does not have.
-- Its absence is **not** evidence the design was considered and rejected. It should not be cited as
+- Its absence is **not** evidence the design was considered and rejected, and should not be cited as
   support for leaving #126 unfixed.
 
-## Open points for review
+## Open questions
 
-1. **`type` and `protocols`** are the two entries where "category" versus "selector" is a judgment
-   rather than a reading. Both narrow to a class of thing rather than to named objects, which is why
-   they are listed — but a reviewer who disagrees should say so now, because moving them later
-   changes behaviour rather than a comment.
-2. **Whether to propose the guard upstream** to the FlashArray toolkit, given the direction toward a
-   unified cmdlet surface. Out of scope for this issue; worth deciding once the policy has shipped
-   and held.
+1. **Should an unclassified key be allowed to default to "selector" at all?** The alternative is a
+   generated per-(cmdlet, endpoint, key) classification with an explicit `unresolved` state that fails
+   CI, making the unclassified set provably empty. This decides whether the list above is the policy
+   or merely its runtime data.
+2. **Are `type` and `protocols` selectors?** Two reviewers disagreed. This turns on whether a
+   *category* predicate addresses objects — and if it does not, why `filter` does, given a filter can
+   express a category predicate.
+3. **Is the warning line drawn correctly, and is `Write-Warning` the right stream?** A legitimate
+   zero-result search that also passes `-Limit` would warn routinely, and warnings are
+   preference-controlled and commonly suppressed.
