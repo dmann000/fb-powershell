@@ -22,10 +22,15 @@ BeforeAll {
     $script:moduleRoot = Split-Path -Parent $PSScriptRoot
     $script:publicRoot = Join-Path $script:moduleRoot 'Public'
 
-    # The CI-side shape test. Deliberately NOT the runtime policy and never consulted by it: this
-    # classifies context_names as a selector and $script:PfbNonSelectorQueryKeys does not. It is
-    # also not tools/Build-PfbDeadKeyReport.ps1's Test-PfbDeadKeySelectorName, which excludes
-    # context_names and ids_or_names and admits singular name/id -- see the comment at that site.
+    # The CI-side shape test. Deliberately NOT the runtime policy and never consulted by it -- the
+    # two have OPPOSITE DEFAULTS: an unmatched key is NOT-a-selector here and IS a selector to
+    # $script:PfbNonSelectorQueryKeys, which is why 'filter' needs the $script:sharedSelectorKeys
+    # exemption further down this file. The two do NOT disagree about context_names: it is absent
+    # from the denylist, so the runtime reads it as a selector exactly as this does -- and it never
+    # reaches the runtime policy anyway, being injected into a clone inside Invoke-PfbApiRequest
+    # after the guard has run. This is also not tools/Build-PfbDeadKeyReport.ps1's
+    # Test-PfbDeadKeySelectorName, which excludes context_names and ids_or_names and admits
+    # singular name/id -- see the comment at that site.
     function Test-PfbIdentityShapedKey {
         param([string]$WireName)
 

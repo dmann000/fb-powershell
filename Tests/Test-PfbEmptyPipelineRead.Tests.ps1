@@ -276,8 +276,8 @@ Describe 'Test-PfbEmptyPipelineRead' {
         # Get-PfbCertificateGroupCertificate.ps1:79-84 (two of them),
         # Get-PfbNetworkInterfaceNeighbor.ps1:66-68 and Get-PfbRealmDefaults.ps1:62-64. Cmdlets
         # that DO write a selector unconditionally exist -- Remove-PfbFleetMember.ps1:38-39 and
-        # New-PfbBucketAuditFilter.ps1:62-63 among about fifteen -- but none of them is guarded, so
-        # none can reach this predicate.
+        # New-PfbBucketAuditFilter.ps1:62-63 among sixteen such writes across eight cmdlets -- but
+        # none of them is guarded, so none can reach this predicate.
         #
         # This pins CURRENT behaviour so a future value check is a visible decision. Adding one
         # here would be a behaviour change beyond the spec.
