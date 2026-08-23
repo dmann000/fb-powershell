@@ -54,10 +54,9 @@ function Test-PfbEmptyPipelineRead {
         Get-PfbCertificateGroupCertificate.ps1:79-84 (two of them),
         Get-PfbNetworkInterfaceNeighbor.ps1:66-68 and Get-PfbRealmDefaults.ps1:62-64. Cmdlets that
         DO write a selector unconditionally exist -- Remove-PfbFleetMember.ps1:38-39 and
-        New-PfbBucketAuditFilter.ps1:62-63 among sixteen such writes across eight cmdlets -- but
-        none of them is guarded, so none can reach this predicate. Adding a value check would be a
-        behaviour change beyond the #126 spec, so the current behaviour is pinned by test rather
-        than altered here.
+        New-PfbBucketAuditFilter.ps1:62-63 among others -- but none of them is guarded, so none can
+        reach this predicate. Adding a value check would be a behaviour change beyond the #126
+        spec, so the current behaviour is pinned by test rather than altered here.
 
         Case sensitivity is part of the policy, not an oversight. $script:PfbNonSelectorQueryKeys
         uses StringComparer::Ordinal, so `LIMIT` does not match `limit`: it reads as unclassified,
