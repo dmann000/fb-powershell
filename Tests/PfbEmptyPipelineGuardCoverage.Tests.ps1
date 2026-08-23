@@ -2,7 +2,7 @@
 
 # Issue #121. The empty-pipeline guard is a 130-file generated population, and a generated
 # population decays silently: a new collect-in-process cmdlet arrives without the guard, or an
-# existing guard drifts into a scriptblock or onto the wrong hashtable and keeps passing the
+# existing guard drifts into an inner scope or onto the wrong hashtable and keeps passing the
 # generator's own AlreadyPresent recognizer (tools/Update-PfbEmptyPipelineGuards.ps1) because
 # that recognizer matches the command name anywhere in the end block's subtree.
 #
@@ -14,9 +14,23 @@ BeforeAll {
     $script:publicRoot = Join-Path $script:moduleRoot 'Public'
 
     # Walk a node's parent chain up to (and excluding) the owning NamedBlockAst, reporting
-    # whether any ScriptBlockExpressionAst sits in between. A statement inside a scriptblock
-    # returns from the scriptblock, not from the cmdlet.
-    function Test-PfbNestedInScriptBlockExpression {
+    # whether any INNER SCOPE sits in between. A statement inside an inner scope returns from
+    # that scope, not from the cmdlet.
+    #
+    # Two AST shapes introduce one. A ScriptBlockExpressionAst is the familiar case
+    # (`... | ForEach-Object { return }`). A nested FunctionDefinitionAst is the other, and it was
+    # invisible to every rail in this file until #126: Get-PfbGuardRecord's FindAll over the end
+    # block is recursive, so a guard declared inside a nested function counts toward the OUTER
+    # cmdlet's GuardCallsInEnd and the cmdlet reads as guarded -- while the guard's `return` exits
+    # only the nested function and the request still goes out. A FunctionDefinitionAst and the
+    # ScriptBlockAst that forms its body are neither of them a ScriptBlockExpressionAst, so the
+    # scriptblock-only check answered $false. There are no occurrences in Public/ today; this is a
+    # tripwire, not a fix for a live defect.
+    #
+    # Matching a FunctionDefinitionAst cannot flag a cmdlet's own definition: both call sites stop
+    # at a node inside that definition ($endBlock or $Function itself) and the loop tests its
+    # condition before its body, so the cmdlet's own FunctionDefinitionAst is never reached.
+    function Test-PfbNestedInInnerScope {
         param(
             [System.Management.Automation.Language.Ast]$Node,
             [System.Management.Automation.Language.Ast]$Stop
@@ -24,7 +38,8 @@ BeforeAll {
 
         $cursor = $Node.Parent
         while ($null -ne $cursor -and -not [object]::ReferenceEquals($cursor, $Stop)) {
-            if ($cursor -is [System.Management.Automation.Language.ScriptBlockExpressionAst]) {
+            if ($cursor -is [System.Management.Automation.Language.ScriptBlockExpressionAst] -or
+                $cursor -is [System.Management.Automation.Language.FunctionDefinitionAst]) {
                 return $true
             }
             $cursor = $cursor.Parent
@@ -230,12 +245,12 @@ BeforeAll {
                     $node.GetCommandName() -eq 'Invoke-PfbApiRequest'
                 }, $true))
         $nestedInvokes = @($allInvokes | Where-Object {
-                Test-PfbNestedInScriptBlockExpression -Node $_ -Stop $Function
+                Test-PfbNestedInInnerScope -Node $_ -Stop $Function
             })
 
         # Guard placement: a guard nested in a scriptblock returns from the scriptblock.
         $nestedGuards = @($guardCalls | Where-Object {
-                Test-PfbNestedInScriptBlockExpression -Node $_ -Stop $endBlock
+                Test-PfbNestedInInnerScope -Node $_ -Stop $endBlock
             })
 
         $guardQueryVars = @($guardCalls |
@@ -369,9 +384,9 @@ BeforeAll {
                             param($node)
                             $node -is [System.Management.Automation.Language.ReturnStatementAst]
                         }, $true) | Where-Object {
-                        # A return inside a scriptblock in the branch returns from the
-                        # scriptblock, not the cmdlet.
-                        -not (Test-PfbNestedInScriptBlockExpression -Node $_ -Stop $clause.Item2)
+                        # A return inside an inner scope in the branch returns from that
+                        # scope, not the cmdlet.
+                        -not (Test-PfbNestedInInnerScope -Node $_ -Stop $clause.Item2)
                     })
                 if ($returns.Count -gt 0) { $guardReturns = $true }
             }
@@ -385,25 +400,25 @@ BeforeAll {
         }
 
         [PSCustomObject]@{
-            File                                = $File
-            Function                            = $Function.Name
-            Verb                                = ($Function.Name -split '-', 2)[0]
-            Line                                = $Function.Extent.StartLineNumber
-            HasProcess                          = $hasProcess
-            HasNamedEnd                         = $hasNamedEnd
-            InvokeCallsInEnd                    = $invokeCalls.Count
-            InvokeCallsTotal                    = $allInvokes.Count
-            GuardCallsInEnd                     = $guardCalls.Count
-            InvokeNestedInScriptBlockExpression = ($nestedInvokes.Count -gt 0)
-            NestedInvokeLines                   = @($nestedInvokes | ForEach-Object { $_.Extent.StartLineNumber })
-            GuardNestedInScriptBlockExpression  = ($nestedGuards.Count -gt 0)
-            QueryVarMismatch                    = $queryVarMismatch
-            QueryWriteAfterGuard                = $queryWriteAfterGuard
-            GuardAfterSomeInvoke                = $guardAfterSomeInvoke
-            GuardReturns                        = $guardReturns
-            GuardInConditionalBlock             = ($conditionalKinds.Count -gt 0)
-            GuardConditionalKinds               = $conditionalKinds
-            MandatoryInEveryParameterSet        = (Test-PfbMandatoryInEveryParameterSet -Function $Function)
+            File                         = $File
+            Function                     = $Function.Name
+            Verb                         = ($Function.Name -split '-', 2)[0]
+            Line                         = $Function.Extent.StartLineNumber
+            HasProcess                   = $hasProcess
+            HasNamedEnd                  = $hasNamedEnd
+            InvokeCallsInEnd             = $invokeCalls.Count
+            InvokeCallsTotal             = $allInvokes.Count
+            GuardCallsInEnd              = $guardCalls.Count
+            InvokeNestedInInnerScope     = ($nestedInvokes.Count -gt 0)
+            NestedInvokeLines            = @($nestedInvokes | ForEach-Object { $_.Extent.StartLineNumber })
+            GuardNestedInInnerScope      = ($nestedGuards.Count -gt 0)
+            QueryVarMismatch             = $queryVarMismatch
+            QueryWriteAfterGuard         = $queryWriteAfterGuard
+            GuardAfterSomeInvoke         = $guardAfterSomeInvoke
+            GuardReturns                 = $guardReturns
+            GuardInConditionalBlock      = ($conditionalKinds.Count -gt 0)
+            GuardConditionalKinds        = $conditionalKinds
+            MandatoryInEveryParameterSet = (Test-PfbMandatoryInEveryParameterSet -Function $Function)
         }
     }
 
@@ -505,8 +520,9 @@ Describe 'Empty-pipeline guard coverage' {
     }
 
     It 'keeps every Invoke-PfbApiRequest call directly in the cmdlet block' {
-        # A request issued from inside a scriptblock is unreachable by a `return` guard.
-        $nested = @($script:records | Where-Object InvokeNestedInScriptBlockExpression)
+        # A request issued from inside an inner scope -- a scriptblock or a nested function -- is
+        # unreachable by a `return` guard in the cmdlet block.
+        $nested = @($script:records | Where-Object InvokeNestedInInnerScope)
         $detail = @($nested | ForEach-Object {
                 "$($_.File):$($_.NestedInvokeLines -join ',') $($_.Function)"
             }) -join "`n"
@@ -533,16 +549,17 @@ Describe 'Empty-pipeline guard coverage' {
     It 'places every guard where it can actually return, on the hashtable the request receives' {
         # Guard CORRECTNESS, not guard existence. The generator's AlreadyPresent recognizer
         # matches the command name anywhere in the end block's subtree, so a guard that drifted
-        # into a ForEach-Object scriptblock, or that reads a hashtable the request never sees,
-        # still reports a clean fixed point from the tool. Both allowlists are explicit and empty.
+        # into an inner scope -- a ForEach-Object scriptblock or a nested function -- or that reads
+        # a hashtable the request never sees, still reports a clean fixed point from the tool. Both
+        # allowlists are explicit and empty.
         $allowedNestedGuard = @()
         $allowedQueryVarMismatch = @()
 
         $nestedGuards = @($script:records | Where-Object {
-                $_.GuardNestedInScriptBlockExpression -and $_.Function -notin $allowedNestedGuard
+                $_.GuardNestedInInnerScope -and $_.Function -notin $allowedNestedGuard
             })
         $nestedDetail = @($nestedGuards | ForEach-Object { "$($_.File): $($_.Function)" }) -join "`n"
-        $nestedDetail | Should -BeNullOrEmpty -Because "a guard inside a scriptblock returns from the scriptblock, not the cmdlet; offenders:`n$nestedDetail"
+        $nestedDetail | Should -BeNullOrEmpty -Because "a guard inside an inner scope (scriptblock or nested function) returns from that scope, not the cmdlet; offenders:`n$nestedDetail"
 
         $mismatched = @($script:records | Where-Object {
                 $_.GuardCallsInEnd -gt 0 -and $_.QueryVarMismatch -and
@@ -765,8 +782,8 @@ function Get-PfbFixture {
         # Every existing property is green on the mutant. If any of these reds, the gap this rail
         # addresses does not exist and the new assertion is redundant.
         $mutantRecord.GuardCallsInEnd | Should -BeGreaterThan 0 -Because 'the guard exists'
-        $mutantRecord.GuardNestedInScriptBlockExpression |
-            Should -BeFalse -Because 'a foreach body is a StatementBlockAst, not a ScriptBlockExpressionAst'
+        $mutantRecord.GuardNestedInInnerScope |
+            Should -BeFalse -Because 'a foreach body is a StatementBlockAst -- neither a scriptblock expression nor a nested function'
         $mutantRecord.QueryVarMismatch |
             Should -BeFalse -Because 'the guard reads the hashtable the request receives'
         $mutantRecord.QueryWriteAfterGuard | Should -BeFalse -Because 'no key is written after the guard'
@@ -791,18 +808,26 @@ function Get-PfbFixture {
         }
     }
 
-    It 'has a working scriptblock-nesting detector' {
+    It 'has a working inner-scope-nesting detector' {
         # The one one-way predicate in this file. Every other detector fails safe -- a broken
         # Get-PfbParameterVariableName drives QueryVarMismatch true and reds, a broken guard
-        # finder reds the coverage It -- but if Test-PfbNestedInScriptBlockExpression regressed to
+        # finder reds the coverage It -- but if Test-PfbNestedInInnerScope regressed to
         # always returning $false, the call-shape It and the nested half of the placement It would
         # both pass vacuously and no floor would notice. So assert the predicate against a fixture
         # with a known answer in each direction, independent of the tree.
+        #
+        # The third case is the nested-function branch added for #126. It needs the same protection
+        # as the scriptblock branch and for the same reason: nothing else in the file would notice
+        # if it stopped matching.
         $fixture = @'
 function Test-Fixture {
     end {
         Invoke-PfbApiRequest -Endpoint 'direct'
         1..2 | ForEach-Object { Invoke-PfbApiRequest -Endpoint 'nested' }
+        function Invoke-Inner {
+            if (Test-PfbEmptyPipelineRead -Caller $PSCmdlet -QueryParams $queryParams) { return }
+            Invoke-PfbApiRequest -Endpoint 'in-nested-function'
+        }
     }
 }
 '@
@@ -818,12 +843,26 @@ function Test-Fixture {
                     $node -is [System.Management.Automation.Language.CommandAst] -and
                     $node.GetCommandName() -eq 'Invoke-PfbApiRequest'
                 }, $true))
-        $calls.Count | Should -Be 2
+        $calls.Count | Should -Be 3
 
         $answers = @($calls | ForEach-Object {
-                Test-PfbNestedInScriptBlockExpression -Node $_ -Stop $fixtureFunction
+                Test-PfbNestedInInnerScope -Node $_ -Stop $fixtureFunction
             })
         $answers[0] | Should -BeFalse -Because 'the first call is a direct statement of the end block'
         $answers[1] | Should -BeTrue -Because 'the second call is inside a ForEach-Object scriptblock'
+        $answers[2] | Should -BeTrue -Because 'the third call is inside a nested function definition'
+
+        # The guard in the nested function is the shape the outer walk cannot see: FindAll over the
+        # end block is recursive, so it counts toward the outer cmdlet, but its `return` exits only
+        # the nested function.
+        $endBlock = $fixtureFunction.Body.EndBlock
+        $nestedGuard = $fixtureFunction.Find({
+                param($node)
+                $node -is [System.Management.Automation.Language.CommandAst] -and
+                $node.GetCommandName() -eq 'Test-PfbEmptyPipelineRead'
+            }, $true)
+        $nestedGuard | Should -Not -BeNullOrEmpty
+        Test-PfbNestedInInnerScope -Node $nestedGuard -Stop $endBlock |
+            Should -BeTrue -Because 'a guard inside a nested function returns from that function, not the cmdlet'
     }
 }
