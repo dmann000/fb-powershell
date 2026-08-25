@@ -1252,6 +1252,26 @@ function Get-PfbFixture {
     param([Parameter()] [string]$Name)
 }
 '@
+            # The one shape that separates `\w` from `[A-Za-z]`, and the reason it needs its own
+            # fixture: `.NET` above is pure ASCII, so it matches both patterns identically and
+            # pins only the ARGUMENT group. A digit- or underscore-led dot line is directive-shaped
+            # to `\w` alone. Measured on both editions -- Get-Help renders auto-generated syntax
+            # help and no parameter text for this fixture, so narrowing the pattern would credit a
+            # cmdlet whose help does not render at all.
+            'digit-dotword-voids-block' = @'
+function Get-PfbFixture {
+    <#
+    .SYNOPSIS
+        A synopsis Get-Help never renders, because of the .EXAMPLE body below.
+    .PARAMETER Name
+        The fixture name.
+    .EXAMPLE
+        .5 is a fraction and not a path, so this line is a malformed directive
+    #>
+    [CmdletBinding()]
+    param([Parameter()] [string]$Name)
+}
+'@
             # The adjacency BOUNDARY above the function, both sides of it. 'distant-header' never
             # reaches this: its last run before the keyword is the line comment, so the block above
             # it never gets an adjacency test at all, and the bound went unpinned until a mutation
@@ -1282,6 +1302,36 @@ function Get-PfbFixture {
     <#
     .SYNOPSIS
         The block Get-Help renders, because two blank lines break adjacency above.
+    .PARAMETER Name
+        The fixture name.
+    #>
+    [CmdletBinding()]
+    param([Parameter()] [string]$Name)
+}
+'@
+            # Which of SEVERAL runs above the function is the one that counts. Every other
+            # above-function fixture has exactly one run up there, so taking the first instead of
+            # the last is indistinguishable in all of them -- and in 'distant-header' the first
+            # falls through anyway, on adjacency. Here the file header is first and the real help
+            # is last, and the two verdicts differ: measured on both editions, Get-Help renders the
+            # LAST run, so reading the first would leave the block above unexamined and credit a
+            # body block Get-Help never reads.
+            'last-run-above-function-wins' = @'
+<#
+.SYNOPSIS
+    File header for a script, not help for the function below it.
+#>
+
+<#
+.SYNOPSIS
+    The block directly above the function, which Get-Help renders.
+.PARAMETER Name
+    The fixture name.
+#>
+function Get-PfbFixture {
+    <#
+    .SYNOPSIS
+        A body block Get-Help never reads, because the block above it wins.
     .PARAMETER Name
         The fixture name.
     #>
@@ -1572,9 +1622,15 @@ function Get-PfbFixture {
         # run test walks every line rather than just the first: both of these open with a correct
         # .SYNOPSIS and a correct .PARAMETER, and Get-Help renders auto-generated syntax help for
         # both. 'dotword-prose-voids-block' is the sharp one -- `.NET Core ...` is prose to a
-        # reader and a malformed directive to Get-Help, because the directive pattern is `\w`.
+        # reader and a malformed directive to Get-Help.
         # (`.\tools\...` in the 'dotted-prose' fixture is the harmless twin: a backslash is not a
         # word character, so that line is body text and its block renders. The pair is the point.)
+        #
+        # What separates `.NET` from prose is the DOT plus word characters, which `\w` and
+        # `[A-Za-z]` agree on -- `NET` is pure ASCII, so this pair does not pin the character class
+        # and reading it as though it did is how the class went unpinned. What it does pin is the
+        # argument group: narrowing `(\S.*)` to `(\S+)` is killed here and nowhere else.
+        # 'digit-dotword-voids-block' is the fixture that pins `\w` itself.
         $records['unknown-keyword-later-in-block'].HasHelpBlock |
             Should -BeFalse -Because 'measured: one unrecognised directive anywhere in the run voids the whole block, .SYNOPSIS included'
         $records['unknown-keyword-later-in-block'].MissingParameters | Should -Be @('Name')
@@ -1586,6 +1642,12 @@ function Get-PfbFixture {
         $records['dotword-prose-voids-block'].MissingParameters | Should -Be @('Name')
         $records['dotted-prose'].HasHelpBlock |
             Should -BeTrue -Because 'the twin case: `.\tools\...` is NOT directive-shaped, because a backslash is not a word character, so that block renders'
+
+        $records['digit-dotword-voids-block'].HasHelpBlock |
+            Should -BeFalse -Because 'measured on both editions: `.5 is a fraction ...` is directive-shaped to `\w` and Get-Help renders no help for this cmdlet, so narrowing the class to `[A-Za-z]` would credit a block that does not render'
+        $records['digit-dotword-voids-block'].MissingParameters | Should -Be @('Name')
+        $records['digit-dotword-voids-block'].HelpRunDefect |
+            Should -BeLike '*5 is not a directive*'
 
         # The adjacency BOUNDARY above the function. One blank line is still adjacency and two is
         # not, and both sides need a fixture: 'distant-header' looks like it covers this and does
@@ -1602,5 +1664,16 @@ function Get-PfbFixture {
             Should -BeTrue -Because 'nothing above the function is help, so Get-Help reads the body'
         $records['distant-block-falls-through'].MissingParameters | Should -BeNullOrEmpty
         $records['distant-block-falls-through'].OrphanedParameters | Should -BeNullOrEmpty
+
+        # WHICH run above the function is examined, when there is more than one. Both fixtures
+        # above hold a single run up there, so they cannot tell the last from the first; this one
+        # puts a file header first and the real help last. Measured on both editions: Get-Help
+        # renders the LAST run's synopsis and its parameter text, so examining the first would
+        # find a non-adjacent header, fall through, and credit the body block instead.
+        $records['last-run-above-function-wins'].HelpAboveFunction |
+            Should -BeTrue -Because 'measured: the run nearest the function keyword is the one Get-Help renders, header or not'
+        $records['last-run-above-function-wins'].HasHelpBlock |
+            Should -BeFalse -Because 'the help that renders sits above the function, so the body block is not what a reader sees and must not be scored as though it were'
+        $records['last-run-above-function-wins'].MissingParameters | Should -Be @('Name')
     }
 }
