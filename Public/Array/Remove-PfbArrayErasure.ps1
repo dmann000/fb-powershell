@@ -5,8 +5,6 @@ function Remove-PfbArrayErasure {
     .DESCRIPTION
         The Remove-PfbArrayErasure cmdlet deletes an array erasure job from the connected
         Pure Storage FlashBlade. This cmdlet has a high confirm impact.
-    .PARAMETER Attributes
-        A hashtable identifying the erasure job to remove.
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE

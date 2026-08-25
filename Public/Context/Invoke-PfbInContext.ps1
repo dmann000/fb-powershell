@@ -14,6 +14,21 @@ function Invoke-PfbInContext {
         Non-pipeable by design: its pipeline payload would have to be the scriptblock, which
         no cmdlet emits. The blessed form is
         -Context (Get-PfbFleetMember -FleetName 'x').member.name
+    .PARAMETER Array
+        The FlashBlade connection the ambient context is pushed onto for the duration of the
+        block. Required -- pass a connection object from Connect-PfbArray.
+    .PARAMETER Context
+        One or more Fusion context names to apply for the duration of the block. Required.
+        Pass @() to run the block against the local array, which is distinct from setting no
+        context at all.
+    .PARAMETER ScriptBlock
+        The block to run under the context. Positional (position 0) and required. The previous
+        context is restored in a finally, so it survives an exception thrown inside the block.
+    .PARAMETER Kind
+        What the names in -Context identify: an individual array ('Array', the default), a
+        fleet ('Fleet'), or a topology group ('TopologyGroup').
+    .PARAMETER AllArrays
+        Applies the fleet-wide "all arrays" context form instead of naming members individually.
     .NOTES
         Concurrency: .ContextOverride lives on the shared connection object, so concurrent
         workers pushing overrides on the SAME connection race. Set the context before forking

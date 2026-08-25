@@ -6,6 +6,9 @@ function Clear-PfbContext {
         Its own cmdlet rather than a -Clear switch, matching the Set-/Clear-PfbCredential
         precedent, and because @() must keep its distinct "run this one call locally" meaning
         at the Invoke-PfbInContext layer. Copy-on-write, like Set-PfbContext. No network call.
+    .PARAMETER Array
+        The FlashBlade connection to copy. Defaults to the current default connection. The
+        object passed in is never mutated -- the context-free copy is returned instead.
     #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
