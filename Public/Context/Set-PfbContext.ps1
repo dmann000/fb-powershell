@@ -22,6 +22,21 @@ function Set-PfbContext {
         failure is swallowed, leaving the locality indeterminate and this cmdlet permissive. Under a
         management-access policy that denies GET /admins it can cost ~3 round trips rather than 1.
         Worth knowing before calling this in a loop over many members: cheap, but not free.
+    .PARAMETER Array
+        The FlashBlade connection to copy. Defaults to the current default connection. The
+        object passed in is never mutated -- the modified copy is returned instead.
+    .PARAMETER Context
+        One or more Fusion context names to set on the returned connection. Accepts pipeline
+        input, including from Get-PfbFleetMember and Get-PfbFleet. Pass no value at all to get
+        the explicit "requires -Context" error; to run locally instead, use Clear-PfbContext.
+    .PARAMETER Kind
+        What the names in -Context identify: an individual array ('Array', the default), a
+        fleet ('Fleet'), or a topology group ('TopologyGroup').
+    .PARAMETER AllArrays
+        Sets the fleet-wide "all arrays" context form instead of naming members individually.
+    .PARAMETER AllowErrors
+        Reserved for Phase 2. Accepted and stored on the returned connection; nothing is
+        injected on the wire for it yet.
     .NOTES
         Mixed-platform fleets: Get-PfbFleetMember will happily return FlashArrays. Piping
         those in is not supported -- cross-platform context is a non-goal (open question 5).

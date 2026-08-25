@@ -16,6 +16,11 @@ function Get-PfbRemoteArray {
         Sort field and direction (e.g., "name" or "name-").
     .PARAMETER Limit
         Maximum number of entries to return.
+    .PARAMETER CurrentFleetOnly
+        Restricts results to remote arrays in the current fleet. Defaults to $true, so pass
+        -CurrentFleetOnly:$false to include arrays outside it. A scope flag rather than a
+        selector: it is written on every path and never counts as "a selector reached the
+        query".
     .PARAMETER Array
         The FlashBlade connection object. If not specified, the default connection is used.
     .EXAMPLE

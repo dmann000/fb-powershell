@@ -2,8 +2,8 @@
 .SYNOPSIS
     Fails the build when tools/specs/ did not materialise.
 .DESCRIPTION
-    Issue #63: tools/specs/ is a ~50MB cache of raw OpenAPI specs, gitignored (.gitignore:36
-    and again .gitignore:46) because it is a build input rather than source. On a bare runner
+    Issue #63: tools/specs/ is a ~50MB cache of raw OpenAPI specs, gitignored (.gitignore,
+    "Cached raw OpenAPI specs") because it is a build input rather than source. On a bare runner
     it is therefore absent, and every tooling test that depends on it skipped gracefully while
     the job reported success -- roughly 23% of the suite, invisible in the run summary.
 
@@ -12,11 +12,11 @@
     red build rather than a quietly hollow test run. Without it the job would "succeed" and
     hand the test legs an empty directory, reproducing the exact defect being fixed.
 
-    Lives in scripts/ rather than tools/ deliberately: .gitignore:46 ignores tools/ wholesale
-    ("Not yet decided whether this should be tracked -- excluded for now"). The existing
-    tools/*.ps1 files are tracked only because they predate that rule, so a NEW file added
-    there would be silently untracked. scripts/ is unignored and already holds the scripts the
-    workflows call (see scripts/Publish-Gallery.ps1, used by publish-to-gallery.yml).
+    Lives in scripts/ rather than tools/ because scripts/ holds the scripts the workflows call
+    (see scripts/Publish-Gallery.ps1, used by publish-to-gallery.yml), while tools/ holds the
+    generators. Note that the blanket `tools/` ignore this file originally worked around is
+    gone: tools/specs/ is now the only tools/ exclusion, and the generator scripts and libs
+    under tools/ are tracked.
 .PARAMETER SpecsDirectory
     Defaults to tools/specs relative to the repo root.
 .PARAMETER MinimumCount

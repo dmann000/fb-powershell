@@ -6,6 +6,12 @@ function Get-PfbLog {
         The Get-PfbLog cmdlet returns log entries from the connected Pure Storage FlashBlade.
         Results can be narrowed using a server-side filter expression and sorted or limited
         as needed.
+    .PARAMETER StartTime
+        Start of the time window, in milliseconds since the Unix epoch. Defaults to one hour
+        ago. Always sent, whether or not it is supplied.
+    .PARAMETER EndTime
+        End of the time window, in milliseconds since the Unix epoch. Defaults to now. Always
+        sent, whether or not it is supplied.
     .PARAMETER Filter
         A server-side filter expression to narrow results (e.g., "severity='warning'").
     .PARAMETER Sort
