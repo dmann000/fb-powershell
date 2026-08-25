@@ -26,8 +26,12 @@
     run while passing in CI -- a gate that is wrong in the direction that trains people to
     ignore it.
 
-    THE WORKING TREE IS NEVER TOUCHED. Regeneration goes to a scratch directory; a gate that
-    rewrites Data/ as a side effect of checking it is not a gate.
+    THE WORKING TREE IS NEVER TOUCHED unless -UpdateCommitted is passed. Regeneration goes to a
+    scratch directory; a gate that rewrites Data/ as a side effect of checking it is not a gate.
+    The objection there is to the side effect, not to the write: -UpdateCommitted is an explicit
+    request to remediate, so a caller who passes it has asked for exactly the thing the default
+    withholds. Nothing infers it -- no environment variable, no CI default -- because the value
+    of the default is that a check stays a check.
 
     Lives in scripts/ rather than tools/ because the workflows call scripts/ (see
     scripts/Publish-Gallery.ps1, scripts/Invoke-PfbCiPester.ps1) and because a developer must
@@ -50,17 +54,33 @@
 .PARAMETER KeepWorkDirectory
     Leave the scratch tree in place and print its path, so a reported difference can be
     diffed by hand instead of being re-derived.
+.PARAMETER UpdateCommitted
+    Overwrite each stale committed artifact with this run's regenerated copy, then exit 0 and
+    list what changed. Without it, a stale artifact is reported and the caller is told to copy
+    the files out of the scratch tree by hand -- the same copy, done manually.
+
+    Only artifacts this run found stale are written, and only within -Artifact when that
+    narrows the set: an up-to-date artifact is left alone rather than rewritten byte-identically,
+    so `git status` after the run names exactly what moved.
+
+    Exit code is 0 on a successful update. Remediating is what was asked for, so doing it is
+    success -- and a non-zero exit from a run that just fixed the problem breaks any caller
+    chaining on it. Callers that want the unremediated answer are the ones that must not pass
+    this switch.
 .EXAMPLE
     ./scripts/Assert-PfbDerivedArtifacts.ps1
 .EXAMPLE
     ./scripts/Assert-PfbDerivedArtifacts.ps1 -Artifact Data/PfbCapabilityMap.json -KeepWorkDirectory
+.EXAMPLE
+    ./scripts/Assert-PfbDerivedArtifacts.ps1 -Artifact Reports/PfbDeadKeyReport.json -UpdateCommitted
 #>
 [CmdletBinding()]
 param(
     [string]$SpecsDirectory,
     [string]$WorkDirectory,
     [string[]]$Artifact,
-    [switch]$KeepWorkDirectory
+    [switch]$KeepWorkDirectory,
+    [switch]$UpdateCommitted
 )
 
 $ErrorActionPreference = 'Stop'
@@ -326,6 +346,35 @@ try {
         $results.Add([pscustomobject]@{ Artifact = $relative; State = $state; Detail = $detail })
     }
 
+    # --- Remediate ------------------------------------------------------------------------
+
+    # Done before the report so one pass of output describes what is now true on disk, rather
+    # than printing STALE and contradicting it two lines later.
+    $updated = @()
+    if ($UpdateCommitted) {
+        foreach ($result in @($results | Where-Object { $_.State -eq 'STALE' })) {
+            $committedPath   = Join-Path $repoRoot $result.Artifact
+            $regeneratedPath = Join-Path $outRoot $result.Artifact
+
+            # Copy-Item rather than read-transform-write: the committed artifacts carry no BOM,
+            # and a round-trip through Set-Content is one -Encoding default away from adding
+            # one. Preserving bytes also settles the line-ending question instead of reopening
+            # it -- the comparison above already normalized CRLF, so a whole-file copy lands
+            # exactly the content the gate demanded, and git's autocrlf handles the checkout
+            # form on commit. A partial rewrite is what would produce mixed endings; this is not
+            # one.
+            $parent = Split-Path -Parent $committedPath
+            if (-not (Test-Path -LiteralPath $parent)) {
+                New-Item -ItemType Directory -Path $parent -Force | Out-Null
+            }
+            Copy-Item -LiteralPath $regeneratedPath -Destination $committedPath -Force
+
+            $result.State  = 'UPDATED'
+            $result.Detail = 'overwritten from this run''s regeneration'
+        }
+        $updated = @($results | Where-Object { $_.State -eq 'UPDATED' })
+    }
+
     # --- Report ---------------------------------------------------------------------------
 
     foreach ($result in $results) {
@@ -340,11 +389,15 @@ try {
         $rows = foreach ($result in $results) { "| ``$($result.Artifact)`` | $($result.State) |" }
         $heading = '### Derived artifact check'
         if ($stale.Count -gt 0) { $heading = "$heading -- $($stale.Count) stale" }
+        if ($updated.Count -gt 0) { $heading = "$heading -- $($updated.Count) updated" }
         $lines = @($heading, '', "Pinned to REST $($pinnedVersions[0])-$($pinnedVersions[-1]) via ``Data/PfbCapabilityMap.json`` ``generatedFrom``.", '', '| Artifact | Result |', '|---|---|') + @($rows)
         ($lines -join [Environment]::NewLine) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
     }
     if ($env:GITHUB_OUTPUT) {
-        "stale_count=$($stale.Count)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        @(
+            "stale_count=$($stale.Count)"
+            "updated_count=$($updated.Count)"
+        ) | Out-File -FilePath $env:GITHUB_OUTPUT -Append
     }
 
     if ($stale.Count -gt 0) {
@@ -359,14 +412,32 @@ try {
         throw @"
 $($stale.Count) committed artifact(s) do not match a fresh regeneration: $($staleNames -join ', ').
 
-RELIABLE FIX -- take the output this run already produced, which is by definition exactly what the comparison demanded:
-    ./scripts/Assert-PfbDerivedArtifacts.ps1 -Artifact $($staleNames -join ',') -KeepWorkDirectory
-then copy <work>/out/Data/* and <work>/out/Reports/* over the committed copies and commit them.
+RELIABLE FIX -- rerun with -UpdateCommitted, which writes the output this run already produced, and which is by definition exactly what the comparison demanded:
+    ./scripts/Assert-PfbDerivedArtifacts.ps1 -Artifact $($staleNames -join ',') -UpdateCommitted
+then review the diff and commit. To inspect before overwriting anything, use -KeepWorkDirectory instead and copy <work>/out/Data/* and <work>/out/Reports/* over the committed copies by hand.
 
 Running the generators bare instead:
     $($fixSteps -join "`n    ")
 only reproduces this output when tools/specs/ holds EXACTLY the $($pinnedVersions.Count) pinned version(s) $($pinnedVersions[0])-$($pinnedVersions[-1]). This gate stages only those, but Build-PfbApiDriftReport.ps1, Build-PfbValueEnumMap.ps1 and Build-PfbFieldCmdletMap.ps1 scan the whole spec directory and record what they find there (availableSpecVersions, versionDivergenceWarning, processed-version counts). So if your spec cache holds anything newer -- which ./tools/Update-PfbApiSpecs.ps1 and the CI top-up step both produce -- a bare run writes different output and this gate will report the same artifact stale again.
 "@
+    }
+
+    if ($updated.Count -gt 0) {
+        # The paths are printed bare, one per line, so each is selectable on its own AND the
+        # block as a whole pastes into a git command -- the two things a reader does next.
+        $updatedNames = @($updated | ForEach-Object { $_.Artifact } | Sort-Object)
+        $unchanged = $results.Count - $updated.Count
+
+        Write-Host ''
+        Write-Host "Updated $($updated.Count) committed artifact(s) from this run's regeneration:"
+        foreach ($name in $updatedNames) { Write-Host "    $name" }
+        if ($unchanged -gt 0) {
+            Write-Host "$unchanged checked artifact(s) were already up to date and were not rewritten."
+        }
+        Write-Host ''
+        Write-Host 'Review, then commit:'
+        Write-Host "    git diff --stat -- $($updatedNames -join ' ')"
+        return
     }
 
     Write-Host "All $($results.Count) checked artifact(s) are up to date."
