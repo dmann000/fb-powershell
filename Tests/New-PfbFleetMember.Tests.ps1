@@ -95,10 +95,97 @@ Describe 'New-PfbFleetMember - typed body/query parameters (#31, confirmed wire-
         }
     }
 
+    Context '-FleetKey convenience path (build the body from a New-PfbFleetKey key plus self-identification)' {
+        BeforeEach {
+            Mock -ModuleName PureStorageFlashBladePowerShell Get-PfbArray {
+                [PSCustomObject]@{ id = 'self-array-id'; name = 'fb-a' }
+            }
+        }
+
+        It 'builds the members body from -FleetKey and the joining array own id' {
+            New-PfbFleetMember -FleetName 'fleet-prod' -FleetKey 'fleet-key-abc' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $Method -eq 'POST' -and $Endpoint -eq 'fleets/members' -and
+                $QueryParams['fleet_names'] -eq 'fleet-prod' -and
+                @($Body['members']).Count -eq 1 -and
+                @($Body['members'])[0]['key'] -eq 'fleet-key-abc' -and
+                @($Body['members'])[0]['member']['id'] -eq 'self-array-id'
+            }
+        }
+
+        It 'sends the same wire shape as the equivalent explicit -Members call, so the convenience path is a pure ergonomics layer' {
+            $script:captured = @()
+            Mock -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest {
+                $script:captured += , ($Body | ConvertTo-Json -Depth 6 -Compress)
+            }
+
+            New-PfbFleetMember -FleetName 'fleet-prod' -FleetKey 'k' -Confirm:$false -Array $fakeArray
+            New-PfbFleetMember -FleetName 'fleet-prod' `
+                -Members @{ key = 'k'; member = @{ id = 'self-array-id' } } `
+                -Confirm:$false -Array $fakeArray
+
+            $script:captured.Count | Should -Be 2
+            $script:captured[0] | Should -Be $script:captured[1]
+        }
+
+        It 'resolves the joining array over the connection it was given, not the default connection' {
+            New-PfbFleetMember -FleetName 'fleet-prod' -FleetKey 'k' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Get-PfbArray -Times 1 -Exactly -ParameterFilter {
+                $Array.Endpoint -eq 'fb.example.test'
+            }
+        }
+
+        It 'takes the first array record, since GET /arrays returns a list of one for the array being talked to' {
+            Mock -ModuleName PureStorageFlashBladePowerShell Get-PfbArray {
+                @([PSCustomObject]@{ id = 'first'; name = 'fb-a' }, [PSCustomObject]@{ id = 'second'; name = 'fb-b' })
+            }
+
+            New-PfbFleetMember -FleetName 'fleet-prod' -FleetKey 'k' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                @($Body['members'])[0]['member']['id'] -eq 'first'
+            }
+        }
+
+        It 'throws rather than POSTing a body with an empty member id when the array id cannot be resolved' {
+            Mock -ModuleName PureStorageFlashBladePowerShell Get-PfbArray { }
+
+            { New-PfbFleetMember -FleetName 'fleet-prod' -FleetKey 'k' -Confirm:$false -Array $fakeArray } |
+                Should -Throw -ExpectedMessage '*-Members*'
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 0 -Exactly
+        }
+
+        It 'accepts -FleetId as the selector alongside -FleetKey, because the selector says WHICH fleet and the key only authorises the join' {
+            New-PfbFleetMember -FleetId 'fleet-1' -FleetKey 'k' -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Invoke-PfbApiRequest -Times 1 -Exactly -ParameterFilter {
+                $QueryParams['fleet_ids'] -eq 'fleet-1' -and -not $QueryParams.ContainsKey('fleet_names') -and
+                @($Body['members'])[0]['key'] -eq 'k'
+            }
+        }
+
+        It 'rejects -FleetKey and -Members together at bind time rather than silently preferring one' {
+            { New-PfbFleetMember -FleetName 'fleet-prod' -FleetKey 'k' `
+                    -Members @{ key = 'k'; member = @{ id = 'i' } } -Confirm:$false -Array $fakeArray } |
+                Should -Throw
+        }
+
+        It 'never calls Get-PfbArray on the -Members path, so the passthrough shape stays exactly what the caller wrote' {
+            New-PfbFleetMember -FleetName 'fleet-prod' -Members @{ key = 'k'; member = @{ id = 'i' } } `
+                -Confirm:$false -Array $fakeArray
+
+            Should -Invoke -ModuleName PureStorageFlashBladePowerShell Get-PfbArray -Times 0 -Exactly
+        }
+    }
+
     Context 'constraint compliance' {
         It 'puts no ValidateSet on -<Parameter> (constraint 3, no spec enum)' -ForEach @(
             @{ Parameter = 'FleetName' }
             @{ Parameter = 'FleetId' }
+            @{ Parameter = 'FleetKey' }
             @{ Parameter = 'Members' }
         ) {
             $attrs = (Get-Command New-PfbFleetMember).Parameters[$Parameter].Attributes
