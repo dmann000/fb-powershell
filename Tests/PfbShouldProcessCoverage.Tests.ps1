@@ -377,12 +377,19 @@ Describe 'ShouldProcess coverage' {
         # that no longer needs one -- and the next Remove-* to regress to Medium under that same
         # name would sail through the assertion above.
         #
-        # There is deliberately no cap on this list's LENGTH. An earlier draft parked
-        # Remove-PfbWorkloadTag in a separate pending-decision list and capped that list at one
-        # entry, because a parking space that can grow becomes a general suppression mechanism for
-        # the load-bearing assertion. That hazard is gone with the parking space: an entry HERE is
-        # a written ruling with a stated reason, which is a decision rather than a deferral of one.
-        # If this list ever grows a reasonless entry, that is the thing to reject in review.
+        # There is no cap on this list's LENGTH, and the history there is worth stating accurately
+        # because an earlier version of this comment described a rail that never existed. A growth
+        # cap on the parking list was REQUESTED in review and DECLINED; it was never implemented.
+        # What 564f7a0 actually shipped was $script:confirmImpactPendingDecision holding one name,
+        # guarded per entry (it must name exactly one real cmdlet, and that cmdlet must still be
+        # non-High) and not at all by length. That list was then deleted along with the ruling on
+        # Remove-PfbWorkloadTag, whose entry moved into $script:confirmImpactExempt below -- which
+        # carries the same per-entry staleness guard and, likewise, no length bound.
+        #
+        # So the gap is real, not closed: N Remove-* cmdlets could be parked here at 'Medium' and
+        # this file would stay green, and nothing mechanically enforces the "written reason" the
+        # paragraph above leans on -- a reasonless entry is caught only by a human in review. That
+        # is a deliberate choice about where to put the check, not a property of the code.
         foreach ($name in $script:confirmImpactExempt) {
             $record = @($script:cmdlets | Where-Object { $_.Function -eq $name })
             $record.Count |
