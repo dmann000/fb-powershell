@@ -20520,6 +20520,10 @@
       "parameter": "SourceName"
     },
     {
+      "cmdlet": "New-PfbFleetMember",
+      "parameter": "FleetKey"
+    },
+    {
       "cmdlet": "New-PfbLocalGroupMember",
       "parameter": "Member"
     },
