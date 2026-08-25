@@ -17,6 +17,7 @@
 # Nothing here imports the module. Parsing only, so no module state is created or leaked.
 
 BeforeAll {
+    $script:testRoot = $PSScriptRoot
     $script:moduleRoot = Split-Path -Parent $PSScriptRoot
     $script:publicRoot = Join-Path $script:moduleRoot 'Public'
 
@@ -113,14 +114,25 @@ BeforeAll {
         # dynamic member name ($PSCmdlet.$verb(...)) is a MemberExpression rather than a string
         # constant -- guard the cast instead of stringifying, or a dynamic call would compare equal
         # to nothing and be silently uncounted.
-        $calls = @($Function.FindAll({
+        $guardCalls = @($Function.FindAll({
                     param($node)
                     if ($node -isnot [System.Management.Automation.Language.InvokeMemberExpressionAst]) { return $false }
                     if ($node.Member -isnot [System.Management.Automation.Language.StringConstantExpressionAst]) { return $false }
                     return ($node.Member.Value -in @('ShouldProcess', 'ShouldContinue'))
                 }, $true))
 
-        $nestedCalls = @($calls | Where-Object {
+        # COUNTED SEPARATELY, and the distinction is the whole point of assertion 2.
+        # ShouldContinue does NOT participate in -WhatIf: it is an extra confirmation prompt that
+        # runs regardless of it. So a cmdlet declaring SupportsShouldProcess whose only guard is
+        # ShouldContinue still issues its request under -WhatIf -- verbatim the harm assertion 2
+        # exists to catch. Lumping the two together admitted exactly that defect.
+        #
+        # ShouldContinue stays in the NESTING scan below: a guard of either kind in an inner scope
+        # is the same control-flow hazard.
+        $shouldProcessCalls = @($guardCalls | Where-Object { $_.Member.Value -eq 'ShouldProcess' })
+        $shouldContinueCalls = @($guardCalls | Where-Object { $_.Member.Value -eq 'ShouldContinue' })
+
+        $nestedCalls = @($guardCalls | Where-Object {
                 Test-PfbNestedInInnerScope -Node $_ -Stop $Function
             })
 
@@ -131,7 +143,8 @@ BeforeAll {
             Line                  = $Function.Extent.StartLineNumber
             SupportsShouldProcess = $supportsShouldProcess
             ConfirmImpact         = $confirmImpact
-            ShouldProcessCalls    = $calls.Count
+            ShouldProcessCalls    = $shouldProcessCalls.Count
+            ShouldContinueCalls   = $shouldContinueCalls.Count
             NestedCalls           = $nestedCalls.Count
             NestedCallLines       = @($nestedCalls | ForEach-Object { $_.Extent.StartLineNumber })
         }
@@ -171,6 +184,14 @@ BeforeAll {
     # that does not exist -- -WhatIf output claiming a Get- cmdlet would change something.
     $script:readOnlyVerbs = @('Get', 'Test')
 
+    # Verbs that are deliberately neither. Each one is a decision, recorded here so the census
+    # assertion below can be exhaustive rather than a fail-open default:
+    #   Invoke     -- the three Invoke-* cmdlets are a scoping wrapper and two GET diagnostics
+    #                 (verified: -Method GET, and Invoke-PfbInContext issues no request at all)
+    #   Connect    -- session setup, no array mutation
+    #   Disconnect -- session teardown, no array mutation
+    $script:otherVerbs = @('Invoke', 'Connect', 'Disconnect')
+
     # A LITERAL list, never a name-shaped regex. A pattern like '*Context*' or '*Credential*' would
     # silently absorb a future cmdlet that genuinely does need a guard, which is precisely the decay
     # this file exists to catch.
@@ -191,26 +212,22 @@ BeforeAll {
         'Invoke-PfbNetworkTrace' # read-only diagnostic
     )
 
-    # PENDING MAINTAINER DECISION -- NOT a settled exemption.
+    # Settled exemptions from the Remove-*-is-High rule. A LITERAL list, one written reason per
+    # entry, same discipline as $script:shouldProcessExempt above.
     #
-    # Remove-PfbWorkloadTag is the only Remove-* in the module declaring ConfirmImpact = 'Medium'
-    # rather than 'High'. At Medium it deletes without ever prompting, because the default
-    # $ConfirmPreference is High. That is either:
-    #   (a) a real defect -- the cmdlet should be 'High' like its 111 siblings; or
-    #   (b) deliberate -- a workload TAG is metadata, cheaply recreated, and unlike the other
-    #       Remove-* cmdlets its loss destroys no data.
+    # Remove-PfbWorkloadTag is the only Remove-* of 112 declaring 'Medium' rather than 'High', so
+    # it is the only one that deletes without prompting ($ConfirmPreference defaults to High).
+    # Maintainer ruling 2026-08-24: KEEP it at Medium. A workload tag is metadata -- DELETE
+    # /workloads/tags removes label rows and destroys no array data, and the tag is cheaply
+    # recreated -- so the prompt its 111 siblings carry would be friction protecting nothing.
+    # The cost accepted with that ruling is a UX inconsistency: someone who has learned that
+    # Remove-Pfb* stops and asks will not be asked here. That errs toward fewer surprise prompts,
+    # which is the tolerable direction.
     #
-    # Which of those is true is the maintainer's call, not this test's, and it MUST be settled
-    # before this file merges. It is parked here, in its own list with its own name, rather than
-    # buried in $script:confirmImpactExempt, so that resolving it is a visible one-line edit:
-    # either move it into the settled list with a reason, or fix the cmdlet and delete this list.
-    $script:confirmImpactPendingDecision = @(
-        'Remove-PfbWorkloadTag'
+    # Revisit if the endpoint ever grows the ability to delete something other than labels.
+    $script:confirmImpactExempt = @(
+        'Remove-PfbWorkloadTag'  # metadata only; DELETE /workloads/tags destroys no array data
     )
-
-    # Settled exemptions from the Remove-*-is-High rule. Empty today, and it should stay that way
-    # unless a specific cmdlet earns an entry with a written reason.
-    $script:confirmImpactExempt = @()
 }
 
 Describe 'ShouldProcess coverage' {
@@ -239,6 +256,27 @@ Describe 'ShouldProcess coverage' {
             Should -BeGreaterOrEqual 100 -Because 'the ConfirmImpact assertion is scoped to Remove-*, so it needs its own floor'
     }
 
+    It 'classifies every verb in Public/, so a new one cannot arrive unnoticed' {
+        # The verb lists are allowlists, and an allowlist that is consulted but never checked for
+        # completeness FAILS OPEN: a cmdlet whose verb is in none of the three lists is invisible
+        # to every assertion below -- not required to declare SupportsShouldProcess, not forbidden
+        # from declaring it, not subject to the ConfirmImpact rule. `Restore-`, `Enable-`,
+        # `Import-` and `Deny-` would all land in that gap silently.
+        #
+        # Tests/PfbEmptyPipelineGuardCoverage.Tests.ps1 solves this by failing CLOSED (Get and Test
+        # are read verbs, everything else is state-changing). This file keeps the explicit lists,
+        # because the classification genuinely differs per verb here -- but then it owes a census,
+        # or it is the weaker of two conventions living side by side.
+        #
+        # This reds ONCE when a new verb appears, names it, and turns classification into a
+        # one-line decision. Measured on main 2026-08-24: Get 214, New 114, Remove 112, Update 82,
+        # Test 10, Set 4, Invoke 3, Clear 2, Add 1, Connect 1, Disconnect 1 = 544.
+        $known = @($script:stateChangingVerbs) + @($script:readOnlyVerbs) + @($script:otherVerbs)
+        $unclassified = @($script:cmdlets | Where-Object { $_.Verb -notin $known })
+        $detail = @($unclassified | ForEach-Object { "$($_.File): $($_.Function) [verb = $($_.Verb)]" }) -join "`n"
+        $detail | Should -BeNullOrEmpty -Because "a verb in none of the three lists is checked by nothing in this file; classify it as state-changing, read-only or deliberately neither; offenders:`n$detail"
+    }
+
     It 'declares SupportsShouldProcess on every state-changing cmdlet' {
         $offenders = @($script:cmdlets | Where-Object {
                 $_.Verb -in $script:stateChangingVerbs -and
@@ -247,17 +285,35 @@ Describe 'ShouldProcess coverage' {
             })
         $detail = @($offenders | ForEach-Object { "$($_.File): $($_.Function)" }) -join "`n"
         $detail | Should -BeNullOrEmpty -Because "a state-changing cmdlet without SupportsShouldProcess silently ignores -WhatIf and -Confirm; offenders:`n$detail"
+
+        # Keep the exemption list honest, the same way the pending-decision list below is kept
+        # honest. A renamed or retired entry becomes a standing silent exemption for whatever
+        # future cmdlet takes that name -- and an entry whose cmdlet has since GAINED
+        # SupportsShouldProcess no longer needs exempting at all.
+        foreach ($name in $script:shouldProcessExempt) {
+            $record = @($script:cmdlets | Where-Object { $_.Function -eq $name })
+            $record.Count |
+                Should -Be 1 -Because "the exemption '$name' must still name exactly one real cmdlet, or it is exempting nothing and shadowing a future name"
+            $record[0].SupportsShouldProcess |
+                Should -BeFalse -Because "'$name' now declares SupportsShouldProcess, so its exemption is stale and must be deleted"
+        }
     }
 
     It 'actually calls ShouldProcess wherever it declares SupportsShouldProcess' {
         # A declaration with no call is worse than no declaration: -WhatIf binds successfully, the
         # caller believes nothing happened, and the request went out anyway. Measured 0 violations
         # on main -- this is a tripwire protecting a clean state, not a fix for a live defect.
+        #
+        # ShouldProcessCalls counts ShouldProcess ONLY -- see Get-PfbShouldProcessRecord.
+        # ShouldContinue does not satisfy this: it ignores -WhatIf entirely, so a cmdlet guarded
+        # only by ShouldContinue produces precisely the failure described above.
         $offenders = @($script:cmdlets | Where-Object {
                 $_.SupportsShouldProcess -and $_.ShouldProcessCalls -eq 0
             })
-        $detail = @($offenders | ForEach-Object { "$($_.File): $($_.Function)" }) -join "`n"
-        $detail | Should -BeNullOrEmpty -Because "SupportsShouldProcess without a ShouldProcess call makes -WhatIf silently perform the operation; offenders:`n$detail"
+        $detail = @($offenders | ForEach-Object {
+                "$($_.File): $($_.Function) [ShouldContinue calls: $($_.ShouldContinueCalls)]"
+            }) -join "`n"
+        $detail | Should -BeNullOrEmpty -Because "SupportsShouldProcess without a ShouldProcess call makes -WhatIf silently perform the operation, and ShouldContinue does not count because it does not participate in -WhatIf; offenders:`n$detail"
     }
 
     It 'keeps every ShouldProcess call out of an inner scope' {
@@ -305,28 +361,34 @@ Describe 'ShouldProcess coverage' {
         # invisible interactively for the cmdlets that DO prompt, so a sweep is the only place it
         # can be caught.
         #
-        # $script:confirmImpactPendingDecision is NOT a settled exemption -- see its definition.
         $offenders = @($script:cmdlets | Where-Object {
                 $_.Verb -eq 'Remove' -and
                 $_.ConfirmImpact -ne 'High' -and
-                $_.Function -notin $script:confirmImpactExempt -and
-                $_.Function -notin $script:confirmImpactPendingDecision
+                $_.Function -notin $script:confirmImpactExempt
             })
         $detail = @($offenders | ForEach-Object {
                 "$($_.File): $($_.Function) [ConfirmImpact = $($_.ConfirmImpact)]"
             }) -join "`n"
         $detail | Should -BeNullOrEmpty -Because "a Remove- cmdlet below ConfirmImpact 'High' deletes without ever prompting, because `$ConfirmPreference defaults to High; offenders:`n$detail"
 
-        # Keep the pending-decision list honest in both directions. If somebody resolves
-        # Remove-PfbWorkloadTag by raising it to High but forgets to empty this list, the entry
-        # becomes a silent standing exemption for a cmdlet that no longer needs one -- and the next
-        # Remove-* to regress to Medium under that same name would pass. So assert every parked
-        # name is still genuinely non-High.
-        foreach ($name in $script:confirmImpactPendingDecision) {
+        # Keep the exemption list honest in both directions, exactly as assertion 1 does for
+        # $script:shouldProcessExempt. If somebody later raises an exempted cmdlet to High but
+        # forgets to delete its entry, that entry becomes a silent standing exemption for a cmdlet
+        # that no longer needs one -- and the next Remove-* to regress to Medium under that same
+        # name would sail through the assertion above.
+        #
+        # There is deliberately no cap on this list's LENGTH. An earlier draft parked
+        # Remove-PfbWorkloadTag in a separate pending-decision list and capped that list at one
+        # entry, because a parking space that can grow becomes a general suppression mechanism for
+        # the load-bearing assertion. That hazard is gone with the parking space: an entry HERE is
+        # a written ruling with a stated reason, which is a decision rather than a deferral of one.
+        # If this list ever grows a reasonless entry, that is the thing to reject in review.
+        foreach ($name in $script:confirmImpactExempt) {
             $record = @($script:cmdlets | Where-Object { $_.Function -eq $name })
-            $record.Count | Should -Be 1 -Because "the pending-decision entry '$name' must still name a real cmdlet"
+            $record.Count |
+                Should -Be 1 -Because "the ConfirmImpact exemption '$name' must still name exactly one real cmdlet, or it is exempting nothing and shadowing a future name"
             $record[0].ConfirmImpact |
-                Should -Not -Be 'High' -Because "'$name' is now High, so its pending-decision entry is stale and must be deleted"
+                Should -Not -Be 'High' -Because "'$name' is now High, so its exemption is stale and must be deleted"
         }
     }
 
@@ -381,7 +443,8 @@ function Remove-PfbFixture {
                     $node.Member -is [System.Management.Automation.Language.StringConstantExpressionAst] -and
                     $node.Member.Value -in @('ShouldProcess', 'ShouldContinue')
                 }, $true))
-        $calls.Count | Should -Be 3 -Because 'ShouldContinue must be recognised alongside ShouldProcess'
+        $calls.Count |
+            Should -Be 3 -Because 'the NESTING scan covers both kinds -- a ShouldContinue in an inner scope is the same control-flow hazard as a ShouldProcess in one'
 
         $answers = @($calls | ForEach-Object {
                 Test-PfbNestedInInnerScope -Node $_ -Stop $fixtureFunction
@@ -394,9 +457,47 @@ function Remove-PfbFixture {
         $record.SupportsShouldProcess |
             Should -BeTrue -Because 'the attribute walk must read the expression-omitted form the whole tree uses'
         $record.ConfirmImpact | Should -Be 'High'
-        $record.ShouldProcessCalls | Should -Be 3
+        # 2, not 3: the fixture's third call is a ShouldContinue, and ShouldProcessCalls counts
+        # only ShouldProcess. The split is what makes assertion 2 mean what its comment says.
+        $record.ShouldProcessCalls |
+            Should -Be 2 -Because 'the fixture has two ShouldProcess calls; the ShouldContinue is counted separately'
+        $record.ShouldContinueCalls | Should -Be 1
         $record.NestedCalls | Should -Be 2
         $record.Verb | Should -Be 'Remove'
+    }
+
+    It 'keeps its copy of Test-PfbNestedInInnerScope byte-identical to the empty-pipeline sweep' {
+        # The duplication is deliberate and documented at the definition, but until now the only
+        # thing holding the two copies in sync was a comment asking the next editor to remember --
+        # on a function both files call CI-critical, and whose regression is caught by exactly one
+        # It in each file. A comment is not a rail. Six lines and no import make it one.
+        #
+        # When the shared copy finally moves to tools/lib/, this It is what tells you the move is
+        # complete rather than half-done: it fails the moment the two texts diverge, including
+        # when one file starts calling a shared copy and the other still carries its own.
+        $thisFile = Join-Path $script:testRoot 'PfbShouldProcessCoverage.Tests.ps1'
+        $otherFile = Join-Path $script:testRoot 'PfbEmptyPipelineGuardCoverage.Tests.ps1'
+        $otherFile | Should -Exist
+
+        $extract = {
+            param($Path)
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$null, [ref]$null)
+            $fn = @($ast.FindAll({
+                        param($node)
+                        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+                        $node.Name -eq 'Test-PfbNestedInInnerScope'
+                    }, $true))
+            $fn.Count | Should -Be 1 -Because "exactly one Test-PfbNestedInInnerScope must be defined in $(Split-Path -Leaf $Path)"
+            return $fn[0].Extent.Text
+        }
+
+        $mine = & $extract $thisFile
+        $theirs = & $extract $otherFile
+
+        # -ceq: a case-only difference is still a divergence between two copies that must stay
+        # identical, and -eq would not see it.
+        ($mine -ceq $theirs) |
+            Should -BeTrue -Because "the two copies of Test-PfbNestedInInnerScope have diverged; edit both or complete the extraction to tools/lib/`n--- this file ---`n$mine`n--- $(Split-Path -Leaf $otherFile) ---`n$theirs"
     }
 
     It 'recognises the negative shapes it is meant to flag' {
@@ -440,6 +541,13 @@ function Get-PfbFixture {
     if ($PSCmdlet.ShouldProcess('x')) { Invoke-PfbApiRequest -Method GET -Endpoint 'x' }
 }
 '@
+            'shouldcontinue-only'          = @'
+function Remove-PfbFixture {
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
+    param([Parameter()] [string]$Name)
+    if ($PSCmdlet.ShouldContinue('x', 'caption')) { Invoke-PfbApiRequest -Method DELETE -Endpoint 'x' }
+}
+'@
         }
 
         $records = [ordered]@{}
@@ -460,6 +568,17 @@ function Get-PfbFixture {
         # Assertion 2's predicate: declared, zero calls.
         $records['declared-never-called'].SupportsShouldProcess | Should -BeTrue
         $records['declared-never-called'].ShouldProcessCalls | Should -Be 0
+
+        # Assertion 2's predicate again, in the shape that used to slip through. This cmdlet has a
+        # guard, it prompts, and it reads as protective in review -- but ShouldContinue ignores
+        # -WhatIf, so `Remove-PfbFixture -WhatIf` still issues the DELETE. It must count as an
+        # offender, which means ShouldProcessCalls must be 0 while a guard call plainly exists.
+        $records['shouldcontinue-only'].SupportsShouldProcess | Should -BeTrue
+        $records['shouldcontinue-only'].ShouldProcessCalls |
+            Should -Be 0 -Because 'ShouldContinue does not participate in -WhatIf, so it cannot satisfy SupportsShouldProcess'
+        $records['shouldcontinue-only'].ShouldContinueCalls | Should -Be 1
+        $records['shouldcontinue-only'].NestedCalls |
+            Should -Be 0 -Because 'the guard is a direct statement of the cmdlet block, so it is not an inner-scope finding'
 
         # Assertion 5's predicate, in both the wrong-value and the omitted-value shapes. The
         # omitted shape matters on its own: a missing ConfirmImpact defaults to Medium at runtime,

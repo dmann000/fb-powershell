@@ -75,27 +75,51 @@ BeforeAll {
         #
         # A `.SYNOPSIS` keyword line is the marker (anchored, per Get-PfbHelpSection's reasoning),
         # so a .DESCRIPTION or .EXAMPLE that merely mentions the word cannot be mistaken for the
-        # block. Prefer a block INSIDE the function extent -- the convention throughout Public/ --
-        # and fall back to the nearest block above the function, which is the other legal placement
-        # for comment-based help. Measured on main 2026-08-24: all 543 blocks are inside, so the
-        # fallback is future-proofing, not a live case.
+        # block.
+        #
+        # The block must sit INSIDE the function body, and must not belong to a nested helper.
+        # This is narrower than "a .SYNOPSIS somewhere near the function", deliberately: an earlier
+        # draft accepted the nearest block ABOVE the function as a fallback, and that admitted two
+        # shapes that report as fully documented while `Get-Help` shows nothing --
+        #   - a file-header block a dozen lines above the function, holding unrelated prose;
+        #   - a block belonging to a nested helper, when the cmdlet itself has none.
+        # Both were probed against Get-Help; neither attaches. The `above` placement IS legal
+        # PowerShell, but only when adjacent, and a gate that cannot tell adjacent from distant is
+        # a gate that false-greens. All 544 blocks in Public/ are inside their function, so
+        # requiring that is strictly stronger here rather than a restriction anyone has to work
+        # around. The 'help-above-function' and 'nested-helper-only' fixtures below pin both.
         $candidates = @($Tokens | Where-Object {
                 $_.Kind -eq [System.Management.Automation.Language.TokenKind]::Comment -and
                 $_.Text -match '(?m)^\s*\.SYNOPSIS\s*$'
             })
-        $inside = @($candidates | Where-Object {
-                $_.Extent.StartOffset -ge $Function.Extent.StartOffset -and
-                $_.Extent.EndOffset -le $Function.Extent.EndOffset
-            })
-        $above = @($candidates | Where-Object {
-                $_.Extent.EndOffset -le $Function.Extent.StartOffset
-            })
+
+        $nestedFunctions = @($Function.FindAll({
+                    param($node)
+                    $node -is [System.Management.Automation.Language.FunctionDefinitionAst]
+                }, $true) | Where-Object { -not [object]::ReferenceEquals($_, $Function) })
 
         $help = $null
-        if ($inside.Count -gt 0) { $help = $inside[0] }
-        elseif ($above.Count -gt 0) { $help = $above[-1] }
+        foreach ($candidate in $candidates) {
+            if ($candidate.Extent.StartOffset -lt $Function.Extent.StartOffset) { continue }
+            if ($candidate.Extent.EndOffset -gt $Function.Extent.EndOffset) { continue }
+
+            $inNested = $false
+            foreach ($nested in $nestedFunctions) {
+                if ($candidate.Extent.StartOffset -ge $nested.Extent.StartOffset -and
+                    $candidate.Extent.EndOffset -le $nested.Extent.EndOffset) {
+                    $inNested = $true
+                    break
+                }
+            }
+            if ($inNested) { continue }
+
+            # Tokens arrive in source order, so the first surviving candidate is the cmdlet's own.
+            $help = $candidate
+            break
+        }
 
         $synopsisEmpty = $false
+        $seenSynopsis = $false
         $documented = @()
         $emptyParameterSections = @()
         $namelessParameterSections = 0
@@ -107,9 +131,15 @@ BeforeAll {
                 $sectionBody = ($section.BodyLines -join "`n").Trim()
 
                 if ($section.Keyword -eq 'SYNOPSIS') {
-                    # First .SYNOPSIS wins; a second one is not a shape this tree produces.
-                    if (-not $synopsisEmpty -and [string]::IsNullOrWhiteSpace($sectionBody)) {
-                        $synopsisEmpty = $true
+                    # First .SYNOPSIS wins -- enforced, not merely described. The previous guard
+                    # was `-not $synopsisEmpty`, which only prevented un-setting a flag that is
+                    # never un-set: given a populated first .SYNOPSIS and an empty second, the loop
+                    # reached the second and flagged the cmdlet. Wrong direction is a false
+                    # positive rather than a false green, but the comment claimed a behaviour the
+                    # code did not have, which is the defect class 3c98a7f already paid for.
+                    if (-not $seenSynopsis) {
+                        $seenSynopsis = $true
+                        $synopsisEmpty = [string]::IsNullOrWhiteSpace($sectionBody)
                     }
                     continue
                 }
@@ -426,6 +456,65 @@ function Get-PfbFixture {
     param([Parameter()] [string]$Name)
 }
 '@
+            # The three below pin the help-block LOOKUP itself, which nothing else here exercises:
+            # every fixture above puts the block inside the function, so the placement rule was the
+            # one predicate with no coverage in either direction.
+            'help-above'       = @'
+<#
+.SYNOPSIS
+    Adjacent help above the function.
+.PARAMETER Name
+    The fixture name.
+#>
+function Get-PfbFixture {
+    [CmdletBinding()]
+    param([Parameter()] [string]$Name)
+}
+'@
+            'distant-header'   = @'
+<#
+.SYNOPSIS
+    File header for a script, not help for the function far below it.
+.DESCRIPTION
+    Unrelated prose that documents the file rather than the cmdlet.
+#>
+
+# Some other commentary sits between the header and the function.
+
+function Get-PfbFixture {
+    [CmdletBinding()]
+    param([Parameter()] [string]$Name)
+}
+'@
+            'nested-only'      = @'
+function Get-PfbFixture {
+    [CmdletBinding()]
+    param([Parameter()] [string]$Name)
+
+    function Get-PfbInnerHelper {
+        <#
+        .SYNOPSIS
+            Belongs to the nested helper, not to the cmdlet.
+        .PARAMETER Name
+            The helper's own parameter.
+        #>
+        param([string]$Name)
+    }
+}
+'@
+            'second-synopsis'  = @'
+function Get-PfbFixture {
+    <#
+    .SYNOPSIS
+        A populated first synopsis.
+    .PARAMETER Name
+        The fixture name.
+    .SYNOPSIS
+    #>
+    [CmdletBinding()]
+    param([Parameter()] [string]$Name)
+}
+'@
         }
 
         $records = [ordered]@{}
@@ -488,5 +577,22 @@ function Get-PfbFixture {
         $records['case-mismatch'].MissingParameters |
             Should -BeNullOrEmpty -Because 'PowerShell parameter names are case-insensitive, so .PARAMETER name documents $Name'
         $records['case-mismatch'].OrphanedParameters | Should -BeNullOrEmpty
+
+        # Placement. All three of these read as fully documented to a lookup that accepts the
+        # nearest .SYNOPSIS above the function, and Get-Help attaches nothing to any of them.
+        $records['help-above'].HasHelpBlock |
+            Should -BeFalse -Because 'the convention throughout Public/ is a block inside the function body, and a lookup that also accepts an adjacent block above cannot distinguish it from a distant file header'
+        $records['help-above'].MissingParameters | Should -Be @('Name')
+
+        $records['distant-header'].HasHelpBlock |
+            Should -BeFalse -Because 'a file-header block a dozen lines up documents the file, and Get-Help attaches none of it to the function'
+
+        $records['nested-only'].HasHelpBlock |
+            Should -BeFalse -Because 'the only help block belongs to a nested helper, so the cmdlet itself is undocumented'
+        $records['nested-only'].MissingParameters |
+            Should -Be @('Name') -Because "the nested helper's .PARAMETER entry must not be credited to the cmdlet"
+
+        $records['second-synopsis'].SynopsisEmpty |
+            Should -BeFalse -Because 'the first .SYNOPSIS is populated and wins; a later empty one must not flag the cmdlet'
     }
 }

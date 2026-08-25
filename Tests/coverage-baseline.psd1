@@ -116,6 +116,14 @@
             # to catch.
             'Empty-pipeline guard coverage'
             'Update-PfbEmptyPipelineGuards - real tree'
+            # The two Public/-population AST sweeps, same profile as the coverage block above:
+            # ungated, reading only committed *.ps1 files, contributing executed tests on every
+            # leg. The empty-file rail in scripts/Assert-PfbTestCoverage.ps1 cannot substitute --
+            # it walks $Result.Containers, so a file that drops out of DISCOVERY entirely
+            # (renamed, moved, excluded by a path filter) appears nowhere and the run stays green
+            # with the tripwire silently gone. This list is the only rail that sees that.
+            'ShouldProcess coverage'
+            'Comment-based help coverage'
             # Issue #112 contextScope version tripwire. PS7-gated (it parses every cached spec
             # with ConvertFrom-Json -Depth), so it belongs to this block alone. It is exactly
             # what this list exists for: it is VACUOUSLY green today -- every endpoint declaring
@@ -288,6 +296,12 @@
             # red. Measured 7 passed / 15 passed on 5.1 for the two files.
             'Empty-pipeline guard coverage'
             'Update-PfbEmptyPipelineGuards - real tree'
+            # The two Public/-population AST sweeps -- see the pwsh7 block for the rationale.
+            # Both belong on this leg too: neither imports the module, neither reads the spec
+            # cache, and neither uses PS7-only syntax, so both run unskipped on 5.1 and
+            # requiring them here is not a false red.
+            'ShouldProcess coverage'
+            'Comment-based help coverage'
             # Issue #112, synthetic half only. It reads no spec and uses no PS7-only syntax, so
             # it runs on this leg (measured 7 passed on 5.1) and is the ONLY thing proving the
             # comparison can produce a finding at all -- the real-spec half it guards is
