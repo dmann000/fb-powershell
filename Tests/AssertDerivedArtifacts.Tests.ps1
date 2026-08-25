@@ -175,8 +175,58 @@ Describe 'Assert-PfbDerivedArtifacts parameter contract' {
         $names | Should -Contain 'KeepWorkDirectory'
     }
 
+    It 'exposes -UpdateCommitted as a switch, so remediating is opt-in and takes no value' {
+        # A [switch], specifically. As a [bool] it would bind positionally and by conversion --
+        # -UpdateCommitted $false still enters the branch under a truthy conversion mistake, and
+        # a stray positional argument could set it. The whole safety property here is that
+        # nothing turns this on except a caller typing it.
+        $parameter = @($gateAst.ParamBlock.Parameters |
+            Where-Object { $_.Name.VariablePath.UserPath -eq 'UpdateCommitted' })
+
+        $parameter.Count | Should -Be 1 -Because 'the remediation switch is the documented fix path in the stale-artifact message'
+        $parameter[0].StaticType.Name | Should -Be 'SwitchParameter'
+        $parameter[0].DefaultValue | Should -BeNullOrEmpty -Because 'a default that enabled writing would make the gate rewrite the working tree on an ordinary check'
+    }
+
     It 'declares PowerShell 7, since the generators it invokes require it' {
         $gateSource | Should -Match '#Requires -Version 7\.0'
+    }
+}
+
+Describe 'Assert-PfbDerivedArtifacts remediation semantics' {
+
+    It 'writes into the repository only underneath the -UpdateCommitted guard' {
+        # The load-bearing property of this gate is that checking does not mutate. There are two
+        # Copy-Item calls in the script: one stages specs into the scratch tree, one overwrites a
+        # committed artifact. Only the second may run unconditionally-never. Asserted by
+        # containment rather than by grepping for the switch name, because a Copy-Item moved one
+        # brace out of the guard still sits a few lines from the word "UpdateCommitted" and would
+        # keep a text match green while the gate silently rewrote Data/ on every run.
+        $guard = @($gateAst.FindAll({
+            param($node)
+            $node -is [System.Management.Automation.Language.IfStatementAst]
+        }, $true) | Where-Object { $_.Clauses[0].Item1.Extent.Text -match '\$UpdateCommitted' })
+
+        $guard.Count | Should -Be 1 -Because 'the remediation branch must be a single identifiable guard, not scattered conditionals'
+
+        $writes = @($gateAst.FindAll({
+            param($node)
+            $node -is [System.Management.Automation.Language.CommandAst] -and
+            $node.GetCommandName() -eq 'Copy-Item'
+        }, $true) | Where-Object { $_.Extent.Text -match '\$committedPath' })
+
+        $writes.Count | Should -Be 1 -Because 'exactly one write targets a committed artifact; a second would need its own review'
+        $writes[0].Extent.StartOffset | Should -BeGreaterThan $guard[0].Extent.StartOffset
+        $writes[0].Extent.EndOffset | Should -BeLessThan $guard[0].Extent.EndOffset
+    }
+
+    It 'reports the updated artifacts by repo-relative path' {
+        # The printed list is the handoff to git: a reader pastes those paths into git diff or
+        # git add. Absolute scratch paths would look identical in the output and be useless in
+        # both commands, which is why the report is built from $_.Artifact -- the plan's
+        # repo-relative key -- rather than from the Copy-Item destination.
+        $gateSource | Should -Match '\$updatedNames\s*=\s*@\(\$updated \| ForEach-Object \{ \$_\.Artifact \}'
+        $gateSource | Should -Match 'git diff --stat --'
     }
 }
 
