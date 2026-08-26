@@ -749,6 +749,7 @@ function Test-Fixture {
 }
 '@
         $ast = [System.Management.Automation.Language.Parser]::ParseInput($source, [ref]$tokens, [ref]$errs)
+        $errs.Count | Should -Be 0 -Because 'a fixture that does not parse is inert, and nothing here would go red'
         $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
         Find-PfbAccumulatorVariable -FunctionAst $funcAst -ParameterName 'First' | Should -BeNullOrEmpty
         Find-PfbAccumulatorVariable -FunctionAst $funcAst -ParameterName 'Second' | Should -BeNullOrEmpty
@@ -792,9 +793,12 @@ function Test-Fixture {
             @{ Shape = 'a static call on a variable (STATIC guard)'; Expression = '$allNames::ToArray()' }
             @{ Shape = 'a composite target (BARE-TARGET guard)';   Expression = '($allNames + $extra).ToArray()' }
             @{ Shape = 'a different member name';                  Expression = '$allNames.Clone()' }
-            @{ Shape = 'a chain past ToArray';                     Expression = '$allNames.ToArray().ToString()' }
+            @{ Shape = 'a chain past ToArray (member name is ToString, not the STATIC guard)'; Expression = '$allNames.ToArray().ToString()' }
             @{ Shape = 'a member-access target';                   Expression = '$obj.Items.ToArray()' }
-            @{ Shape = 'a static call on a type literal';          Expression = '[System.Array]::Empty()' }
+            # Refused by the member-name guard (member is Empty), NOT by the STATIC guard --
+            # measured under mutation. `$allNames::ToArray()` above is the only shape here that
+            # reaches Static. Kept as a redundant negative; the label must not overstate it.
+            @{ Shape = 'a type-literal call whose member is not ToArray'; Expression = '[System.Array]::Empty()' }
         ) {
             Get-PfbHelperArgumentSourceVariable -ArgumentAst (Get-PfbHelperArgumentAst $Expression) |
                 Should -BeNullOrEmpty

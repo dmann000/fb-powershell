@@ -466,6 +466,9 @@ function Get-PfbHelperArgumentSourceVariable {
     $invoke = $ArgumentAst -as [System.Management.Automation.Language.InvokeMemberExpressionAst]
     if (-not $invoke) { return $null }
     if ($invoke.Static) { return $null }
+    # Defensive, not behavioural: a dynamic member name ($var.$name()) exposes no .Value, so
+    # the next line already refuses it while this file runs without Set-StrictMode. Kept so the
+    # refusal survives a future strict mode, which is why no mutation of it can be killed.
     if ($invoke.Member -isnot [System.Management.Automation.Language.StringConstantExpressionAst]) { return $null }
     if ($invoke.Member.Value -ne 'ToArray') { return $null }
     if (-not (Test-PfbInvokeHasNoArguments -Invoke $invoke)) { return $null }
