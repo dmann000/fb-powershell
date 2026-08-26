@@ -157,6 +157,10 @@ function Test-PfbWireValueIsParameter {
             $Param                  -- direct
             @($Param)               -- array-wrapped
             $Param -join ','        -- joined into a plural query key
+            [bool]$Param            -- exact Boolean cast, BOOLEAN-LIKE parameters only
+            ([bool]$Param).ToString().ToLower()
+                                    -- exact zero-argument method chain rooted at that cast,
+                                       BOOLEAN-LIKE parameters only
             'literal'               -- ONLY for a BOOLEAN-LIKE parameter whose mere presence is
                                        keyed to a hardcoded string, and only inside an
                                        `if ($Param)` guard
@@ -177,7 +181,10 @@ function Test-PfbWireValueIsParameter {
                                        means the wire value is derived from something other
                                        than this parameter alone, and stays refused.
         Refused (correctly, per this file's "never guess" contract): anything else, e.g.
-        `"$Param"`. The array-projection shape `@($Param | ForEach-Object { @{ name = $_ } })`
+        `"$Param"`. Member access, unary expressions and composite operands remain refused:
+        each can derive the wire value from a property, operation or additional operand rather
+        than from the named parameter alone. The array-projection shape
+        `@($Param | ForEach-Object { @{ name = $_ } })`
         is also refused HERE by design -- it is matched by the sibling
         Test-PfbWireValueIsParameterProjection, and only ever from the nested-reference
         resolver, which credits the OUTER key. Matching it in this predicate would let the
@@ -204,6 +211,35 @@ function Test-PfbWireValueIsParameter {
     if ($binary -and $binary.Operator -eq [System.Management.Automation.Language.TokenKind]::Join) {
         $joinLeft = $binary.Left -as [System.Management.Automation.Language.VariableExpressionAst]
         if ($joinLeft -and $joinLeft.VariablePath.UserPath -eq $ParameterName) { return $true }
+    }
+
+    if ($IsBooleanLikeParameter) {
+        # Exact [bool]$Param, optionally beneath the exact zero-argument
+        # `(...).ToString().ToLower()` chain. Walk AST nodes rather than text so member access,
+        # unary expressions and composite cast operands cannot be mistaken for the parameter.
+        $boolCast = $expr -as [System.Management.Automation.Language.ConvertExpressionAst]
+        if (-not $boolCast) {
+            $toLower = $expr -as [System.Management.Automation.Language.InvokeMemberExpressionAst]
+            if ($toLower -and $toLower.Arguments.Count -eq 0 -and
+                $toLower.Member -is [System.Management.Automation.Language.StringConstantExpressionAst] -and
+                $toLower.Member.Value -eq 'ToLower') {
+                $toString = $toLower.Expression -as [System.Management.Automation.Language.InvokeMemberExpressionAst]
+                if ($toString -and $toString.Arguments.Count -eq 0 -and
+                    $toString.Member -is [System.Management.Automation.Language.StringConstantExpressionAst] -and
+                    $toString.Member.Value -eq 'ToString') {
+                    $parenthesizedRoot = $toString.Expression -as [System.Management.Automation.Language.ParenExpressionAst]
+                    if ($parenthesizedRoot) {
+                        $chainRoot = Resolve-PfbSingleExpression -Ast $parenthesizedRoot.Pipeline
+                        $boolCast = $chainRoot -as [System.Management.Automation.Language.ConvertExpressionAst]
+                    }
+                }
+            }
+        }
+
+        if ($boolCast -and $boolCast.Type.TypeName.FullName -eq 'bool') {
+            $castChild = $boolCast.Child -as [System.Management.Automation.Language.VariableExpressionAst]
+            if ($castChild -and $castChild.VariablePath.UserPath -eq $ParameterName) { return $true }
+        }
     }
 
     if ($IsBooleanLikeParameter -and $expr -is [System.Management.Automation.Language.StringConstantExpressionAst]) {

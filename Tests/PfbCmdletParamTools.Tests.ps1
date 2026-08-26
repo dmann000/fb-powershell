@@ -1343,6 +1343,65 @@ function Test-Fixture {
     }
 }
 
+Describe 'Exact boolean wire-value transforms (issue #141)' {
+    BeforeAll {
+        function Get-TestBooleanWireFunctionAst {
+            param([string]$Source)
+            $tokens = $null; $errs = $null
+            $ast = [System.Management.Automation.Language.Parser]::ParseInput($Source, [ref]$tokens, [ref]$errs)
+            $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
+        }
+    }
+
+    It 'resolves an exact [bool] cast through an index assignment' {
+        $funcAst = Get-TestBooleanWireFunctionAst 'function Test-Fixture { param([switch]$Destroyed) $body = @{}; $body[''destroyed''] = [bool]$Destroyed }'
+        $result = Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Destroyed' -IsBooleanLikeParameter
+        $result.WireName | Should -Be 'destroyed'
+        $result.TargetVariable | Should -Be 'body'
+    }
+
+    It 'resolves the exact zero-argument ToString/ToLower chain through an index assignment' {
+        $funcAst = Get-TestBooleanWireFunctionAst 'function Test-Fixture { param([switch]$Flagged) $queryParams = @{}; $queryParams[''flagged''] = ([bool]$Flagged).ToString().ToLower() }'
+        $result = Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Flagged' -IsBooleanLikeParameter
+        $result.WireName | Should -Be 'flagged'
+        $result.TargetVariable | Should -Be 'queryParams'
+    }
+
+    It 'resolves the new exact forms through the hashtable-literal value path' -ForEach @(
+        @{ Parameter = 'Destroyed'; WireName = 'destroyed'; TargetVariable = 'body';        Value = '[bool]$Destroyed' }
+        @{ Parameter = 'Flagged';   WireName = 'flagged';   TargetVariable = 'queryParams'; Value = '([bool]$Flagged).ToString().ToLower()' }
+    ) {
+        $source = 'function Test-Fixture { param([switch]$' + $Parameter + ') $' + $TargetVariable + ' = @{ ''' + $WireName + ''' = ' + $Value + ' } }'
+        $funcAst = Get-TestBooleanWireFunctionAst $source
+        $result = Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName $Parameter -IsBooleanLikeParameter
+        $result.WireName | Should -Be $WireName
+        $result.TargetVariable | Should -Be $TargetVariable
+    }
+
+    It 'refuses <Case>' -ForEach @(
+        @{ Case = 'a cast rooted at a different variable';                       Value = '[bool]$Other' }
+        @{ Case = 'a cast of a composite operand';                               Value = '[bool]($Param -or $Other)' }
+        @{ Case = 'a method chain rooted at a different variable';               Value = '([bool]$Other).ToString().ToLower()' }
+        @{ Case = 'a ToString call carrying an argument';                         Value = '([bool]$Param).ToString(''x'')' }
+        @{ Case = 'a method chain ending in a member other than ToLower';         Value = '([bool]$Param).ToString().Trim()' }
+        @{ Case = 'a unary expression over member access';                        Value = '(-not $Param.IsPresent)' }
+        @{ Case = 'string interpolation that merely mentions the parameter';      Value = '"$Param"' }
+    ) {
+        $source = 'function Test-Fixture { param([switch]$Param, [switch]$Other) $body = @{}; $body[''k''] = ' + $Value + ' }'
+        $funcAst = Get-TestBooleanWireFunctionAst $source
+        Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Param' -IsBooleanLikeParameter | Should -BeNullOrEmpty
+    }
+
+    It 'refuses <Shape> when -IsBooleanLikeParameter is absent for a string parameter' -ForEach @(
+        @{ Shape = 'an exact [bool] cast';                         Value = '[bool]$Param' }
+        @{ Shape = 'the exact zero-argument ToString/ToLower chain'; Value = '([bool]$Param).ToString().ToLower()' }
+    ) {
+        $source = 'function Test-Fixture { param([string]$Param) $body = @{}; $body[''k''] = ' + $Value + ' }'
+        $funcAst = Get-TestBooleanWireFunctionAst $source
+        Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Param' | Should -BeNullOrEmpty
+    }
+}
+
 Describe 'Get-PfbCmdletParameterInventory - wire surface' {
     BeforeAll {
         $script:inventoryRoot = Join-Path $TestDrive 'WireSurface/Public'
