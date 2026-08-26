@@ -141,7 +141,20 @@ BeforeAll {
         # and `$queryParams['names'] = $filterNames -join ','`; it is unresolvable only because
         # the AST resolver cannot trace that conditional. This is the `body property` case,
         # not the coverage-loss case this ceiling guards against.
-        'wire name unresolved'           = 126
+        #
+        # 126 -> 127 for New-PfbFleetMember|FleetKey, the same case again and for the same
+        # reason. It is a NEW parameter, so nothing that was evaluable stopped being evaluated,
+        # and it was never evaluable as a query key: its value is placed inside the request body
+        # at `members[].key`, which the resolver does not follow into. Live-verified against the
+        # lab fleet -- POST /fleets/members returns 200 for the member it names -- so the key
+        # demonstrably reaches the wire, exactly as with the entry above.
+        #
+        # A raise here needs that pair of facts, not just a passing test: the parameter is new
+        # (so no coverage was lost) AND its route to the wire is evidenced (so 'unresolved'
+        # means the resolver cannot see it, not that it goes nowhere). Absent either, a growing
+        # count is the coverage regression this ceiling exists to catch -- do not bump it to
+        # clear a red.
+        'wire name unresolved'           = 127
         'endpoint/method ambiguous'      = 14
         'endpoint/verb absent from spec' = 0
     }
