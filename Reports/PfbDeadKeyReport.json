@@ -1,12 +1,12 @@
 {
   "specVersion": "2.28",
   "counts": {
-    "parametersInventoried": 2167,
+    "parametersInventoried": 2168,
     "keysEvaluated": 1747,
     "ok": 1664,
     "deadKey": 83,
     "skipReasons": {
-      "wire name unresolved": 126,
+      "wire name unresolved": 127,
       "body property": 280,
       "endpoint/method ambiguous": 14,
       "endpoint/verb absent from spec": 0
