@@ -144,6 +144,23 @@ function Resolve-PfbSingleExpression {
     return $node
 }
 
+function Test-PfbInvokeHasNoArguments {
+    <#
+    .SYNOPSIS
+        True when an InvokeMemberExpressionAst represents a zero-argument method call.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Language.InvokeMemberExpressionAst]$Invoke
+    )
+
+    # A zero-argument call exposes Arguments as $null, not as an empty collection --
+    # and @($null).Count is 1, so the null case must be tested before wrapping.
+    if ($null -eq $Invoke.Arguments) { return $true }
+    return (@($Invoke.Arguments).Count -eq 0)
+}
+
 function Test-PfbWireValueIsParameter {
     <#
     .SYNOPSIS
@@ -220,11 +237,11 @@ function Test-PfbWireValueIsParameter {
         $boolCast = $expr -as [System.Management.Automation.Language.ConvertExpressionAst]
         if (-not $boolCast) {
             $toLower = $expr -as [System.Management.Automation.Language.InvokeMemberExpressionAst]
-            if ($toLower -and $toLower.Arguments.Count -eq 0 -and
+            if ($toLower -and (Test-PfbInvokeHasNoArguments -Invoke $toLower) -and
                 $toLower.Member -is [System.Management.Automation.Language.StringConstantExpressionAst] -and
                 $toLower.Member.Value -eq 'ToLower') {
                 $toString = $toLower.Expression -as [System.Management.Automation.Language.InvokeMemberExpressionAst]
-                if ($toString -and $toString.Arguments.Count -eq 0 -and
+                if ($toString -and (Test-PfbInvokeHasNoArguments -Invoke $toString) -and
                     $toString.Member -is [System.Management.Automation.Language.StringConstantExpressionAst] -and
                     $toString.Member.Value -eq 'ToString') {
                     $parenthesizedRoot = $toString.Expression -as [System.Management.Automation.Language.ParenExpressionAst]
@@ -236,9 +253,12 @@ function Test-PfbWireValueIsParameter {
             }
         }
 
-        if ($boolCast -and $boolCast.Type.TypeName.FullName -eq 'bool') {
-            $castChild = $boolCast.Child -as [System.Management.Automation.Language.VariableExpressionAst]
-            if ($castChild -and $castChild.VariablePath.UserPath -eq $ParameterName) { return $true }
+        if ($boolCast) {
+            $castType = $boolCast.Type.TypeName.GetReflectionType()
+            if ($castType -eq [bool]) {
+                $castChild = $boolCast.Child -as [System.Management.Automation.Language.VariableExpressionAst]
+                if ($castChild -and $castChild.VariablePath.UserPath -eq $ParameterName) { return $true }
+            }
         }
     }
 

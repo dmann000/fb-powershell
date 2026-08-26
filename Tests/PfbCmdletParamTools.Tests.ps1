@@ -1353,37 +1353,48 @@ Describe 'Exact boolean wire-value transforms (issue #141)' {
         }
     }
 
-    It 'resolves an exact [bool] cast through an index assignment' {
-        $funcAst = Get-TestBooleanWireFunctionAst 'function Test-Fixture { param([switch]$Destroyed) $body = @{}; $body[''destroyed''] = [bool]$Destroyed }'
-        $result = Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Destroyed' -IsBooleanLikeParameter
+    It 'resolves an exact [bool] cast through an index assignment without guessing the wire key from the parameter name' {
+        $funcAst = Get-TestBooleanWireFunctionAst 'function Test-Fixture { param([switch]$Param) $body = @{}; $body[''destroyed''] = [bool]$Param }'
+        $result = Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Param' -IsBooleanLikeParameter
         $result.WireName | Should -Be 'destroyed'
         $result.TargetVariable | Should -Be 'body'
     }
 
-    It 'resolves the exact zero-argument ToString/ToLower chain through an index assignment' {
-        $funcAst = Get-TestBooleanWireFunctionAst 'function Test-Fixture { param([switch]$Flagged) $queryParams = @{}; $queryParams[''flagged''] = ([bool]$Flagged).ToString().ToLower() }'
-        $result = Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Flagged' -IsBooleanLikeParameter
+    It 'resolves the exact zero-argument ToString/ToLower chain through an index assignment without guessing the wire key from the parameter name' {
+        $funcAst = Get-TestBooleanWireFunctionAst 'function Test-Fixture { param([switch]$Param) $queryParams = @{}; $queryParams[''flagged''] = ([bool]$Param).ToString().ToLower() }'
+        $result = Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Param' -IsBooleanLikeParameter
         $result.WireName | Should -Be 'flagged'
         $result.TargetVariable | Should -Be 'queryParams'
     }
 
-    It 'resolves the new exact forms through the hashtable-literal value path' -ForEach @(
-        @{ Parameter = 'Destroyed'; WireName = 'destroyed'; TargetVariable = 'body';        Value = '[bool]$Destroyed' }
-        @{ Parameter = 'Flagged';   WireName = 'flagged';   TargetVariable = 'queryParams'; Value = '([bool]$Flagged).ToString().ToLower()' }
+    It 'resolves the new exact forms through the hashtable-literal value path without guessing the wire key' -ForEach @(
+        @{ WireName = 'destroyed'; TargetVariable = 'body';        Value = '[bool]$Param' }
+        @{ WireName = 'flagged';   TargetVariable = 'queryParams'; Value = '([bool]$Param).ToString().ToLower()' }
     ) {
-        $source = 'function Test-Fixture { param([switch]$' + $Parameter + ') $' + $TargetVariable + ' = @{ ''' + $WireName + ''' = ' + $Value + ' } }'
+        $source = 'function Test-Fixture { param([switch]$Param) $' + $TargetVariable + ' = @{ ''' + $WireName + ''' = ' + $Value + ' } }'
         $funcAst = Get-TestBooleanWireFunctionAst $source
-        $result = Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName $Parameter -IsBooleanLikeParameter
+        $result = Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Param' -IsBooleanLikeParameter
         $result.WireName | Should -Be $WireName
         $result.TargetVariable | Should -Be $TargetVariable
+    }
+
+    It 'accepts the <CastType> spelling as the Boolean cast type' -ForEach @(
+        @{ CastType = 'Boolean' }
+        @{ CastType = 'System.Boolean' }
+    ) {
+        $source = 'function Test-Fixture { param([switch]$Param) $body = @{}; $body[''destroyed''] = [' + $CastType + ']$Param }'
+        $funcAst = Get-TestBooleanWireFunctionAst $source
+        (Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Param' -IsBooleanLikeParameter).WireName | Should -Be 'destroyed'
     }
 
     It 'refuses <Case>' -ForEach @(
         @{ Case = 'a cast rooted at a different variable';                       Value = '[bool]$Other' }
         @{ Case = 'a cast of a composite operand';                               Value = '[bool]($Param -or $Other)' }
         @{ Case = 'a method chain rooted at a different variable';               Value = '([bool]$Other).ToString().ToLower()' }
-        @{ Case = 'a ToString call carrying an argument';                         Value = '([bool]$Param).ToString(''x'')' }
-        @{ Case = 'a method chain ending in a member other than ToLower';         Value = '([bool]$Param).ToString().Trim()' }
+        @{ Case = 'a ToString call carrying an argument without the full chain';  Value = '([bool]$Param).ToString(''x'')' }
+        @{ Case = 'a ToString call carrying an argument in the full chain';        Value = '([bool]$Param).ToString("G").ToLower()' }
+        @{ Case = 'a ToLower call carrying an argument';                           Value = '([bool]$Param).ToString().ToLower([System.Globalization.CultureInfo]::InvariantCulture)' }
+        @{ Case = 'a method chain ending in a member other than ToLower';          Value = '([bool]$Param).ToString().Trim()' }
         @{ Case = 'a unary expression over member access';                        Value = '(-not $Param.IsPresent)' }
         @{ Case = 'string interpolation that merely mentions the parameter';      Value = '"$Param"' }
     ) {
