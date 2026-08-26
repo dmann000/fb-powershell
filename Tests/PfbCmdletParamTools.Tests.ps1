@@ -310,6 +310,37 @@ function Get-PfbFixtureHelperNoBoundParams {
 }
 '@
 
+    # Real Get-PfbUserGroupQuotaPolicy shape (issue #141 Task 2): the SAME process-block
+    # accumulators as Get-PfbFixtureHelperAccumulator, but handed to the helper as
+    # `$allNames.ToArray()` -- the helper's -Names/-Ids are [string[]]-typed, so a
+    # [List[string]] accumulator must be converted at the call site. Resolution must still
+    # go parameter -> accumulator -> helper argument; the parameter names (Label/Marker)
+    # deliberately share no word with the wire keys (names/ids), so a pass cannot come
+    # from guessing the key off the parameter name.
+    Set-Content -Path (Join-Path $fixtureDir 'Get-PfbFixtureHelperToArray.ps1') -Value @'
+function Get-PfbFixtureHelperToArray {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [PSCustomObject]$Array,
+        [Parameter(ValueFromPipeline)] [string[]]$Label,
+        [Parameter()] [string[]]$Marker
+    )
+    begin {
+        $allNames = [System.Collections.Generic.List[string]]::new()
+        $allIds = [System.Collections.Generic.List[string]]::new()
+    }
+    process {
+        if ($Label)  { foreach ($n in $Label)  { $allNames.Add($n) } }
+        if ($Marker) { foreach ($i in $Marker) { $allIds.Add($i) } }
+    }
+    end {
+        $queryParams = @{}
+        Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames.ToArray() -Ids $allIds.ToArray()
+        Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'helper-toarray' -QueryParams $queryParams -AutoPaginate
+    }
+}
+'@
+
     # --- Hashtable-literal-initializer fixtures ---------------------------------------
     # Real New-PfbApiClient/New-PfbObjectStoreAccount shape: the wire key exists ONLY inside
     # a hashtable literal, never as a later $queryParams['names'] = ... index assignment.
@@ -624,6 +655,150 @@ Describe 'Add-PfbCommonQueryParams awareness (issue #32/#33)' {
             'function Test-Fixture { param([string]$Filter) $queryParams = @{} }', [ref]$tokens, [ref]$errs)
         $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
         Get-PfbCommonQueryParamHelperWireName -FunctionAst $funcAst -ParameterName 'Filter' | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Add-PfbCommonQueryParams exact $var.ToArray() helper arguments (issue #141 Task 2)' {
+    # A [List[string]] accumulator cannot bind to the helper's [string[]]-typed -Names/-Ids
+    # directly, so a cmdlet hands it over as $accumulator.ToArray() (real:
+    # Get-PfbUserGroupQuotaPolicy). The resolver credits the underlying source variable --
+    # never the method call's result -- and only for the exact zero-argument ToArray-on-a-
+    # bare-variable shape. Anything else derives its value from something other than one
+    # variable alone and stays refused.
+
+    BeforeAll {
+        function Get-PfbToArrayHelperAst {
+            param([string]$NamesArgument)
+            $tokens = $null; $errs = $null
+            $source = 'function Test-Fixture { param([string]$Param) $queryParams = @{}; ' +
+                'Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names ' +
+                $NamesArgument + ' }'
+            $ast = [System.Management.Automation.Language.Parser]::ParseInput($source, [ref]$tokens, [ref]$errs)
+            # A fixture that does not parse is not a test -- it is a string the resolver
+            # declines to read, and every assertion over it passes for the wrong reason.
+            # `-Names [SomeType]::ToArray()` is the live example: in command-argument parsing
+            # mode PowerShell emits ExpectedExpression and splits it into a bareword plus a
+            # ParenExpressionAst, so the fixture never reaches the guard it appears to test.
+            if ($errs.Count -gt 0) {
+                throw "Fixture source for argument '$NamesArgument' does not parse: $($errs[0].Message)"
+            }
+            $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
+        }
+    }
+
+    It 'resolves -Label/-Marker through the accumulator path even though the helper receives $allNames.ToArray()' {
+        # Inventory-level positive: parameter -> Find-PfbAccumulatorVariable ($allNames) ->
+        # Get-PfbWireNameForParameter('allNames') -> helper argument $allNames.ToArray().
+        # Neutral parameter names: 'names'/'ids' share no word with 'Label'/'Marker', so the
+        # wire key can only have come from the mapping, not from the parameter's name.
+        $name = $inventory | Where-Object { $_.Cmdlet -eq 'Get-PfbFixtureHelperToArray' -and $_.Parameter -eq 'Label' }
+        $name.WireName | Should -Be 'names'
+        $name.Surface | Should -Be 'Typed'
+        $name.WireSurface | Should -Be 'Query'
+        $name.Endpoint | Should -Be 'helper-toarray'
+        $name.Method | Should -Be 'GET'
+        $id = $inventory | Where-Object { $_.Cmdlet -eq 'Get-PfbFixtureHelperToArray' -and $_.Parameter -eq 'Marker' }
+        $id.WireName | Should -Be 'ids'
+        $id.Surface | Should -Be 'Typed'
+        $id.WireSurface | Should -Be 'Query'
+    }
+
+    It 'resolves a DIRECT helper argument of the exact $var.ToArray() shape to the source variable' {
+        # No foreach accumulator involved: $Param itself is the call site's ToArray target.
+        $funcAst = Get-PfbToArrayHelperAst '$Param.ToArray()'
+        $result = Get-PfbCommonQueryParamHelperWireName -FunctionAst $funcAst -ParameterName 'Param'
+        $result.WireName | Should -Be 'names'
+        $result.TargetVariable | Should -Be 'queryParams'
+    }
+
+    It 'refuses a helper argument of <Shape> -- the value is not a bare variable or exact $var.ToArray() on one' -ForEach @(
+        # Deliberately the ARITY guard's own coverage: `.Clone()` and `.ToArray().ToString()`
+        # are already refused by the member-name check, and `($left + $right).ToArray()` by the
+        # bare-target check -- but `$Param.ToArray($Param)` has member ToArray, a bare-variable
+        # target, and differs from the accepted shape ONLY by carrying an argument. If deleting
+        # the Test-PfbInvokeHasNoArguments condition leaves the suite green, this negative is
+        # not testing what it was written to protect.
+        @{ Shape = 'a member call other than ToArray ($var.Clone())';        Argument = '$Param.Clone()' }
+        @{ Shape = 'a ToArray() call on a composite target';                    Argument = '($Param + $Param).ToArray()' }
+        @{ Shape = 'a ToArray() call carrying an argument';                     Argument = '$Param.ToArray($Param)' }
+        @{ Shape = 'a method CHAIN past ToArray ($var.ToArray().ToString())';   Argument = '$Param.ToArray().ToString()' }
+        # The STATIC guard's own coverage, and the only shape here that reaches it. This
+        # parses as an InvokeMemberExpressionAst whose member is literally ToArray, carries
+        # zero arguments, and whose Expression is a bare VariableExpressionAst -- it passes
+        # every other guard and is refused ONLY by the Static test. A bare
+        # `[SomeType]::ToArray()` would NOT do this job: it does not parse in argument mode.
+        @{ Shape = 'a STATIC call on a variable type ($var::ToArray())';        Argument = '$Param::ToArray()' }
+    ) {
+        $funcAst = Get-PfbToArrayHelperAst $Argument
+        Get-PfbCommonQueryParamHelperWireName -FunctionAst $funcAst -ParameterName 'Param' | Should -BeNullOrEmpty
+    }
+
+    It 'refuses a ToArray()-wrapped accumulator fed by two different parameters (never guesses ownership)' {
+        # The shared-accumulator refusal must hold through the .ToArray() call exactly as it
+        # does for a bare $allNames: Find-PfbAccumulatorVariable returns $null for both
+        # parameters before the helper argument is ever consulted.
+        $tokens = $null; $errs = $null
+        $source = @'
+function Test-Fixture {
+    param([string[]]$First, [string[]]$Second)
+    $allNames = [System.Collections.Generic.List[string]]::new()
+    $queryParams = @{}
+    foreach ($n in $First)  { $allNames.Add($n) }
+    foreach ($n in $Second) { $allNames.Add($n) }
+    Add-PfbCommonQueryParams -Into $queryParams -BoundParameters $PSBoundParameters -Names $allNames.ToArray()
+}
+'@
+        $ast = [System.Management.Automation.Language.Parser]::ParseInput($source, [ref]$tokens, [ref]$errs)
+        $funcAst = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
+        Find-PfbAccumulatorVariable -FunctionAst $funcAst -ParameterName 'First' | Should -BeNullOrEmpty
+        Find-PfbAccumulatorVariable -FunctionAst $funcAst -ParameterName 'Second' | Should -BeNullOrEmpty
+        Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'First' | Should -BeNullOrEmpty
+        Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Second' | Should -BeNullOrEmpty
+    }
+
+    Context 'Get-PfbHelperArgumentSourceVariable, exercised directly' {
+        # A second kill route for each guard, independent of the helper-call and fixture-file
+        # paths above. Those reach the guards only through Get-PfbCommonQueryParamHelperWireName's
+        # element walk, so a change to the walk -- an outer check that refuses a shape earlier --
+        # can silently stop a guard from ever being reached while the suite stays green. That is
+        # exactly the defect Task 1 shipped. Asserting on the extracted function removes the
+        # dependency: these fail if a guard is deleted no matter what the caller does.
+        BeforeAll {
+            function Get-PfbHelperArgumentAst {
+                param([string]$Expression)
+                $tokens = $null; $errs = $null
+                $ast = [System.Management.Automation.Language.Parser]::ParseInput(
+                    "`$x = $Expression", [ref]$tokens, [ref]$errs)
+                if ($errs.Count -gt 0) {
+                    throw "Expression '$Expression' does not parse: $($errs[0].Message)"
+                }
+                $assignment = $ast.FindAll({
+                    param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst]
+                }, $true) | Select-Object -First 1
+                $assignment.Right.Expression
+            }
+        }
+
+        It 'accepts <Shape> and returns the source variable' -ForEach @(
+            @{ Shape = 'a bare variable';                  Expression = '$allNames';           Expected = 'allNames' }
+            @{ Shape = 'exact zero-argument ToArray()';    Expression = '$allNames.ToArray()'; Expected = 'allNames' }
+        ) {
+            Get-PfbHelperArgumentSourceVariable -ArgumentAst (Get-PfbHelperArgumentAst $Expression) |
+                Should -Be $Expected
+        }
+
+        It 'refuses <Shape>' -ForEach @(
+            @{ Shape = 'an argument-bearing call (ARITY guard)';   Expression = '$allNames.ToArray($n)' }
+            @{ Shape = 'a static call on a variable (STATIC guard)'; Expression = '$allNames::ToArray()' }
+            @{ Shape = 'a composite target (BARE-TARGET guard)';   Expression = '($allNames + $extra).ToArray()' }
+            @{ Shape = 'a different member name';                  Expression = '$allNames.Clone()' }
+            @{ Shape = 'a chain past ToArray';                     Expression = '$allNames.ToArray().ToString()' }
+            @{ Shape = 'a member-access target';                   Expression = '$obj.Items.ToArray()' }
+            @{ Shape = 'a static call on a type literal';          Expression = '[System.Array]::Empty()' }
+        ) {
+            Get-PfbHelperArgumentSourceVariable -ArgumentAst (Get-PfbHelperArgumentAst $Expression) |
+                Should -BeNullOrEmpty
+        }
     }
 }
 

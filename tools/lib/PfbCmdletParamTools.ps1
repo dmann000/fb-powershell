@@ -400,7 +400,10 @@ function Get-PfbCommonQueryParamMap {
             the signal is whichever variable the call site passes to that argument. That is
             usually a `process`-block accumulator ($allNames), not the parameter itself --
             handled for free by Get-PfbCmdletParameterInventory's existing
-            Find-PfbAccumulatorVariable retry.
+            Find-PfbAccumulatorVariable retry. A call site may also hand the accumulator
+            over as the exact zero-argument `$allNames.ToArray()` (the helper's -Names/-Ids
+            are [string[]]-typed; real: Get-PfbUserGroupQuotaPolicy) -- same source variable,
+            unwrapped structurally by Get-PfbCommonQueryParamHelperWireName.
 
         NOT included: the non-generic keys (file_system_names, policy_names, role_names,
         member_names, ...). Per issue #32's design those cmdlets deliberately kept their own
@@ -428,6 +431,50 @@ function Get-PfbCommonQueryParamMap {
     }
 }
 
+function Get-PfbHelperArgumentSourceVariable {
+    <#
+    .SYNOPSIS
+        Returns the source variable behind an Add-PfbCommonQueryParams helper argument.
+    .DESCRIPTION
+        Accepted, shape-exactly, are a bare variable and a zero-argument instance
+        `$variable.ToArray()` call. Everything else is refused: a different member name,
+        a non-variable invocation target, an argument-bearing call, a longer member chain,
+        or a static invocation. The helper's generic key must never be credited to data
+        whose source cannot be identified exactly.
+
+        `$var::ToArray()` is the reason the static check is a guard of its own rather than
+        a consequence of the others: it parses as an InvokeMemberExpressionAst whose member
+        is literally ToArray, carries zero arguments, and whose Expression is a bare
+        VariableExpressionAst -- so it passes every other test here and resolves unless
+        Static is tested explicitly.
+
+        Extracted rather than inlined so the guards are reachable from a unit test against a
+        parsed AST, independent of the fixture-file path. A guard with a single kill route is
+        one outer-check bug away from being silently uncovered.
+    .OUTPUTS
+        $null, or the source variable's bare name (without '$').
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Language.Ast]$ArgumentAst
+    )
+
+    $bare = $ArgumentAst -as [System.Management.Automation.Language.VariableExpressionAst]
+    if ($bare) { return $bare.VariablePath.UserPath }
+
+    $invoke = $ArgumentAst -as [System.Management.Automation.Language.InvokeMemberExpressionAst]
+    if (-not $invoke) { return $null }
+    if ($invoke.Static) { return $null }
+    if ($invoke.Member -isnot [System.Management.Automation.Language.StringConstantExpressionAst]) { return $null }
+    if ($invoke.Member.Value -ne 'ToArray') { return $null }
+    if (-not (Test-PfbInvokeHasNoArguments -Invoke $invoke)) { return $null }
+
+    $target = $invoke.Expression -as [System.Management.Automation.Language.VariableExpressionAst]
+    if (-not $target) { return $null }
+    return $target.VariablePath.UserPath
+}
+
 function Get-PfbCommonQueryParamHelperWireName {
     <#
     .SYNOPSIS
@@ -438,8 +485,12 @@ function Get-PfbCommonQueryParamHelperWireName {
         (that variable is what Get-PfbEndpointForVariable later traces to an
         Invoke-PfbApiRequest call, so without it there is nothing to attribute), requires
         -BoundParameters to be literally $PSBoundParameters before trusting the
-        ByParameterName rule, only reads plain variable arguments, and returns $null if two
-        helper calls in the same function disagree on the (WireName, TargetVariable) pair.
+        ByParameterName rule, and returns $null if two helper calls in the same function
+        disagree on the (WireName, TargetVariable) pair. A ByHelperArgument's value is read
+        only as a plain variable (`-Names $allNames`) or the exact zero-argument
+        `$var.ToArray()` call on a bare variable (real: Get-PfbUserGroupQuotaPolicy, which
+        must convert its [List[string]] accumulators to arrays for the helper's [string[]]
+        parameters); any other member call shape stays refused.
     .OUTPUTS
         $null, or [PSCustomObject]@{ WireName; TargetVariable } -- same shape as
         Get-PfbWireNameForParameter.
@@ -491,7 +542,12 @@ function Get-PfbCommonQueryParamHelperWireName {
                 if ($argVar -and $argVar.VariablePath.UserPath -eq 'PSBoundParameters') { $forwardsBoundParameters = $true }
             }
             elseif ($map.ByHelperArgument.Contains($el.ParameterName)) {
-                if ($argVar) { $argumentVariables[$el.ParameterName] = $argVar.VariablePath.UserPath }
+                # Bare `$allNames` or the exact zero-argument `$allNames.ToArray()` -- how a
+                # [List[string]] accumulator is handed to the helper's [string[]]-typed
+                # -Names/-Ids (real: Get-PfbUserGroupQuotaPolicy). Every refusal reason lives
+                # in Get-PfbHelperArgumentSourceVariable, one guard per line.
+                $sourceName = Get-PfbHelperArgumentSourceVariable -ArgumentAst $argExpr
+                if ($sourceName) { $argumentVariables[$el.ParameterName] = $sourceName }
             }
         }
 
