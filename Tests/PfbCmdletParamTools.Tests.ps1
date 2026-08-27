@@ -1524,6 +1524,16 @@ function New-PfbFixtureConditionalLiteral {
 }
 '@
 
+        # Get-PfbCmdletParameterInventory DISCARDS its parse errors, so an unparseable fixture
+        # would simply contribute no rows and every negative assertion below would pass for
+        # the wrong reason. Assert parseability up front rather than inferring it from a
+        # confusing "record is null" failure downstream.
+        foreach ($fixture in @(Get-ChildItem -Path $script:condDir -Filter '*.ps1' -File)) {
+            $tokens = $null; $errs = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($fixture.FullName, [ref]$tokens, [ref]$errs) | Out-Null
+            @($errs).Count | Should -Be 0 -Because "$($fixture.Name) must parse for the inventory to see it at all"
+        }
+
         $script:condInventory = Get-PfbCmdletParameterInventory -PublicDirectory $script:condDir
     }
 
@@ -2341,5 +2351,260 @@ Describe 'Real-tree characterization of the argument-proven role (issue #141 Tas
         $record.WireSurface | Should -Be 'Query'
         $record.Method | Should -BeNullOrEmpty
         $record.Endpoint | Should -BeNullOrEmpty
+    }
+
+    It 'enumerates the whole one-variable-many-keys population, masked instances included' {
+        # The OTHER shape that makes arbitration withdraw a fact: one parameter written to two
+        # or more distinct literal wire keys on ONE payload variable. Those candidates cannot
+        # agree on WireName, so the resolution is refused outright.
+        #
+        # This test deliberately enumerates the MASKED instances as well -- a multi-key write
+        # into a variable that has no provable request role today is inert, but it becomes a
+        # withdrawn row the moment anything gives that variable a role (a new call site, a
+        # nested-reference idiom the resolver learns). Listing only the role-bearing instance
+        # would make such an unmasking look like a regression appearing from nowhere. Pinning
+        # both classes makes it a known, named event: the diff on this list is the notice.
+        #
+        # The classification is computed, never hard-coded -- only the resulting inventory is
+        # asserted, and nothing in tools/lib knows any of these names.
+        $population = [System.Collections.Generic.List[string]]::new()
+
+        foreach ($name in $script:realFunctions.Keys) {
+            $funcAst = $script:realFunctions[$name]
+            if (-not $funcAst.Body.ParamBlock) { continue }
+            $parameters = @($funcAst.Body.ParamBlock.Parameters | ForEach-Object { $_.Name.VariablePath.UserPath })
+            if ($parameters.Count -eq 0) { continue }
+
+            # "<parameter>|<variable>" -> distinct literal wire keys that parameter is written to
+            $keysByCarrier = @{}
+
+            foreach ($assignment in $funcAst.FindAll({ param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] }, $true)) {
+                $writes = [System.Collections.Generic.List[object]]::new()
+
+                $index = $assignment.Left -as [System.Management.Automation.Language.IndexExpressionAst]
+                if ($index) {
+                    $target = $index.Target -as [System.Management.Automation.Language.VariableExpressionAst]
+                    $key = $index.Index -as [System.Management.Automation.Language.StringConstantExpressionAst]
+                    if ($target -and $key) {
+                        $writes.Add([PSCustomObject]@{ Variable = $target.VariablePath.UserPath; WireName = $key.Value; Value = $assignment.Right })
+                    }
+                }
+                else {
+                    $target = $assignment.Left -as [System.Management.Automation.Language.VariableExpressionAst]
+                    $hashtable = (Resolve-PfbSingleExpression -Ast $assignment.Right) -as [System.Management.Automation.Language.HashtableAst]
+                    if ($target -and $hashtable) {
+                        foreach ($pair in $hashtable.KeyValuePairs) {
+                            $key = $pair.Item1 -as [System.Management.Automation.Language.StringConstantExpressionAst]
+                            if ($key) {
+                                $writes.Add([PSCustomObject]@{ Variable = $target.VariablePath.UserPath; WireName = $key.Value; Value = $pair.Item2 })
+                            }
+                        }
+                    }
+                }
+
+                foreach ($write in $writes) {
+                    foreach ($parameter in $parameters) {
+                        # Both boolean-like readings are tried because the carrier shape, not the
+                        # parameter's type, is what this test is enumerating.
+                        $isParameter = (Test-PfbWireValueIsParameter -ValueAst $write.Value -ParameterName $parameter) -or
+                                       (Test-PfbWireValueIsParameter -ValueAst $write.Value -ParameterName $parameter -IsBooleanLikeParameter)
+                        if (-not $isParameter) { continue }
+
+                        $carrier = '{0}|{1}' -f $parameter, $write.Variable
+                        if (-not $keysByCarrier.ContainsKey($carrier)) {
+                            $keysByCarrier[$carrier] = [System.Collections.Generic.List[string]]::new()
+                        }
+                        if (-not $keysByCarrier[$carrier].Contains($write.WireName)) {
+                            $keysByCarrier[$carrier].Add($write.WireName)
+                        }
+                    }
+                }
+            }
+
+            foreach ($carrier in $keysByCarrier.Keys) {
+                if ($keysByCarrier[$carrier].Count -lt 2) { continue }
+                $parts = $carrier -split '\|', 2
+                $role = Get-PfbRequestRoleForVariable -FunctionAst $funcAst -TargetVariable $parts[1]
+                $class = if ($role) { 'ROLE-BEARING' } else { 'MASKED' }
+                $population.Add(('{0} {1}|{2}|{3} keys={4}' -f $class, $name, $parts[0], $parts[1],
+                        (($keysByCarrier[$carrier] | Sort-Object) -join ',')))
+            }
+        }
+
+        @($population | Sort-Object) | Should -Be @(
+            'MASKED Update-PfbFileSystem|NfsEnabled|nfsBody keys=v3_enabled,v4_1_enabled'
+            'ROLE-BEARING Update-PfbBucketAuditFilter|BucketName|queryParams keys=bucket_names,names'
+        )
+    }
+}
+
+Describe 'An abstention is sticky at EVERY tier boundary (issue #141 Task 3)' {
+    # Get-PfbWireNameForParameter consults four tiers in a fixed precedence: index assignment,
+    # hashtable literal, nested reference, then the Add-PfbCommonQueryParams helper. The
+    # invariant is that a tier which FINDS candidate landings and then abstains must end the
+    # resolution -- it must not fall through and let a weaker idiom answer, because the weaker
+    # idiom's answer would be exactly the arbitrary pick the abstention exists to refuse.
+    #
+    # This has to be tested per BOUNDARY, not once. An earlier revision implemented it at the
+    # tier-1 boundary alone and gated the other three on the truthiness of the arbitrated
+    # answer, which cannot tell "found nothing" from "found landings and abstained"; the
+    # single boundary that was covered was the single boundary that worked. Each test below
+    # therefore carries a CONTROL assertion proving the later tier really would have answered
+    # -- without it the test would pass on a fixture where nothing resolves for any reason.
+
+    It 'stops at the LITERAL tier and does not fall through to the nested-reference tier' {
+        $funcAst = Get-PfbRoleFixtureAst @(
+            'function Test-Fixture {'
+            '    param([string]$Zeta)'
+            '    $q = @{ ''alpha'' = $Zeta; ''beta'' = $Zeta }'
+            '    $q[''owner''] = @{ name = $Zeta }'
+            '    Invoke-PfbApiRequest -Method PATCH -Endpoint ''widgets'' -QueryParams $q'
+            '}'
+        )
+
+        # Control: the literal tier really does find two role-bearing landings and abstain...
+        @(Get-PfbHashtableLiteralWireLanding -FunctionAst $funcAst -ParameterName 'Zeta').Count | Should -Be 2
+        Get-PfbHashtableLiteralWireNameForParameter -FunctionAst $funcAst -ParameterName 'Zeta' | Should -BeNullOrEmpty
+        # ...and the nested tier really would answer if it were reached.
+        (Get-PfbNestedReferenceWireNameForParameter -FunctionAst $funcAst -ParameterName 'Zeta').WireName | Should -Be 'owner'
+
+        Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Zeta' | Should -BeNullOrEmpty
+    }
+
+    It 'stops at the LITERAL tier and does not fall through to the helper tier' {
+        $funcAst = Get-PfbRoleFixtureAst @(
+            'function Test-Fixture {'
+            '    param([string]$Filter)'
+            '    $q = @{ ''alpha'' = $Filter; ''beta'' = $Filter }'
+            '    Add-PfbCommonQueryParams -Into $q -BoundParameters $PSBoundParameters'
+            '    Invoke-PfbApiRequest -Method GET -Endpoint ''widgets'' -QueryParams $q'
+            '}'
+        )
+
+        @(Get-PfbHashtableLiteralWireLanding -FunctionAst $funcAst -ParameterName 'Filter').Count | Should -Be 2
+        Get-PfbHashtableLiteralWireNameForParameter -FunctionAst $funcAst -ParameterName 'Filter' | Should -BeNullOrEmpty
+        (Get-PfbCommonQueryParamHelperWireName -FunctionAst $funcAst -ParameterName 'Filter').WireName | Should -Be 'filter'
+
+        Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Filter' | Should -BeNullOrEmpty
+    }
+
+    It 'stops at the NESTED-REFERENCE tier and does not fall through to the helper tier' {
+        $funcAst = Get-PfbRoleFixtureAst @(
+            'function Test-Fixture {'
+            '    param([string]$Filter)'
+            '    $q = @{}'
+            '    $q[''owner''] = @{ name = $Filter }'
+            '    $q[''creator''] = @{ name = $Filter }'
+            '    Add-PfbCommonQueryParams -Into $q -BoundParameters $PSBoundParameters'
+            '    Invoke-PfbApiRequest -Method GET -Endpoint ''widgets'' -QueryParams $q'
+            '}'
+        )
+
+        @(Get-PfbNestedReferenceWireLanding -FunctionAst $funcAst -ParameterName 'Filter').Count | Should -Be 2
+        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $funcAst -ParameterName 'Filter' | Should -BeNullOrEmpty
+        (Get-PfbCommonQueryParamHelperWireName -FunctionAst $funcAst -ParameterName 'Filter').WireName | Should -Be 'filter'
+
+        Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Filter' | Should -BeNullOrEmpty
+    }
+
+    It 'stops at the nested INDEX sub-form and does not fall through to the nested LITERAL sub-form' {
+        # The nested-reference tier has two sub-forms with their own precedence, so the same
+        # invariant has to hold one level down as well.
+        $source = @(
+            'function Test-Fixture {'
+            '    param([string]$Zeta)'
+            '    $q = @{ ''gamma'' = @{ name = $Zeta } }'
+            'BODY'
+            '    Invoke-PfbApiRequest -Method PATCH -Endpoint ''widgets'' -QueryParams $q'
+            '}'
+        )
+
+        # Control: with the index sub-form absent, the literal sub-form answers 'gamma'.
+        $controlAst = Get-PfbRoleFixtureAst ($source | Where-Object { $_ -ne 'BODY' })
+        (Get-PfbNestedReferenceWireNameForParameter -FunctionAst $controlAst -ParameterName 'Zeta').WireName | Should -Be 'gamma'
+        (Get-PfbWireNameForParameter -FunctionAst $controlAst -ParameterName 'Zeta').WireName | Should -Be 'gamma'
+
+        $funcAst = Get-PfbRoleFixtureAst ($source | ForEach-Object {
+                if ($_ -eq 'BODY') { '    $q[''owner''] = @{ name = $Zeta }'; '    $q[''creator''] = @{ name = $Zeta }' } else { $_ }
+            })
+        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $funcAst -ParameterName 'Zeta' | Should -BeNullOrEmpty
+        Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Zeta' | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Landing components are compared ORDINALLY (issue #141 Task 3)' {
+    # PowerShell's -ne is case-INSENSITIVE for strings. A component-wise merge written with it
+    # judges 'names' and 'Names' to agree and then publishes whichever the parser reached
+    # first, which is the source-order artefact the arbitration exists to eliminate -- and it
+    # does so silently, because no clash is ever detected. Wire keys, HTTP methods and
+    # endpoints are all case-sensitive on the wire.
+
+    It 'refuses the resolution when two landings differ only in the CASE of the wire key (<Order>)' -ForEach @(
+        @{ Order = 'lower first'; First = 'names'; Second = 'Names' }
+        @{ Order = 'upper first'; First = 'Names'; Second = 'names' }
+    ) {
+        $funcAst = Get-PfbRoleFixtureAst @(
+            'function Test-Fixture {'
+            '    param([string]$Zeta)'
+            '    $q = @{}'
+            ('    $q[''{0}''] = $Zeta' -f $First)
+            ('    $q[''{0}''] = $Zeta' -f $Second)
+            '    Invoke-PfbApiRequest -Method PATCH -Endpoint ''widgets'' -QueryParams $q'
+            '}'
+        )
+        Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Zeta' | Should -BeNullOrEmpty
+    }
+
+    It 'nulls the operation when two landings differ only in the CASE of the endpoint (<Order>)' -ForEach @(
+        @{ Order = 'capitalised first'; First = 'Widgets'; Second = 'widgets' }
+        @{ Order = 'lower first';       First = 'widgets'; Second = 'Widgets' }
+    ) {
+        $funcAst = Get-PfbRoleFixtureAst @(
+            'function Test-Fixture {'
+            '    param([string]$Zeta)'
+            '    $first = @{}'
+            '    $first[''alpha''] = $Zeta'
+            '    $second = @{}'
+            '    $second[''alpha''] = $Zeta'
+            ('    Invoke-PfbApiRequest -Method PATCH -Endpoint ''{0}'' -QueryParams $first' -f $First)
+            ('    Invoke-PfbApiRequest -Method PATCH -Endpoint ''{0}'' -QueryParams $second' -f $Second)
+            '}'
+        )
+        $wire = Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Zeta'
+        $wire.WireName | Should -Be 'alpha'
+        $wire.WireSurface | Should -Be 'Query'
+        $wire.Endpoint | Should -BeNullOrEmpty
+        $wire.Method | Should -BeNullOrEmpty
+    }
+
+    It 'treats two calls whose -Method differs only in case as DIFFERENT operations' {
+        # Guards the deliberate absence of case folding in Get-PfbRequestRoleForVariable:
+        # folding would merge these two calls into one operation and name it.
+        $funcAst = Get-PfbRoleFixtureAst @(
+            'function Test-Fixture {'
+            '    param([string]$Zeta)'
+            '    $q = @{}'
+            '    $q[''alpha''] = $Zeta'
+            '    Invoke-PfbApiRequest -Method PATCH -Endpoint ''widgets'' -QueryParams $q'
+            '    Invoke-PfbApiRequest -Method patch -Endpoint ''widgets'' -QueryParams $q'
+            '}'
+        )
+        $role = Get-PfbRequestRoleForVariable -FunctionAst $funcAst -TargetVariable 'q'
+        $role.WireSurface | Should -Be 'Query'
+        $role.Method | Should -BeNullOrEmpty
+        $role.Endpoint | Should -BeNullOrEmpty
+    }
+
+    It 'reports the method VERBATIM rather than a case-folded literal that appears nowhere in the source' {
+        $funcAst = Get-PfbRoleFixtureAst @(
+            'function Test-Fixture {'
+            '    param([string]$Zeta)'
+            '    $q = @{}'
+            '    $q[''alpha''] = $Zeta'
+            '    Invoke-PfbApiRequest -Method patch -Endpoint ''widgets'' -QueryParams $q'
+            '}'
+        )
+        $role = Get-PfbRequestRoleForVariable -FunctionAst $funcAst -TargetVariable 'q'
+        $role.Method | Should -BeExactly 'patch'
     }
 }

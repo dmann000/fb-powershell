@@ -617,11 +617,24 @@ function Resolve-PfbWireLandingArbitration {
     $candidates = @($Candidate)
     if ($candidates.Count -eq 0) { return $null }
 
+    # ORDINAL, deliberately. PowerShell's -ne is case-INSENSITIVE for strings, so a
+    # component-wise merge written with it judges 'names' and 'Names' to agree and then
+    # publishes whichever the parser reached first -- a source-order artefact of exactly the
+    # kind this whole function exists to eliminate, and one that would go unnoticed because
+    # the clash is never reported. It would also put this function at odds with
+    # Get-PfbRequestRoleForVariable, whose List[string].Contains distinctness tests are
+    # ordinal: the role tracer and the arbitrator have to mean the same thing by "the same
+    # string". Wire keys, HTTP methods and endpoints are all case-sensitive on the wire, and
+    # there being no differing-case pair in Public/ today is the same argument that would
+    # have justified keeping the name switch.
     $agreedValue = {
         param($Property)
         $first = $candidates[0].$Property
         foreach ($item in $candidates) {
-            if ($item.$Property -ne $first) { return $null }
+            $value = $item.$Property
+            if ($null -eq $value -and $null -eq $first) { continue }
+            if ($null -eq $value -or $null -eq $first) { return $null }
+            if (-not [string]::Equals([string]$value, [string]$first, [System.StringComparison]::Ordinal)) { return $null }
         }
         return $first
     }
@@ -705,6 +718,21 @@ function Get-PfbWireNameForParameter {
         Falling through would let a weaker idiom quietly supply a name for a parameter whose
         stronger, ambiguous evidence had just been discarded -- which is the first-match
         failure wearing a different hat.
+
+        That invariant is a property of HOW each tier is consulted, so it has to be
+        implemented at all four, not just the first. Every tier is asked for its LANDINGS
+        (Get-PfbHashtableLiteralWireLanding, Get-PfbNestedReferenceWireLanding), and the
+        decision to answer is made on `landings.Count -gt 0` -- never on the truthiness of an
+        arbitrated result, which cannot tell "found nothing" from "found landings that
+        disagreed". An earlier revision of this function got that right for the index tier
+        and wrong for the other three: a literal tier holding two disagreeing keys returned
+        $null and the nested tier then published its own key, exactly the guess the tier
+        order exists to prevent.
+
+        The one abstention that is NOT sticky lives inside
+        Get-PfbCommonQueryParamHelperWireName, which returns $null when two helper calls
+        disagree. That is harmless only because the helper tier is last, so its abstention
+        and its silence have the same consequence: no answer at all.
     .OUTPUTS
         $null, or [PSCustomObject]@{ WireName; TargetVariable; WireSurface; Method; Endpoint }.
         TargetVariable is the payload variable the assignment targeted, or $null when the
@@ -751,15 +779,19 @@ function Get-PfbWireNameForParameter {
     # New-PfbObjectStoreAccount, the whole Policy/*Rule family, ...). Runs after the index
     # form, not instead of it: a cmdlet routinely does both (literal initializer for its
     # -Name, then `$body['x'] = $X` lines), and both key sets must resolve.
-    $literalMatch = Get-PfbHashtableLiteralWireNameForParameter -FunctionAst $FunctionAst -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter
-    if ($literalMatch) { return $literalMatch }
+    #
+    # Every tier below is consulted for its LANDINGS, never for its arbitrated answer. Asking
+    # `if ($literalMatch)` instead would read an abstention as a miss and fall through, which
+    # is the whole failure this function exists to prevent -- see the .DESCRIPTION.
+    $literalLandings = @(Get-PfbHashtableLiteralWireLanding -FunctionAst $FunctionAst -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter)
+    if ($literalLandings.Count -gt 0) { return (Resolve-PfbWireLandingArbitration -Candidate $literalLandings) }
 
     # Third idiom: a nested single-key REFERENCE OBJECT -- `$body['account'] = @{ name =
     # $Account }` -- whose wire field is the OUTER key. Runs strictly after both direct
     # forms above so it can only ever add a resolution, never rename one: a parameter that
     # already resolved via a direct assignment returned before reaching here.
-    $nestedMatch = Get-PfbNestedReferenceWireNameForParameter -FunctionAst $FunctionAst -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter
-    if ($nestedMatch) { return $nestedMatch }
+    $nestedLandings = @(Get-PfbNestedReferenceWireLanding -FunctionAst $FunctionAst -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter)
+    if ($nestedLandings.Count -gt 0) { return (Resolve-PfbWireLandingArbitration -Candidate $nestedLandings) }
 
     # No literal assignment of any shape in this function body -- but the parameter may
     # still reach the wire through the shared Private/Add-PfbCommonQueryParams.ps1 helper,
@@ -794,7 +826,40 @@ function Get-PfbHashtableLiteralWireNameForParameter {
         so a pipeline transform is still refused rather than guessed at.
     .OUTPUTS
         $null, or [PSCustomObject]@{ WireName; TargetVariable; WireSurface; Method; Endpoint }
-        -- same shape as Get-PfbWireNameForParameter, arbitrated the same way.
+        -- same shape as Get-PfbWireNameForParameter, arbitrated the same way. Callers that
+        need to tell "this idiom found nothing" apart from "this idiom found landings and
+        then abstained" must use Get-PfbHashtableLiteralWireLanding instead: both outcomes
+        are $null here.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Language.FunctionDefinitionAst]$FunctionAst,
+
+        [Parameter(Mandatory)]
+        [string]$ParameterName,
+
+        [switch]$IsBooleanLikeParameter
+    )
+
+    $landings = @(Get-PfbHashtableLiteralWireLanding -FunctionAst $FunctionAst -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter)
+    if ($landings.Count -eq 0) { return $null }
+    return Resolve-PfbWireLandingArbitration -Candidate $landings
+}
+
+function Get-PfbHashtableLiteralWireLanding {
+    <#
+    .SYNOPSIS
+        Every hashtable-literal landing for a parameter, unarbitrated.
+    .DESCRIPTION
+        Exists so an idiom's ABSTENTION is distinguishable from its silence. An arbitrated
+        $null means either "no landing" or "landings that disagreed", and
+        Get-PfbWireNameForParameter must not treat those alike: falling through to a weaker
+        idiom after a stronger one abstained lets the weaker one publish a wire name for a
+        parameter whose better evidence was just discarded, which is first-match arbitration
+        wearing a different hat.
+    .OUTPUTS
+        An array, possibly empty, of the landing objects New-PfbWireLanding builds.
     #>
     [CmdletBinding()]
     param(
@@ -835,8 +900,7 @@ function Get-PfbHashtableLiteralWireNameForParameter {
         }
     }
 
-    if ($landings.Count -eq 0) { return $null }
-    return Resolve-PfbWireLandingArbitration -Candidate $landings.ToArray()
+    return $landings.ToArray()
 }
 
 function Get-PfbNestedReferenceWireNameForParameter {
@@ -879,7 +943,38 @@ function Get-PfbNestedReferenceWireNameForParameter {
         already-resolved wire name.
     .OUTPUTS
         $null, or [PSCustomObject]@{ WireName; TargetVariable; WireSurface; Method; Endpoint }
-        -- same shape as Get-PfbWireNameForParameter, arbitrated the same way.
+        -- same shape as Get-PfbWireNameForParameter, arbitrated the same way. As with the
+        hashtable-literal form, a caller that must tell abstention from silence has to use
+        Get-PfbNestedReferenceWireLanding.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Language.FunctionDefinitionAst]$FunctionAst,
+
+        [Parameter(Mandatory)]
+        [string]$ParameterName,
+
+        [switch]$IsBooleanLikeParameter
+    )
+
+    $landings = @(Get-PfbNestedReferenceWireLanding -FunctionAst $FunctionAst -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter)
+    if ($landings.Count -eq 0) { return $null }
+    return Resolve-PfbWireLandingArbitration -Candidate $landings
+}
+
+function Get-PfbNestedReferenceWireLanding {
+    <#
+    .SYNOPSIS
+        Every nested-reference landing for a parameter, unarbitrated -- see
+        Get-PfbHashtableLiteralWireLanding for why the unarbitrated form exists.
+    .DESCRIPTION
+        Two sub-forms in a fixed order, the index form then the literal-initializer form,
+        mirroring the order Get-PfbWireNameForParameter uses for the direct shapes. The
+        literal sub-form is consulted only when the index sub-form found NOTHING, so an index
+        sub-form that found landings owns the answer even if those landings then disagree.
+    .OUTPUTS
+        An array, possibly empty, of the landing objects New-PfbWireLanding builds.
     #>
     [CmdletBinding()]
     param(
@@ -913,10 +1008,6 @@ function Get-PfbNestedReferenceWireNameForParameter {
         $node -is [System.Management.Automation.Language.AssignmentStatementAst]
     }, $true))
 
-    # Index form first, then the literal-initializer form, mirroring the order
-    # Get-PfbWireNameForParameter uses for the direct shapes. Each form collects all of its
-    # landings and arbitrates them together; the literal form is consulted only when the
-    # index form proved nothing at all.
     $indexLandings = [System.Collections.Generic.List[object]]::new()
 
     foreach ($assign in $assignments) {
@@ -934,7 +1025,7 @@ function Get-PfbNestedReferenceWireNameForParameter {
         }
     }
 
-    if ($indexLandings.Count -gt 0) { return (Resolve-PfbWireLandingArbitration -Candidate $indexLandings.ToArray()) }
+    if ($indexLandings.Count -gt 0) { return $indexLandings.ToArray() }
 
     $literalLandings = [System.Collections.Generic.List[object]]::new()
 
@@ -956,8 +1047,7 @@ function Get-PfbNestedReferenceWireNameForParameter {
         }
     }
 
-    if ($literalLandings.Count -eq 0) { return $null }
-    return Resolve-PfbWireLandingArbitration -Candidate $literalLandings.ToArray()
+    return $literalLandings.ToArray()
 }
 
 function Find-PfbAccumulatorVariable {
@@ -1109,9 +1199,17 @@ function Get-PfbRequestRoleForVariable {
             if (-not $el) { continue }
 
             # `-Name:$value` carries its argument on the parameter itself; `-Name $value`
-            # carries it in the next element -- but only if that element is not itself a
-            # parameter, which is how `-QueryParams -AutoPaginate` and a trailing
-            # `-QueryParams` with nothing after it are kept from binding a non-argument.
+            # carries it in the next element.
+            #
+            # The `-isnot [CommandParameterAst]` test below stops `-QueryParams -AutoPaginate`
+            # from binding the following SWITCH as an argument. Be aware that it is currently
+            # unobservable and cannot be mutation-killed: every branch that consumes $arg
+            # re-validates it (`-as [VariableExpressionAst]`, `-is [StringConstant...]`), and a
+            # CommandParameterAst fails all of them, so deleting this test changes no result.
+            # It is kept because it makes the binding rule correct AT THE POINT the argument
+            # is chosen rather than by luck downstream -- the next branch added here would
+            # otherwise inherit a bug none of the existing tests can see. Do not read its
+            # presence as evidence that a test covers it.
             $arg = $el.Argument
             if (-not $arg -and ($i + 1) -lt $elements.Count) {
                 $nextElement = $elements[$i + 1]
@@ -1159,11 +1257,18 @@ function Get-PfbRequestRoleForVariable {
     # An empty string is the sentinel for 'this landing's operation could not be read'. It
     # participates in the distinctness test like any other value, which is what stops a
     # readable call from speaking for an unreadable one.
+    #
+    # The method is NOT case-folded on the way in. Folding would report a `-Method 'get'` as
+    # 'GET' -- a literal that appears nowhere in the source -- and would quietly merge two
+    # operations this function is supposed to be able to tell apart. List[string].Contains is
+    # ordinal, so differing case reads as differing operations, which matches the ordinal
+    # comparison Resolve-PfbWireLandingArbitration uses. Every -Method argument in Public/ is
+    # upper case today (all 544 of them), so this costs nothing and forecloses a guess.
     $distinctOperations = [System.Collections.Generic.List[string]]::new()
     foreach ($landing in $landings) {
         $operation = ''
         if ($landing.Method -and $landing.Endpoint) {
-            $operation = '{0}|{1}' -f $landing.Method.ToUpperInvariant(), $landing.Endpoint
+            $operation = '{0}|{1}' -f $landing.Method, $landing.Endpoint
         }
         if (-not $distinctOperations.Contains($operation)) { $distinctOperations.Add($operation) }
     }
