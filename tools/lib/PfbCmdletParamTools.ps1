@@ -574,16 +574,141 @@ function Get-PfbCommonQueryParamHelperWireName {
     return [PSCustomObject]@{ WireName = $parts[0]; TargetVariable = $parts[1] }
 }
 
+function Resolve-PfbWireLandingArbitration {
+    <#
+    .SYNOPSIS
+        Reduces the candidate wire landings of ONE parameter to at most one resolution,
+        keeping only what every candidate agrees on.
+    .DESCRIPTION
+        A candidate is one proven assignment of the parameter into a payload variable, joined
+        to that variable's argument-proven request role: the complete tuple
+        (WireName, WireSurface, Method, Endpoint), plus the TargetVariable it came through.
+
+        Arbitration is deliberately independent of AST traversal order. Selecting the first
+        match -- which is what this file did before issue #141 Task 3 -- publishes whichever
+        landing the parser happened to reach first and silently discards the rest, and the
+        name gate was the only thing hiding how bad that is. Retiring the gate makes
+        Remove-PfbFileSystem's $destroyQuery the earlier match for -DeleteLinkOnEradication,
+        so first-match would have reported PATCH file-systems with confidence while the DELETE
+        file-systems landing of the very same key vanished from the report.
+
+        So: components that every candidate shares are kept, and the rest are nulled. There is
+        no separate deduplication pass because none is needed -- repeated identical tuples
+        agree on every component by construction, and therefore survive whole. A key assigned
+        in both arms of an if/else is one landing, not an ambiguity.
+
+        WireName is the one component whose absence voids the whole resolution. With no agreed
+        key there is nothing nameable left to publish, and returning a record carrying a null
+        WireName would additionally suppress the accumulator retry in
+        Get-PfbCmdletParameterInventory, which fires only when this returns $null.
+    .OUTPUTS
+        $null, or [PSCustomObject]@{ WireName; TargetVariable; WireSurface; Method; Endpoint }.
+        WireSurface is 'Body', 'Query' or 'Unresolved'; Method and Endpoint are either both
+        populated or both $null.
+    #>
+    [CmdletBinding()]
+    param(
+        # [PSCustomObject]@{ WireName; TargetVariable; WireSurface; Method; Endpoint }
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [object[]]$Candidate
+    )
+
+    $candidates = @($Candidate)
+    if ($candidates.Count -eq 0) { return $null }
+
+    $agreedValue = {
+        param($Property)
+        $first = $candidates[0].$Property
+        foreach ($item in $candidates) {
+            if ($item.$Property -ne $first) { return $null }
+        }
+        return $first
+    }
+
+    $wireName = & $agreedValue 'WireName'
+    if (-not $wireName) { return $null }
+
+    $wireSurface = & $agreedValue 'WireSurface'
+    if (-not $wireSurface) { $wireSurface = 'Unresolved' }
+
+    $method = & $agreedValue 'Method'
+    $endpoint = & $agreedValue 'Endpoint'
+    if (-not ($method -and $endpoint)) {
+        $method = $null
+        $endpoint = $null
+    }
+
+    return [PSCustomObject]@{
+        WireName       = $wireName
+        TargetVariable = (& $agreedValue 'TargetVariable')
+        WireSurface    = $wireSurface
+        Method         = $method
+        Endpoint       = $endpoint
+    }
+}
+
+function New-PfbWireLanding {
+    <#
+    .SYNOPSIS
+        Builds one arbitration candidate from a proven (key, payload variable) assignment,
+        or $null when that variable has no argument-proven request role.
+    .DESCRIPTION
+        This is the role gate, and it stands exactly where the
+        `-notin @('body', 'queryParams')` name gate used to. A variable that is never handed
+        to Invoke-PfbApiRequest -Body/-QueryParams is an intermediate, not a payload:
+        New-PfbFileSystem's $nfsBody is keyed and then folded into $body under a
+        sub-object, so crediting -ExportPolicy with $nfsBody's 'export_policy' key would name
+        a top-level field that no request this cmdlet makes actually has. The old gate
+        excluded such variables by recognising two blessed names; this one excludes them by
+        failing to prove they are sent, which also admits $q, $payload and $destroyQuery.
+    .OUTPUTS
+        $null, or [PSCustomObject]@{ WireName; TargetVariable; WireSurface; Method; Endpoint }
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Language.FunctionDefinitionAst]$FunctionAst,
+
+        [Parameter(Mandatory)]
+        [string]$WireName,
+
+        [Parameter(Mandatory)]
+        [string]$TargetVariable
+    )
+
+    $role = Get-PfbRequestRoleForVariable -FunctionAst $FunctionAst -TargetVariable $TargetVariable
+    if (-not $role) { return $null }
+
+    return [PSCustomObject]@{
+        WireName       = $WireName
+        TargetVariable = $TargetVariable
+        WireSurface    = $role.WireSurface
+        Method         = $role.Method
+        Endpoint       = $role.Endpoint
+    }
+}
+
 function Get-PfbWireNameForParameter {
     <#
     .SYNOPSIS
         Finds the request-body or query-string key a given parameter is assigned to
         inside a cmdlet function body, or $null if no simple assignment pattern matches.
+    .DESCRIPTION
+        Four idioms are tried in a fixed precedence, and the FIRST idiom that produces any
+        proven landing answers -- including by abstaining. Precedence is between idioms only;
+        within one idiom every landing is collected and arbitrated together
+        (Resolve-PfbWireLandingArbitration), so the answer never depends on which assignment
+        the parser reached first.
+
+        A tier that finds landings and then abstains does not fall through to the next tier.
+        Falling through would let a weaker idiom quietly supply a name for a parameter whose
+        stronger, ambiguous evidence had just been discarded -- which is the first-match
+        failure wearing a different hat.
     .OUTPUTS
-        $null, or [PSCustomObject]@{ WireName; TargetVariable } -- TargetVariable is the
-        literal variable name the assignment targeted ('body' or 'queryParams'), needed
-        by Get-PfbEndpointForVariable to find the specific Invoke-PfbApiRequest call(s)
-        that variable is later passed to.
+        $null, or [PSCustomObject]@{ WireName; TargetVariable; WireSurface; Method; Endpoint }.
+        TargetVariable is the payload variable the assignment targeted, or $null when the
+        landings came through more than one; WireSurface is 'Body', 'Query' or 'Unresolved'.
     #>
     [CmdletBinding()]
     param(
@@ -602,22 +727,23 @@ function Get-PfbWireNameForParameter {
         $node.Left -is [System.Management.Automation.Language.IndexExpressionAst]
     }, $true)
 
+    $landings = [System.Collections.Generic.List[object]]::new()
+
     foreach ($assign in $assignments) {
         $indexExpr = $assign.Left
         $targetVar = $indexExpr.Target -as [System.Management.Automation.Language.VariableExpressionAst]
         if (-not $targetVar) { continue }
-        if ($targetVar.VariablePath.UserPath -notin @('body', 'queryParams')) { continue }
 
         $keyExpr = $indexExpr.Index -as [System.Management.Automation.Language.StringConstantExpressionAst]
         if (-not $keyExpr) { continue }
 
         if (Test-PfbWireValueIsParameter -ValueAst $assign.Right -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter) {
-            return [PSCustomObject]@{
-                WireName       = $keyExpr.Value
-                TargetVariable = $targetVar.VariablePath.UserPath
-            }
+            $landing = New-PfbWireLanding -FunctionAst $FunctionAst -WireName $keyExpr.Value -TargetVariable $targetVar.VariablePath.UserPath
+            if ($landing) { $landings.Add($landing) }
         }
     }
+
+    if ($landings.Count -gt 0) { return (Resolve-PfbWireLandingArbitration -Candidate $landings.ToArray()) }
 
     # Second idiom: the whole hashtable is built as a LITERAL initializer rather than keyed
     # into afterwards -- `$queryParams = @{ 'names' = $Name }`, the dominant shape across
@@ -641,7 +767,14 @@ function Get-PfbWireNameForParameter {
     # LAST: a cmdlet whose Name/Id-equivalent maps to a non-generic key (policy_names,
     # file_system_names, ...) kept its own explicit line after the helper call, and that
     # literal must win.
-    return Get-PfbCommonQueryParamHelperWireName -FunctionAst $FunctionAst -ParameterName $ParameterName
+    $helperLandings = [System.Collections.Generic.List[object]]::new()
+    foreach ($helperMatch in @(Get-PfbCommonQueryParamHelperWireName -FunctionAst $FunctionAst -ParameterName $ParameterName)) {
+        if (-not $helperMatch) { continue }
+        $landing = New-PfbWireLanding -FunctionAst $FunctionAst -WireName $helperMatch.WireName -TargetVariable $helperMatch.TargetVariable
+        if ($landing) { $helperLandings.Add($landing) }
+    }
+    if ($helperLandings.Count -eq 0) { return $null }
+    return Resolve-PfbWireLandingArbitration -Candidate $helperLandings.ToArray()
 }
 
 function Get-PfbHashtableLiteralWireNameForParameter {
@@ -660,8 +793,8 @@ function Get-PfbHashtableLiteralWireNameForParameter {
         matched by the same Test-PfbWireValueIsParameter used by the index-assignment path,
         so a pipeline transform is still refused rather than guessed at.
     .OUTPUTS
-        $null, or [PSCustomObject]@{ WireName; TargetVariable } -- same shape as
-        Get-PfbWireNameForParameter.
+        $null, or [PSCustomObject]@{ WireName; TargetVariable; WireSurface; Method; Endpoint }
+        -- same shape as Get-PfbWireNameForParameter, arbitrated the same way.
     #>
     [CmdletBinding()]
     param(
@@ -680,9 +813,10 @@ function Get-PfbHashtableLiteralWireNameForParameter {
         $node.Left -is [System.Management.Automation.Language.VariableExpressionAst]
     }, $true))
 
+    $landings = [System.Collections.Generic.List[object]]::new()
+
     foreach ($assign in $assignments) {
         $targetVar = $assign.Left -as [System.Management.Automation.Language.VariableExpressionAst]
-        if ($targetVar.VariablePath.UserPath -notin @('body', 'queryParams')) { continue }
 
         $hashtable = (Resolve-PfbSingleExpression -Ast $assign.Right) -as [System.Management.Automation.Language.HashtableAst]
         if (-not $hashtable) { continue }
@@ -695,15 +829,14 @@ function Get-PfbHashtableLiteralWireNameForParameter {
             if (-not $keyExpr) { continue }
 
             if (Test-PfbWireValueIsParameter -ValueAst $pair.Item2 -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter) {
-                return [PSCustomObject]@{
-                    WireName       = $keyExpr.Value
-                    TargetVariable = $targetVar.VariablePath.UserPath
-                }
+                $landing = New-PfbWireLanding -FunctionAst $FunctionAst -WireName $keyExpr.Value -TargetVariable $targetVar.VariablePath.UserPath
+                if ($landing) { $landings.Add($landing) }
             }
         }
     }
 
-    return $null
+    if ($landings.Count -eq 0) { return $null }
+    return Resolve-PfbWireLandingArbitration -Candidate $landings.ToArray()
 }
 
 function Get-PfbNestedReferenceWireNameForParameter {
@@ -724,8 +857,9 @@ function Get-PfbNestedReferenceWireNameForParameter {
         field, and the endpoint's gap analysis only ever asks whether `account` is covered.
 
         Never guesses, matching the rest of this file:
-          - the target variable must be body/queryParams (an intermediate like
-            New-PfbFileSystem's $nfsBody is not traceable to an Invoke-PfbApiRequest call);
+          - the target variable must have an argument-proven request role (an intermediate
+            like New-PfbFileSystem's $nfsBody is never handed to Invoke-PfbApiRequest, so
+            its keys are not the keys of any request);
           - the outer key must be a literal string constant;
           - the nested hashtable must have EXACTLY ONE key/value pair, itself string-keyed
             -- a multi-key sub-object is a composite whose per-field ownership cannot be
@@ -744,8 +878,8 @@ function Get-PfbNestedReferenceWireNameForParameter {
         only ever turn an unresolved parameter into a Typed one, never rename an
         already-resolved wire name.
     .OUTPUTS
-        $null, or [PSCustomObject]@{ WireName; TargetVariable } -- same shape as
-        Get-PfbWireNameForParameter.
+        $null, or [PSCustomObject]@{ WireName; TargetVariable; WireSurface; Method; Endpoint }
+        -- same shape as Get-PfbWireNameForParameter, arbitrated the same way.
     #>
     [CmdletBinding()]
     param(
@@ -780,29 +914,33 @@ function Get-PfbNestedReferenceWireNameForParameter {
     }, $true))
 
     # Index form first, then the literal-initializer form, mirroring the order
-    # Get-PfbWireNameForParameter uses for the direct shapes.
+    # Get-PfbWireNameForParameter uses for the direct shapes. Each form collects all of its
+    # landings and arbitrates them together; the literal form is consulted only when the
+    # index form proved nothing at all.
+    $indexLandings = [System.Collections.Generic.List[object]]::new()
+
     foreach ($assign in $assignments) {
         $indexExpr = $assign.Left -as [System.Management.Automation.Language.IndexExpressionAst]
         if (-not $indexExpr) { continue }
         $targetVar = $indexExpr.Target -as [System.Management.Automation.Language.VariableExpressionAst]
         if (-not $targetVar) { continue }
-        if ($targetVar.VariablePath.UserPath -notin @('body', 'queryParams')) { continue }
 
         $keyExpr = $indexExpr.Index -as [System.Management.Automation.Language.StringConstantExpressionAst]
         if (-not $keyExpr) { continue }
 
         if (& $isReferenceObjectFor $assign.Right) {
-            return [PSCustomObject]@{
-                WireName       = $keyExpr.Value
-                TargetVariable = $targetVar.VariablePath.UserPath
-            }
+            $landing = New-PfbWireLanding -FunctionAst $FunctionAst -WireName $keyExpr.Value -TargetVariable $targetVar.VariablePath.UserPath
+            if ($landing) { $indexLandings.Add($landing) }
         }
     }
+
+    if ($indexLandings.Count -gt 0) { return (Resolve-PfbWireLandingArbitration -Candidate $indexLandings.ToArray()) }
+
+    $literalLandings = [System.Collections.Generic.List[object]]::new()
 
     foreach ($assign in $assignments) {
         $targetVar = $assign.Left -as [System.Management.Automation.Language.VariableExpressionAst]
         if (-not $targetVar) { continue }
-        if ($targetVar.VariablePath.UserPath -notin @('body', 'queryParams')) { continue }
 
         $hashtable = (Resolve-PfbSingleExpression -Ast $assign.Right) -as [System.Management.Automation.Language.HashtableAst]
         if (-not $hashtable) { continue }
@@ -812,15 +950,14 @@ function Get-PfbNestedReferenceWireNameForParameter {
             if (-not $keyExpr) { continue }
 
             if (& $isReferenceObjectFor $pair.Item2) {
-                return [PSCustomObject]@{
-                    WireName       = $keyExpr.Value
-                    TargetVariable = $targetVar.VariablePath.UserPath
-                }
+                $landing = New-PfbWireLanding -FunctionAst $FunctionAst -WireName $keyExpr.Value -TargetVariable $targetVar.VariablePath.UserPath
+                if ($landing) { $literalLandings.Add($landing) }
             }
         }
     }
 
-    return $null
+    if ($literalLandings.Count -eq 0) { return $null }
+    return Resolve-PfbWireLandingArbitration -Candidate $literalLandings.ToArray()
 }
 
 function Find-PfbAccumulatorVariable {
@@ -902,20 +1039,167 @@ function Find-PfbAccumulatorVariable {
     return $accumulatorName
 }
 
+function Get-PfbRequestRoleForVariable {
+    <#
+    .SYNOPSIS
+        The request role a variable actually plays -- Body or Query, and the operation it
+        reaches -- read from the ARGUMENTS of the Invoke-PfbApiRequest calls it is passed
+        to, never from its name.
+    .DESCRIPTION
+        This replaces a `switch ($TargetVariable) { 'body' {...} 'queryParams' {...} }` trust
+        gate, which was an inference from a name and so a standing violation of the
+        never-guess contract in both directions (issue #141). It under-reported: a cmdlet
+        keying into $q, $payload or $destroyQuery had no role at all, so every parameter it
+        proved was silently dropped. And it could over-report: a variable literally named
+        $body but passed to -QueryParams would have been published as a Body landing. That
+        second class has zero current occurrences in Public/, which is precisely why it needs
+        a resolver that cannot express it rather than a one-off survey.
+
+        A call contributes a LANDING when the variable is passed, as the bare variable, to
+        -Body (surface 'Body') or -QueryParams (surface 'Query'). Both argument forms are
+        read: `-Body $payload` parks the value in the NEXT command element, while
+        `-Body:$payload` parks it on the CommandParameterAst's own .Argument. Reading only
+        the next element -- as the retired implementation did -- misses the colon form.
+
+        Anything other than the bare variable is refused: `-Body @{}`, `-Body $wrapper.Inner`,
+        `-Body ($payload + @{})`, `-Body $payload['alpha']`. In none of those is the
+        variable's key set provably the key set of the request.
+
+        Method and Endpoint come from LITERAL -Method/-Endpoint arguments of the same call,
+        matching the exclusively literal style every cmdlet in this repo uses for both, and
+        are reported only when every landing agrees on one operation. A call whose -Method or
+        -Endpoint is a variable, or which omits one, still counts as a landing with an
+        UNKNOWN operation -- it is exactly the landing that cannot be read, so allowing a
+        readable sibling call to win would publish an operation the variable does not
+        exclusively reach.
+
+        Returns $null when the variable has no landing at all, and when it lands on BOTH
+        surfaces: a payload sent as body in one call and as query string in another has no
+        single role to report, and picking either would be a guess.
+    .OUTPUTS
+        $null, or [PSCustomObject]@{ TargetVariable; WireSurface; Method; Endpoint }.
+        WireSurface is 'Body' or 'Query'. Method and Endpoint are either both populated or
+        both $null -- half an operation identifies nothing.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Language.FunctionDefinitionAst]$FunctionAst,
+
+        [Parameter(Mandatory)]
+        [string]$TargetVariable
+    )
+
+    $commands = @($FunctionAst.FindAll({
+        param($node)
+        $node -is [System.Management.Automation.Language.CommandAst] -and
+        $node.GetCommandName() -eq 'Invoke-PfbApiRequest'
+    }, $true))
+
+    $landings = [System.Collections.Generic.List[object]]::new()
+
+    foreach ($cmd in $commands) {
+        $elements = @($cmd.CommandElements)
+        $surfaces = [System.Collections.Generic.List[string]]::new()
+        $method = $null
+        $endpoint = $null
+
+        for ($i = 0; $i -lt $elements.Count; $i++) {
+            $el = $elements[$i] -as [System.Management.Automation.Language.CommandParameterAst]
+            if (-not $el) { continue }
+
+            # `-Name:$value` carries its argument on the parameter itself; `-Name $value`
+            # carries it in the next element -- but only if that element is not itself a
+            # parameter, which is how `-QueryParams -AutoPaginate` and a trailing
+            # `-QueryParams` with nothing after it are kept from binding a non-argument.
+            $arg = $el.Argument
+            if (-not $arg -and ($i + 1) -lt $elements.Count) {
+                $nextElement = $elements[$i + 1]
+                if ($nextElement -isnot [System.Management.Automation.Language.CommandParameterAst]) {
+                    $arg = $nextElement
+                }
+            }
+            if (-not $arg) { continue }
+
+            switch ($el.ParameterName) {
+                'Body' {
+                    $var = $arg -as [System.Management.Automation.Language.VariableExpressionAst]
+                    if ($var -and $var.VariablePath.UserPath -eq $TargetVariable -and -not $surfaces.Contains('Body')) {
+                        $surfaces.Add('Body')
+                    }
+                }
+                'QueryParams' {
+                    $var = $arg -as [System.Management.Automation.Language.VariableExpressionAst]
+                    if ($var -and $var.VariablePath.UserPath -eq $TargetVariable -and -not $surfaces.Contains('Query')) {
+                        $surfaces.Add('Query')
+                    }
+                }
+                'Method' {
+                    if ($arg -is [System.Management.Automation.Language.StringConstantExpressionAst]) { $method = $arg.Value }
+                }
+                'Endpoint' {
+                    if ($arg -is [System.Management.Automation.Language.StringConstantExpressionAst]) { $endpoint = $arg.Value }
+                }
+            }
+        }
+
+        foreach ($surface in $surfaces) {
+            $landings.Add([PSCustomObject]@{ Surface = $surface; Method = $method; Endpoint = $endpoint })
+        }
+    }
+
+    if ($landings.Count -eq 0) { return $null }
+
+    $distinctSurfaces = [System.Collections.Generic.List[string]]::new()
+    foreach ($landing in $landings) {
+        if (-not $distinctSurfaces.Contains($landing.Surface)) { $distinctSurfaces.Add($landing.Surface) }
+    }
+    if ($distinctSurfaces.Count -ne 1) { return $null }
+
+    # An empty string is the sentinel for 'this landing's operation could not be read'. It
+    # participates in the distinctness test like any other value, which is what stops a
+    # readable call from speaking for an unreadable one.
+    $distinctOperations = [System.Collections.Generic.List[string]]::new()
+    foreach ($landing in $landings) {
+        $operation = ''
+        if ($landing.Method -and $landing.Endpoint) {
+            $operation = '{0}|{1}' -f $landing.Method.ToUpperInvariant(), $landing.Endpoint
+        }
+        if (-not $distinctOperations.Contains($operation)) { $distinctOperations.Add($operation) }
+    }
+
+    $resolvedMethod = $null
+    $resolvedEndpoint = $null
+    if ($distinctOperations.Count -eq 1 -and $distinctOperations[0] -ne '') {
+        $parts = $distinctOperations[0] -split '\|', 2
+        $resolvedMethod = $parts[0]
+        $resolvedEndpoint = $parts[1]
+    }
+
+    return [PSCustomObject]@{
+        TargetVariable = $TargetVariable
+        WireSurface    = $distinctSurfaces[0]
+        Method         = $resolvedMethod
+        Endpoint       = $resolvedEndpoint
+    }
+}
+
 function Get-PfbEndpointForVariable {
     <#
     .SYNOPSIS
-        Finds the (Method, Endpoint) pair a body/queryParams variable is passed to via
-        Invoke-PfbApiRequest -Body/-QueryParams within a function, IF every such call
-        agrees on exactly one (Method, Endpoint) pair.
+        Compatibility wrapper: the (Method, Endpoint) pair a payload variable reaches, or
+        $null when that operation is not provably unique.
     .DESCRIPTION
-        Never guesses: returns $null when the variable feeds zero Invoke-PfbApiRequest
-        calls, or more than one call with a DIFFERENT (Method, Endpoint) pair (e.g.
-        Get-PfbNode's try/catch fallback that reuses the same $queryParams against two
-        genuinely different endpoints, 'nodes' then 'blades' -- correctly ambiguous,
-        not a case to force-pick one of). Only literal, unquoted-bareword-or-quoted-
-        string -Method/-Endpoint arguments are recognized, matching the exclusively
-        literal style every cmdlet in this repo actually uses for both.
+        Delegates wholly to Get-PfbRequestRoleForVariable and keeps no independent notion of
+        which variables are payloads -- the name switch this function used to carry is the
+        defect issue #141 Task 3 removed, and reintroducing a copy of it here would restore
+        the defect for every caller of this entry point.
+
+        Still returns $null when the variable feeds zero Invoke-PfbApiRequest calls, or more
+        than one call with a DIFFERENT (Method, Endpoint) pair -- Get-PfbNode's try/catch
+        fallback reuses one $queryParams against 'nodes' then 'blades', which is correctly
+        ambiguous rather than a case to force-pick one of. It now additionally returns $null
+        when the surface itself is ambiguous, and resolves variables of any name.
     .OUTPUTS
         $null, or [PSCustomObject]@{ Method; Endpoint }
     #>
@@ -928,56 +1212,11 @@ function Get-PfbEndpointForVariable {
         [string]$TargetVariable
     )
 
-    $targetParamName = switch ($TargetVariable) {
-        'body' { 'Body' }
-        'queryParams' { 'QueryParams' }
-        default { $null }
-    }
-    if (-not $targetParamName) { return $null }
+    $role = Get-PfbRequestRoleForVariable -FunctionAst $FunctionAst -TargetVariable $TargetVariable
+    if (-not $role) { return $null }
+    if (-not ($role.Method -and $role.Endpoint)) { return $null }
 
-    $commands = $FunctionAst.FindAll({
-        param($node)
-        $node -is [System.Management.Automation.Language.CommandAst] -and
-        $node.GetCommandName() -eq 'Invoke-PfbApiRequest'
-    }, $true)
-
-    $pairs = [System.Collections.Generic.List[string]]::new()
-
-    foreach ($cmd in $commands) {
-        $elements = $cmd.CommandElements
-        $usesVariable = $false
-        $method = $null
-        $endpoint = $null
-
-        for ($i = 0; $i -lt $elements.Count; $i++) {
-            $el = $elements[$i]
-            if ($el -isnot [System.Management.Automation.Language.CommandParameterAst]) { continue }
-            $next = if ($i + 1 -lt $elements.Count) { $elements[$i + 1] } else { $null }
-            if (-not $next) { continue }
-
-            if ($el.ParameterName -eq $targetParamName -and
-                $next -is [System.Management.Automation.Language.VariableExpressionAst] -and
-                $next.VariablePath.UserPath -eq $TargetVariable) {
-                $usesVariable = $true
-            }
-            elseif ($el.ParameterName -eq 'Method' -and $next -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
-                $method = $next.Value
-            }
-            elseif ($el.ParameterName -eq 'Endpoint' -and $next -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
-                $endpoint = $next.Value
-            }
-        }
-
-        if ($usesVariable -and $method -and $endpoint) {
-            $pairs.Add("$($method.ToUpperInvariant())|$endpoint")
-        }
-    }
-
-    $distinct = @($pairs | Select-Object -Unique)
-    if ($distinct.Count -ne 1) { return $null }
-
-    $parts = $distinct[0] -split '\|', 2
-    return [PSCustomObject]@{ Method = $parts[0]; Endpoint = $parts[1] }
+    return [PSCustomObject]@{ Method = $role.Method; Endpoint = $role.Endpoint }
 }
 
 function Get-PfbCmdletBodyInsertionTarget {
@@ -1125,14 +1364,16 @@ function Get-PfbCmdletParameterInventory {
         [PSCustomObject]@{ File; Line; Cmdlet; Parameter; HasValidateSet; ValidateSetValues;
         WireName; TargetVariable; WireSurface; Surface; Endpoint; Method }
 
-        TargetVariable is the resolved assignment target ('queryParams' or 'body'), and
-        WireSurface is its coarse classification ('Query' | 'Body' | 'Unresolved') -- the
-        distinction between a query selector and a request-body property, which name
-        shape alone cannot supply.
+        TargetVariable is the resolved assignment target -- the payload variable name, of
+        whatever spelling -- or $null when the parameter proved landings through more than
+        one. WireSurface is the coarse classification ('Query' | 'Body' | 'Unresolved') of
+        the surface those landings agree on: the distinction between a query selector and a
+        request-body property, which name shape alone cannot supply, and which is read from
+        the -Body/-QueryParams argument the variable is passed as rather than from the
+        variable's own name (see Get-PfbRequestRoleForVariable).
 
-        Endpoint/Method are $null unless the parameter's wire-name assignment resolved
-        to exactly one Invoke-PfbApiRequest call's endpoint (see
-        Get-PfbEndpointForVariable) -- never guessed.
+        Endpoint/Method are $null unless every landing of the parameter agrees on one
+        literal Invoke-PfbApiRequest (method, endpoint) pair -- never guessed.
 
         Line is the parameter's own declaration line ($p.Extent.StartLineNumber),
         alongside the File it already carried -- so a consumer reporting on a
@@ -1194,21 +1435,18 @@ function Get-PfbCmdletParameterInventory {
                 }
                 $wireName = if ($wireInfo) { $wireInfo.WireName } else { $null }
 
-                $endpointInfo = if ($wireInfo) { Get-PfbEndpointForVariable -FunctionAst $funcAst -TargetVariable $wireInfo.TargetVariable } else { $null }
-
                 $surface = if ($wireName) { 'Typed' }
                 elseif ($hasAttributesParam) { 'AttributesOnly' }
                 else { 'TypedUnresolved' }
 
-                # Which request surface the parameter reaches: Get-PfbWireNameForParameter's
-                # TargetVariable is literally 'queryParams' or 'body'. A selector is a query
-                # parameter; a request-body property is not, however selector-shaped its name.
+                # Surface, method and endpoint all arrive already arbitrated from
+                # Get-PfbWireNameForParameter, which resolves them from the request arguments
+                # of the calls the payload variable is actually passed to (issue #141 Task 3).
+                # They are deliberately NOT re-derived here from TargetVariable: that was the
+                # retired name gate, and a parameter landing through more than one payload
+                # variable has no single TargetVariable to re-derive them from.
                 $targetVariable = if ($wireInfo) { $wireInfo.TargetVariable } else { $null }
-                $wireSurface = switch ($targetVariable) {
-                    'queryParams' { 'Query' }
-                    'body' { 'Body' }
-                    default { 'Unresolved' }
-                }
+                $wireSurface = if ($wireInfo) { $wireInfo.WireSurface } else { 'Unresolved' }
 
                 $results.Add([PSCustomObject]@{
                     File              = $file.FullName
@@ -1221,8 +1459,8 @@ function Get-PfbCmdletParameterInventory {
                     TargetVariable    = $targetVariable
                     WireSurface       = $wireSurface
                     Surface           = $surface
-                    Endpoint          = if ($endpointInfo) { $endpointInfo.Endpoint } else { $null }
-                    Method            = if ($endpointInfo) { $endpointInfo.Method } else { $null }
+                    Endpoint          = if ($wireInfo) { $wireInfo.Endpoint } else { $null }
+                    Method            = if ($wireInfo) { $wireInfo.Method } else { $null }
                 })
             }
         }
