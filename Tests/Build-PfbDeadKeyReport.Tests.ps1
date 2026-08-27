@@ -541,7 +541,8 @@ Describe 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cach
         # by 'synthetic/surface' PATCH, so a union narrowed to it returns the record's OWN
         # endpoint's sites: declaredElsewhere is unchanged, nothing leaks, and every assertion
         # stays green. It is an equivalent mutant -- precisely the hazard the 'policy_names'
-        # comment below defuses for the *_names case, and the reason it had to be planted there.
+        # comment ABOVE defuses for the *_names case, on the SyntheticEndpointPatch schema, and the
+        # reason that property had to be planted there.
         # Do not restore a counterexample here that has not been executed.
         #
         # The one measured positive control is that 'policy_names' body property: with it in the
