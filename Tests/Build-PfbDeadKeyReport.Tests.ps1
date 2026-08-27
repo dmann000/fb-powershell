@@ -334,6 +334,14 @@ Describe 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cach
                     SyntheticEndpointPatch  = [PSCustomObject]@{
                         properties = [PSCustomObject]@{
                             archived = [PSCustomObject]@{ type = 'boolean' }
+                            # A *_names BODY property on an endpoint that no dead key resolves
+                            # to. Nothing in this fixture needs it declared; it exists so that a
+                            # Body lookup widened from the record's own endpoint to a union over
+                            # the whole index -- even one narrowed to *_names keys -- finds
+                            # 'policy_names' here and hands Remove-PfbSyntheticDeadKey's dead
+                            # PolicyName a Body provenance it cannot have. Without this line that
+                            # widening is an equivalent mutant.
+                            policy_names = [PSCustomObject]@{ type = 'array' }
                         }
                     }
                     SyntheticUndeclaredPost = [PSCustomObject]@{
@@ -458,6 +466,13 @@ Describe 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cach
                     delete = [PSCustomObject]@{
                         parameters = @(
                             [PSCustomObject]@{ name = 'names'; 'in' = 'query' }
+                            # The QUERY counterpart of the *_names body property above, on a
+                            # DIFFERENT endpoint from the one whose dead PolicyName resolves. It
+                            # closes the sibling widening: a Body site synthesised because SOME
+                            # endpoint declares the key as a query key. Query-declared here and
+                            # nowhere on synthetic/dead, so the unmutated generator must still
+                            # report UNDECLARED with no provenance.
+                            [PSCustomObject]@{ name = 'policy_names'; 'in' = 'query' }
                         )
                     }
                 }
