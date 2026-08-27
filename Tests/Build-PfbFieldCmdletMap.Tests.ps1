@@ -401,11 +401,27 @@ function Set-PfbPartitionContext {
 
     It 'gives the non-applicable rows their own Markdown heading, with the reason on each line' {
         $text = Get-Content -Path $partReport -Raw
-        $text | Should -Match '## Not a wire field \(nothing to inspect\): 2'
+        $text | Should -Match "## Outside this resolver's reach \(no standard-request field to inspect\): 2"
         $text | Should -Match '- `Remove-PfbBucket -Eradicate` \(NotWireParameter\)'
         $text | Should -Match '- `Set-PfbPartitionContext -Context` \(OutsideStandardRequest\)'
         # And the section it must NOT have been folded into still reports its own single row.
         $text | Should -Match '## Typed but unresolved wire name \(needs manual inspection\): 1'
+    }
+
+    It 'says only that the resolver cannot see these payloads, never that the parameters miss the wire' {
+        # This heading used to read "Not a wire field (nothing to inspect)", which is a
+        # confident FALSE claim about six real cmdlets: Connect-PfbArray -Username/-Password
+        # reach /api/login through Invoke-WebRequest (Public/Connection/Connect-PfbArray.ps1:331
+        # and :351), and -ClientId/-Issuer/-KeyId reach the OAuth2 token request the same way.
+        # Plan Correction 1 requires these rows be classified as outside the standard
+        # request-payload resolver, NOT as having no wire effect. Both halves are asserted:
+        # the retired wording must not come back, and the disclaimer must actually be present,
+        # or a future reword could satisfy the first half by deleting the section entirely.
+        $text = Get-Content -Path $partReport -Raw
+        $text | Should -Not -Match 'Not a wire field'
+        $text | Should -Not -Match 'nothing to inspect'
+        $text | Should -Match 'does \*\*not\*\* mean the parameter has no wire effect'
+        $text | Should -Match 'Connect-PfbArray -Username'
     }
 
     It 'emits a typed parameter that already has a ValidateSet nowhere at all' {

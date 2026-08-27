@@ -80,11 +80,22 @@ $typedUnresolved = @($inventory | Where-Object { $_.Surface -eq 'TypedUnresolved
 
 # Non-applicable residual (issue #141 Task 4). Its own collection, NOT folded into
 # typedUnresolved: that list is read as "the tool could not find this field's wire name", and
-# these rows are not fields. `surface` is carried per row because the two reasons are not
-# interchangeable to a reader deciding what to do next -- 'NotWireParameter' is an audited
-# request control and needs nothing done, while 'OutsideStandardRequest' says the whole cmdlet
-# sits off the standard request path and is where a future reviewer would look first if that
-# ever stopped being true.
+# neither of these rows is a standard-request field whose name went missing.
+#
+# What that does NOT license is the stronger claim that the parameter never reaches the wire.
+# 'OutsideStandardRequest' is a statement about THIS RESOLVER'S REACH -- the declaring cmdlet
+# issues no Invoke-PfbApiRequest call, so there is no standard payload to read a key out of --
+# and several of these parameters demonstrably do reach the array by other means:
+# Public/Connection/Connect-PfbArray.ps1:331 builds @{ username = $Username; password = ... }
+# and POSTs it to /api/login at :351 via Invoke-WebRequest. Rendering these rows as "not a
+# wire field" would be a confident false statement about six real cmdlets, which is the same
+# class of error the never-guess contract exists to prevent, merely in prose instead of JSON.
+#
+# `surface` is carried per row because the two reasons are not interchangeable to a reader
+# deciding what to do next -- 'NotWireParameter' is an audited request control with no query or
+# body key and needs nothing done, while 'OutsideStandardRequest' says the whole cmdlet sits off
+# the standard request path and is where a future reviewer would look first if that ever stopped
+# being true.
 $notApplicable = @($inventory | Where-Object { $_.Surface -in @('NotWireParameter', 'OutsideStandardRequest') } |
         ForEach-Object { [ordered]@{ cmdlet = $_.Cmdlet; parameter = $_.Parameter; surface = $_.Surface } })
 
@@ -173,9 +184,9 @@ $mdLines.Add("## Typed but unresolved wire name (needs manual inspection): $($ty
 $mdLines.Add('')
 foreach ($u in $typedUnresolved) { $mdLines.Add("- ``$($u.cmdlet) -$($u.parameter)``") }
 $mdLines.Add('')
-$mdLines.Add("## Not a wire field (nothing to inspect): $($notApplicable.Count)")
+$mdLines.Add("## Outside this resolver's reach (no standard-request field to inspect): $($notApplicable.Count)")
 $mdLines.Add('')
-$mdLines.Add('Listed separately from the section above on purpose: these parameters are not fields whose wire name went unresolved, so they are not work. `NotWireParameter` is an audited request control (`-Eradicate`, `-Force`); `OutsideStandardRequest` means the declaring cmdlet issues no `Invoke-PfbApiRequest` call at all.')
+$mdLines.Add('Listed separately from the section above on purpose: neither is a standard-request field whose wire name went unresolved. `NotWireParameter` is an audited request control (`-Eradicate`, `-Force`) with no query or body key. `OutsideStandardRequest` means the declaring cmdlet issues no `Invoke-PfbApiRequest` call, so this resolver cannot see its payload -- it does **not** mean the parameter has no wire effect; `Connect-PfbArray -Username`/`-Password`, for example, reach `/api/login` through bespoke HTTP.')
 $mdLines.Add('')
 foreach ($n in $notApplicable) { $mdLines.Add("- ``$($n.cmdlet) -$($n.parameter)`` ($($n.surface))") }
 $mdLines.Add('')

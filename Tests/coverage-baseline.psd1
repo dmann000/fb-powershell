@@ -222,8 +222,18 @@
         # the gate asserts that reconciliation on every run, so a container the walk misses is
         # a red rather than a quietly smaller number.
         #
-        # Since seeding, one entry has moved: Build-PfbFieldCmdletMap.Tests.ps1 15 -> 25 for
-        # issue #141 Task 4 (see its own note below), so the entries now sum to 307.
+        # Since seeding, TWO entries have moved, and the arithmetic below accounts for both:
+        # PfbApiDriftTools.Tests.ps1 8 -> 12 for issue #113 (+4), and
+        # Build-PfbFieldCmdletMap.Tests.ps1 15 -> 26 for issue #141 Task 4 (+11). Each carries
+        # its own note at its entry. 297 + 4 + 11 = 312, which is what the entries sum to.
+        #
+        # Recompute this total from the map itself rather than adjusting it by the delta in
+        # hand -- an earlier revision of this note said "one entry has moved ... sum to 307",
+        # which was wrong in both halves because it was written against the #141 change alone
+        # and never reconciled with #113's, already landed. A running total that is only ever
+        # incremented drifts silently; the check is
+        # `(Import-PowerShellDataFile Tests/coverage-baseline.psd1).ExpectedSkips.Values |
+        #  Measure-Object -Sum`.
         #
         # Every entry is the same cause: a Describe carrying
         # -Skip:($PSVersionTable.PSVersion.Major -lt 7), or a whole tooling file gated that way,
@@ -243,12 +253,14 @@
             'Update-PfbTestModuleImport.Tests.ps1'               = 34
             'PfbPipelineSelectorTools.Tests.ps1'                 = 33
             'PfbSelectorProbeHarness.Tests.ps1'                  = 16
-            # 15 -> 25 for issue #141 Task 4: two new Describes (the five-bucket partition
+            # 15 -> 26 for issue #141 Task 4: two new Describes (the five-bucket partition
             # reconciliation and the unknown-Surface refusal) exercise
             # tools/Build-PfbFieldCmdletMap.ps1 itself, which carries `#Requires -Version 7.0`,
-            # so they take the file's existing PS7 gate. Measured on Windows PowerShell 5.1,
-            # not inferred -- 0 passed / 25 skipped for this file alone.
-            'Build-PfbFieldCmdletMap.Tests.ps1'                  = 25
+            # so they take the file's existing PS7 gate. 25 of those 26 landed with the Task 4
+            # commits; the 26th is the review-fix test asserting the non-applicable section
+            # never claims those parameters miss the wire. Measured on Windows PowerShell 5.1,
+            # not inferred -- 0 passed / 26 skipped for this file alone.
+            'Build-PfbFieldCmdletMap.Tests.ps1'                  = 26
             'PfbPipelineSelectorRail.Tests.ps1'                  = 11
             'Build-PfbResponseShapeMap.Tests.ps1'                = 9
             'Build-PfbDeadKeyReport.Tests.ps1'                   = 6
