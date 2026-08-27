@@ -300,8 +300,11 @@ function Get-PfbParameterCoverageGaps {
         [PSCustomObject]@{ Level; UnresolvedParameters; EscapeHatchOnly; Caveat }:
           - Level is 'high' iff UnresolvedParameters is empty, else 'partial'.
           - UnresolvedParameters is [PSCustomObject]@{ Parameter; Surface; File; Line }[]
-            -- every non-Typed (AttributesOnly or TypedUnresolved) parameter on any
-            cmdlet calling this endpoint, Line coming from
+            -- every UNRESOLVED (AttributesOnly or TypedUnresolved) parameter on any
+            cmdlet calling this endpoint. "Unresolved", not "non-Typed": the two
+            non-applicable surfaces (NotWireParameter, OutsideStandardRequest) are non-Typed
+            too and are deliberately excluded, because a parameter that is not a wire field
+            at all is not a wire field this tool failed to find. Line comes from
             Get-PfbCmdletParameterInventory's Line field
             ($p.Extent.StartLineNumber) so every caveat is a click-through.
           - EscapeHatchOnly is the subset of UnresolvedParameters' Parameter names whose
@@ -383,16 +386,36 @@ function Get-PfbParameterCoverageGaps {
             # report as unresolved for that cmdlet.
             $rows = @($inventoryByCmdlet[$cmdletName] | Where-Object { $null -ne $_ })
             foreach ($row in $rows) {
-                if ($row.Surface -ne 'Typed') {
-                    $unresolved.Add([PSCustomObject]@{
-                        Parameter = $row.Parameter
-                        Surface   = $row.Surface
-                        File      = $row.File
-                        Line      = $row.Line
-                    })
-                    continue
+                # EXHAUSTIVE on Surface, and deliberately not `-ne 'Typed'`. The negation was a
+                # denylist: it read "anything I cannot resolve is doubt about this endpoint",
+                # so the two NON-APPLICABLE surfaces issue #141 Task 4 introduced would have
+                # been swept straight into $unresolved and demoted 'high' to 'partial' on the
+                # strength of a parameter that is not a wire field at all -- 34 real
+                # parameters, none of which could ever have covered a gap. A new Surface value
+                # must be assigned a meaning HERE, by hand, and until it is this throws rather
+                # than silently taking whichever side the negation happened to fall on.
+                switch ($row.Surface) {
+                    'Typed' {
+                        if ($row.WireName) { [void]$exposedWireNames.Add($row.WireName) }
+                    }
+                    'AttributesOnly' {
+                        $unresolved.Add([PSCustomObject]@{ Parameter = $row.Parameter; Surface = $row.Surface; File = $row.File; Line = $row.Line })
+                    }
+                    'TypedUnresolved' {
+                        $unresolved.Add([PSCustomObject]@{ Parameter = $row.Parameter; Surface = $row.Surface; File = $row.File; Line = $row.Line })
+                    }
+                    # An audited request control: it steers the call rather than appearing in
+                    # it, so it neither covers a gap nor casts doubt on one.
+                    'NotWireParameter' { }
+                    # Its declaring function issues no Invoke-PfbApiRequest at all, so it is
+                    # not a parameter of THIS endpoint in any sense. (Reachable in a real run
+                    # only through a hand-built inventory: such a cmdlet contributes no called
+                    # endpoint, so it does not normally join one of these groups.)
+                    'OutsideStandardRequest' { }
+                    default {
+                        throw ("Get-PfbParameterCoverageGaps: inventory row {0} -{1} carries Surface '{2}', which this function has never been taught to classify. Assign it explicitly -- as covering (like 'Typed'), as doubt-casting (like 'TypedUnresolved') or as non-applicable (like 'NotWireParameter') -- rather than letting it default." -f $cmdletName, $row.Parameter, $row.Surface)
+                    }
                 }
-                if ($row.WireName) { [void]$exposedWireNames.Add($row.WireName) }
             }
         }
 
@@ -1042,6 +1065,12 @@ function Get-PfbWireNameCmdletCounts {
 
     $map = [System.Collections.Generic.Dictionary[string, object]]::new()
     foreach ($row in $CmdletInventory) {
+        # An ALLOWLIST despite being spelled as a negation: the condition admits Surface
+        # 'Typed' and nothing else, so a new Surface value is excluded by construction and
+        # cannot enter this map. Contrast Get-PfbParameterCoverageGaps, where the same
+        # spelling was a genuine denylist because the excluded branch is the one that ACTS.
+        # Nothing here needs a per-value decision, so this is left as it is on purpose rather
+        # than for want of noticing (issue #141 Task 4 consumer sweep).
         if ($row.Surface -ne 'Typed' -or -not $row.WireName) { continue }
         if (-not $map.ContainsKey($row.WireName)) { $map[$row.WireName] = [System.Collections.Generic.HashSet[string]]::new() }
         [void]$map[$row.WireName].Add($row.Cmdlet)
