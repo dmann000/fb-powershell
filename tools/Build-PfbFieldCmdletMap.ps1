@@ -78,6 +78,31 @@ $candidates = @($inventory | Where-Object { $_.Surface -eq 'Typed' -and -not $_.
 $attributesOnly = @($inventory | Where-Object { $_.Surface -eq 'AttributesOnly' } | ForEach-Object { [ordered]@{ cmdlet = $_.Cmdlet; parameter = $_.Parameter } })
 $typedUnresolved = @($inventory | Where-Object { $_.Surface -eq 'TypedUnresolved' } | ForEach-Object { [ordered]@{ cmdlet = $_.Cmdlet; parameter = $_.Parameter } })
 
+# Non-applicable residual (issue #141 Task 4). Its own collection, NOT folded into
+# typedUnresolved: that list is read as "the tool could not find this field's wire name", and
+# these rows are not fields. `surface` is carried per row because the two reasons are not
+# interchangeable to a reader deciding what to do next -- 'NotWireParameter' is an audited
+# request control and needs nothing done, while 'OutsideStandardRequest' says the whole cmdlet
+# sits off the standard request path and is where a future reviewer would look first if that
+# ever stopped being true.
+$notApplicable = @($inventory | Where-Object { $_.Surface -in @('NotWireParameter', 'OutsideStandardRequest') } |
+        ForEach-Object { [ordered]@{ cmdlet = $_.Cmdlet; parameter = $_.Parameter; surface = $_.Surface } })
+
+# Every inventory row lands in exactly one of five buckets, and this asserts it rather than
+# assuming it. Four are emitted below; the fifth (Typed WITH a ValidateSet) is deliberately
+# emitted nowhere -- this report recommends ADDING a ValidateSet, and those parameters already
+# have one. Without this check a Surface value added upstream and not taught to this script
+# would simply disappear from the report, which is the quietest possible failure and exactly
+# the one issue #141 exists to stop.
+$typedWithValidateSet = @($inventory | Where-Object { $_.Surface -eq 'Typed' -and $_.HasValidateSet })
+$partitioned = $candidates.Count + $typedWithValidateSet.Count + $attributesOnly.Count + $typedUnresolved.Count + $notApplicable.Count
+if ($partitioned -ne $inventory.Count) {
+    throw ("Inventory partition is incomplete: $($inventory.Count) rows in, $partitioned classified " +
+        "(typed-no-validateset $($candidates.Count), typed-with-validateset $($typedWithValidateSet.Count), " +
+        "attributesOnly $($attributesOnly.Count), typedUnresolved $($typedUnresolved.Count), notApplicable $($notApplicable.Count)). " +
+        'A Surface value this script has not been taught would otherwise vanish from the report silently.')
+}
+
 $entries = foreach ($cand in $candidates) {
     $hint = Get-PfbResourceHint -CmdletName $cand.Cmdlet
     $resolution = Resolve-PfbFieldValueEnum -WireName $cand.WireName -ResourceHint $hint -Endpoint $cand.Endpoint -Method $cand.Method -History $history -OldestVersion $oldestVersion
@@ -100,6 +125,7 @@ $manifest = [ordered]@{
     entries        = $entries
     attributesOnly = $attributesOnly
     typedUnresolved = $typedUnresolved
+    notApplicable   = $notApplicable
 }
 
 $outputDir = Split-Path -Parent $OutputPath
@@ -146,6 +172,12 @@ $mdLines.Add('')
 $mdLines.Add("## Typed but unresolved wire name (needs manual inspection): $($typedUnresolved.Count)")
 $mdLines.Add('')
 foreach ($u in $typedUnresolved) { $mdLines.Add("- ``$($u.cmdlet) -$($u.parameter)``") }
+$mdLines.Add('')
+$mdLines.Add("## Not a wire field (nothing to inspect): $($notApplicable.Count)")
+$mdLines.Add('')
+$mdLines.Add('Listed separately from the section above on purpose: these parameters are not fields whose wire name went unresolved, so they are not work. `NotWireParameter` is an audited request control (`-Eradicate`, `-Force`); `OutsideStandardRequest` means the declaring cmdlet issues no `Invoke-PfbApiRequest` call at all.')
+$mdLines.Add('')
+foreach ($n in $notApplicable) { $mdLines.Add("- ``$($n.cmdlet) -$($n.parameter)`` ($($n.surface))") }
 $mdLines.Add('')
 
 Set-Content -Path $ReportPath -Value ($mdLines -join "`n") -Encoding UTF8

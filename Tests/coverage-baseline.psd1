@@ -222,6 +222,9 @@
         # the gate asserts that reconciliation on every run, so a container the walk misses is
         # a red rather than a quietly smaller number.
         #
+        # Since seeding, one entry has moved: Build-PfbFieldCmdletMap.Tests.ps1 15 -> 25 for
+        # issue #141 Task 4 (see its own note below), so the entries now sum to 307.
+        #
         # Every entry is the same cause: a Describe carrying
         # -Skip:($PSVersionTable.PSVersion.Major -lt 7), or a whole tooling file gated that way,
         # because the generator or spec-walking code under test needs pwsh 7. They RUN on 7 --
@@ -240,7 +243,12 @@
             'Update-PfbTestModuleImport.Tests.ps1'               = 34
             'PfbPipelineSelectorTools.Tests.ps1'                 = 33
             'PfbSelectorProbeHarness.Tests.ps1'                  = 16
-            'Build-PfbFieldCmdletMap.Tests.ps1'                  = 15
+            # 15 -> 25 for issue #141 Task 4: two new Describes (the five-bucket partition
+            # reconciliation and the unknown-Surface refusal) exercise
+            # tools/Build-PfbFieldCmdletMap.ps1 itself, which carries `#Requires -Version 7.0`,
+            # so they take the file's existing PS7 gate. Measured on Windows PowerShell 5.1,
+            # not inferred -- 0 passed / 25 skipped for this file alone.
+            'Build-PfbFieldCmdletMap.Tests.ps1'                  = 25
             'PfbPipelineSelectorRail.Tests.ps1'                  = 11
             'Build-PfbResponseShapeMap.Tests.ps1'                = 9
             'Build-PfbDeadKeyReport.Tests.ps1'                   = 6

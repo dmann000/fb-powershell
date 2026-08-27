@@ -282,6 +282,199 @@ Describe 'Build-PfbFieldCmdletMap' -Skip:($PSVersionTable.PSVersion.Major -lt 7)
     }
 }
 
+Describe 'Every inventory row lands in exactly one of five buckets (issue #141 Task 4, Step 8)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    # Before Task 4 this script had three buckets and no reconciliation: a row whose Surface
+    # it had not been taught was filtered out by all three `Where-Object`s and vanished from
+    # the report without a word. That is the quietest possible failure, and the two
+    # non-applicable surfaces Task 4 adds are exactly the kind of value that would have hit
+    # it. The fixture tree below deliberately populates all five buckets at once so the
+    # partition assertion has something to be wrong about.
+
+    BeforeAll {
+        $script:partPublicDir = Join-Path $TestDrive 'PublicPartition'
+        New-Item -ItemType Directory -Path $partPublicDir -Force | Out-Null
+
+        # Buckets 1 and 2: a typed parameter with no ValidateSet (reported) and one with a
+        # ValidateSet (deliberately reported nowhere -- this script recommends ADDING one).
+        Set-Content -Path (Join-Path $partPublicDir 'New-PfbPartitionWidget.ps1') -Value @'
+function New-PfbPartitionWidget {
+    param(
+        [Parameter()] [string]$StableField,
+        [Parameter()] [ValidateSet('x', 'y')] [string]$ValidatedField,
+        [Parameter()] [PSCustomObject]$Array
+    )
+    $body = @{}
+    if ($StableField)    { $body["stable_field"]   = $StableField }
+    if ($ValidatedField) { $body["changing_field"] = $ValidatedField }
+    Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'widgets' -Body $body
+}
+'@
+
+        # Bucket 3: typed, unresolvable, and no -Attributes escape hatch.
+        Set-Content -Path (Join-Path $partPublicDir 'Get-PfbPartitionUnresolved.ps1') -Value @'
+function Get-PfbPartitionUnresolved {
+    param([Parameter()] [string]$Mystery, [Parameter()] [PSCustomObject]$Array)
+    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'widgets'
+}
+'@
+
+        # Bucket 4: same unresolvable shape, but an -Attributes escape hatch exists.
+        Set-Content -Path (Join-Path $partPublicDir 'Get-PfbPartitionAttributed.ps1') -Value @'
+function Get-PfbPartitionAttributed {
+    param([Parameter()] [string]$Mystery, [Parameter()] [hashtable]$Attributes, [Parameter()] [PSCustomObject]$Array)
+    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'widgets'
+}
+'@
+
+        # Bucket 5a: NotWireParameter. The function is named Remove-PfbBucket on purpose --
+        # the surface is keyed on the audited 'Cmdlet|Parameter' identity, never on the
+        # parameter's name, so a fixture called anything else could not reach this branch and
+        # a test that renamed it would silently stop testing it.
+        Set-Content -Path (Join-Path $partPublicDir 'Remove-PfbBucket.ps1') -Value @'
+function Remove-PfbBucket {
+    param([Parameter()] [string]$Name, [Parameter()] [switch]$Eradicate, [Parameter()] [PSCustomObject]$Array)
+    if (-not $Eradicate) { throw 'refusing without -Eradicate' }
+    $queryParams = @{}
+    $queryParams["names"] = $Name
+    Invoke-PfbApiRequest -Array $Array -Method DELETE -Endpoint 'buckets' -QueryParams $queryParams
+}
+'@
+
+        # Bucket 5b: OutsideStandardRequest -- no Invoke-PfbApiRequest call anywhere.
+        Set-Content -Path (Join-Path $partPublicDir 'Set-PfbPartitionContext.ps1') -Value @'
+function Set-PfbPartitionContext {
+    param([Parameter()] [string]$Context)
+    $script:PfbPartitionContext = $Context
+}
+'@
+
+        $script:partOutput = Join-Path $TestDrive 'partitionOutput/map.json'
+        $script:partReport = Join-Path $TestDrive 'partitionOutput/report.md'
+        & $buildScript -SpecsDirectory $specsDir -PublicDirectory $partPublicDir -OutputPath $partOutput -ReportPath $partReport
+        $script:partManifest = Get-Content -Path $partOutput -Raw | ConvertFrom-Json -Depth 20
+        $script:partInventory = @(Get-PfbCmdletParameterInventory -PublicDirectory $partPublicDir)
+
+        function script:Get-PfbPartitionIdentity {
+            param($Rows, [string]$CmdletProperty = 'cmdlet', [string]$ParameterProperty = 'parameter')
+            @($Rows | ForEach-Object { '{0}|{1}' -f $_.$CmdletProperty, $_.$ParameterProperty })
+        }
+    }
+
+    It 'accounts for every row exactly once across the four emitted buckets plus the deliberately-unemitted fifth' {
+        $emitted = @()
+        $emitted += Get-PfbPartitionIdentity -Rows $partManifest.entries
+        $emitted += Get-PfbPartitionIdentity -Rows $partManifest.attributesOnly
+        $emitted += Get-PfbPartitionIdentity -Rows $partManifest.typedUnresolved
+        $emitted += Get-PfbPartitionIdentity -Rows $partManifest.notApplicable
+        $unemitted = Get-PfbPartitionIdentity -Rows @($partInventory | Where-Object { $_.Surface -eq 'Typed' -and $_.HasValidateSet }) -CmdletProperty 'Cmdlet' -ParameterProperty 'Parameter'
+
+        $all = @($emitted) + @($unemitted)
+        $expected = Get-PfbPartitionIdentity -Rows $partInventory -CmdletProperty 'Cmdlet' -ParameterProperty 'Parameter'
+
+        # Count first: set equality alone would pass if one row were classified into two
+        # buckets, which is the other half of "exactly one".
+        $all.Count | Should -Be $expected.Count
+        @($all | Sort-Object) | Should -Be @($expected | Sort-Object)
+    }
+
+    It 'populates the <Bucket> bucket, so the reconciliation above is not vacuous' -ForEach @(
+        @{ Bucket = 'entries' }
+        @{ Bucket = 'attributesOnly' }
+        @{ Bucket = 'typedUnresolved' }
+        @{ Bucket = 'notApplicable' }
+    ) {
+        @($partManifest.$Bucket).Count | Should -BeGreaterThan 0
+    }
+
+    It 'keeps the non-applicable rows out of typedUnresolved and records which reason applies to each' {
+        $notApplicable = @($partManifest.notApplicable)
+        $notApplicable.Count | Should -Be 2
+        ($notApplicable | Where-Object { $_.cmdlet -eq 'Remove-PfbBucket' }).surface | Should -Be 'NotWireParameter'
+        ($notApplicable | Where-Object { $_.cmdlet -eq 'Set-PfbPartitionContext' }).surface | Should -Be 'OutsideStandardRequest'
+
+        # The control for the two exclusions below: typedUnresolved is populated, so
+        # -Not -Contain is testing separation and not an empty list.
+        @($partManifest.typedUnresolved).Count | Should -Be 1
+        (Get-PfbPartitionIdentity -Rows $partManifest.typedUnresolved) | Should -Not -Contain 'Remove-PfbBucket|Eradicate'
+        (Get-PfbPartitionIdentity -Rows $partManifest.typedUnresolved) | Should -Not -Contain 'Set-PfbPartitionContext|Context'
+    }
+
+    It 'gives the non-applicable rows their own Markdown heading, with the reason on each line' {
+        $text = Get-Content -Path $partReport -Raw
+        $text | Should -Match '## Not a wire field \(nothing to inspect\): 2'
+        $text | Should -Match '- `Remove-PfbBucket -Eradicate` \(NotWireParameter\)'
+        $text | Should -Match '- `Set-PfbPartitionContext -Context` \(OutsideStandardRequest\)'
+        # And the section it must NOT have been folded into still reports its own single row.
+        $text | Should -Match '## Typed but unresolved wire name \(needs manual inspection\): 1'
+    }
+
+    It 'emits a typed parameter that already has a ValidateSet nowhere at all' {
+        $withValidateSet = @($partInventory | Where-Object { $_.Surface -eq 'Typed' -and $_.HasValidateSet })
+        $withValidateSet.Count | Should -Be 1 -Because 'the fixture must actually contain one, or this test proves nothing'
+        (Get-PfbPartitionIdentity -Rows $partManifest.entries) | Should -Not -Contain 'New-PfbPartitionWidget|ValidatedField'
+        (Get-PfbPartitionIdentity -Rows $partManifest.attributesOnly) | Should -Not -Contain 'New-PfbPartitionWidget|ValidatedField'
+        (Get-PfbPartitionIdentity -Rows $partManifest.typedUnresolved) | Should -Not -Contain 'New-PfbPartitionWidget|ValidatedField'
+        (Get-PfbPartitionIdentity -Rows $partManifest.notApplicable) | Should -Not -Contain 'New-PfbPartitionWidget|ValidatedField'
+        (Get-Content -Path $partReport -Raw) | Should -Not -Match 'ValidatedField'
+    }
+}
+
+Describe 'The partition assertion refuses a Surface the script has not been taught (issue #141 Task 4, Step 8)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    # No Public/ fixture can produce an unknown Surface -- the ladder only ever emits the five
+    # declared values -- so the only honest way to exercise the assertion is to replace the
+    # inventory function the script depends on. The script dot-sources tools/lib/ relative to
+    # its OWN location, which would overwrite any override made from here, so the whole
+    # script + lib pair is copied to TestDrive and the override appended to the copied lib.
+
+    BeforeAll {
+        $script:shimDir = Join-Path $TestDrive 'toolsShim'
+        New-Item -ItemType Directory -Path $shimDir -Force | Out-Null
+        Copy-Item -Path (Join-Path $repoRoot 'tools/lib') -Destination $shimDir -Recurse -Force
+        Copy-Item -Path $buildScript -Destination $shimDir -Force
+        $script:shimScript = Join-Path $shimDir 'Build-PfbFieldCmdletMap.ps1'
+
+        Add-Content -Path (Join-Path $shimDir 'lib/PfbCmdletParamTools.ps1') -Value @'
+
+# --- issue #141 Task 4 test shim, appended by Tests/Build-PfbFieldCmdletMap.Tests.ps1 ---
+function Get-PfbCmdletParameterInventory {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$PublicDirectory)
+    return @([PSCustomObject]@{
+            File = 'shim.ps1'; Line = 1; Cmdlet = 'Get-PfbShimmed'; Parameter = 'Zeta'
+            HasValidateSet = $false; ValidateSetValues = $null
+            WireName = $env:PFB_T4_SHIM_WIRENAME; TargetVariable = $null; WireSurface = $null
+            Surface = $env:PFB_T4_SHIM_SURFACE; Endpoint = $null; Method = $null
+        })
+}
+'@
+        $script:shimOutput = Join-Path $TestDrive 'shimOutput/map.json'
+        $script:shimReport = Join-Path $TestDrive 'shimOutput/report.md'
+    }
+
+    AfterAll {
+        Remove-Item -Path Env:PFB_T4_SHIM_SURFACE -ErrorAction SilentlyContinue
+        Remove-Item -Path Env:PFB_T4_SHIM_WIRENAME -ErrorAction SilentlyContinue
+    }
+
+    It 'throws, naming the counts, when a row carries a Surface no bucket claims' {
+        $env:PFB_T4_SHIM_SURFACE = 'SomethingNew'
+        $env:PFB_T4_SHIM_WIRENAME = ''
+        { & $shimScript -SpecsDirectory $specsDir -PublicDirectory $publicDir -OutputPath $shimOutput -ReportPath $shimReport } |
+            Should -Throw -ExpectedMessage '*Inventory partition is incomplete: 1 rows in, 0 classified*'
+    }
+
+    It 'builds cleanly through the same shim when the row carries a Surface a bucket does claim' {
+        # The control. Without it the test above would still pass against a script that threw
+        # unconditionally, or one whose copied-and-shimmed harness was broken in some way that
+        # had nothing to do with the Surface value.
+        $env:PFB_T4_SHIM_SURFACE = 'Typed'
+        $env:PFB_T4_SHIM_WIRENAME = 'stable_field'
+        { & $shimScript -SpecsDirectory $specsDir -PublicDirectory $publicDir -OutputPath $shimOutput -ReportPath $shimReport } |
+            Should -Not -Throw
+        (Get-Content -Path $shimOutput -Raw | ConvertFrom-Json -Depth 20).entries.parameter | Should -Be 'Zeta'
+    }
+}
+
 Describe 'Build-PfbFieldCmdletMap (real generated artifacts, skips gracefully if absent)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
     It 'produces a manifest against the real Public/ tree and tools/specs/ cache' {
         $realSpecsDir = Join-Path $repoRoot 'tools/specs'
