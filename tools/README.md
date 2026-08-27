@@ -310,8 +310,14 @@ Run in this order:
    - **Later refinement (issue #141 Task 4): "unresolved" stopped meaning "not `Typed`".** A row's
      `Surface` now has five values, and two of them -- `NotWireParameter` (an audited request
      control such as `-Eradicate`/`-Force`) and `OutsideStandardRequest` (the declaring cmdlet
-     issues no `Invoke-PfbApiRequest` call at all) -- say the parameter is **not a wire field**,
-     which is not the same claim as "its wire field could not be found". 34 real parameters were
+     issues no `Invoke-PfbApiRequest` call at all) -- say the parameter has no field in a
+     *standard* `Invoke-PfbApiRequest` payload, which is a statement about this resolver's reach
+     and not about whether the parameter reaches the wire. That distinction is load-bearing, not
+     pedantry: `Connect-PfbArray -Username`/`-Password` are `OutsideStandardRequest` and yet are
+     POSTed to `/api/login` by hand (`Public/Connection/Connect-PfbArray.ps1:331`, `:351`), so
+     rendering the bucket as "not a wire field" would publish a confident falsehood about six
+     real cmdlets. Neither claim is the same as "its wire field could not be found", which is
+     what `typedUnresolved` means. 34 real parameters were
      in that position and each was lowering `confidence` on every endpoint its cmdlet reaches.
      Only `AttributesOnly` and `TypedUnresolved` populate `unresolvedParameters` now.
      `Get-PfbParameterCoverageGaps` branches **exhaustively** on `Surface` and throws on a value
@@ -459,6 +465,18 @@ Run in this order:
 
    ```powershell
    ./tools/Build-PfbDeadKeyReport.ps1
+   ```
+
+8. **`Compare-PfbInventoryTuple.ps1`** — the odd one out in this list: it generates no
+   artifact and is not part of a normal run. It is the row-level regression gate for a
+   change to the `Public/` wire-name resolver in `lib/PfbCmdletParamTools.ps1`, and it is
+   run **on demand, on a branch that touches that resolver**, before opening the PR. See
+   "Resolver regression gate" below for why the totals every other script here reports are
+   not sufficient to catch a resolver regression.
+
+   ```powershell
+   ./tools/Compare-PfbInventoryTuple.ps1 `
+       -DeclarationPath ./tools/inventory-tuple-baselines/issue-141-task4.json
    ```
 
 ## Response-shape drift (`Build-PfbResponseShapeMap.ps1`)
@@ -684,6 +702,66 @@ every candidate and its recommendation — informational only, not consumed at r
 **`Reports/PfbFieldCmdletMap.json`'s output is not consumed anywhere at runtime yet** — no
 `ValidateSet` or `ArgumentCompleter` is added to any `Public/` cmdlet by this script.
 Whether/how to consume it is a deliberate follow-on decision.
+
+## Resolver regression gate (`Compare-PfbInventoryTuple.ps1`)
+
+A change to the wire-name resolver in `lib/PfbCmdletParamTools.ps1` can **withdraw** a
+resolution as easily as add one, and no total shows it. Issue #141 Task 3 raised the
+`Typed` count by 61 while silently demoting `Update-PfbBucketAuditFilter -BucketName` from
+a confident `bucket_names` to unresolved: the count went up, the report looked better, and
+one real parameter got worse. The only thing that caught it was a human diffing rows by
+hand in a code review. This script is that diff, made runnable.
+
+It inventories both sides — a git ref and the working tree — in separate child processes,
+each using **its own** copy of `tools/lib/PfbCmdletParamTools.ps1` and its own `Public/`,
+so the baseline is resolved by the baseline's resolver rather than re-resolved by the new
+one, and a ref that predates a cmdlet is not accused of losing it. It then compares the
+`Surface|WireName|WireSurface|Method|Endpoint` tuple per `<Cmdlet>|<Parameter>` row. Exit
+code is 0 when clean and 1 otherwise, so it works as a gate in a script or workflow step.
+
+Every changed row must be **declared in advance**, in a JSON file under
+`tools/inventory-tuple-baselines/`. That is the anti-rubber-stamp rail: a resolver change
+that moves 34 rows should be reviewed as 34 specific before/after claims, not as one
+summary count that went up.
+
+```powershell
+# Normal use. The declaration file carries the ref it was measured at, so this is
+# correct even on a stacked branch whose base is not an ancestor of origin/main.
+./tools/Compare-PfbInventoryTuple.ps1 `
+    -DeclarationPath ./tools/inventory-tuple-baselines/issue-141-task4.json
+
+# No declarations: report every row that moved against origin/main. Exits 1 if any did.
+./tools/Compare-PfbInventoryTuple.ps1 -BaselineRef origin/main
+```
+
+The declaration file is an **object, not a bare array** — a bare array is refused rather
+than quietly accepted, because an array cannot record the ref its tuples were measured at:
+
+```jsonc
+{
+  "baselineRef":  "5018f88231878d0a4abe656c2272f5e3dc977ba3",
+  "declarations": [
+    { "key": "Remove-PfbBucket|Eradicate",
+      "from": "TypedUnresolved||Unresolved||",
+      "to":   "NotWireParameter||Unresolved||" }
+  ]
+}
+```
+
+A tuple renders `$null` as the empty string — exactly what the script prints for an
+undeclared change, so a reviewed row can be pasted straight in. `-BaselineRef` is only
+needed to override the file's own ref; passing the wrong one on a stacked branch reports
+every intervening improvement as undeclared, and the tempting fix (paste those rows in to
+silence it) pre-authorises movement nobody reviewed.
+
+**Retire the file when the change merges** — move it to
+`tools/inventory-tuple-baselines/landed/`, which the script never reads. Once its commits
+*are* the baseline, every entry matches nothing and the run goes red with one `STALE-DECL`
+per entry (the script prints a `NOTE:` naming this case). That is correct behaviour, not a
+bug: a declaration matching nothing is exactly what the unused-declaration rail exists to
+catch, and teaching it to tolerate the expected case would also teach it to tolerate the
+typo'd key it was built to find. Do not edit a landed file into agreement with the tree
+either — that leaves 34 rows pre-authorised against *future* movement.
 
 ## Tests
 
