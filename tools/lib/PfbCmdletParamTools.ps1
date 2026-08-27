@@ -494,6 +494,22 @@ function Get-PfbCommonQueryParamHelperWireName {
         `$var.ToArray()` call on a bare variable (real: Get-PfbUserGroupQuotaPolicy, which
         must convert its [List[string]] accumulators to arrays for the helper's [string[]]
         parameters); any other member call shape stays refused.
+
+        RESIDUAL ABSTENTION HAZARD, for whoever changes a caller. This function collapses two
+        different answers into one $null: "no Add-PfbCommonQueryParams call names this
+        parameter" (silence -- keep looking) and "two calls disagree about it" (abstention --
+        stop looking, the truth is genuinely undetermined). Resolve-PfbParameterWireLanding
+        avoids acting on the difference by never using this result as its only evidence: it
+        collects landings from every resolver and retries on an empty landing set rather than
+        on a $null from any one of them. A caller that instead treated $null here as "not my
+        parameter" and fell through to a looser resolver would turn a deliberate abstention
+        into a confident wrong wire name, which is the exact failure the never-guess contract
+        exists to prevent.
+
+        Nothing in the tree reaches it today, and that is measured rather than assumed: only
+        Get-PfbQuotaUser has two helper call sites, both target $queryParams, and the
+        ByParameterName rule has no Name entry, so the distinct (WireName, TargetVariable)
+        count is 1 everywhere. It is a live hazard for a FUTURE cmdlet, not a present defect.
     .OUTPUTS
         $null, or [PSCustomObject]@{ WireName; TargetVariable } -- same shape as
         Get-PfbWireNameForParameter.
