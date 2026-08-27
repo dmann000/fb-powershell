@@ -243,9 +243,16 @@ Describe 'Build-PfbDeadKeyReport regeneration (real spec cache required, PS7 onl
                 $offenders.Add("$identity is '$($record.classification)' but its provenance [$(@($sites | ForEach-Object { "$($_.method)/$($_.surface)" }) -join ', ')] implies '$expected'")
             }
             # Sorted by method then surface, ORDINALLY, deduplicated. Recomputed here rather
-            # than trusted: the generator's comparer is an unstable introsort, so a duplicate
+            # than trusted.
+            #
+            # NOT for byte-order reasons. An earlier version of this comment claimed a duplicate
             # (method, surface) pair would make the artifact's byte order depend on .NET's
-            # partitioning.
+            # introsort partitioning; that was measured false and retracted here and at the dedup
+            # site in tools/Build-PfbDeadKeyReport.ps1. A site object carries only Method and
+            # Surface and the projection emits only those two, so a tie on both sort keys is a tie
+            # on the ENTIRE serialised record -- an unstable sort cannot reorder byte-identical
+            # elements observably. What a duplicate actually produces is a WRONG ROW, and the
+            # assertion below is what catches it.
             $keys = @($sites | ForEach-Object { "$($_.method)|$($_.surface)" })
             if (@($keys | Select-Object -Unique).Count -ne $keys.Count) {
                 $offenders.Add("$identity has a duplicated declaredElsewhere entry: [$($keys -join ', ')]")
@@ -494,6 +501,15 @@ Describe 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cach
         # exactly the way a comment asking for conscious review cannot prevent. Deriving it
         # means an unjustified addition is impossible to make, and a fixture path that LOSES
         # its request body cannot leave a stale over-broad exclusion behind.
+        #
+        # ONE COST OF THE SWAP, recorded rather than discovered later: the derived set is strictly
+        # LARGER than the hand-written literal it replaced -- it newly excludes
+        # 'synthetic/undeclared', which does declare a requestBody and which the literal had
+        # omitted. So a Body-provenance leak on that endpoint is now invisible to the anti-leak
+        # assertion below, and is caught only per-record by the classification assertions further
+        # down in the UNDECLARED test. That compensation is per-record: a SECOND dead key on
+        # 'synthetic/undeclared' would have neither guard. The derivation is still the right trade
+        # -- the literal's omission was itself a latent false-red -- but the exclusion did widen.
         $script:fixtureBodyBearingEndpoints = @(
             foreach ($pathProperty in $fixtureSpec.paths.PSObject.Properties) {
                 $declaresBody = $false
@@ -765,9 +781,16 @@ function Get-PfbSyntheticLowerCaseEndpoint {
         $entry[0].classification | Should -Be 'WRONG-SURFACE' -Because "PATCH synthetic/surface declares 'flagged' as a body property, reachable only through `$ref -> allOf -> `$ref. UNDECLARED here means the fixture's allOf chain was not resolved; WRONG-VERB means Body lost the priority ladder to the DELETE/PATCH query declarations. declaredElsewhere was: $(@($entry[0].declaredElsewhere | ForEach-Object { "$($_.method)/$($_.surface)" }) -join ', ')"
 
         # Provenance is the whole value of the classification, and it is asserted as an exact
-        # ORDERED list: deduplicated, and sorted by method then surface ordinally. An
-        # order-insensitive assertion would let the generator's unstable introsort reorder the
-        # committed artifact between runs on identical inputs.
+        # ORDERED list: deduplicated, and sorted by method then surface ordinally.
+        #
+        # NOT because an unstable sort could reorder it. An earlier version of this comment said
+        # so; that reasoning is retracted for the same reason as the one at the deduplication
+        # assertion above. These three sites have DISTINCT sort keys, so the comparison never
+        # returns 0 and the introsort's output is deterministic; instability manifests only on
+        # ties, and a tie on (method, surface) is a tie on the entire serialised record. The
+        # ordered form is asserted because it pins the comparer's actual CONTRACT -- method first,
+        # then surface, both ordinal -- which an order-insensitive assertion would leave
+        # unexercised, as the -Because below spells out.
         $sites = @($entry[0].declaredElsewhere | ForEach-Object { "$($_.method)/$($_.surface)" })
         $sites | Should -Be @('DELETE/Query', 'PATCH/Body', 'PATCH/Query') -Because "the fixture declares exactly those three sites, and both sort keys must be exercised: DELETE before PATCH orders on method, Body before Query orders on surface within PATCH. Got: [$($sites -join ', ')]"
     }

@@ -74,6 +74,13 @@ $inventory = @(Get-PfbCmdletParameterInventory -PublicDirectory $PublicDirectory
 # -Property list (WireKey for deadKeys is enough today), here and in the mirrored comparer in
 # Tests/CommittedDeadKeyReport.Tests.ps1. Do not reach for a "stable sort" instead -- a total
 # order is what makes the artifact reproducible.
+#
+# THAT REMEDY IS FOR THESE TOP-LEVEL SORTS ONLY. Do NOT reach for it on a duplicate
+# (Method, Surface) pair inside declaredElsewhere. A site object carries only those two
+# properties, so there is no third property to break the tie with -- and even a total order there
+# would still publish BOTH rows, `declaredElsewhere: [DELETE/Query, DELETE/Query]`, which is a
+# wrong row in a committed artifact rather than a byte-order flap. The dedup at the
+# declaredElsewhere projection is the fix for that case; its reasoning is recorded beside it.
 function Sort-PfbDeadKeyRecords {
     param(
         [AllowEmptyCollection()]
@@ -425,7 +432,7 @@ foreach ($record in $inventory) {
     #
     # What the dedup actually prevents is a WRONG ROW -- `declaredElsewhere: [DELETE/Query,
     # DELETE/Query]`, published in a committed artifact, asserting two declaration sites where
-    # the spec has one. Tests/Build-PfbDeadKeyReport.Tests.ps1:247-249 asserts exactly that
+    # the spec has one. Tests/Build-PfbDeadKeyReport.Tests.ps1:249-252 asserts exactly that
     # ("has a duplicated declaredElsewhere entry") and is the pointer to follow on a red here.
     # Do NOT reach for the "add a final tie-break property" remedy at the head of
     # Sort-PfbDeadKeyRecords: a tie-break makes the order total and still publishes both rows.
