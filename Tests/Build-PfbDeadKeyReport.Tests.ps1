@@ -520,11 +520,21 @@ Describe 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cach
         # ONE COST OF THE SWAP, recorded rather than discovered later: the derived set is strictly
         # LARGER than the hand-written literal it replaced -- it newly excludes
         # 'synthetic/undeclared', which does declare a requestBody and which the literal had
-        # omitted. So a Body-provenance leak on that endpoint is now invisible to the anti-leak
+        # omitted. So a Body-provenance leak on THAT ONE ENDPOINT is invisible to the anti-leak
         # assertion below, and is caught only per-record by the classification assertions further
         # down in the UNDECLARED test. That compensation is per-record: a SECOND dead key on
         # 'synthetic/undeclared' would have neither guard. The derivation is still the right trade
         # -- the literal's omission was itself a latent false-red -- but the exclusion did widen.
+        #
+        # SCOPE OF THAT RESIDUAL, measured rather than assumed, because an earlier draft of this
+        # comment over-stated it: the exclusion is the ONLY blind spot, and the assertion is not
+        # broadly toothless. With the 'policy_names' body property below, a Body lookup widened to
+        # a document-wide union over the whole declaration index DOES red the anti-leak assertion,
+        # on 'Remove-PfbSyntheticDeadKey|PolicyName on synthetic/dead' -- 'synthetic/dead' declares
+        # no request body, so it is not excluded and the leak surfaces there. Before that fixture
+        # property existed, the same widening produced zero offenders and the assertion passed
+        # while the index was document-keyed. So read this paragraph as "one endpoint is exempt",
+        # not as "the control cannot see a scope error".
         $script:fixtureBodyBearingEndpoints = @(
             foreach ($pathProperty in $fixtureSpec.paths.PSObject.Properties) {
                 $declaresBody = $false
