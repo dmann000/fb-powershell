@@ -95,8 +95,6 @@ foreach ($row in (Get-PfbCmdletParameterInventory -PublicDirectory (Join-Path $T
 '@
 
 $hostExe = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
-$scratch = Join-Path ([System.IO.Path]::GetTempPath()) ("pfb-tuple-" + [guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory -Path $scratch -Force | Out-Null
 
 # Windows ships bsdtar as %SystemRoot%\System32\tar.exe, but PATH order decides which `tar` a
 # bare invocation gets, and under a pwsh launched from Git Bash it gets GNU tar. GNU tar parses
@@ -160,6 +158,12 @@ function Read-PfbTupleDump {
     }
     return @($rows)
 }
+
+# Created here, not earlier: the only cleanup is the finally below, so anything thrown before
+# this point must be thrown before there is a directory to leak. The declaration-validation
+# throws above are exactly that case.
+$scratch = Join-Path ([System.IO.Path]::GetTempPath()) ("pfb-tuple-" + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $scratch -Force | Out-Null
 
 try {
     $dumpScript = Join-Path $scratch 'Dump-PfbInventoryTuple.ps1'

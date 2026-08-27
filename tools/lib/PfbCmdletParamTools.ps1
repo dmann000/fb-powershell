@@ -498,13 +498,18 @@ function Get-PfbCommonQueryParamHelperWireName {
         RESIDUAL ABSTENTION HAZARD, for whoever changes a caller. This function collapses two
         different answers into one $null: "no Add-PfbCommonQueryParams call names this
         parameter" (silence -- keep looking) and "two calls disagree about it" (abstention --
-        stop looking, the truth is genuinely undetermined). Resolve-PfbParameterWireLanding
-        avoids acting on the difference by never using this result as its only evidence: it
-        collects landings from every resolver and retries on an empty landing set rather than
-        on a $null from any one of them. A caller that instead treated $null here as "not my
-        parameter" and fell through to a looser resolver would turn a deliberate abstention
-        into a confident wrong wire name, which is the exact failure the never-guess contract
-        exists to prevent.
+        stop looking, the truth is genuinely undetermined).
+
+        Resolve-PfbParameterWireLanding cannot tell the two apart: this $null collapses to an
+        empty helper tier and reads as silence -- see its own .DESCRIPTION, "One abstention
+        remains invisible here". Get-PfbCmdletParameterInventory's accumulator retry then fires
+        on that empty landing set, so a helper abstention DOES reach a fifth source. That is
+        deliberate for issue #141 Task 4, which must leave every real-tree resolution tuple
+        untouched -- it is a RECORDED LIMIT, not a mitigation, and this block is not a licence
+        to assume the caller is guarding it. A caller that additionally treated $null here as
+        "not my parameter" and fell through to a looser resolver would compound that into a
+        confident wrong wire name, which is the exact failure the never-guess contract exists
+        to prevent.
 
         Nothing in the tree reaches it today, and that is measured rather than assumed: only
         Get-PfbQuotaUser has two helper call sites, both target $queryParams, and the

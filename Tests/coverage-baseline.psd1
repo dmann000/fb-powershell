@@ -232,8 +232,10 @@
         # which was wrong in both halves because it was written against the #141 change alone
         # and never reconciled with #113's, already landed. A running total that is only ever
         # incremented drifts silently; the check is
-        # `(Import-PowerShellDataFile Tests/coverage-baseline.psd1).ExpectedSkips.Values |
-        #  Measure-Object -Sum`.
+        # `(Import-PowerShellDataFile Tests/coverage-baseline.psd1).winps51.ExpectedSkips.Values |
+        #  Measure-Object -Sum`. The edition key is not optional -- ExpectedSkips is nested under
+        # winps51 and pwsh7 separately, and omitting it throws on pwsh 7 but yields NOTHING on
+        # 5.1 without StrictMode, which is the direction that would quietly confirm any total.
         #
         # Every entry is the same cause: a Describe carrying
         # -Skip:($PSVersionTable.PSVersion.Major -lt 7), or a whole tooling file gated that way,
