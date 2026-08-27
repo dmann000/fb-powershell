@@ -13,7 +13,10 @@
     cache, the real Public/ tree and the committed artifact; synthetic classification needs
     only a fixture it builds itself. One shared BeforeAll would have let a broken fixture red
     the two regeneration tests, reporting the real generator as broken when it was fine.
-    The total It count is unchanged by the split, so 5.1 still contributes exactly six skips.
+    The split itself moved no It between editions: both Describes are PS7-gated, so 5.1 skips
+    every It in this file -- SIXTEEN of them today. That figure changes whenever an It is added
+    here and is consumed by Tests/coverage-baseline.psd1; it read six until issue #141 Task 5
+    added ten.
 
     WHY EVERY DESCRIBE CARRIES -Skip:($PSVersionTable.PSVersion.Major -lt 7):
     the generator carries `#Requires -Version 7.0`, so it cannot run on Windows PowerShell 5.1
@@ -39,10 +42,10 @@ Describe 'Build-PfbDeadKeyReport regeneration (real spec cache required, PS7 onl
     # SPLIT FROM THE SYNTHETIC BLOCK BELOW ON PURPOSE, and the seam is a dependency boundary
     # rather than a stylistic one: this half needs the real ~50MB tools/specs cache, the real
     # Public/ tree and the committed artifact; the half below needs a fixture and nothing else.
-    # Sharing one BeforeAll made a throw anywhere red all six tests, so a broken FIXTURE would
-    # have reported the real generator as broken. Splitting also stops the synthetic half
-    # depending on a cache it never reads. Both halves keep the PS7 gate, and the total It
-    # count is unchanged, so 5.1 still contributes exactly six skips.
+    # Sharing one BeforeAll made a throw anywhere red every test in the file, so a broken
+    # FIXTURE would have reported the real generator as broken. Splitting also stops the
+    # synthetic half depending on a cache it never reads. Both halves keep the PS7 gate, so the
+    # split moved no It between editions -- 5.1 skips all sixteen (see the file header).
 
     BeforeAll {
         $script:repoRoot = Split-Path -Parent $PSScriptRoot
@@ -484,6 +487,27 @@ Describe 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cach
         $fixtureSpec | ConvertTo-Json -Depth 20 |
             Set-Content -LiteralPath (Join-Path $fixtureSpecsDirectory "fb$fixtureVersion.json") -Encoding UTF8
 
+        # DERIVED FROM THE FIXTURE, never hand-listed. The anti-leak assertion below excludes
+        # the endpoints that legitimately have a Body provenance, and a hand-maintained literal
+        # would make the mechanical response to a red "append the offending endpoint" -- a
+        # one-token edit indistinguishable from a legitimate one, which disables the gate
+        # exactly the way a comment asking for conscious review cannot prevent. Deriving it
+        # means an unjustified addition is impossible to make, and a fixture path that LOSES
+        # its request body cannot leave a stale over-broad exclusion behind.
+        $script:fixtureBodyBearingEndpoints = @(
+            foreach ($pathProperty in $fixtureSpec.paths.PSObject.Properties) {
+                $declaresBody = $false
+                foreach ($operationProperty in $pathProperty.Value.PSObject.Properties) {
+                    if ($operationProperty.Value.PSObject.Properties.Name -contains 'requestBody') {
+                        $declaresBody = $true
+                    }
+                }
+                if ($declaresBody) {
+                    $pathProperty.Name -replace ('^/api/' + [regex]::Escape($fixtureVersion) + '/'), ''
+                }
+            }
+        )
+
         $fixtureCapabilityMapPath = Join-Path $fixtureWorkRoot 'PfbFixtureCapabilityMap.json'
         ([PSCustomObject]@{ generatedFrom = @($fixtureVersion) } | ConvertTo-Json -Depth 5) |
             Set-Content -LiteralPath $fixtureCapabilityMapPath -Encoding UTF8
@@ -779,14 +803,21 @@ function Get-PfbSyntheticLowerCaseEndpoint {
         # a dead key would find a declaration on some other path and this file's three
         # classification arms would all still pass. Asserting that no dead key in the whole
         # synthetic population claims a Body site it cannot have is what closes that.
-        # The three body-bearing fixture paths are listed by name rather than skipped by a
-        # pattern: any NEW fixture path with a request body must be added here consciously,
-        # which is the point -- a wildcard would quietly re-open the hole.
-        $bodyBearing = @('synthetic/surface', 'Widgets', 'gadgets')
+        # The excluded set is COMPUTED from the fixture spec in BeforeAll (the normalized paths
+        # whose operations declare a requestBody) rather than written out here, so it cannot be
+        # widened by hand to silence a red. Its own non-emptiness is asserted first: an empty
+        # exclusion set would make the assertion below strictly stronger, but an exclusion set
+        # that silently stopped being derived at all is a fixture defect worth naming.
+        $bodyBearing = @($fixtureBodyBearingEndpoints)
+        @($bodyBearing).Count | Should -BeGreaterThan 0 -Because 'the exclusion set is derived from the fixture spec, so an empty one means the derivation broke rather than that the fixture has no bodies'
+
+        # -notin is case-INSENSITIVE, which is deliberate and matches the gate: the derived set
+        # holds the spec-cased path ('widgets') while a record may carry the cmdlet-cased
+        # literal ('Widgets'), and those are the same endpoint everywhere else in this file.
         $leaks = @(@($syntheticReport.deadKeys) | Where-Object {
             $_.endpoint -notin $bodyBearing -and @($_.declaredElsewhere | Where-Object { $_.surface -eq 'Body' }).Count -gt 0
         } | ForEach-Object { "$($_.cmdlet)|$($_.parameter) on $($_.endpoint)" })
-        @($leaks) -join '; ' | Should -BeNullOrEmpty -Because "only [$($bodyBearing -join ', ')] carry a request body in this fixture, so a Body provenance on any other endpoint means the declaration index is not keyed per endpoint"
+        @($leaks) -join '; ' | Should -BeNullOrEmpty -Because "only [$($bodyBearing -join ', ')] declare a request body in this fixture, so a Body provenance on any other endpoint means the declaration index is not keyed per endpoint"
     }
 
     It 'matches the declaration index on the endpoint case-insensitively, exactly as the gate does' {
@@ -804,7 +835,10 @@ function Get-PfbSyntheticLowerCaseEndpoint {
         # well-intentioned change.
         $mixed = @(@($syntheticReport.deadKeys) | Where-Object { $_.cmdlet -eq 'Get-PfbSyntheticMixedCaseEndpoint' })
         @($mixed).Count | Should -Be 1 -Because "-Stowed writes 'archived' on GET Widgets, and the gate resolves '/api/$fixtureVersion/Widgets' against the lower-case spec key, so the key is dead and reaches classification. Reported dead keys were: $syntheticDeadKeyText"
-        $mixed[0].endpoint | Should -Be 'Widgets' -Because 'the record must keep the literal the cmdlet itself wrote; a normalising rewrite here would hide the divergence this test exists to exercise'
+        # -BeExactly, NOT -Be. `Should -Be` is CASE-INSENSITIVE for strings, so the -Be form of
+        # this line could not fail for the reason it gives: measured, lowercasing the emitted
+        # record to 'widgets' (lookups untouched) left every assertion in this file green.
+        $mixed[0].endpoint | Should -BeExactly 'Widgets' -Because 'the record must keep the literal the cmdlet itself wrote; a normalising rewrite here would hide the divergence this test exists to exercise, and endpoint is how a reader locates that literal in the source'
         $mixed[0].classification | Should -Be 'WRONG-SURFACE' -Because "PATCH widgets declares 'archived' as a body property. UNDECLARED here means the index is keyed more strictly than the gate. declaredElsewhere was: $(@($mixed[0].declaredElsewhere | ForEach-Object { "$($_.method)/$($_.surface)" }) -join ', ')"
         @($mixed[0].declaredElsewhere).Count | Should -Be 1 -Because 'the one PATCH body declaration is the whole provenance'
         @($mixed[0].declaredElsewhere | ForEach-Object { "$($_.method)/$($_.surface)" }) | Should -Be @('PATCH/Body')

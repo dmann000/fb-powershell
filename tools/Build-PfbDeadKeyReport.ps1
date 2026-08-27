@@ -416,11 +416,19 @@ foreach ($record in $inventory) {
         -Endpoint ([string]$record.Endpoint) -WireKey $wireName
     $classification = Get-PfbDeadKeyClassification -DeclarationSite @($declarationSites) -Method $method
 
-    # Deduplicate BEFORE sorting. Sort-PfbDeadKeyRecords is an unstable introsort (see its
-    # header), so it is deterministic only over unique keys, and a duplicate (Method, Surface)
-    # pair would make the COMMITTED artifact's byte order depend on .NET's partitioning -- a
-    # diff that changes with no input change. That is why this dedup is load-bearing rather
-    # than tidiness.
+    # Deduplicate, and NOT for the reason the top-level sorts carry. The introsort-stability
+    # argument documented at the head of Sort-PfbDeadKeyRecords does NOT apply here: a site
+    # object holds only Method and Surface and the projection below emits only those two, so a
+    # tie on both sort keys is a tie on the ENTIRE serialised record and an unstable sort cannot
+    # move a byte among byte-identical elements. Measured: with this dedup removed and a
+    # duplicate planted, the two entries serialise to one distinct string.
+    #
+    # What the dedup actually prevents is a WRONG ROW -- `declaredElsewhere: [DELETE/Query,
+    # DELETE/Query]`, published in a committed artifact, asserting two declaration sites where
+    # the spec has one. Tests/Build-PfbDeadKeyReport.Tests.ps1:247-249 asserts exactly that
+    # ("has a duplicated declaredElsewhere entry") and is the pointer to follow on a red here.
+    # Do NOT reach for the "add a final tie-break property" remedy at the head of
+    # Sort-PfbDeadKeyRecords: a tie-break makes the order total and still publishes both rows.
     #
     # A duplicate pair is not produced by any spec we pin -- measured on fb2.28: 0 duplicate
     # (Path, Method) groups across 264 normalized paths, exact-case and case-insensitive -- but
