@@ -73,6 +73,13 @@ Describe 'Build-PfbDeadKeyReport regeneration (real spec cache required, PS7 onl
         finally {
             Pop-Location
         }
+
+        # Read the FRESH regeneration, never the committed artifact, for every classification
+        # assertion below. The committed file is regenerated in a later task, so asserting
+        # against it would make these tests report on the artifact's age rather than on the
+        # classifier.
+        $script:regeneratedReport = Get-Content -LiteralPath $regeneratedPath -Raw | ConvertFrom-Json
+        $script:regeneratedDeadKeys = @($regeneratedReport.deadKeys)
     }
 
     AfterAll {
@@ -145,6 +152,105 @@ Describe 'Build-PfbDeadKeyReport regeneration (real spec cache required, PS7 onl
         }
         $firstDifference | Should -Be -1 -Because "regenerating from '$regenWorkRoot' instead of the repo root changed the output at byte $firstDifference -- the generator is resolving something against the working directory"
     }
+
+    It 'classifies Get-PfbAlert -Flagged as WRONG-SURFACE with PATCH/Body provenance' {
+        # THE anti-vacuity acceptance for the whole feature (issue #141 Task 5 Step 4).
+        # `flagged` is a real PATCH /alerts body property, reachable ONLY through
+        # $ref -> allOf -> $ref. Every synthetic fixture in this file could pass with a
+        # one-level schema reader; this cannot -- such a reader sees ZERO properties on that
+        # schema and would publish `classification: UNDECLARED`, a confident false assertion
+        # that no operation on /alerts declares the key. The sibling It below proves that
+        # one-level reader really does return zero, so this assertion is not merely "the
+        # answer we happen to get".
+        $entry = @($regeneratedDeadKeys | Where-Object { $_.cmdlet -eq 'Get-PfbAlert' -and $_.parameter -eq 'Flagged' })
+        @($entry).Count | Should -Be 1 -Because "Get-PfbAlert -Flagged writes the query key 'flagged' on GET alerts, which does not declare it, so it must appear exactly once in deadKeys. Present dead keys for Get-PfbAlert: $(@($regeneratedDeadKeys | Where-Object cmdlet -eq 'Get-PfbAlert' | ForEach-Object { "$($_.parameter)/$($_.wireKey)" }) -join ', ')"
+        $entry[0].wireKey | Should -Be 'flagged'
+        $entry[0].method | Should -Be 'GET'
+        $entry[0].endpoint | Should -Be 'alerts'
+        $entry[0].classification | Should -Be 'WRONG-SURFACE' -Because "PATCH /alerts declares a body property named 'flagged', so the field exists and the cmdlet is sending it on the wrong surface. UNDECLARED here means the `$ref/allOf walk regressed to a one-level read. declaredElsewhere was: $(@($entry[0].declaredElsewhere | ForEach-Object { "$($_.method)/$($_.surface)" }) -join ', ')"
+
+        $bodySites = @($entry[0].declaredElsewhere | Where-Object { $_.surface -eq 'Body' })
+        @($bodySites).Count | Should -BeGreaterThan 0 -Because 'the classification is only meaningful with the provenance that justifies it'
+        @($bodySites | ForEach-Object { $_.method }) | Should -Contain 'PATCH' -Because "PATCH is the verb whose body declares 'flagged'; a different verb would mean the index is reading the wrong operation"
+    }
+
+    It 'proves the $ref/allOf body walk is load-bearing: a one-level read of PATCH alerts sees no properties' {
+        # THE CONTROL for the It above. An assertion that a walker "found flagged" cannot
+        # distinguish a real allOf resolution from a schema that happened to declare it
+        # inline -- so measure the cheap wrong implementation on the same input and require
+        # it to DISAGREE. If this ever stops disagreeing, the spec changed shape and the
+        # WRONG-SURFACE assertion above has quietly stopped proving anything.
+        . (Join-Path $repoRoot 'tools/lib/PfbSpecTools.ps1')
+        $capabilityMap = Get-Content -LiteralPath (Join-Path $repoRoot 'Data/PfbCapabilityMap.json') -Raw | ConvertFrom-Json -Depth 20
+        $pinnedVersion = $capabilityMap.generatedFrom | Select-Object -Last 1
+        $spec = Get-Content -LiteralPath (Join-Path $specsDirectory "fb$pinnedVersion.json") -Raw | ConvertFrom-Json -Depth 64
+
+        $mediaSchema = $spec.paths."/api/$pinnedVersion/alerts".patch.requestBody.content.'application/json'.schema
+        $mediaSchema | Should -Not -BeNullOrEmpty -Because 'the fixture-free control depends on PATCH /alerts having a JSON request body in the pinned spec'
+
+        # The one-level reader: resolve the $ref once, then take .properties -- exactly the
+        # implementation the plan rejects.
+        $oneLevel = Resolve-PfbRef -Node $mediaSchema -Spec $spec
+        $oneLevelNames = @(if ($oneLevel.properties) { $oneLevel.properties.PSObject.Properties.Name } else { @() })
+        $oneLevelNames | Should -Not -Contain 'flagged' -Because "a one-level read must MISS 'flagged' for the WRONG-SURFACE assertion to be a real test of allOf resolution. It saw: [$($oneLevelNames -join ', ')]"
+
+        $walked = @(Get-PfbSchemaPropertyNames -Schema $mediaSchema -Spec $spec -MaxDepth 32)
+        $walked | Should -Contain 'flagged' -Because "Get-PfbSchemaPropertyNames resolves `$ref and allOf, so it must see the property the one-level read missed. It saw: [$($walked -join ', ')]"
+    }
+
+    It 'classifies New-PfbCertificateSigningRequest -Name as UNDECLARED with an empty provenance array' {
+        # The counterweight to the Flagged case: same generator, same index, opposite answer.
+        # POST certificates/certificate-signing-requests is the endpoint's ONLY operation and
+        # declares zero query keys; its body declares common_name and friends but no 'names'.
+        # So nothing on the endpoint declares the key on either surface -- and that is the one
+        # classification that is a positive assertion of absence.
+        $entry = @($regeneratedDeadKeys | Where-Object { $_.cmdlet -eq 'New-PfbCertificateSigningRequest' -and $_.parameter -eq 'Name' })
+        @($entry).Count | Should -Be 1 -Because "New-PfbCertificateSigningRequest -Name writes 'names' on POST certificates/certificate-signing-requests, which declares no query keys at all"
+        $entry[0].wireKey | Should -Be 'names'
+        $entry[0].method | Should -Be 'POST'
+        $entry[0].classification | Should -Be 'UNDECLARED' -Because "nothing on this endpoint declares 'names' on either surface. declaredElsewhere was: $(@($entry[0].declaredElsewhere | ForEach-Object { "$($_.method)/$($_.surface)" }) -join ', ')"
+        @($entry[0].declaredElsewhere).Count | Should -Be 0 -Because 'UNDECLARED must carry an empty array, never a populated one'
+        $null -ne $entry[0].declaredElsewhere | Should -BeTrue -Because 'and never null -- a consumer reading null cannot tell "no declaration anywhere" from "this generator did not look"'
+    }
+
+    It 'gives every real dead key a classification from the closed vocabulary, consistent with its provenance' {
+        # A whole-population invariant rather than a count pin (counts are re-baselined in a
+        # later task). It is the assertion that catches a record the classifier skipped
+        # entirely, which the two named-cmdlet tests above cannot see.
+        @($regeneratedDeadKeys).Count | Should -BeGreaterThan 0 -Because 'a zero-length population would make every assertion in this It vacuously true -- this is the control, not a smoke test'
+
+        $offenders = [System.Collections.Generic.List[string]]::new()
+        foreach ($record in $regeneratedDeadKeys) {
+            $sites = @($record.declaredElsewhere)
+            $hasBody = @($sites | Where-Object { $_.surface -eq 'Body' }).Count -gt 0
+            $hasOtherVerbQuery = @($sites | Where-Object { $_.surface -eq 'Query' -and $_.method -ne $record.method }).Count -gt 0
+            $expected = if ($hasBody) { 'WRONG-SURFACE' } elseif ($hasOtherVerbQuery) { 'WRONG-VERB' } else { 'UNDECLARED' }
+            $identity = "$($record.cmdlet)|$($record.parameter)"
+
+            if ($record.classification -notin @('WRONG-SURFACE', 'WRONG-VERB', 'UNDECLARED')) {
+                $offenders.Add("$identity has classification '$($record.classification)', outside the closed vocabulary")
+                continue
+            }
+            if ($record.classification -ne $expected) {
+                $offenders.Add("$identity is '$($record.classification)' but its provenance [$(@($sites | ForEach-Object { "$($_.method)/$($_.surface)" }) -join ', ')] implies '$expected'")
+            }
+            # Sorted by method then surface, ORDINALLY, deduplicated. Recomputed here rather
+            # than trusted: the generator's comparer is an unstable introsort, so a duplicate
+            # (method, surface) pair would make the artifact's byte order depend on .NET's
+            # partitioning.
+            $keys = @($sites | ForEach-Object { "$($_.method)|$($_.surface)" })
+            if (@($keys | Select-Object -Unique).Count -ne $keys.Count) {
+                $offenders.Add("$identity has a duplicated declaredElsewhere entry: [$($keys -join ', ')]")
+            }
+            for ($i = 1; $i -lt $keys.Count; $i++) {
+                if ([string]::Compare($keys[$i - 1], $keys[$i], [System.StringComparison]::Ordinal) -ge 0) {
+                    $offenders.Add("$identity has declaredElsewhere out of ordinal method-then-surface order: [$($keys -join ', ')]")
+                }
+            }
+        }
+
+        @($offenders) -join '; ' | Should -BeNullOrEmpty
+    }
 }
 
 Describe 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cache, PS7 only)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
@@ -180,8 +286,117 @@ Describe 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cach
                 parameters = [PSCustomObject]@{
                     NamesParam = [PSCustomObject]@{ name = 'names'; 'in' = 'query' }
                 }
+                schemas    = [PSCustomObject]@{
+                    # DELIBERATELY TWO LEVELS OF INDIRECTION, mirroring the real Alert schema:
+                    # the operation's requestBody holds a bare $ref to SyntheticSurfacePatch,
+                    # whose ONLY key is allOf, whose branch is a $ref to the schema that
+                    # actually declares 'flagged'. A reader that resolves the first $ref and
+                    # then takes .properties gets an EMPTY LIST, so the wrong-surface fixture
+                    # below would classify UNDECLARED and this whole Describe would pass while
+                    # proving the opposite of what it claims. The real-spec control in the
+                    # sibling Describe covers the same hazard against fb<version>; this covers
+                    # it without the ~50MB cache.
+                    SyntheticSurfacePatch   = [PSCustomObject]@{
+                        allOf = @(
+                            [PSCustomObject]@{ '$ref' = '#/components/schemas/SyntheticSurfaceBase' }
+                        )
+                    }
+                    SyntheticSurfaceBase    = [PSCustomObject]@{
+                        properties = [PSCustomObject]@{
+                            # SPELT 'Flagged' WHILE THE CMDLET SENDS 'flagged', on purpose. The
+                            # deadness gate itself uses PowerShell's -contains, which is
+                            # case-INSENSITIVE, so an index that matched case-sensitively would
+                            # be STRICTER than the gate it exists to explain: it would report
+                            # UNDECLARED -- a positive assertion of absence -- about a key the
+                            # same generator would have called declared. This spelling makes
+                            # that regression fail a test instead of publishing a false claim.
+                            Flagged          = [PSCustomObject]@{ type = 'boolean' }
+                            other_body_field = [PSCustomObject]@{ type = 'string' }
+                        }
+                    }
+                    SyntheticUndeclaredPost = [PSCustomObject]@{
+                        properties = [PSCustomObject]@{
+                            other_field = [PSCustomObject]@{ type = 'string' }
+                        }
+                    }
+                }
             }
             paths      = [PSCustomObject]@{
+                # WRONG-SURFACE case. GET declares only 'limit', so a GET sending 'flagged' is
+                # dead. Three other declaration sites exist on the SAME path so the provenance
+                # list exercises both sort keys and the Body-over-Query priority at once:
+                # DELETE declares 'flagged' as a query key, and PATCH declares it BOTH as a
+                # query key and (through the allOf chain above) as a body property. Ordinal
+                # method-then-surface order is therefore DELETE/Query, PATCH/Body, PATCH/Query.
+                "/api/$fixtureVersion/synthetic/surface"     = [PSCustomObject]@{
+                    get    = [PSCustomObject]@{
+                        parameters = @(
+                            [PSCustomObject]@{ name = 'limit'; 'in' = 'query' }
+                        )
+                    }
+                    patch  = [PSCustomObject]@{
+                        parameters  = @(
+                            [PSCustomObject]@{ name = 'flagged'; 'in' = 'query' }
+                        )
+                        requestBody = [PSCustomObject]@{
+                            content = [PSCustomObject]@{
+                                'application/json' = [PSCustomObject]@{
+                                    schema = [PSCustomObject]@{ '$ref' = '#/components/schemas/SyntheticSurfacePatch' }
+                                }
+                            }
+                        }
+                    }
+                    delete = [PSCustomObject]@{
+                        parameters = @(
+                            # 'FLAGGED' for the same reason SyntheticSurfaceBase spells its
+                            # property 'Flagged': the QUERY half of the index must be exactly as
+                            # case-tolerant as the -contains gate, and the only way to assert
+                            # that is a fixture whose case differs from the key being looked up.
+                            [PSCustomObject]@{ name = 'FLAGGED'; 'in' = 'query' }
+                        )
+                    }
+                }
+                # WRONG-VERB case. Nothing on this path declares a body at all, so the only
+                # possible provenance is a query declaration under another verb.
+                "/api/$fixtureVersion/synthetic/verb"        = [PSCustomObject]@{
+                    get    = [PSCustomObject]@{
+                        parameters = @(
+                            [PSCustomObject]@{ name = 'limit'; 'in' = 'query' }
+                        )
+                    }
+                    delete = [PSCustomObject]@{
+                        parameters = @(
+                            [PSCustomObject]@{ name = 'destroyed'; 'in' = 'query' }
+                        )
+                    }
+                }
+                # UNDECLARED case. The only operation declares 'limit' as its query key and
+                # 'other_field' as its only body property, so 'names' appears nowhere.
+                "/api/$fixtureVersion/synthetic/undeclared"  = [PSCustomObject]@{
+                    post = [PSCustomObject]@{
+                        parameters  = @(
+                            [PSCustomObject]@{ name = 'limit'; 'in' = 'query' }
+                        )
+                        requestBody = [PSCustomObject]@{
+                            content = [PSCustomObject]@{
+                                'application/json' = [PSCustomObject]@{
+                                    schema = [PSCustomObject]@{ '$ref' = '#/components/schemas/SyntheticUndeclaredPost' }
+                                }
+                            }
+                        }
+                    }
+                }
+                # Exists only so the audited-control fixture's OTHER parameter resolves to a
+                # DECLARED key. Without it that cmdlet's -Name would be skipped as
+                # 'endpoint/verb absent from spec' and the skip-accounting assertions would be
+                # measuring the wrong bucket.
+                "/api/$fixtureVersion/synthetic/allow"       = [PSCustomObject]@{
+                    delete = [PSCustomObject]@{
+                        parameters = @(
+                            [PSCustomObject]@{ name = 'names'; 'in' = 'query' }
+                        )
+                    }
+                }
                 "/api/$fixtureVersion/synthetic/dead"        = [PSCustomObject]@{
                     delete = [PSCustomObject]@{
                         parameters = @(
@@ -275,6 +490,92 @@ function Get-PfbSyntheticContext {
 }
 '@
 
+        # ---- issue #141 Task 5 fixtures -------------------------------------------------
+        # EVERY parameter name below is decoupled from the wire key it writes (-Marked writes
+        # 'flagged', -Gone writes 'destroyed', -Title writes 'names'), so an implementation that
+        # guessed the key from the parameter name cannot pass. The classification under test is
+        # a property of the KEY against the spec, so a coincidental name match would make each
+        # of these tests unable to tell reading from guessing.
+        #
+        # -Unresolvable is the planted non-zero control for the 'wire name unresolved' bucket:
+        # it is typed, its declaring function DOES issue Invoke-PfbApiRequest, and it appears
+        # nowhere in the payload, so it is a genuine resolution failure. Without it, an
+        # assertion that the two NEW buckets are non-zero could not distinguish a working
+        # classifier from a skip counter that increments everything it sees.
+        Set-Content -LiteralPath (Join-Path $fixturePublicDirectory 'Get-PfbSyntheticWrongSurface.ps1') -Encoding UTF8 -Value @'
+function Get-PfbSyntheticWrongSurface {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [bool]$Marked,
+        [Parameter()] [string]$Unresolvable,
+        [Parameter()] [PSCustomObject]$Array
+    )
+    $queryParams = @{ 'flagged' = $Marked }
+    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'synthetic/surface' -QueryParams $queryParams
+}
+'@
+
+        Set-Content -LiteralPath (Join-Path $fixturePublicDirectory 'Get-PfbSyntheticWrongVerb.ps1') -Encoding UTF8 -Value @'
+function Get-PfbSyntheticWrongVerb {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [bool]$Gone,
+        [Parameter()] [PSCustomObject]$Array
+    )
+    $queryParams = @{ 'destroyed' = $Gone }
+    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'synthetic/verb' -QueryParams $queryParams
+}
+'@
+
+        Set-Content -LiteralPath (Join-Path $fixturePublicDirectory 'New-PfbSyntheticUndeclared.ps1') -Encoding UTF8 -Value @'
+function New-PfbSyntheticUndeclared {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [string[]]$Title,
+        [Parameter()] [PSCustomObject]$Array
+    )
+    $queryParams = @{ 'names' = $Title }
+    Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint 'synthetic/undeclared' -QueryParams $queryParams
+}
+'@
+
+        # 'OutsideStandardRequest' fixture: NO Invoke-PfbApiRequest call anywhere in the body,
+        # which is the whole structural fact Test-PfbFunctionMakesStandardRequest measures
+        # (tools/lib/PfbCmdletParamTools.ps1:1630). Two parameters, so the bucket it feeds is
+        # distinguishable from a bucket that happens to be 1.
+        Set-Content -LiteralPath (Join-Path $fixturePublicDirectory 'Set-PfbSyntheticNoRequest.ps1') -Encoding UTF8 -Value @'
+function Set-PfbSyntheticNoRequest {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [string]$Alpha,
+        [Parameter()] [string]$Beta
+    )
+    $script:PfbSyntheticState = @{ Alpha = $Alpha; Beta = $Beta }
+}
+'@
+
+        # 'NotWireParameter' fixture, and it MUST be named Remove-PfbBucket with a parameter
+        # named Eradicate: the allowlist is keyed on the exact 'Cmdlet|Parameter' identity
+        # ('{0}|{1}' -f $funcAst.Name, $paramName at tools/lib/PfbCmdletParamTools.ps1:1781), so
+        # no invented synthetic name can reach that state. It also has to issue a real
+        # Invoke-PfbApiRequest, because 'OutsideStandardRequest' is tested FIRST in the same
+        # ladder and would otherwise absorb both parameters and hide this state entirely.
+        # -Name writes the DECLARED key 'names' on DELETE synthetic/allow, so it is not dead
+        # and does not perturb the dead-key assertions.
+        Set-Content -LiteralPath (Join-Path $fixturePublicDirectory 'Remove-PfbBucket.ps1') -Encoding UTF8 -Value @'
+function Remove-PfbBucket {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [string[]]$Name,
+        [Parameter()] [switch]$Eradicate,
+        [Parameter()] [PSCustomObject]$Array
+    )
+    if (-not $Eradicate) { throw 'refusing to remove without -Eradicate' }
+    $queryParams = @{ 'names' = $Name }
+    Invoke-PfbApiRequest -Array $Array -Method DELETE -Endpoint 'synthetic/allow' -QueryParams $queryParams
+}
+'@
+
         $script:syntheticReportPath = Join-Path $fixtureWorkRoot 'synthetic.json'
         & $generatorPath `
             -SpecsDirectory $fixtureSpecsDirectory `
@@ -289,6 +590,14 @@ function Get-PfbSyntheticContext {
         $script:syntheticNssText = @(@($syntheticReport.noSurvivingSelector) | ForEach-Object {
             "$($_.cmdlet) $($_.method) $($_.endpoint)"
         }) -join '; '
+        # Rendered once so every skip-accounting failure message below carries the WHOLE
+        # bucket table. A failure that reports only the bucket it asserted on cannot tell
+        # "the state was not detected" from "it was counted in the wrong bucket", which is
+        # precisely the confusion Task 4's two new states exist to remove.
+        $script:syntheticSkipReasons = $syntheticReport.counts.skipReasons
+        $script:syntheticSkipText = @(@($syntheticSkipReasons.PSObject.Properties) | ForEach-Object {
+            "$($_.Name)=$($_.Value)"
+        }) -join ', '
     }
 
     AfterAll {
@@ -336,5 +645,95 @@ function Get-PfbSyntheticContext {
             Should -Be 1 -Because "the fixture is only meaningful if 'context_names' IS reported dead on GET synthetic/context. Reported dead keys were: $syntheticDeadKeyText"
         @(@($syntheticReport.noSurvivingSelector) | Where-Object { $_.cmdlet -eq 'Get-PfbSyntheticContext' }) |
             Should -BeNullOrEmpty -Because "context_names is a fleet-routing key, not a selector, so it must never make a cmdlet look as though it has no surviving selector. Reported groups were: $syntheticNssText"
+    }
+
+    It 'classifies a key declared as a body property under another verb as WRONG-SURFACE' {
+        # Step 1-2. 'flagged' is dead on GET synthetic/surface (which declares only 'limit'),
+        # and is declared THREE other ways on the same path: DELETE query, PATCH query, and
+        # PATCH body through $ref -> allOf -> $ref. Body must win the priority ladder even
+        # though a wrong-verb QUERY declaration also exists, because "you sent a body field as
+        # a query parameter" is the actionable diagnosis.
+        $entry = @(@($syntheticReport.deadKeys) | Where-Object { $_.cmdlet -eq 'Get-PfbSyntheticWrongSurface' -and $_.parameter -eq 'Marked' })
+        @($entry).Count | Should -Be 1 -Because "-Marked writes 'flagged' on GET synthetic/surface, which declares only 'limit'. Reported dead keys were: $syntheticDeadKeyText"
+        $entry[0].wireKey | Should -Be 'flagged' -Because 'the parameter is named Marked, so a key of "marked" would mean the resolver guessed from the name instead of reading the payload literal'
+        $entry[0].classification | Should -Be 'WRONG-SURFACE' -Because "PATCH synthetic/surface declares 'flagged' as a body property, reachable only through `$ref -> allOf -> `$ref. UNDECLARED here means the fixture's allOf chain was not resolved; WRONG-VERB means Body lost the priority ladder to the DELETE/PATCH query declarations. declaredElsewhere was: $(@($entry[0].declaredElsewhere | ForEach-Object { "$($_.method)/$($_.surface)" }) -join ', ')"
+
+        # Provenance is the whole value of the classification, and it is asserted as an exact
+        # ORDERED list: deduplicated, and sorted by method then surface ordinally. An
+        # order-insensitive assertion would let the generator's unstable introsort reorder the
+        # committed artifact between runs on identical inputs.
+        $sites = @($entry[0].declaredElsewhere | ForEach-Object { "$($_.method)/$($_.surface)" })
+        $sites | Should -Be @('DELETE/Query', 'PATCH/Body', 'PATCH/Query') -Because "the fixture declares exactly those three sites, and both sort keys must be exercised: DELETE before PATCH orders on method, Body before Query orders on surface within PATCH. Got: [$($sites -join ', ')]"
+    }
+
+    It 'classifies a key declared only as a query key under another verb as WRONG-VERB' {
+        # Step 1-2, the second arm. Nothing on synthetic/verb declares a request body at all,
+        # so this fixture cannot be satisfied by a Body site and isolates the WRONG-VERB arm
+        # from the WRONG-SURFACE one above.
+        $entry = @(@($syntheticReport.deadKeys) | Where-Object { $_.cmdlet -eq 'Get-PfbSyntheticWrongVerb' -and $_.parameter -eq 'Gone' })
+        @($entry).Count | Should -Be 1 -Because "-Gone writes 'destroyed' on GET synthetic/verb, which declares only 'limit'. Reported dead keys were: $syntheticDeadKeyText"
+        $entry[0].wireKey | Should -Be 'destroyed' -Because 'the parameter is named Gone, so the key can only have come from the payload literal'
+        $entry[0].classification | Should -Be 'WRONG-VERB' -Because "DELETE synthetic/verb declares 'destroyed' as a query key while GET does not. declaredElsewhere was: $(@($entry[0].declaredElsewhere | ForEach-Object { "$($_.method)/$($_.surface)" }) -join ', ')"
+        @($entry[0].declaredElsewhere | ForEach-Object { "$($_.method)/$($_.surface)" }) |
+            Should -Be @('DELETE/Query') -Because 'the single declaration site is the evidence for the verb claim'
+    }
+
+    It 'classifies a key declared nowhere on the endpoint as UNDECLARED with an empty array' {
+        # Step 1-2, the third arm, and the one that is a POSITIVE ASSERTION of absence: the
+        # endpoint's only operation declares 'limit' as its query key and 'other_field' as its
+        # only body property, so 'names' genuinely appears on neither surface. The empty-array
+        # assertion matters as much as the classification -- a consumer reading null cannot
+        # distinguish "no declaration anywhere" from "this generator did not look".
+        $entry = @(@($syntheticReport.deadKeys) | Where-Object { $_.cmdlet -eq 'New-PfbSyntheticUndeclared' -and $_.parameter -eq 'Title' })
+        @($entry).Count | Should -Be 1 -Because "-Title writes 'names' on POST synthetic/undeclared, which declares only 'limit'. Reported dead keys were: $syntheticDeadKeyText"
+        $entry[0].wireKey | Should -Be 'names' -Because 'the parameter is named Title, so the key can only have come from the payload literal'
+        $entry[0].classification | Should -Be 'UNDECLARED' -Because "nothing on synthetic/undeclared declares 'names' -- not the POST query keys and not its body. A WRONG-SURFACE answer would mean the index leaked another endpoint's body properties in. declaredElsewhere was: $(@($entry[0].declaredElsewhere | ForEach-Object { "$($_.method)/$($_.surface)" }) -join ', ')"
+        @($entry[0].declaredElsewhere).Count | Should -Be 0 -Because 'UNDECLARED must carry no provenance'
+        $null -ne $entry[0].declaredElsewhere | Should -BeTrue -Because 'and an empty array rather than null'
+
+        # THE ANTI-LEAK CONTROL for the index: 'other_field' is a body property of THIS
+        # endpoint, and 'flagged' is a body property of a DIFFERENT one. If the index were
+        # keyed too loosely -- on the spec document rather than per (endpoint, method) -- then
+        # a dead key would find a declaration on some other path and this file's three
+        # classification arms would all still pass. Asserting that no dead key in the whole
+        # synthetic population claims a Body site it cannot have is what closes that.
+        $leaks = @(@($syntheticReport.deadKeys) | Where-Object {
+            $_.endpoint -ne 'synthetic/surface' -and @($_.declaredElsewhere | Where-Object { $_.surface -eq 'Body' }).Count -gt 0
+        } | ForEach-Object { "$($_.cmdlet)|$($_.parameter) on $($_.endpoint)" })
+        @($leaks) -join '; ' | Should -BeNullOrEmpty -Because 'synthetic/surface is the only fixture path with a request body, so a Body provenance anywhere else means the declaration index is not keyed per endpoint'
+    }
+
+    It 'counts a parameter of a function that issues no request as outside standard request, not unresolved' {
+        # Step 5, first new bucket. Set-PfbSyntheticNoRequest contains no Invoke-PfbApiRequest
+        # call, so NONE of its parameters can resolve -- and reporting them as "wire name
+        # unresolved" describes a resolver failure that never happened
+        # (tools/lib/PfbCmdletParamTools.ps1:1630). Both of its parameters must land in this
+        # bucket and nowhere else.
+        $syntheticSkipReasons.'outside standard request' | Should -Be 2 -Because "Set-PfbSyntheticNoRequest declares -Alpha and -Beta and issues no Invoke-PfbApiRequest. Buckets were: $syntheticSkipText"
+
+        # THE CONTROL, per the measure-with-a-control rule: 'wire name unresolved' must be
+        # provably able to fire in this same run, otherwise the assertion above is
+        # indistinguishable from a generator that stopped counting unresolved parameters
+        # altogether. -Unresolvable on Get-PfbSyntheticWrongSurface is the planted non-zero:
+        # typed, in a function that DOES issue a request, and absent from the payload.
+        $syntheticSkipReasons.'wire name unresolved' | Should -BeGreaterThan 0 -Because "-Unresolvable is a genuine resolution failure and must still be counted as one; a zero here means the two new states have swallowed the bucket they were split out of. Buckets were: $syntheticSkipText"
+
+        @(@($syntheticReport.deadKeys) | Where-Object { $_.cmdlet -eq 'Set-PfbSyntheticNoRequest' }) |
+            Should -BeNullOrEmpty -Because 'a parameter with no request to land in can never be a dead key'
+    }
+
+    It 'counts an audited request control as not wire parameter, not unresolved' {
+        # Step 5, second new bucket. The allowlist is keyed on the exact 'Cmdlet|Parameter'
+        # identity, so this fixture has to BE Remove-PfbBucket -Eradicate; see the fixture
+        # comment. It also has to issue a real request, because 'OutsideStandardRequest' is
+        # tested first in the same ladder -- if this assertion and the one above ever both
+        # move together, that ordering is what broke.
+        $syntheticSkipReasons.'not wire parameter' | Should -Be 1 -Because "Remove-PfbBucket -Eradicate is on the audited allowlist (Get-PfbNotWireParameterAllowlist) and its function does issue Invoke-PfbApiRequest, so it must be counted here and not as 'outside standard request'. Buckets were: $syntheticSkipText"
+
+        # -Name writes the DECLARED key on this endpoint, so the fixture proves the cmdlet was
+        # inventoried and evaluated rather than skipped wholesale -- without which the count
+        # above could be explained by the file never being read.
+        @(@($syntheticReport.deadKeys) | Where-Object { $_.cmdlet -eq 'Remove-PfbBucket' }) |
+            Should -BeNullOrEmpty -Because "-Name writes the declared key 'names' on DELETE synthetic/allow and -Eradicate is not a wire field at all, so this cmdlet has no dead key. Reported dead keys were: $syntheticDeadKeyText"
     }
 }
