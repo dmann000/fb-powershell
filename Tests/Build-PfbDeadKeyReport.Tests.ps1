@@ -526,18 +526,32 @@ Describe 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cach
         # 'synthetic/undeclared' would have neither guard. The derivation is still the right trade
         # -- the literal's omission was itself a latent false-red -- but the exclusion did widen.
         #
-        # SCOPE OF THAT RESIDUAL, measured rather than assumed, because an earlier draft of this
-        # comment over-stated it: that exemption is the only blind spot THE DERIVATION ADDED, and
-        # the assertion is not broadly toothless. It is NOT the assertion's only blind spot in
-        # general -- a union narrowed to 'flagged' leaks Body provenance onto 'synthetic/surface',
-        # which is excluded for reasons predating the derivation, and is caught by the ordered
-        # provenance assertion instead. With the 'policy_names' body property below, a Body lookup widened to
-        # a document-wide union over the whole declaration index DOES red the anti-leak assertion,
-        # on 'Remove-PfbSyntheticDeadKey|PolicyName on synthetic/dead' -- 'synthetic/dead' declares
-        # no request body, so it is not excluded and the leak surfaces there. Before that fixture
-        # property existed, the same widening produced zero offenders and the assertion passed
-        # while the index was document-keyed. So read this paragraph as "one endpoint is exempt",
-        # not as "the control cannot see a scope error".
+        # SCOPE OF THAT RESIDUAL, stated at exactly the strength the measurement supports, because
+        # this paragraph has now over-stated it in BOTH directions. The true statement is
+        # structural, not about any one key: the assertion is blind to a Body-provenance leak that
+        # lands on any endpoint the exclusion covers -- all four of them, every endpoint declaring
+        # a requestBody -- and the derivation ADDED exactly one of those four
+        # ('synthetic/undeclared'). The other three, 'synthetic/surface' included, were exempt
+        # under the hand-written literal too, so the derivation widened the blind spot by one
+        # endpoint and did not create it.
+        #
+        # An earlier draft of this paragraph tried to make that concrete with a second
+        # counterexample -- a union narrowed to 'flagged' -- and that example was FALSE, invented
+        # rather than run. 'Flagged' is a body property of SyntheticSurfaceBase only, reached only
+        # by 'synthetic/surface' PATCH, so a union narrowed to it returns the record's OWN
+        # endpoint's sites: declaredElsewhere is unchanged, nothing leaks, and every assertion
+        # stays green. It is an equivalent mutant -- precisely the hazard the 'policy_names'
+        # comment below defuses for the *_names case, and the reason it had to be planted there.
+        # Do not restore a counterexample here that has not been executed.
+        #
+        # The one measured positive control is that 'policy_names' body property: with it in the
+        # fixture, a Body lookup widened to a document-wide union over the whole declaration index
+        # DOES red the anti-leak assertion, on
+        # 'Remove-PfbSyntheticDeadKey|PolicyName on synthetic/dead' -- 'synthetic/dead' declares no
+        # request body, so it is not excluded and the leak surfaces there. Before that property
+        # existed the same widening produced zero offenders and the assertion passed while the
+        # index was document-keyed. So read this paragraph as "four endpoints are exempt, one of
+        # them newly", not as "the control cannot see a scope error".
         $script:fixtureBodyBearingEndpoints = @(
             foreach ($pathProperty in $fixtureSpec.paths.PSObject.Properties) {
                 $declaresBody = $false
@@ -823,9 +837,20 @@ function Get-PfbSyntheticLowerCaseEndpoint {
         #
         # What this fixture does NOT pin is ORDINALITY. 'DELETE' before 'PATCH' and 'Body' before
         # 'Query' sort identically under ordinal and culture-aware comparison, so a -Culture ''
-        # mutant would survive here. Ordinality is argued at the head of
-        # tools/Build-PfbDeadKeyReport.ps1 and asserted in Tests/CommittedDeadKeyReport.Tests.ps1;
-        # do not read this assertion as covering it.
+        # mutant would survive here. Ordinality is ARGUED at the head of
+        # tools/Build-PfbDeadKeyReport.ps1, above Sort-PfbDeadKeyRecords, and that argument governs
+        # the shared comparer this sort uses. It is ASSERTED against the committed artifact in
+        # Tests/CommittedDeadKeyReport.Tests.ps1 -- but only for the two TOP-LEVEL sorts, deadKeys
+        # on (cmdlet, parameter) and noSurvivingSelector on (cmdlet, method, endpoint). That file
+        # does not mention declaredElsewhere at all.
+        #
+        # So no fixture in this repo pins ordinality for the declaredElsewhere (method, surface)
+        # sort, and none can while the values stay as they are: every real method (DELETE, GET,
+        # PATCH, POST, PUT) and both surfaces (Body, Query) are same-case ASCII, which sorts
+        # identically under either comparer. Pinning it would take a fixture whose method or
+        # surface values differ in case or in non-ASCII collation -- neither of which the generator
+        # can produce -- so this is a gap that is closed by argument, not by assertion. Do not read
+        # either this assertion or the committed-artifact one as covering it.
         $sites = @($entry[0].declaredElsewhere | ForEach-Object { "$($_.method)/$($_.surface)" })
         $sites | Should -Be @('DELETE/Query', 'PATCH/Body', 'PATCH/Query') -Because "the fixture declares exactly those three sites, and both sort keys must be exercised: DELETE before PATCH orders on method, Body before Query orders on surface within PATCH. Got: [$($sites -join ', ')]"
     }
