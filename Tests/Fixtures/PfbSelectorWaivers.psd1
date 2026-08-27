@@ -7,10 +7,17 @@
     its waiver rather than leave a licence behind for the next reintroduction.
 
     ONE ENTRY PER (Cmdlet, Parameter) PAIR, NOT PER PRODUCING ENDPOINT. The current report's
-    264 finding rows are producer multiplicity over 101 real defects; keying by triple would be
-    264 entries against psd1's hard 500-element cap for a single collection literal, and would
+    266 finding rows are producer multiplicity over 102 real defects; keying by triple would be
+    266 entries against psd1's hard 500-element cap for a single collection literal, and would
     list the same defect up to a dozen times. (The pre-fix audit measured 389 rows over 127
     pairs; the guards and renames delivered for #90 account for the reduction.)
+
+    264 rows / 101 pairs -> 266 / 102 at issue #141, and the added pair is NOT new module debt.
+    #141 changed no cmdlet; it taught the wire-name resolver assignment shapes it had been
+    skipping, so Get-PfbUserGroupQuotaPolicy|Name entered the probe candidate set for the first
+    time and reproduced a defect that was always there. Candidates moved 629 -> 647 while probe
+    pairs stayed at 1247, which is the measurement that distinguishes "the rail can see more"
+    from "the module does more".
 
     Scope and Producers are LOAD-BEARING, not annotation -- pair-level keying is otherwise
     blind to where a coercion happens. Rail A fails if a Family-scoped waiver's pair starts
@@ -21,9 +28,13 @@
     Family = only against another endpoint in the same resource family), Issue, Producers (how
     many endpoints reproduce it), Why.
 
-    Issue is #90 for every entry because the fix issue does not exist yet -- #90 delivers the
-    audit and this rail, and the split issue is filed after the PR exists. Re-pointing these at
-    that issue is a follow-up commit.
+    Issue is #90 for every entry originating in that audit, because the fix issue does not exist
+    yet -- #90 delivers the audit and this rail, and the split issue is filed after the PR
+    exists. Re-pointing these at that issue is a follow-up commit. The one #141 entry follows
+    the same convention for the same reason: it names the issue that REVEALED the defect, not a
+    fix issue, and it is owed the same re-pointing. It is called out here rather than left for a
+    reader to notice, because "Issue is #90 for every entry" was true until #141 and a stale
+    absolute like that is how a register stops being read.
 
     Clusters below are the audit report's root-cause clusters (issue-90-audit-report.md, 3.3),
     not cosmetic grouping: each cluster is one fix, not N.
@@ -180,6 +191,13 @@
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /syslog-servers/test -- the /test endpoint returns a test-result item, not a resource, so it has no name.' }
         @{ Cmdlet = 'Get-PfbTlsPolicy';                            Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 2
             Why = 'Primary producer binds -Name correctly; 2 family endpoints coerce, e.g. GET /tls-policies/members -- that join item returns its endpoints as objects (member, policy) and carries no name.' }
+        # NEW at issue #141, and new only to the RAIL -- not to the module. -Name was invisible
+        # here until #141 taught the wire-name resolver the assignment shape that writes it
+        # (inventory row moved TypedUnresolved -> Typed|names|Query|GET|user-group-quota-policies),
+        # so the pair entered the probe candidate set and immediately reproduced the same
+        # nested-join-item defect as the two entries above it. Nothing about the cmdlet changed.
+        @{ Cmdlet = 'Get-PfbUserGroupQuotaPolicy';                 Parameter = 'Name';        Scope = 'Family';  Issue = '#141'; Producers = 2
+            Why = 'Primary producer binds -Name correctly; 2 family endpoints coerce, GET /user-group-quota-policies/file-systems and /members -- both join items return their endpoints as objects (context, member, policy) and carry no name, so a name-shaped selector cannot bind by property name and is stringified to names=@{context=; member=; policy=}. Same root cause as the Get-PfbTlsPolicy and Get-PfbWormPolicy entries: one API design decision, one fix.' }
         @{ Cmdlet = 'Get-PfbWorkload';                             Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /workloads/tags -- its items carry no name (context, copyable, key, namespace, resource, value).' }
         @{ Cmdlet = 'Get-PfbWormPolicy';                           Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1

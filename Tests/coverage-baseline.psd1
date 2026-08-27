@@ -265,7 +265,16 @@
             'Build-PfbFieldCmdletMap.Tests.ps1'                  = 26
             'PfbPipelineSelectorRail.Tests.ps1'                  = 11
             'Build-PfbResponseShapeMap.Tests.ps1'                = 9
-            'Build-PfbDeadKeyReport.Tests.ps1'                   = 6
+            # 6 -> 16 for issue #141 Task 5: ten new Its across the file's two existing
+            # PS7-gated Describes -- the dead-key declaration classification work (declaration
+            # index, the wrong-surface/wrong-verb priority ladder, case tolerance on both the
+            # endpoint and the key axis, and the provenance list's dedup and ordering). No new
+            # Describe and no gate change, so every added It inherits the file's existing
+            # -Skip:($PSVersionTable.PSVersion.Major -lt 7) and lands on the 5.1 skip count.
+            # Measured on Windows PowerShell 5.1 for this file alone, read out of the runner's
+            # child winps51.json rather than its Write-Host summary: 0 passed / 0 failed /
+            # 16 skipped, container ok. No headroom added -- these entries are exact.
+            'Build-PfbDeadKeyReport.Tests.ps1'                   = 16
             # Mixed files: some Describes PS7-gated, others deliberately ungated so they
             # execute on both legs. The passing halves are what several RequiredDescribes
             # entries above are asserting, so these two numbers moving in opposite directions
