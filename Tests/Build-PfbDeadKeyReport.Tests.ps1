@@ -527,8 +527,11 @@ Describe 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cach
         # -- the literal's omission was itself a latent false-red -- but the exclusion did widen.
         #
         # SCOPE OF THAT RESIDUAL, measured rather than assumed, because an earlier draft of this
-        # comment over-stated it: the exclusion is the ONLY blind spot, and the assertion is not
-        # broadly toothless. With the 'policy_names' body property below, a Body lookup widened to
+        # comment over-stated it: that exemption is the only blind spot THE DERIVATION ADDED, and
+        # the assertion is not broadly toothless. It is NOT the assertion's only blind spot in
+        # general -- a union narrowed to 'flagged' leaks Body provenance onto 'synthetic/surface',
+        # which is excluded for reasons predating the derivation, and is caught by the ordered
+        # provenance assertion instead. With the 'policy_names' body property below, a Body lookup widened to
         # a document-wide union over the whole declaration index DOES red the anti-leak assertion,
         # on 'Remove-PfbSyntheticDeadKey|PolicyName on synthetic/dead' -- 'synthetic/dead' declares
         # no request body, so it is not excluded and the leak surfaces there. Before that fixture
@@ -814,8 +817,15 @@ function Get-PfbSyntheticLowerCaseEndpoint {
         # returns 0 and the introsort's output is deterministic; instability manifests only on
         # ties, and a tie on (method, surface) is a tie on the entire serialised record. The
         # ordered form is asserted because it pins the comparer's actual CONTRACT -- method first,
-        # then surface, both ordinal -- which an order-insensitive assertion would leave
-        # unexercised, as the -Because below spells out.
+        # then surface -- which an order-insensitive assertion would leave unexercised, as the
+        # -Because below spells out. Both halves of THAT much are measured: dropping Surface from
+        # the sort key list, and swapping the two keys, each red this assertion.
+        #
+        # What this fixture does NOT pin is ORDINALITY. 'DELETE' before 'PATCH' and 'Body' before
+        # 'Query' sort identically under ordinal and culture-aware comparison, so a -Culture ''
+        # mutant would survive here. Ordinality is argued at the head of
+        # tools/Build-PfbDeadKeyReport.ps1 and asserted in Tests/CommittedDeadKeyReport.Tests.ps1;
+        # do not read this assertion as covering it.
         $sites = @($entry[0].declaredElsewhere | ForEach-Object { "$($_.method)/$($_.surface)" })
         $sites | Should -Be @('DELETE/Query', 'PATCH/Body', 'PATCH/Query') -Because "the fixture declares exactly those three sites, and both sort keys must be exercised: DELETE before PATCH orders on method, Body before Query orders on surface within PATCH. Got: [$($sites -join ', ')]"
     }

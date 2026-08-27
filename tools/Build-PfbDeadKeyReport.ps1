@@ -432,8 +432,17 @@ foreach ($record in $inventory) {
     #
     # What the dedup actually prevents is a WRONG ROW -- `declaredElsewhere: [DELETE/Query,
     # DELETE/Query]`, published in a committed artifact, asserting two declaration sites where
-    # the spec has one. Tests/Build-PfbDeadKeyReport.Tests.ps1:249-252 asserts exactly that
-    # ("has a duplicated declaredElsewhere entry") and is the pointer to follow on a red here.
+    # the spec has one. The assertion that catches it is in
+    # Tests/Build-PfbDeadKeyReport.Tests.ps1 -- search for the string
+    # "has a duplicated declaredElsewhere entry", which is unique in that file. Follow it on a
+    # red here.
+    #
+    # Deliberately a searchable string and NOT a line number. Two successive attempts to cite
+    # this same assertion by line range were both stale on arrival: each was derived from the
+    # file as it stood BEFORE the citing commit's own comment insertions shifted the target
+    # downward. A range is only correct if it is re-derived after the edit that writes it, and a
+    # pointer that silently rots is worse than none, because this comment bills itself as the
+    # thing to follow when the dedup reds.
     # Do NOT reach for the "add a final tie-break property" remedy at the head of
     # Sort-PfbDeadKeyRecords: a tie-break makes the order total and still publishes both rows.
     #
