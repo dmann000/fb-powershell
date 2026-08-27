@@ -307,6 +307,17 @@ Run in this order:
      `ArgumentCompleter`" is a categorically different judgment call than "does this endpoint have
      an addable gap" -- and remain genuinely "reported, not resolved, requires a human decision."
      That norm is not reversed by this change.
+   - **Later refinement (issue #141 Task 4): "unresolved" stopped meaning "not `Typed`".** A row's
+     `Surface` now has five values, and two of them -- `NotWireParameter` (an audited request
+     control such as `-Eradicate`/`-Force`) and `OutsideStandardRequest` (the declaring cmdlet
+     issues no `Invoke-PfbApiRequest` call at all) -- say the parameter is **not a wire field**,
+     which is not the same claim as "its wire field could not be found". 34 real parameters were
+     in that position and each was lowering `confidence` on every endpoint its cmdlet reaches.
+     Only `AttributesOnly` and `TypedUnresolved` populate `unresolvedParameters` now.
+     `Get-PfbParameterCoverageGaps` branches **exhaustively** on `Surface` and throws on a value
+     it has not been taught, so a sixth value cannot inherit a meaning by falling on the far side
+     of a negation. `Build-PfbFieldCmdletMap.ps1` gained a matching `notApplicable` collection and
+     asserts that every inventory row lands in exactly one of its five buckets.
 
    **The false-positive resolution procedure (decision 6).** This report accepts **false
    positives in order to eliminate false negatives**. A field is listed as missing even though

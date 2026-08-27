@@ -1,0 +1,172 @@
+[
+  {
+    "key": "Connect-PfbArray|AllArrays",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Connect-PfbArray|ApiToken",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Connect-PfbArray|ApiVersion",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Connect-PfbArray|ClientId",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Connect-PfbArray|Context",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Connect-PfbArray|Credential",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Connect-PfbArray|Endpoint",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Connect-PfbArray|HttpTimeout",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Connect-PfbArray|IgnoreCertificateError",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Connect-PfbArray|Issuer",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Connect-PfbArray|KeyId",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Connect-PfbArray|Kind",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Connect-PfbArray|Password",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Connect-PfbArray|PrivateKeyFile",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Connect-PfbArray|PrivateKeyPassword",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Connect-PfbArray|Username",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Get-PfbApiVersion|Endpoint",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Get-PfbApiVersion|IgnoreCertificateError",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Get-PfbConnection|Endpoint",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Invoke-PfbInContext|AllArrays",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Invoke-PfbInContext|Context",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Invoke-PfbInContext|Kind",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Invoke-PfbInContext|ScriptBlock",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Remove-PfbBucket|Eradicate",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "NotWireParameter||Unresolved||"
+  },
+  {
+    "key": "Remove-PfbFileSystem|Eradicate",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "NotWireParameter||Unresolved||"
+  },
+  {
+    "key": "Remove-PfbFileSystemSession|Force",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "NotWireParameter||Unresolved||"
+  },
+  {
+    "key": "Remove-PfbFileSystemSnapshot|Eradicate",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "NotWireParameter||Unresolved||"
+  },
+  {
+    "key": "Remove-PfbRealm|Eradicate",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "NotWireParameter||Unresolved||"
+  },
+  {
+    "key": "Remove-PfbServer|Eradicate",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "NotWireParameter||Unresolved||"
+  },
+  {
+    "key": "Set-PfbContext|AllArrays",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Set-PfbContext|AllowErrors",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Set-PfbContext|Context",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Set-PfbContext|Kind",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  },
+  {
+    "key": "Set-PfbCredential|Credential",
+    "from": "TypedUnresolved||Unresolved||",
+    "to": "OutsideStandardRequest||Unresolved||"
+  }
+]

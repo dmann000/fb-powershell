@@ -2643,3 +2643,728 @@ Describe 'Landing components are compared ORDINALLY (issue #141 Task 3)' {
         $role.Method | Should -BeExactly 'patch'
     }
 }
+
+Describe 'Every resolver tier accepts an arbitrary target variable, and only a proven role (issue #141 Task 4, Step 1)' {
+    # Four tiers, one test each, in two halves. The POSITIVE half proves the tier no longer
+    # requires the payload variable to be spelled $body/$queryParams: every fixture names it
+    # $zulu, a word the retired name gate never knew. The NEGATIVE half proves the tier did not
+    # simply drop the check -- the same $zulu, keyed identically, resolves to nothing when it is
+    # never handed to a request. Neither half means anything without the other: the positives
+    # alone pass against a resolver that credits any hashtable, and the negatives alone pass
+    # against one that credits none.
+
+    It 'resolves the <Tier> tier through an arbitrarily named payload variable' -ForEach @(
+        @{ Tier = 'index-assignment'; Expected = 'alpha'
+            Body = @('    $zulu = @{}', '    $zulu[''alpha''] = $Zeta') }
+        @{ Tier = 'hashtable-literal-initializer'; Expected = 'alpha'
+            Body = @('    $zulu = @{ ''alpha'' = $Zeta }') }
+        @{ Tier = 'nested-single-key-reference'; Expected = 'owner'
+            Body = @('    $zulu = @{}', '    $zulu[''owner''] = @{ name = $Zeta }') }
+        @{ Tier = 'Add-PfbCommonQueryParams helper'; Expected = 'names'
+            Body = @('    $zulu = @{}', '    Add-PfbCommonQueryParams -Into $zulu -BoundParameters $PSBoundParameters -Names $Zeta') }
+    ) {
+        $funcAst = Get-PfbRoleFixtureAst (@(
+                'function Test-Fixture {'
+                '    param([string]$Zeta)'
+            ) + $Body + @(
+                '    Invoke-PfbApiRequest -Method GET -Endpoint ''widgets'' -QueryParams $zulu'
+                '}'
+            ))
+        $wire = Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Zeta'
+        $wire.WireName | Should -Be $Expected
+        $wire.TargetVariable | Should -Be 'zulu'
+        $wire.WireSurface | Should -Be 'Query'
+        $wire.Endpoint | Should -Be 'widgets'
+    }
+
+    It 'refuses the <Tier> tier when the same variable is never handed to a request' -ForEach @(
+        @{ Tier = 'index-assignment'
+            Body = @('    $zulu = @{}', '    $zulu[''alpha''] = $Zeta') }
+        @{ Tier = 'hashtable-literal-initializer'
+            Body = @('    $zulu = @{ ''alpha'' = $Zeta }') }
+        @{ Tier = 'nested-single-key-reference'
+            Body = @('    $zulu = @{}', '    $zulu[''owner''] = @{ name = $Zeta }') }
+        @{ Tier = 'Add-PfbCommonQueryParams helper'
+            Body = @('    $zulu = @{}', '    Add-PfbCommonQueryParams -Into $zulu -BoundParameters $PSBoundParameters -Names $Zeta') }
+    ) {
+        # Same fixture as the positive above, minus the payload argument. The call itself is
+        # kept so the function still contains an Invoke-PfbApiRequest -- otherwise this would
+        # pass for a reason that has nothing to do with the role trace.
+        $funcAst = Get-PfbRoleFixtureAst (@(
+                'function Test-Fixture {'
+                '    param([string]$Zeta)'
+            ) + $Body + @(
+                '    Invoke-PfbApiRequest -Method GET -Endpoint ''widgets'''
+                '}'
+            ))
+        Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Zeta' | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Required boundary fixtures (issue #141 Task 4, Step 2)' {
+
+    It 'resolves <Shape> to <Expected>/<ExpectedSurface>' -ForEach @(
+        # The two boundaries named literally in the plan. Their wire key echoes the parameter
+        # name, so each is followed by a decoupled twin: on its own, a fixture whose key and
+        # parameter share a word cannot distinguish reading the source from guessing.
+        @{ Shape = '$q[''names''] = $Name sent as -QueryParams'; Parameter = 'Name'; Boolean = $false
+            Body = @('    $q = @{}', '    $q[''names''] = $Name'); PayloadArgument = '-QueryParams $q'
+            Method = 'GET'; Expected = 'names'; ExpectedSurface = 'Query'; ExpectedTarget = 'q' }
+        @{ Shape = 'the same shape with key and parameter sharing no word'; Parameter = 'Zeta'; Boolean = $false
+            Body = @('    $q = @{}', '    $q[''alpha''] = $Zeta'); PayloadArgument = '-QueryParams $q'
+            Method = 'GET'; Expected = 'alpha'; ExpectedSurface = 'Query'; ExpectedTarget = 'q' }
+        @{ Shape = '$payload[''enabled''] = [bool]$Enabled sent as -Body'; Parameter = 'Enabled'; Boolean = $true
+            Body = @('    $payload = @{}', '    $payload[''enabled''] = [bool]$Enabled'); PayloadArgument = '-Body $payload'
+            Method = 'PATCH'; Expected = 'enabled'; ExpectedSurface = 'Body'; ExpectedTarget = 'payload' }
+        @{ Shape = 'the same [bool] cast with key and parameter sharing no word'; Parameter = 'Zeta'; Boolean = $true
+            Body = @('    $payload = @{}', '    $payload[''omega''] = [bool]$Zeta'); PayloadArgument = '-Body $payload'
+            Method = 'PATCH'; Expected = 'omega'; ExpectedSurface = 'Body'; ExpectedTarget = 'payload' }
+        # Casing. There is no special case for these spellings anywhere in the resolver any
+        # more, which is exactly why they are worth a test: they must resolve because they are
+        # passed to a request argument, not because of how they are written.
+        @{ Shape = 'a payload variable literally named $QueryParams'; Parameter = 'Zeta'; Boolean = $false
+            Body = @('    $QueryParams = @{}', '    $QueryParams[''alpha''] = $Zeta'); PayloadArgument = '-QueryParams $QueryParams'
+            Method = 'GET'; Expected = 'alpha'; ExpectedSurface = 'Query'; ExpectedTarget = 'QueryParams' }
+        @{ Shape = 'a payload variable literally named $Body'; Parameter = 'Zeta'; Boolean = $false
+            Body = @('    $Body = @{}', '    $Body[''alpha''] = $Zeta'); PayloadArgument = '-Body $Body'
+            Method = 'POST'; Expected = 'alpha'; ExpectedSurface = 'Body'; ExpectedTarget = 'Body' }
+        # The name reversal, one level further out than Task 3 tested it. Task 3 asserted the
+        # ROLE; this asserts the surface that reaches an inventory row, which is the value a
+        # consumer actually reads.
+        @{ Shape = 'a variable named $body sent as -QueryParams'; Parameter = 'Zeta'; Boolean = $false
+            Body = @('    $body = @{}', '    $body[''alpha''] = $Zeta'); PayloadArgument = '-QueryParams $body'
+            Method = 'GET'; Expected = 'alpha'; ExpectedSurface = 'Query'; ExpectedTarget = 'body' }
+        @{ Shape = 'a variable named $queryParams sent as -Body'; Parameter = 'Zeta'; Boolean = $false
+            Body = @('    $queryParams = @{}', '    $queryParams[''alpha''] = $Zeta'); PayloadArgument = '-Body $queryParams'
+            Method = 'POST'; Expected = 'alpha'; ExpectedSurface = 'Body'; ExpectedTarget = 'queryParams' }
+    ) {
+        $funcAst = Get-PfbRoleFixtureAst (@(
+                'function Test-Fixture {'
+                ('    param([{0}]${1})' -f $(if ($Boolean) { 'Nullable[bool]' } else { 'string[]' }), $Parameter)
+            ) + $Body + @(
+                ('    Invoke-PfbApiRequest -Method {0} -Endpoint ''widgets'' {1}' -f $Method, $PayloadArgument)
+                '}'
+            ))
+        $wire = Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName $Parameter -IsBooleanLikeParameter:$Boolean
+        $wire | Should -Not -BeNullOrEmpty
+        $wire.WireName | Should -BeExactly $Expected
+        $wire.WireSurface | Should -Be $ExpectedSurface
+        $wire.TargetVariable | Should -BeExactly $ExpectedTarget
+        $wire.Method | Should -Be $Method
+        $wire.Endpoint | Should -Be 'widgets'
+    }
+
+    It 'knows the Body role of a parameter handed straight to -Body, and still reports NO wire name for it' {
+        # The real Set-PfbWorkloadTag -Tags shape. The role is a fact about the whole payload;
+        # the field-level key is not knowable from it, and the old gate's temptation was to
+        # invent one from the parameter name. A row with WireName = 'Tags' would be attributed
+        # against a spec field that does not exist.
+        $funcAst = Get-PfbRoleFixtureAst @(
+            'function Test-Fixture {'
+            '    param([hashtable]$Tags)'
+            '    Invoke-PfbApiRequest -Method POST -Endpoint ''widgets'' -Body $Tags'
+            '}'
+        )
+
+        # Control: the role IS provable, so the refusal below is about the missing KEY and not
+        # about a fixture the role tracer could not read at all.
+        $role = Get-PfbRequestRoleForVariable -FunctionAst $funcAst -TargetVariable 'Tags'
+        $role.WireSurface | Should -Be 'Body'
+        $role.Method | Should -Be 'POST'
+        $role.Endpoint | Should -Be 'widgets'
+
+        Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Tags' | Should -BeNullOrEmpty
+    }
+
+    It 'does not credit an intermediate sub-body as a top-level payload' {
+        # $nfsBody is keyed, then nested one level down inside the variable that is actually
+        # sent. Crediting it would publish 'export_policy' as a top-level field of PATCH
+        # widgets, which is a field that endpoint does not have.
+        $funcAst = Get-PfbRoleFixtureAst @(
+            'function Test-Fixture {'
+            '    param([string]$Policy)'
+            '    $nfsBody = @{}'
+            '    $nfsBody[''export_policy''] = @{ name = $Policy }'
+            '    $body = @{}'
+            '    $body[''nfs''] = $nfsBody'
+            '    Invoke-PfbApiRequest -Method PATCH -Endpoint ''widgets'' -Body $body'
+            '}'
+        )
+
+        # Control: the OUTER variable does have a proven role here, so this fixture is one the
+        # role tracer reads successfully -- the refusal is specific to $nfsBody.
+        (Get-PfbRequestRoleForVariable -FunctionAst $funcAst -TargetVariable 'body').WireSurface | Should -Be 'Body'
+
+        Get-PfbRequestRoleForVariable -FunctionAst $funcAst -TargetVariable 'nfsBody' | Should -BeNullOrEmpty
+        Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Policy' | Should -BeNullOrEmpty
+    }
+
+    It 'leaves a parameter keyed into an unused local unresolved' {
+        $funcAst = Get-PfbRoleFixtureAst @(
+            'function Test-Fixture {'
+            '    param([string]$Zeta, [string]$Omega)'
+            '    $scratch = @{}'
+            '    $scratch[''alpha''] = $Zeta'
+            '    $q = @{}'
+            '    $q[''beta''] = $Omega'
+            '    Invoke-PfbApiRequest -Method GET -Endpoint ''widgets'' -QueryParams $q'
+            '}'
+        )
+
+        # Control: an identically-shaped assignment into the variable that IS sent resolves, so
+        # the refusal below is the unused local talking and not an inert fixture.
+        (Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Omega').WireName | Should -Be 'beta'
+
+        Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Zeta' | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'The inventory does not launder an abstention into a name (issue #141 Task 4, Step 3)' {
+    # Get-PfbWireNameForParameter spends $null twice -- once for "no idiom proved anything" and
+    # once for "an idiom proved landings that disagreed" -- so a caller that retries on $null
+    # retries after an abstention too, and consults a FIFTH source on behalf of a parameter
+    # whose own evidence had just been ruled contradictory. That is the tier stickiness
+    # escaping through the caller. The inventory now asks Resolve-PfbParameterWireLanding and
+    # retries only on an empty Landings array.
+
+    BeforeAll {
+        $script:launderDir = Join-Path $TestDrive 'Task4Launder/Public'
+        New-Item -ItemType Directory -Path $script:launderDir -Force | Out-Null
+
+        # -Zeta lands on TWO disagreeing keys of the variable that is sent ('alpha', 'beta'),
+        # AND feeds an accumulator that lands on a third ('names'). Every name in the fixture is
+        # unrelated to every other, so a row naming any of them can only have come from the AST.
+        Set-Content -Path (Join-Path $script:launderDir 'Get-PfbFixtureLaundered.ps1') -Encoding UTF8 -Value @'
+function Get-PfbFixtureLaundered {
+    param([string[]]$Zeta)
+    $allNames = [System.Collections.Generic.List[string]]::new()
+    $q = @{}
+    $q['alpha'] = $Zeta
+    $q['beta'] = $Zeta
+    foreach ($item in $Zeta) { $allNames.Add($item) }
+    $q['names'] = $allNames -join ','
+    Invoke-PfbApiRequest -Method GET -Endpoint 'widgets' -QueryParams $q
+}
+'@
+
+        # The control, and the reason this pair is a test rather than a coincidence: the SAME
+        # accumulator route, with the two disagreeing direct landings deleted. The retry fires,
+        # reaches $q['names'], and publishes a confident 'names'. That is precisely the answer
+        # the fixture above must NOT produce.
+        Set-Content -Path (Join-Path $script:launderDir 'Get-PfbFixtureLaunderedControl.ps1') -Encoding UTF8 -Value @'
+function Get-PfbFixtureLaunderedControl {
+    param([string[]]$Zeta)
+    $allNames = [System.Collections.Generic.List[string]]::new()
+    $q = @{}
+    foreach ($item in $Zeta) { $allNames.Add($item) }
+    $q['names'] = $allNames -join ','
+    Invoke-PfbApiRequest -Method GET -Endpoint 'widgets' -QueryParams $q
+}
+'@
+
+        $script:launderInventory = @(Get-PfbCmdletParameterInventory -PublicDirectory $script:launderDir)
+    }
+
+    It 'still resolves the accumulator route when the parameter has no direct landings of its own' {
+        $row = $script:launderInventory | Where-Object { $_.Cmdlet -eq 'Get-PfbFixtureLaunderedControl' }
+        $row.WireName | Should -Be 'names'
+        $row.Surface | Should -Be 'Typed'
+        $row.WireSurface | Should -Be 'Query'
+    }
+
+    It 'reports a parameter whose own landings disagreed as unresolved, not as the accumulator''s key' {
+        $row = $script:launderInventory | Where-Object { $_.Cmdlet -eq 'Get-PfbFixtureLaundered' }
+        $row | Should -Not -BeNullOrEmpty -Because 'an absent row would make every assertion below vacuous'
+        $row.WireName | Should -BeNullOrEmpty
+        $row.Surface | Should -Be 'TypedUnresolved'
+        $row.WireSurface | Should -Be 'Unresolved'
+    }
+
+    It 'proves the retry route was available to that parameter and was declined on purpose' {
+        # Without this, the test above would also pass if Find-PfbAccumulatorVariable simply
+        # failed to see the accumulator -- a refusal for the wrong reason.
+        $tokens = $null; $errs = $null
+        $fileAst = [System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $script:launderDir 'Get-PfbFixtureLaundered.ps1'), [ref]$tokens, [ref]$errs)
+        @($errs).Count | Should -Be 0
+        $funcAst = $fileAst.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) | Select-Object -First 1
+
+        Find-PfbAccumulatorVariable -FunctionAst $funcAst -ParameterName 'Zeta' | Should -Be 'allNames'
+        (Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'allNames').WireName | Should -Be 'names'
+
+        # ...and the resolution really is an ABSTENTION rather than silence: landings were
+        # found, and they arbitrated to nothing.
+        $resolved = Resolve-PfbParameterWireLanding -FunctionAst $funcAst -ParameterName 'Zeta'
+        $resolved.Landings.Count | Should -Be 2
+        $resolved.Resolution | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'The Surface ladder (issue #141 Task 4, Steps 4-5)' {
+    # Five values, decided in a fixed order. Each fixture below differs from its neighbour in
+    # exactly one respect, so a test that goes red names the rung that broke.
+
+    BeforeAll {
+        $script:ladderDir = Join-Path $TestDrive 'Task4Ladder/Public'
+        New-Item -ItemType Directory -Path $script:ladderDir -Force | Out-Null
+
+        # Zero Invoke-PfbApiRequest calls. -Zeta is even keyed into a hashtable, which the
+        # resolver still refuses because that hashtable is never sent -- so this also proves
+        # OutsideStandardRequest is decided by the CALL's absence and not by the parameter
+        # happening to be unmentioned.
+        Set-Content -Path (Join-Path $script:ladderDir 'Get-PfbFixtureNoRequest.ps1') -Encoding UTF8 -Value @'
+function Get-PfbFixtureNoRequest {
+    param([string]$Zeta, [switch]$Omega)
+    $q = @{}
+    $q['alpha'] = $Zeta
+    return $q
+}
+'@
+
+        # Same unresolvable parameter, twice, differing only in the -Attributes escape hatch.
+        Set-Content -Path (Join-Path $script:ladderDir 'Get-PfbFixtureLadder.ps1') -Encoding UTF8 -Value @'
+function Get-PfbFixtureLadderBare {
+    param([string]$Zeta)
+    Invoke-PfbApiRequest -Method GET -Endpoint 'widgets'
+}
+
+function Get-PfbFixtureLadderAttributes {
+    param([string]$Zeta, [hashtable]$Attributes)
+    Invoke-PfbApiRequest -Method GET -Endpoint 'widgets'
+}
+'@
+
+        # A stand-in for a real allowlisted cmdlet: same NAME, so the audited identity matches,
+        # but three sibling parameters that are not on the list. -Omega is the load-bearing one
+        # -- it is a [switch], it is unresolved, and it sits in the same function, so the only
+        # thing separating it from -Eradicate is the allowlist itself. It also carries the
+        # -Attributes hatch, which puts NotWireParameter and AttributesOnly in direct
+        # competition and pins their order.
+        Set-Content -Path (Join-Path $script:ladderDir 'Remove-PfbBucket.ps1') -Encoding UTF8 -Value @'
+function Remove-PfbBucket {
+    param([string]$Zeta, [switch]$Eradicate, [switch]$Omega, [hashtable]$Attributes)
+    if (-not $Eradicate) { $q = @{} }
+    Invoke-PfbApiRequest -Method DELETE -Endpoint 'buckets'
+}
+'@
+
+        # The name/identity separation, from the other side. Both switches here carry a name that
+        # IS on the audited allowlist (-Eradicate, -Force), on a cmdlet that is not. Found by
+        # mutation: rekeying the allowlist from 'Cmdlet|Parameter' to the bare parameter name left
+        # every other test in this file green, because no real Public/ cmdlet exposes an
+        # -Eradicate or -Force that is off the list. That is a property of today's tree, not of
+        # the resolver, so this fixture supplies the counterexample the tree does not.
+        Set-Content -Path (Join-Path $script:ladderDir 'Remove-PfbFixtureNotAllowlisted.ps1') -Encoding UTF8 -Value @'
+function Remove-PfbFixtureNotAllowlisted {
+    param([switch]$Eradicate, [switch]$Force, [hashtable]$Attributes)
+    if (-not $Eradicate) { $q = @{} }
+    Invoke-PfbApiRequest -Method DELETE -Endpoint 'widgets'
+}
+'@
+
+        $script:ladderInventory = @(Get-PfbCmdletParameterInventory -PublicDirectory $script:ladderDir)
+        function script:Get-PfbLadderSurface {
+            param([string]$Cmdlet, [string]$Parameter)
+            $row = $script:ladderInventory | Where-Object { $_.Cmdlet -eq $Cmdlet -and $_.Parameter -eq $Parameter }
+            if (-not $row) { throw "No inventory row for $Cmdlet -$Parameter; the fixture never reached the resolver." }
+            return $row.Surface
+        }
+    }
+
+    It 'classifies <Parameter> of <Cmdlet> as <Expected>' -ForEach @(
+        @{ Cmdlet = 'Get-PfbFixtureNoRequest'; Parameter = 'Zeta'; Expected = 'OutsideStandardRequest' }
+        @{ Cmdlet = 'Get-PfbFixtureNoRequest'; Parameter = 'Omega'; Expected = 'OutsideStandardRequest' }
+        @{ Cmdlet = 'Get-PfbFixtureLadderBare'; Parameter = 'Zeta'; Expected = 'TypedUnresolved' }
+        @{ Cmdlet = 'Get-PfbFixtureLadderAttributes'; Parameter = 'Zeta'; Expected = 'AttributesOnly' }
+        @{ Cmdlet = 'Remove-PfbBucket'; Parameter = 'Eradicate'; Expected = 'NotWireParameter' }
+        @{ Cmdlet = 'Remove-PfbBucket'; Parameter = 'Omega'; Expected = 'AttributesOnly' }
+        @{ Cmdlet = 'Remove-PfbBucket'; Parameter = 'Zeta'; Expected = 'AttributesOnly' }
+        @{ Cmdlet = 'Remove-PfbFixtureNotAllowlisted'; Parameter = 'Eradicate'; Expected = 'AttributesOnly' }
+        @{ Cmdlet = 'Remove-PfbFixtureNotAllowlisted'; Parameter = 'Force'; Expected = 'AttributesOnly' }
+    ) {
+        Get-PfbLadderSurface -Cmdlet $Cmdlet -Parameter $Parameter | Should -Be $Expected
+    }
+
+    It 'keys NotWireParameter on the audited Cmdlet|Parameter identity, never on the parameter name' {
+        # The pair below is the whole point: two -Eradicate switches, identical in shape, in
+        # functions that differ only by name, classified differently. The allowlist is the only
+        # thing that can produce that difference, so a name-keyed allowlist cannot pass this.
+        Get-PfbLadderSurface -Cmdlet 'Remove-PfbBucket' -Parameter 'Eradicate' | Should -Be 'NotWireParameter'
+        Get-PfbLadderSurface -Cmdlet 'Remove-PfbFixtureNotAllowlisted' -Parameter 'Eradicate' | Should -Be 'AttributesOnly'
+        # And the names really are shared with the audited list, or the pair proves nothing.
+        $allowlistedNames = @(Get-PfbNotWireParameterAllowlist | ForEach-Object { ($_ -split '\|')[1] } | Sort-Object -Unique)
+        $allowlistedNames | Should -Contain 'Eradicate'
+        $allowlistedNames | Should -Contain 'Force'
+        @(Get-PfbNotWireParameterAllowlist) | Should -Not -Contain 'Remove-PfbFixtureNotAllowlisted|Eradicate'
+        @(Get-PfbNotWireParameterAllowlist) | Should -Not -Contain 'Remove-PfbFixtureNotAllowlisted|Force'
+    }
+
+    It 'emits nothing outside the declared set of Surface values' {
+        $declared = @(Get-PfbParameterSurfaceName)
+        $declared.Count | Should -Be 5
+        foreach ($row in $script:ladderInventory) { $declared | Should -Contain $row.Surface }
+    }
+
+    It 'gives a non-applicable row no wire facts to be misread as data' {
+        foreach ($row in ($script:ladderInventory | Where-Object { $_.Surface -in @('NotWireParameter', 'OutsideStandardRequest') })) {
+            $row.WireName | Should -BeNullOrEmpty
+            $row.WireSurface | Should -Be 'Unresolved'
+            $row.Endpoint | Should -BeNullOrEmpty
+            $row.Method | Should -BeNullOrEmpty
+        }
+    }
+}
+
+Describe 'Real-tree acceptance properties of the integrated resolver (issue #141 Task 4, Steps 5 and 10)' {
+    # Every input set here is derived at RUN TIME from the real Public/ tree, and no assertion
+    # pins a row count: a count would go stale on the next cmdlet added, or -- worse -- keep
+    # passing while the rows underneath it changed.
+
+    BeforeAll {
+        $script:t4Functions = @{}
+        foreach ($file in @(Get-ChildItem -Path $script:publicDir -Filter '*.ps1' -Recurse -File)) {
+            $tokens = $null; $errs = $null
+            $fileAst = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errs)
+            @($errs).Count | Should -Be 0 -Because "$($file.FullName) must parse for its functions to be analysable at all"
+            foreach ($fn in $fileAst.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)) {
+                $script:t4Functions[$fn.Name] = $fn
+            }
+        }
+        $script:t4Inventory = @(Get-PfbCmdletParameterInventory -PublicDirectory $script:publicDir)
+        $script:t4Rows = @{}
+        foreach ($row in $script:t4Inventory) { $script:t4Rows['{0}|{1}' -f $row.Cmdlet, $row.Parameter] = $row }
+
+        function script:Get-PfbT4Row {
+            param([string]$Identity)
+            $row = $script:t4Rows[$Identity]
+            if (-not $row) { throw "No inventory row for '$Identity'. The identity is stale, and every assertion over it would be vacuous." }
+            return $row
+        }
+    }
+
+    Context 'the audited NotWireParameter allowlist, re-validated against the AST (Step 5)' {
+        # The allowlist is the one place in the resolver where a fact is asserted by a human
+        # rather than read from the source, so it is the one place that can rot silently. Each
+        # assertion below is a separate way for a stale entry to fail.
+
+        It 'contains exactly the six identities enumerated below and nothing else' {
+            # Pester resolves -ForEach at DISCOVERY time, before the root BeforeAll dot-sources
+            # the library, so the per-entry cases below cannot be generated from the allowlist
+            # itself -- they are restated by hand. This test is what keeps the restatement
+            # honest: an entry added to or removed from the resolver without a matching case
+            # here fails, rather than quietly going unvalidated.
+            @(Get-PfbNotWireParameterAllowlist) | Sort-Object -Culture '' | Should -Be @(
+                'Remove-PfbBucket|Eradicate'
+                'Remove-PfbFileSystem|Eradicate'
+                'Remove-PfbFileSystemSession|Force'
+                'Remove-PfbFileSystemSnapshot|Eradicate'
+                'Remove-PfbRealm|Eradicate'
+                'Remove-PfbServer|Eradicate'
+            )
+        }
+
+        It 'still describes a real, boolean-like, keyless request control: <Identity>' -ForEach @(
+            @{ Identity = 'Remove-PfbBucket|Eradicate' }
+            @{ Identity = 'Remove-PfbFileSystem|Eradicate' }
+            @{ Identity = 'Remove-PfbFileSystemSession|Force' }
+            @{ Identity = 'Remove-PfbFileSystemSnapshot|Eradicate' }
+            @{ Identity = 'Remove-PfbRealm|Eradicate' }
+            @{ Identity = 'Remove-PfbServer|Eradicate' }
+        ) {
+            $parts = $Identity -split '\|', 2
+            $cmdletName = $parts[0]
+            $parameterName = $parts[1]
+
+            $funcAst = $script:t4Functions[$cmdletName]
+            $funcAst | Should -Not -BeNullOrEmpty -Because "the allowlist names $cmdletName, which must still exist in Public/"
+
+            $p = @($funcAst.Body.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq $parameterName })
+            $p.Count | Should -Be 1 -Because "$cmdletName must still declare exactly one -$parameterName"
+
+            # Boolean-like: the same test the inventory applies, not a name pattern.
+            $p[0].StaticType | Should -BeIn @([System.Management.Automation.SwitchParameter], [bool], [System.Nullable[bool]])
+
+            # No resolved wire key, and no landings at all -- an entry that acquires one must
+            # fail here rather than being silently shadowed by the 'Typed' rung above it.
+            $resolved = Resolve-PfbParameterWireLanding -FunctionAst $funcAst -ParameterName $parameterName -IsBooleanLikeParameter
+            $resolved.Landings.Count | Should -Be 0
+            $resolved.Resolution | Should -BeNullOrEmpty
+
+            # Not a direct payload variable either (the -Body $Tags shape).
+            Get-PfbRequestRoleForVariable -FunctionAst $funcAst -TargetVariable $parameterName | Should -BeNullOrEmpty
+
+            # The cmdlet must still be ON the standard request path. If it stopped making any
+            # Invoke-PfbApiRequest call, OutsideStandardRequest would claim this row first and
+            # the allowlist entry would be dead code that no test ever exercised again.
+            Test-PfbFunctionMakesStandardRequest -FunctionAst $funcAst | Should -BeTrue
+
+            # ...and it still has the documented CONTROL shape: the parameter steers a branch.
+            # This is what separates an audited control from a parameter that merely failed to
+            # resolve, and it is the check that fails if someone adds an entry on the strength
+            # of its name alone.
+            $conditions = @($funcAst.FindAll({ param($n) $n -is [System.Management.Automation.Language.IfStatementAst] }, $true) |
+                    ForEach-Object { $_.Clauses } | ForEach-Object { $_.Item1 })
+            $referenced = @($conditions | Where-Object {
+                    @($_.FindAll({
+                                param($n)
+                                $n -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                                $n.VariablePath.UserPath -eq $parameterName
+                            }, $true)).Count -gt 0
+                })
+            $referenced.Count | Should -BeGreaterThan 0 -Because "-$parameterName must still gate a branch of $cmdletName to be a request control"
+
+            (Get-PfbT4Row -Identity $Identity).Surface | Should -Be 'NotWireParameter'
+        }
+
+        It 'is the ONLY source of NotWireParameter rows -- nothing is inferred from failure to resolve' {
+            $allowlist = @(Get-PfbNotWireParameterAllowlist)
+            $emitted = @($script:t4Inventory |
+                    Where-Object { $_.Surface -eq 'NotWireParameter' } |
+                    ForEach-Object { '{0}|{1}' -f $_.Cmdlet, $_.Parameter } |
+                    Sort-Object -Culture '')
+            $emitted | Should -Be (@($allowlist) | Sort-Object -Culture '')
+        }
+
+        It 'does not claim <Identity>, which is a real wire-affecting parameter' -ForEach @(
+            # The five body-affecting New-PfbFileSystem switches. Every one of them is
+            # boolean-like and Remove-Pfb*-adjacent in shape, so a rule keyed on "[switch] that
+            # did not resolve" -- the error this task exists to avoid repeating -- would sweep
+            # them up.
+            @{ Identity = 'New-PfbFileSystem|Writable' }
+            @{ Identity = 'New-PfbFileSystem|SafeguardAcls' }
+            @{ Identity = 'New-PfbFileSystem|SnapshotDirectoryEnabled' }
+            @{ Identity = 'New-PfbFileSystem|FastRemoveDirectoryEnabled' }
+            @{ Identity = 'New-PfbFileSystem|SmbContinuousAvailabilityEnabled' }
+            # Two non-boolean shapes that are genuinely unresolved today, which is the state
+            # closest to NotWireParameter and therefore the one most likely to be confused with
+            # it. Deliberately NOT Get-PfbUserGroupQuotaPolicy -Name/-Id: Task 2 made those
+            # 'Typed', so asserting they are not NotWireParameter exercises nothing.
+            @{ Identity = 'New-PfbFileSystemSnapshot|SourceName' }
+            @{ Identity = 'Set-PfbWorkloadTag|Tags' }
+        ) {
+            (Get-PfbT4Row -Identity $Identity).Surface | Should -Not -Be 'NotWireParameter'
+        }
+
+        It 'claims no boolean-like parameter of New-PfbFileSystem at all' {
+            # The named five above go stale if the cmdlet is refactored; this one cannot.
+            $funcAst = $script:t4Functions['New-PfbFileSystem']
+            $funcAst | Should -Not -BeNullOrEmpty
+            $booleanLike = @($funcAst.Body.ParamBlock.Parameters | Where-Object {
+                    $_.StaticType -in @([System.Management.Automation.SwitchParameter], [bool], [System.Nullable[bool]])
+                } | ForEach-Object { $_.Name.VariablePath.UserPath })
+            $booleanLike.Count | Should -BeGreaterThan 0 -Because 'an empty set would make this assertion vacuous'
+            foreach ($name in $booleanLike) {
+                (Get-PfbT4Row -Identity ('New-PfbFileSystem|{0}' -f $name)).Surface | Should -Not -Be 'NotWireParameter'
+            }
+        }
+    }
+
+    Context 'the three acceptance populations (Step 10)' {
+
+        It 'resolves the $var.ToArray() helper pair to its declared query keys' {
+            # Get-PfbUserGroupQuotaPolicy hands two [List[string]] accumulators to
+            # Add-PfbCommonQueryParams as $allNames.ToArray()/$allIds.ToArray(). Both keys come
+            # from the helper's own mapping, not from the parameter names.
+            $name = Get-PfbT4Row -Identity 'Get-PfbUserGroupQuotaPolicy|Name'
+            $name.WireName | Should -BeExactly 'names'
+            $name.Surface | Should -Be 'Typed'
+            $name.WireSurface | Should -Be 'Query'
+
+            $id = Get-PfbT4Row -Identity 'Get-PfbUserGroupQuotaPolicy|Id'
+            $id.WireName | Should -BeExactly 'ids'
+            $id.Surface | Should -Be 'Typed'
+            $id.WireSurface | Should -Be 'Query'
+
+            # Control: this really is the .ToArray() shape and not a plain helper argument that
+            # would resolve with the arity guard deleted.
+            $funcAst = $script:t4Functions['Get-PfbUserGroupQuotaPolicy']
+            $toArrayCalls = @($funcAst.FindAll({
+                        param($n)
+                        $n -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and
+                        $n.Member -is [System.Management.Automation.Language.StringConstantExpressionAst] -and
+                        $n.Member.Value -eq 'ToArray'
+                    }, $true))
+            $toArrayCalls.Count | Should -Be 2
+        }
+
+        It 'resolves <Identity> from its literal source key <Expected>, never a plausible guess' -ForEach @(
+            # 'gids'/'uids' are the keys in the source. A resolver that reasoned from the
+            # parameter name would produce 'group_ids'/'user_ids', which are not fields of these
+            # endpoints -- and which no assertion on Surface alone would catch.
+            @{ Identity = 'New-PfbQuotaGroup|GroupId'; Expected = 'gids'; Method = 'POST'; Endpoint = 'quotas/groups' }
+            @{ Identity = 'Update-PfbQuotaGroup|GroupId'; Expected = 'gids'; Method = 'PATCH'; Endpoint = 'quotas/groups' }
+            @{ Identity = 'Remove-PfbQuotaGroup|GroupId'; Expected = 'gids'; Method = 'DELETE'; Endpoint = 'quotas/groups' }
+            @{ Identity = 'New-PfbQuotaUser|UserId'; Expected = 'uids'; Method = 'POST'; Endpoint = 'quotas/users' }
+            @{ Identity = 'Get-PfbFileSystemGroupQuota|GroupId'; Expected = 'gids'; Method = 'GET'; Endpoint = 'file-system-group-quotas' }
+        ) {
+            $row = Get-PfbT4Row -Identity $Identity
+            $row.WireName | Should -BeExactly $Expected
+            $row.Surface | Should -Be 'Typed'
+            $row.WireSurface | Should -Be 'Query'
+            $row.Method | Should -Be $Method
+            $row.Endpoint | Should -Be $Endpoint
+        }
+
+        It 'records body-role landings, and promotes no intermediate sub-body to a top-level field' {
+            # No count is asserted: the population is whatever the tree contains today. What is
+            # asserted is that it is non-empty, that every member names a variable the cmdlet
+            # really passes to -Body, and that no member's wire key came from a hashtable that
+            # is only ever nested inside another one.
+            $bodyRows = @($script:t4Inventory | Where-Object { $_.Surface -eq 'Typed' -and $_.WireSurface -eq 'Body' })
+            $bodyRows.Count | Should -BeGreaterThan 0 -Because 'an empty population would make the rest of this test vacuous'
+
+            $offenders = [System.Collections.Generic.List[string]]::new()
+            foreach ($row in $bodyRows) {
+                if (-not $row.TargetVariable) { continue }
+                $funcAst = $script:t4Functions[$row.Cmdlet]
+                if (-not $funcAst) { $offenders.Add("MISSINGFUNC $($row.Cmdlet)"); continue }
+                $role = Get-PfbRequestRoleForVariable -FunctionAst $funcAst -TargetVariable $row.TargetVariable
+                if (-not $role) {
+                    # The only way a Body row can have a target with no role: it does not exist.
+                    $offenders.Add(('NOROLE {0}|{1} target={2}' -f $row.Cmdlet, $row.Parameter, $row.TargetVariable))
+                    continue
+                }
+                if ($role.WireSurface -ne 'Body') {
+                    $offenders.Add(('SURFACE {0}|{1} target={2} role={3}' -f $row.Cmdlet, $row.Parameter, $row.TargetVariable, $role.WireSurface))
+                }
+            }
+            $offenders -join "`n" | Should -BeNullOrEmpty
+
+            # The specific sub-body hazard, named. New-PfbFileSystem builds $nfsBody/$smbBody
+            # and nests them under $body; neither is ever passed to a request argument, so no
+            # row may be attributed to either.
+            $subBodyRows = @($bodyRows | Where-Object { $_.Cmdlet -eq 'New-PfbFileSystem' -and $_.TargetVariable -in @('nfsBody', 'smbBody', 'httpBody', 'multiProtocolBody') })
+            $subBodyRows | Should -BeNullOrEmpty
+
+            # Control: New-PfbFileSystem really does build a sub-body, so the emptiness above is
+            # a refusal and not an absence of the shape.
+            $newFs = $script:t4Functions['New-PfbFileSystem']
+            $newFs | Should -Not -BeNullOrEmpty
+            $subBodyAssignments = @($newFs.FindAll({
+                        param($n)
+                        $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+                        $n.Left -is [System.Management.Automation.Language.IndexExpressionAst] -and
+                        $n.Left.Target -is [System.Management.Automation.Language.VariableExpressionAst] -and
+                        $n.Left.Target.VariablePath.UserPath -eq 'nfsBody'
+                    }, $true))
+            $subBodyAssignments.Count | Should -BeGreaterThan 0 -Because '$nfsBody must still be keyed into for its exclusion to mean anything'
+            Get-PfbRequestRoleForVariable -FunctionAst $newFs -TargetVariable 'nfsBody' | Should -BeNullOrEmpty
+        }
+    }
+}
+
+Describe 'Compare-PfbInventoryTupleSet: the row-level regression gate (issue #141 Task 4, Step 9)' {
+    # The gate exists because a resolver change can WITHDRAW a resolution while every total goes
+    # up. Its own failure mode is rotting into a rubber stamp, so the tests below spend as much
+    # effort on what it must REFUSE as on what it must accept.
+
+    BeforeAll {
+        function script:New-PfbTupleRow {
+            param(
+                [string]$Cmdlet = 'Get-PfbThing',
+                [string]$Parameter = 'Zeta',
+                [string]$Surface = 'Typed',
+                $WireName = 'alpha',
+                $WireSurface = 'Query',
+                $Method = 'GET',
+                $Endpoint = 'widgets'
+            )
+            [PSCustomObject]@{
+                Cmdlet = $Cmdlet; Parameter = $Parameter; Surface = $Surface
+                WireName = $WireName; WireSurface = $WireSurface; Method = $Method; Endpoint = $Endpoint
+            }
+        }
+    }
+
+    It 'renders a row as Surface|WireName|WireSurface|Method|Endpoint, with $null as empty' {
+        $set = Get-PfbInventoryTupleSet -Inventory @(New-PfbTupleRow -Surface 'TypedUnresolved' -WireName $null -WireSurface 'Unresolved' -Method $null -Endpoint $null)
+        $set['Get-PfbThing|Zeta'] | Should -BeExactly 'TypedUnresolved||Unresolved||'
+    }
+
+    It 'is clean when nothing moved' {
+        $rows = @(New-PfbTupleRow)
+        $result = Compare-PfbInventoryTupleSet -Baseline $rows -Current $rows
+        $result.IsClean | Should -BeTrue
+        $result.Removed.Count | Should -Be 0
+        $result.Changed.Count | Should -Be 0
+    }
+
+    It 'fails on a removed row, which no total would show' {
+        $result = Compare-PfbInventoryTupleSet -Baseline @(New-PfbTupleRow) -Current @()
+        $result.Removed | Should -Be @('Get-PfbThing|Zeta')
+        $result.IsClean | Should -BeFalse
+    }
+
+    It 'fails on an undeclared change' {
+        $result = Compare-PfbInventoryTupleSet -Baseline @(New-PfbTupleRow) -Current @(New-PfbTupleRow -WireName 'beta')
+        $result.Changed.Count | Should -Be 1
+        $result.Undeclared.Count | Should -Be 1
+        $result.Undeclared[0].From | Should -BeExactly 'Typed|alpha|Query|GET|widgets'
+        $result.Undeclared[0].To | Should -BeExactly 'Typed|beta|Query|GET|widgets'
+        $result.IsClean | Should -BeFalse
+    }
+
+    It 'treats a Typed -> AttributesOnly withdrawal as a CHANGE, not an absence' {
+        # The Update-PfbBucketAuditFilter -BucketName case in miniature, and the reason Surface
+        # is in the tuple at all: a gate keyed on row identity alone reads this as "still there".
+        $result = Compare-PfbInventoryTupleSet -Baseline @(New-PfbTupleRow -Surface 'Typed' -WireName 'bucket_names') `
+            -Current @(New-PfbTupleRow -Surface 'AttributesOnly' -WireName $null -WireSurface 'Unresolved' -Method $null -Endpoint $null)
+        $result.Removed.Count | Should -Be 0
+        $result.Undeclared.Count | Should -Be 1
+        $result.IsClean | Should -BeFalse
+    }
+
+    It 'accepts a change that was declared with its exact before and after' {
+        $declaration = [PSCustomObject]@{
+            Key = 'Get-PfbThing|Zeta'
+            From = 'Typed|alpha|Query|GET|widgets'
+            To = 'Typed|beta|Query|GET|widgets'
+        }
+        $result = Compare-PfbInventoryTupleSet -Baseline @(New-PfbTupleRow) -Current @(New-PfbTupleRow -WireName 'beta') -DeclaredChange @($declaration)
+        $result.Changed.Count | Should -Be 1
+        $result.Undeclared.Count | Should -Be 0
+        $result.UnusedDeclaration.Count | Should -Be 0
+        $result.IsClean | Should -BeTrue
+    }
+
+    It 'refuses a declaration that names the right row but the wrong <Half>' -ForEach @(
+        @{ Half = 'before'; From = 'Typed|WRONG|Query|GET|widgets'; To = 'Typed|beta|Query|GET|widgets' }
+        @{ Half = 'after'; From = 'Typed|alpha|Query|GET|widgets'; To = 'Typed|WRONG|Query|GET|widgets' }
+    ) {
+        # "This row is expected to move" would pre-authorise every subsequent move on that row.
+        $declaration = [PSCustomObject]@{ Key = 'Get-PfbThing|Zeta'; From = $From; To = $To }
+        $result = Compare-PfbInventoryTupleSet -Baseline @(New-PfbTupleRow) -Current @(New-PfbTupleRow -WireName 'beta') -DeclaredChange @($declaration)
+        $result.Undeclared.Count | Should -Be 1
+        $result.UnusedDeclaration.Count | Should -Be 1
+        $result.IsClean | Should -BeFalse
+    }
+
+    It 'fails on a declaration that matched nothing, so the gate cannot rot into a rubber stamp' {
+        $declaration = [PSCustomObject]@{
+            Key = 'Get-PfbGone|Zeta'; From = 'Typed|alpha|Query|GET|widgets'; To = 'Typed|beta|Query|GET|widgets'
+        }
+        $rows = @(New-PfbTupleRow)
+        $result = Compare-PfbInventoryTupleSet -Baseline $rows -Current $rows -DeclaredChange @($declaration)
+        $result.Changed.Count | Should -Be 0
+        $result.UnusedDeclaration.Count | Should -Be 1
+        $result.IsClean | Should -BeFalse
+    }
+
+    It 'reports an added row without failing -- a new cmdlet legitimately adds rows' {
+        $result = Compare-PfbInventoryTupleSet -Baseline @(New-PfbTupleRow) `
+            -Current @(New-PfbTupleRow; New-PfbTupleRow -Cmdlet 'Get-PfbNewThing')
+        $result.Added | Should -Be @('Get-PfbNewThing|Zeta')
+        $result.IsClean | Should -BeTrue
+    }
+
+    It 'compares the <Component> ORDINALLY, so a case-only difference is a change' -ForEach @(
+        @{ Component = 'wire key'; First = @{ WireName = 'names' }; Second = @{ WireName = 'Names' } }
+        @{ Component = 'method'; First = @{ Method = 'GET' }; Second = @{ Method = 'get' } }
+        @{ Component = 'endpoint'; First = @{ Endpoint = 'widgets' }; Second = @{ Endpoint = 'Widgets' } }
+    ) {
+        # PowerShell's own -ne would judge every pair here equal and report a clean gate.
+        $result = Compare-PfbInventoryTupleSet -Baseline @(New-PfbTupleRow @First) -Current @(New-PfbTupleRow @Second)
+        $result.Changed.Count | Should -Be 1 -Because "a case-insensitive comparison would miss the $Component"
+        $result.IsClean | Should -BeFalse
+    }
+}

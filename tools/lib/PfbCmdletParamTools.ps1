@@ -702,11 +702,12 @@ function New-PfbWireLanding {
     }
 }
 
-function Get-PfbWireNameForParameter {
+function Resolve-PfbParameterWireLanding {
     <#
     .SYNOPSIS
-        Finds the request-body or query-string key a given parameter is assigned to
-        inside a cmdlet function body, or $null if no simple assignment pattern matches.
+        The whole wire-landing resolution of ONE parameter: the landings the winning idiom
+        proved, AND the single answer they arbitrate to -- returned together, so a caller can
+        tell an abstention from a silence.
     .DESCRIPTION
         Four idioms are tried in a fixed precedence, and the FIRST idiom that produces any
         proven landing answers -- including by abstaining. Precedence is between idioms only;
@@ -724,32 +725,32 @@ function Get-PfbWireNameForParameter {
         (Get-PfbHashtableLiteralWireLanding, Get-PfbNestedReferenceWireLanding), and the
         decision to answer is made on `landings.Count -gt 0` -- never on the truthiness of an
         arbitrated result, which cannot tell "found nothing" from "found landings that
-        disagreed". An earlier revision of this function got that right for the index tier
+        disagreed". An earlier revision of this resolver got that right for the index tier
         and wrong for the other three: a literal tier holding two disagreeing keys returned
         $null and the nested tier then published its own key, exactly the guess the tier
         order exists to prevent.
 
-        The one abstention that is NOT sticky lives inside
-        Get-PfbCommonQueryParamHelperWireName, which returns $null when two helper calls
-        disagree. That is harmless only because the helper tier is last, so its abstention
-        and its silence have the same consequence: no answer at all.
+        RETURNING BOTH HALVES is what carries that same distinction ACROSS the return, which
+        a lone arbitrated value cannot. `Resolution` is $null both when nothing was found and
+        when what was found disagreed; `Landings` is empty only in the first case. Issue #141
+        Task 4 introduced this shape because Get-PfbCmdletParameterInventory's accumulator
+        retry fired on the arbitrated $null, so a parameter that had just abstained had a
+        FIFTH source consulted on its behalf and could be published with a confident name --
+        an abstention laundered into an answer. That caller now retries only on an empty
+        `Landings`, i.e. only on genuine silence.
 
-        SCOPE OF THE INVARIANT -- it holds WITHIN this function, and stops at its return.
-        This function signals an abstention the only way its contract allows, by returning
-        $null, and $null is also how it signals silence. Its one production caller,
-        Get-PfbCmdletParameterInventory, retries through Find-PfbAccumulatorVariable whenever
-        the result is falsy, so an abstention here is read there as "nothing found" and a
-        fifth source is consulted. Measured: a parameter written to both $q['alpha'] and
-        $q['beta'] AND fed to an accumulator keyed at $q['names'] abstains here and still
-        emits a Typed row naming 'names'. No cmdlet in Public/ has that shape today -- neither
-        known multi-key parameter has an accumulator -- so this is latent, and it predates the
-        tier work rather than being introduced by it. A caller that must distinguish the two
-        cases has to consult the ...WireLanding producers directly; do not infer from a $null
-        here that no landings existed.
+        One abstention remains invisible here, and deliberately so: the one inside
+        Get-PfbCommonQueryParamHelperWireName, which returns $null when two helper calls
+        disagree. It collapses to an empty helper tier and so reads as silence. Surfacing it
+        would change which parameters reach the accumulator retry -- a resolution change --
+        and issue #141 Task 4 is required to leave every real-tree resolution tuple untouched.
+        It is recorded here rather than fixed silently.
     .OUTPUTS
-        $null, or [PSCustomObject]@{ WireName; TargetVariable; WireSurface; Method; Endpoint }.
-        TargetVariable is the payload variable the assignment targeted, or $null when the
-        landings came through more than one; WireSurface is 'Body', 'Query' or 'Unresolved'.
+        [PSCustomObject]@{ Landings; Resolution }.
+        Landings is the winning idiom's UNARBITRATED candidate array, empty when no idiom
+        proved anything at all. Resolution is Resolve-PfbWireLandingArbitration's verdict over
+        exactly those landings -- $null, or
+        [PSCustomObject]@{ WireName; TargetVariable; WireSurface; Method; Endpoint }.
     #>
     [CmdletBinding()]
     param(
@@ -784,7 +785,14 @@ function Get-PfbWireNameForParameter {
         }
     }
 
-    if ($landings.Count -gt 0) { return (Resolve-PfbWireLandingArbitration -Candidate $landings.ToArray()) }
+    # $null, never an empty array, means "no tier has answered yet": an empty array is falsy
+    # in PowerShell but so is a one-element array holding $null, and the tiers below are
+    # selected on `-eq $null` precisely so no truthiness rule is being relied on anywhere in
+    # this function. Every tier below is consulted for its LANDINGS, never for its arbitrated
+    # answer -- asking `if ($literalMatch)` instead would read an abstention as a miss and
+    # fall through, which is the whole failure this resolver exists to prevent.
+    $tierLandings = $null
+    if ($landings.Count -gt 0) { $tierLandings = $landings.ToArray() }
 
     # Second idiom: the whole hashtable is built as a LITERAL initializer rather than keyed
     # into afterwards -- `$queryParams = @{ 'names' = $Name }`, the dominant shape across
@@ -792,19 +800,19 @@ function Get-PfbWireNameForParameter {
     # New-PfbObjectStoreAccount, the whole Policy/*Rule family, ...). Runs after the index
     # form, not instead of it: a cmdlet routinely does both (literal initializer for its
     # -Name, then `$body['x'] = $X` lines), and both key sets must resolve.
-    #
-    # Every tier below is consulted for its LANDINGS, never for its arbitrated answer. Asking
-    # `if ($literalMatch)` instead would read an abstention as a miss and fall through, which
-    # is the whole failure this function exists to prevent -- see the .DESCRIPTION.
-    $literalLandings = @(Get-PfbHashtableLiteralWireLanding -FunctionAst $FunctionAst -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter)
-    if ($literalLandings.Count -gt 0) { return (Resolve-PfbWireLandingArbitration -Candidate $literalLandings) }
+    if ($null -eq $tierLandings) {
+        $literalLandings = @(Get-PfbHashtableLiteralWireLanding -FunctionAst $FunctionAst -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter)
+        if ($literalLandings.Count -gt 0) { $tierLandings = $literalLandings }
+    }
 
     # Third idiom: a nested single-key REFERENCE OBJECT -- `$body['account'] = @{ name =
     # $Account }` -- whose wire field is the OUTER key. Runs strictly after both direct
     # forms above so it can only ever add a resolution, never rename one: a parameter that
-    # already resolved via a direct assignment returned before reaching here.
-    $nestedLandings = @(Get-PfbNestedReferenceWireLanding -FunctionAst $FunctionAst -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter)
-    if ($nestedLandings.Count -gt 0) { return (Resolve-PfbWireLandingArbitration -Candidate $nestedLandings) }
+    # already resolved via a direct assignment stopped at the tier that proved it.
+    if ($null -eq $tierLandings) {
+        $nestedLandings = @(Get-PfbNestedReferenceWireLanding -FunctionAst $FunctionAst -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter)
+        if ($nestedLandings.Count -gt 0) { $tierLandings = $nestedLandings }
+    }
 
     # No literal assignment of any shape in this function body -- but the parameter may
     # still reach the wire through the shared Private/Add-PfbCommonQueryParams.ps1 helper,
@@ -812,14 +820,60 @@ function Get-PfbWireNameForParameter {
     # LAST: a cmdlet whose Name/Id-equivalent maps to a non-generic key (policy_names,
     # file_system_names, ...) kept its own explicit line after the helper call, and that
     # literal must win.
-    $helperLandings = [System.Collections.Generic.List[object]]::new()
-    foreach ($helperMatch in @(Get-PfbCommonQueryParamHelperWireName -FunctionAst $FunctionAst -ParameterName $ParameterName)) {
-        if (-not $helperMatch) { continue }
-        $landing = New-PfbWireLanding -FunctionAst $FunctionAst -WireName $helperMatch.WireName -TargetVariable $helperMatch.TargetVariable
-        if ($landing) { $helperLandings.Add($landing) }
+    if ($null -eq $tierLandings) {
+        $helperLandings = [System.Collections.Generic.List[object]]::new()
+        foreach ($helperMatch in @(Get-PfbCommonQueryParamHelperWireName -FunctionAst $FunctionAst -ParameterName $ParameterName)) {
+            if (-not $helperMatch) { continue }
+            $landing = New-PfbWireLanding -FunctionAst $FunctionAst -WireName $helperMatch.WireName -TargetVariable $helperMatch.TargetVariable
+            if ($landing) { $helperLandings.Add($landing) }
+        }
+        if ($helperLandings.Count -gt 0) { $tierLandings = $helperLandings.ToArray() }
     }
-    if ($helperLandings.Count -eq 0) { return $null }
-    return Resolve-PfbWireLandingArbitration -Candidate $helperLandings.ToArray()
+
+    if ($null -eq $tierLandings) {
+        return [PSCustomObject]@{ Landings = @(); Resolution = $null }
+    }
+
+    return [PSCustomObject]@{
+        Landings   = @($tierLandings)
+        Resolution = (Resolve-PfbWireLandingArbitration -Candidate $tierLandings)
+    }
+}
+
+function Get-PfbWireNameForParameter {
+    <#
+    .SYNOPSIS
+        Finds the request-body or query-string key a given parameter is assigned to
+        inside a cmdlet function body, or $null if no simple assignment pattern matches.
+    .DESCRIPTION
+        A thin projection of Resolve-PfbParameterWireLanding onto its arbitrated half. All of
+        the tier precedence, the within-tier arbitration and the sticky-abstention invariant
+        live there; see that function's .DESCRIPTION.
+
+        SCOPE OF THE INVARIANT -- the stickiness holds inside the resolver and stops at THIS
+        function's return, because $null is the only signal this shape has and it is spent
+        twice: once for "no idiom proved anything" and once for "an idiom proved landings that
+        disagreed". A caller that must tell those apart -- Get-PfbCmdletParameterInventory
+        must, or its accumulator retry launders an abstention into a confident name -- calls
+        Resolve-PfbParameterWireLanding and reads `Landings`. Do not infer from a $null here
+        that no landings existed.
+    .OUTPUTS
+        $null, or [PSCustomObject]@{ WireName; TargetVariable; WireSurface; Method; Endpoint }.
+        TargetVariable is the payload variable the assignment targeted, or $null when the
+        landings came through more than one; WireSurface is 'Body', 'Query' or 'Unresolved'.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Language.FunctionDefinitionAst]$FunctionAst,
+
+        [Parameter(Mandatory)]
+        [string]$ParameterName,
+
+        [switch]$IsBooleanLikeParameter
+    )
+
+    return (Resolve-PfbParameterWireLanding -FunctionAst $FunctionAst -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter).Resolution
 }
 
 function Get-PfbHashtableLiteralWireNameForParameter {
@@ -1276,7 +1330,7 @@ function Get-PfbRequestRoleForVariable {
     # operations this function is supposed to be able to tell apart. List[string].Contains is
     # ordinal, so differing case reads as differing operations, which matches the ordinal
     # comparison Resolve-PfbWireLandingArbitration uses. Every -Method argument in Public/ is
-    # upper case today (all 544 of them), so this costs nothing and forecloses a guess.
+    # upper case today (all 541 of them), so this costs nothing and forecloses a guess.
     $distinctOperations = [System.Collections.Generic.List[string]]::new()
     foreach ($landing in $landings) {
         $operation = ''
@@ -1473,6 +1527,119 @@ function Get-PfbCmdletBodyInsertionTarget {
     }
 }
 
+# Every value Get-PfbCmdletParameterInventory can put in a row's Surface field. Consumers
+# branch on Surface EXHAUSTIVELY against this list rather than on "not Typed", so adding a
+# value here is a compile-time-ish event: the consumers throw on a Surface they were never
+# taught, instead of quietly folding it into whichever bucket their negation happened to
+# catch. See tools/lib/PfbApiDriftTools.ps1's Get-PfbParameterCoverageGaps.
+#
+# The two NON-APPLICABLE values are the point of issue #141 Task 4. Before it, a parameter
+# that is not a wire field AT ALL was indistinguishable from one whose wire field this
+# AST-only resolver merely failed to find, so it lowered the drift report's confidence in
+# every endpoint its cmdlet reaches -- doubt manufactured out of a parameter that could not
+# have covered a gap in the first place.
+$script:PfbParameterSurfaces = @(
+    # The parameter's wire key is proven.
+    'Typed'
+    # Not proven, and the cmdlet exposes an -Attributes escape hatch the field may reach through.
+    'AttributesOnly'
+    # Not proven, and there is no escape hatch either -- a real gap in this resolver's reach.
+    'TypedUnresolved'
+    # NON-APPLICABLE: an audited request control, not a field. See $script:PfbNotWireParameters.
+    'NotWireParameter'
+    # NON-APPLICABLE: the declaring function issues no Invoke-PfbApiRequest call at all.
+    'OutsideStandardRequest'
+)
+
+# The audited allowlist behind the 'NotWireParameter' surface: parameters that are proven, by
+# reading the cmdlet, to steer the request rather than to appear in it. Every entry was read
+# individually -- this is the one place in this file where a fact is asserted by a human
+# rather than resolved from the AST, so it is deliberately an enumeration of exact
+# 'Cmdlet|Parameter' identities and NOT a name pattern. `-Eradicate` and `-Force` as SHAPES
+# mean nothing: New-PfbFileSystem's body switches are switches too, and a future
+# `-Eradicate` that did become a wire field would be silently mis-filed by any rule keyed on
+# the name. Tests/PfbCmdletParamTools.Tests.ps1 re-validates every entry against the real
+# Public/ AST, so an entry that goes stale (its cmdlet or parameter disappears, or the
+# parameter acquires a provable wire landing) fails the suite rather than rotting here.
+#
+#   Remove-PfbBucket|Eradicate               `if (-not $Eradicate)` selects which request to
+#   Remove-PfbFileSystem|Eradicate           issue (destroy vs. eradicate) and gates the
+#   Remove-PfbFileSystemSnapshot|Eradicate   ShouldProcess prompt; it is never keyed into a
+#   Remove-PfbRealm|Eradicate                payload.
+#   Remove-PfbServer|Eradicate
+#   Remove-PfbFileSystemSession|Force        `if (-not $Force) { throw ... }` decides whether
+#                                            any request is made at all.
+$script:PfbNotWireParameters = @(
+    'Remove-PfbBucket|Eradicate'
+    'Remove-PfbFileSystem|Eradicate'
+    'Remove-PfbFileSystemSession|Force'
+    'Remove-PfbFileSystemSnapshot|Eradicate'
+    'Remove-PfbRealm|Eradicate'
+    'Remove-PfbServer|Eradicate'
+)
+
+function Get-PfbParameterSurfaceName {
+    <#
+    .SYNOPSIS
+        Every legal value of an inventory row's Surface field, in classification order.
+    .DESCRIPTION
+        Exposed as a function rather than read as $script:PfbParameterSurfaces by consumers
+        and tests, so the single source of truth survives being dot-sourced into a Pester
+        scope where a $script:-qualified read resolves against the test file instead.
+    .OUTPUTS
+        [string[]]
+    #>
+    [CmdletBinding()]
+    param()
+    return @($script:PfbParameterSurfaces)
+}
+
+function Get-PfbNotWireParameterAllowlist {
+    <#
+    .SYNOPSIS
+        The audited 'Cmdlet|Parameter' identities classified 'NotWireParameter'.
+    .OUTPUTS
+        [string[]], each entry '<Cmdlet>|<Parameter>'.
+    #>
+    [CmdletBinding()]
+    param()
+    return @($script:PfbNotWireParameters)
+}
+
+function Test-PfbFunctionMakesStandardRequest {
+    <#
+    .SYNOPSIS
+        Whether a function issues at least one Invoke-PfbApiRequest call.
+    .DESCRIPTION
+        The structural fact behind the 'OutsideStandardRequest' surface. A function with no
+        such call has no request for a parameter to land in, so NONE of its parameters can
+        resolve -- New-PfbWireLanding refuses every candidate for want of a role -- and
+        reporting all of them as "wire name unresolved" describes a failure that never
+        happened. Connect-PfbArray, Set-PfbContext, Set-PfbCredential and Invoke-PfbInContext
+        are the real shapes: connection, context and credential plumbing.
+
+        Deliberately a plain "does this call exist" question and NOT an attempt to decide
+        whether the cmdlet reaches the API by some other route. A cmdlet that reaches it
+        through a Private/ helper would be misdescribed by the NAME of this surface, so the
+        name says exactly what is measured: outside the standard request path.
+    .OUTPUTS
+        [bool]
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Language.FunctionDefinitionAst]$FunctionAst
+    )
+
+    $calls = @($FunctionAst.FindAll({
+        param($node)
+        $node -is [System.Management.Automation.Language.CommandAst] -and
+        $node.GetCommandName() -eq 'Invoke-PfbApiRequest'
+    }, $true))
+
+    return ($calls.Count -gt 0)
+}
+
 function Get-PfbCmdletParameterInventory {
     <#
     .SYNOPSIS
@@ -1492,6 +1659,20 @@ function Get-PfbCmdletParameterInventory {
 
         Endpoint/Method are $null unless every landing of the parameter agrees on one
         literal Invoke-PfbApiRequest (method, endpoint) pair -- never guessed.
+
+        Surface is one of Get-PfbParameterSurfaceName's five values, decided in that order:
+          - 'Typed' -- a wire key was proven.
+          - 'OutsideStandardRequest' -- the declaring function issues no Invoke-PfbApiRequest
+            call, so there is no request for this parameter to have landed in. NON-APPLICABLE:
+            not an unresolved wire name, and never a reason to doubt an endpoint's gap list.
+          - 'NotWireParameter' -- an audited request control
+            (Get-PfbNotWireParameterAllowlist). Also NON-APPLICABLE.
+          - 'AttributesOnly' -- unresolved, but the cmdlet has an -Attributes escape hatch.
+          - 'TypedUnresolved' -- unresolved with no escape hatch.
+        The last two are the only ones that lower a consumer's confidence. Splitting the two
+        non-applicable states out of them is issue #141 Task 4: before it, 34 real parameters
+        that are not wire fields at all were reported as wire names this resolver had failed
+        to find, and each one cast doubt on every endpoint its cmdlet reaches.
 
         Line is the parameter's own declaration line ($p.Extent.StartLineNumber),
         alongside the File it already carried -- so a consumer reporting on a
@@ -1523,6 +1704,9 @@ function Get-PfbCmdletParameterInventory {
             if (-not $paramBlock) { continue }
 
             $hasAttributesParam = [bool]($paramBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'Attributes' })
+            # Hoisted out of the parameter loop: it is a fact about the FUNCTION, and asking
+            # it per parameter would re-walk the whole function body once per declaration.
+            $makesStandardRequest = Test-PfbFunctionMakesStandardRequest -FunctionAst $funcAst
 
             foreach ($p in $paramBlock.Parameters) {
                 $paramName = $p.Name.VariablePath.UserPath
@@ -1544,8 +1728,18 @@ function Get-PfbCmdletParameterInventory {
                     [bool]
                     [System.Nullable[bool]]
                 )
-                $wireInfo = Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName $paramName -IsBooleanLikeParameter:$isBooleanLike
-                if (-not $wireInfo) {
+                # Resolve-PfbParameterWireLanding, not Get-PfbWireNameForParameter: the retry
+                # below must fire on SILENCE only, and the arbitrated value alone cannot tell
+                # silence from an abstention (both are $null). Retrying after an abstention
+                # consults a FIFTH source on behalf of a parameter whose own evidence had just
+                # been ruled contradictory, and republishes it with a confident name -- the
+                # exact laundering the tier stickiness exists to prevent, escaping through the
+                # caller. Measured before the fix: a parameter written to both $q['alpha'] and
+                # $q['beta'] AND fed to an accumulator keyed at $q['names'] emitted a Typed row
+                # naming 'names'.
+                $primary = Resolve-PfbParameterWireLanding -FunctionAst $funcAst -ParameterName $paramName -IsBooleanLikeParameter:$isBooleanLike
+                $wireInfo = $primary.Resolution
+                if ($primary.Landings.Count -eq 0) {
                     $accumulatorName = Find-PfbAccumulatorVariable -FunctionAst $funcAst -ParameterName $paramName
                     if ($accumulatorName) {
                         $wireInfo = Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName $accumulatorName
@@ -1553,7 +1747,17 @@ function Get-PfbCmdletParameterInventory {
                 }
                 $wireName = if ($wireInfo) { $wireInfo.WireName } else { $null }
 
+                # Classification order matters, and is asserted by the Surface ladder tests.
+                # The two NON-APPLICABLE states are tested BEFORE the two unresolved ones
+                # because they are answers, not failures: 'OutsideStandardRequest' first
+                # because it is a property of the whole function and subsumes every parameter
+                # on it, then the audited per-parameter allowlist. 'Typed' still outranks both
+                # -- a proven landing is a proven landing, and the allowlist is re-validated
+                # against the real AST by the suite precisely so an entry that acquires one
+                # fails loudly rather than being shadowed here.
                 $surface = if ($wireName) { 'Typed' }
+                elseif (-not $makesStandardRequest) { 'OutsideStandardRequest' }
+                elseif ($script:PfbNotWireParameters -contains ('{0}|{1}' -f $funcAst.Name, $paramName)) { 'NotWireParameter' }
                 elseif ($hasAttributesParam) { 'AttributesOnly' }
                 else { 'TypedUnresolved' }
 
@@ -1599,4 +1803,131 @@ function Get-PfbCmdletParameterInventory {
     # could reintroduce the very divergence this removes. File/Line are tiebreakers only,
     # for the (not currently occurring) case of one function name declared twice.
     return @($results | Sort-Object -Property Cmdlet, Parameter, File, Line -Culture '')
+}
+
+function Get-PfbInventoryTupleSet {
+    <#
+    .SYNOPSIS
+        Reduces an inventory to the row-identity -> resolution-tuple map the regression gate
+        compares.
+    .DESCRIPTION
+        Identity is 'Cmdlet|Parameter'; the tuple is
+        'Surface|WireName|WireSurface|Method|Endpoint', with $null rendered as the empty
+        string. TargetVariable is deliberately NOT in the tuple: it names the local variable a
+        landing came through, so it changes whenever the resolver's internal accounting does
+        (issue #141 Task 3 nulled it for Remove-PfbFileSystem -DeleteLinkOnEradication, which
+        now proves two landings) without any consumer reading it and without one byte of the
+        request changing. File and Line are out for the same reason in reverse -- they move
+        whenever anyone edits a cmdlet, and would swamp a real regression in noise.
+    .OUTPUTS
+        [System.Collections.Generic.Dictionary[string,string]], ordinal-keyed.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [object[]]$Inventory
+    )
+
+    $set = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::Ordinal)
+    foreach ($row in $Inventory) {
+        if ($null -eq $row) { continue }
+        $key = '{0}|{1}' -f $row.Cmdlet, $row.Parameter
+        $set[$key] = '{0}|{1}|{2}|{3}|{4}' -f $row.Surface, $row.WireName, $row.WireSurface, $row.Method, $row.Endpoint
+    }
+    return $set
+}
+
+function Compare-PfbInventoryTupleSet {
+    <#
+    .SYNOPSIS
+        The row-level regression gate for a resolver change: every inventory row that
+        disappeared, and every row whose resolution tuple moved without being declared.
+    .DESCRIPTION
+        Issue #141 Task 4 exists because a resolver change can WITHDRAW a resolution as
+        easily as add one, and the totals do not show it -- Update-PfbBucketAuditFilter
+        -BucketName went from a confident 'bucket_names' to unresolved while the Typed count
+        went UP, and the only thing that caught it was a human diffing rows by hand inside a
+        code review. This makes that diff runnable.
+
+        A change is tolerated only when it is DECLARED, and a declaration must name the exact
+        before and after tuple, not just the row: "this row is expected to move" would let any
+        subsequent move through unseen. Comparison is ordinal throughout, matching
+        Resolve-PfbWireLandingArbitration -- 'names' and 'Names' are different answers.
+
+        A declaration that matched nothing is reported in UnusedDeclaration and fails the
+        gate. A stale declaration is how a gate rots into a rubber stamp: it silently pre-
+        authorises whatever change later happens to land on that row.
+
+        Added rows are reported but never fail: a new cmdlet legitimately adds rows, and this
+        gate is about what the resolver stopped knowing.
+    .PARAMETER DeclaredChange
+        Objects with Key ('<Cmdlet>|<Parameter>'), From and To (tuple strings, as
+        Get-PfbInventoryTupleSet renders them).
+    .OUTPUTS
+        [PSCustomObject]@{ Removed; Added; Changed; Undeclared; UnusedDeclaration; IsClean }.
+        Removed/Added are [string[]] of row identities. Changed/Undeclared are
+        [PSCustomObject]@{ Key; From; To }[]. IsClean is $true only when nothing was removed,
+        every change was declared, and every declaration was used.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [object[]]$Baseline,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [object[]]$Current,
+
+        [AllowEmptyCollection()]
+        [object[]]$DeclaredChange = @()
+    )
+
+    $baselineSet = Get-PfbInventoryTupleSet -Inventory $Baseline
+    $currentSet = Get-PfbInventoryTupleSet -Inventory $Current
+
+    $removed = [System.Collections.Generic.List[string]]::new()
+    $changed = [System.Collections.Generic.List[object]]::new()
+    foreach ($key in $baselineSet.get_Keys()) {
+        if (-not $currentSet.ContainsKey($key)) { $removed.Add($key); continue }
+        if (-not [string]::Equals($baselineSet[$key], $currentSet[$key], [System.StringComparison]::Ordinal)) {
+            $changed.Add([PSCustomObject]@{ Key = $key; From = $baselineSet[$key]; To = $currentSet[$key] })
+        }
+    }
+
+    $added = [System.Collections.Generic.List[string]]::new()
+    foreach ($key in $currentSet.get_Keys()) {
+        if (-not $baselineSet.ContainsKey($key)) { $added.Add($key) }
+    }
+
+    $declarations = @($DeclaredChange | Where-Object { $null -ne $_ })
+    $matchedDeclaration = [System.Collections.Generic.List[object]]::new()
+    $undeclared = [System.Collections.Generic.List[object]]::new()
+    foreach ($change in $changed) {
+        $hit = $null
+        foreach ($declaration in $declarations) {
+            if ([string]::Equals([string]$declaration.Key, $change.Key, [System.StringComparison]::Ordinal) -and
+                [string]::Equals([string]$declaration.From, $change.From, [System.StringComparison]::Ordinal) -and
+                [string]::Equals([string]$declaration.To, $change.To, [System.StringComparison]::Ordinal)) {
+                $hit = $declaration
+                break
+            }
+        }
+        if ($hit) { $matchedDeclaration.Add($hit) } else { $undeclared.Add($change) }
+    }
+
+    $unusedDeclaration = [System.Collections.Generic.List[object]]::new()
+    foreach ($declaration in $declarations) {
+        if (-not $matchedDeclaration.Contains($declaration)) { $unusedDeclaration.Add($declaration) }
+    }
+
+    return [PSCustomObject]@{
+        Removed           = $removed.ToArray()
+        Added             = $added.ToArray()
+        Changed           = $changed.ToArray()
+        Undeclared        = $undeclared.ToArray()
+        UnusedDeclaration = $unusedDeclaration.ToArray()
+        IsClean           = ($removed.Count -eq 0 -and $undeclared.Count -eq 0 -and $unusedDeclaration.Count -eq 0)
+    }
 }
