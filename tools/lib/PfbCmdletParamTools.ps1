@@ -733,6 +733,19 @@ function Get-PfbWireNameForParameter {
         Get-PfbCommonQueryParamHelperWireName, which returns $null when two helper calls
         disagree. That is harmless only because the helper tier is last, so its abstention
         and its silence have the same consequence: no answer at all.
+
+        SCOPE OF THE INVARIANT -- it holds WITHIN this function, and stops at its return.
+        This function signals an abstention the only way its contract allows, by returning
+        $null, and $null is also how it signals silence. Its one production caller,
+        Get-PfbCmdletParameterInventory, retries through Find-PfbAccumulatorVariable whenever
+        the result is falsy, so an abstention here is read there as "nothing found" and a
+        fifth source is consulted. Measured: a parameter written to both $q['alpha'] and
+        $q['beta'] AND fed to an accumulator keyed at $q['names'] abstains here and still
+        emits a Typed row naming 'names'. No cmdlet in Public/ has that shape today -- neither
+        known multi-key parameter has an accumulator -- so this is latent, and it predates the
+        tier work rather than being introduced by it. A caller that must distinguish the two
+        cases has to consult the ...WireLanding producers directly; do not infer from a $null
+        here that no landings existed.
     .OUTPUTS
         $null, or [PSCustomObject]@{ WireName; TargetVariable; WireSurface; Method; Endpoint }.
         TargetVariable is the payload variable the assignment targeted, or $null when the
