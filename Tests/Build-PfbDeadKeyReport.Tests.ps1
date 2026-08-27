@@ -194,6 +194,11 @@ Describe 'Build-PfbDeadKeyReport regeneration (real spec cache required, PS7 onl
         $oneLevelNames = @(if ($oneLevel.properties) { $oneLevel.properties.PSObject.Properties.Name } else { @() })
         $oneLevelNames | Should -Not -Contain 'flagged' -Because "a one-level read must MISS 'flagged' for the WRONG-SURFACE assertion to be a real test of allOf resolution. It saw: [$($oneLevelNames -join ', ')]"
 
+        # -MaxDepth 32 states the depth the generator inherits, but this call does NOT exercise
+        # it: measured, the walker at its SIGNATURE DEFAULT of 8 also returns all 18 properties
+        # of PATCH /alerts including 'flagged', so 32-vs-8 is unobservable at this call site.
+        # The issue #71 truncation lives in the fb2.12-2.16 allOf chains, not this one -- do not
+        # read this line as a demonstration of that hazard.
         $walked = @(Get-PfbSchemaPropertyNames -Schema $mediaSchema -Spec $spec -MaxDepth 32)
         $walked | Should -Contain 'flagged' -Because "Get-PfbSchemaPropertyNames resolves `$ref and allOf, so it must see the property the one-level read missed. It saw: [$($walked -join ', ')]"
     }
@@ -314,6 +319,13 @@ Describe 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cach
                             other_body_field = [PSCustomObject]@{ type = 'string' }
                         }
                     }
+                    # Used by BOTH endpoint-case fixtures below, so the mixed-case case and its
+                    # lowercase control differ in exactly one thing: the case of the endpoint.
+                    SyntheticEndpointPatch  = [PSCustomObject]@{
+                        properties = [PSCustomObject]@{
+                            archived = [PSCustomObject]@{ type = 'boolean' }
+                        }
+                    }
                     SyntheticUndeclaredPost = [PSCustomObject]@{
                         properties = [PSCustomObject]@{
                             other_field = [PSCustomObject]@{ type = 'string' }
@@ -381,6 +393,48 @@ Describe 'Build-PfbDeadKeyReport classification (synthetic fixture, no spec cach
                             content = [PSCustomObject]@{
                                 'application/json' = [PSCustomObject]@{
                                     schema = [PSCustomObject]@{ '$ref' = '#/components/schemas/SyntheticUndeclaredPost' }
+                                }
+                            }
+                        }
+                    }
+                }
+                # ENDPOINT-CASE PAIR. Both paths are spelt lower-case here; the cmdlets below
+                # send 'Widgets' (mixed) and 'gadgets' (lower). The declaration index is keyed
+                # on the endpoint, and the deadness gate reaches the spec through PSObject
+                # property access on a ConvertFrom-Json object, which is case-INSENSITIVE -- so
+                # a record whose -Endpoint literal differs in case from the spec path key
+                # passes the gate and reaches classification. An ordinal-exact endpoint key
+                # would then miss the index entirely and publish UNDECLARED: an assertion of
+                # absence about a key this same generator can see. The pair makes that
+                # difference observable; without the lowercase control, a red could equally
+                # mean the fixture itself is malformed.
+                "/api/$fixtureVersion/widgets"              = [PSCustomObject]@{
+                    get   = [PSCustomObject]@{
+                        parameters = @(
+                            [PSCustomObject]@{ name = 'limit'; 'in' = 'query' }
+                        )
+                    }
+                    patch = [PSCustomObject]@{
+                        requestBody = [PSCustomObject]@{
+                            content = [PSCustomObject]@{
+                                'application/json' = [PSCustomObject]@{
+                                    schema = [PSCustomObject]@{ '$ref' = '#/components/schemas/SyntheticEndpointPatch' }
+                                }
+                            }
+                        }
+                    }
+                }
+                "/api/$fixtureVersion/gadgets"              = [PSCustomObject]@{
+                    get   = [PSCustomObject]@{
+                        parameters = @(
+                            [PSCustomObject]@{ name = 'limit'; 'in' = 'query' }
+                        )
+                    }
+                    patch = [PSCustomObject]@{
+                        requestBody = [PSCustomObject]@{
+                            content = [PSCustomObject]@{
+                                'application/json' = [PSCustomObject]@{
+                                    schema = [PSCustomObject]@{ '$ref' = '#/components/schemas/SyntheticEndpointPatch' }
                                 }
                             }
                         }
@@ -576,6 +630,34 @@ function Remove-PfbBucket {
 }
 '@
 
+        # The endpoint-case pair. -Endpoint 'Widgets' vs the spec's '/api/9.9/widgets' is the
+        # ONLY difference between these two cmdlets; 'gadgets' is the lowercase control, and it
+        # must classify identically under shipped code and stay green under an ordinal-exact
+        # index, so a red on the mixed-case one can only mean the case divergence.
+        Set-Content -LiteralPath (Join-Path $fixturePublicDirectory 'Get-PfbSyntheticMixedCaseEndpoint.ps1') -Encoding UTF8 -Value @'
+function Get-PfbSyntheticMixedCaseEndpoint {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [bool]$Stowed,
+        [Parameter()] [PSCustomObject]$Array
+    )
+    $queryParams = @{ 'archived' = $Stowed }
+    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'Widgets' -QueryParams $queryParams
+}
+'@
+
+        Set-Content -LiteralPath (Join-Path $fixturePublicDirectory 'Get-PfbSyntheticLowerCaseEndpoint.ps1') -Encoding UTF8 -Value @'
+function Get-PfbSyntheticLowerCaseEndpoint {
+    [CmdletBinding()]
+    param(
+        [Parameter()] [bool]$Stowed,
+        [Parameter()] [PSCustomObject]$Array
+    )
+    $queryParams = @{ 'archived' = $Stowed }
+    Invoke-PfbApiRequest -Array $Array -Method GET -Endpoint 'gadgets' -QueryParams $queryParams
+}
+'@
+
         $script:syntheticReportPath = Join-Path $fixtureWorkRoot 'synthetic.json'
         & $generatorPath `
             -SpecsDirectory $fixtureSpecsDirectory `
@@ -697,10 +779,44 @@ function Remove-PfbBucket {
         # a dead key would find a declaration on some other path and this file's three
         # classification arms would all still pass. Asserting that no dead key in the whole
         # synthetic population claims a Body site it cannot have is what closes that.
+        # The three body-bearing fixture paths are listed by name rather than skipped by a
+        # pattern: any NEW fixture path with a request body must be added here consciously,
+        # which is the point -- a wildcard would quietly re-open the hole.
+        $bodyBearing = @('synthetic/surface', 'Widgets', 'gadgets')
         $leaks = @(@($syntheticReport.deadKeys) | Where-Object {
-            $_.endpoint -ne 'synthetic/surface' -and @($_.declaredElsewhere | Where-Object { $_.surface -eq 'Body' }).Count -gt 0
+            $_.endpoint -notin $bodyBearing -and @($_.declaredElsewhere | Where-Object { $_.surface -eq 'Body' }).Count -gt 0
         } | ForEach-Object { "$($_.cmdlet)|$($_.parameter) on $($_.endpoint)" })
-        @($leaks) -join '; ' | Should -BeNullOrEmpty -Because 'synthetic/surface is the only fixture path with a request body, so a Body provenance anywhere else means the declaration index is not keyed per endpoint'
+        @($leaks) -join '; ' | Should -BeNullOrEmpty -Because "only [$($bodyBearing -join ', ')] carry a request body in this fixture, so a Body provenance on any other endpoint means the declaration index is not keyed per endpoint"
+    }
+
+    It 'matches the declaration index on the endpoint case-insensitively, exactly as the gate does' {
+        # The endpoint axis of the same argument the key axis already carries: the deadness
+        # gate reaches the spec through PSObject property access on a ConvertFrom-Json object,
+        # which is case-INSENSITIVE, so a cmdlet whose -Endpoint literal differs in case from
+        # the spec path key is still gated normally and still reaches classification. An index
+        # keyed ordinal-exactly would miss it and publish UNDECLARED -- a positive assertion
+        # that nothing on the endpoint declares the key, about a key this same generator can
+        # see one line earlier. That is the strictly worse failure direction, so it is asserted
+        # rather than assumed.
+        #
+        # Not a live defect today: all 85 real dead-key endpoint literals match a normalized
+        # spec path exactly. This guards a future ordinal hardening, which is a plausible and
+        # well-intentioned change.
+        $mixed = @(@($syntheticReport.deadKeys) | Where-Object { $_.cmdlet -eq 'Get-PfbSyntheticMixedCaseEndpoint' })
+        @($mixed).Count | Should -Be 1 -Because "-Stowed writes 'archived' on GET Widgets, and the gate resolves '/api/$fixtureVersion/Widgets' against the lower-case spec key, so the key is dead and reaches classification. Reported dead keys were: $syntheticDeadKeyText"
+        $mixed[0].endpoint | Should -Be 'Widgets' -Because 'the record must keep the literal the cmdlet itself wrote; a normalising rewrite here would hide the divergence this test exists to exercise'
+        $mixed[0].classification | Should -Be 'WRONG-SURFACE' -Because "PATCH widgets declares 'archived' as a body property. UNDECLARED here means the index is keyed more strictly than the gate. declaredElsewhere was: $(@($mixed[0].declaredElsewhere | ForEach-Object { "$($_.method)/$($_.surface)" }) -join ', ')"
+        @($mixed[0].declaredElsewhere).Count | Should -Be 1 -Because 'the one PATCH body declaration is the whole provenance'
+        @($mixed[0].declaredElsewhere | ForEach-Object { "$($_.method)/$($_.surface)" }) | Should -Be @('PATCH/Body')
+
+        # THE CONTROL. Identical fixture in every respect except that its endpoint literal
+        # matches the spec path case, so it classifies the same way with or without
+        # case-insensitive endpoint keys. If the assertion above ever reds while this one is
+        # green, the case divergence is the only remaining explanation.
+        $lower = @(@($syntheticReport.deadKeys) | Where-Object { $_.cmdlet -eq 'Get-PfbSyntheticLowerCaseEndpoint' })
+        @($lower).Count | Should -Be 1 -Because "the control must itself be a dead key, or it controls for nothing. Reported dead keys were: $syntheticDeadKeyText"
+        $lower[0].classification | Should -Be 'WRONG-SURFACE' -Because 'the control shares the spec shape, key and verb of the mixed-case fixture, so a difference between the two can only come from the endpoint case'
+        @($lower[0].declaredElsewhere | ForEach-Object { "$($_.method)/$($_.surface)" }) | Should -Be @('PATCH/Body')
     }
 
     It 'counts a parameter of a function that issues no request as outside standard request, not unresolved' {

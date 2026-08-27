@@ -185,10 +185,19 @@ function Get-PfbDeadKeyDeclarationIndex {
           2. It hops a `type: array` request body onto its `items` element schema (issue #82).
              A bespoke `Get-PfbSchemaPropertyNames -Schema $op.requestBody.content.<type>.schema`
              call has nothing to descend for an array body and silently records zero body
-             properties.
+             properties. RESIDUAL, stated because it is a real loss of precision and not a
+             bug: a Body site found inside an array ELEMENT reads identically to a top-level
+             one, so `declaredElsewhere` cannot tell "the field belongs on each element of the
+             posted array" from "the field belongs on the body object". It is the right trade
+             anyway -- omitting the hop manufactures a false UNDECLARED, an assertion of
+             absence, which is the worse direction -- and it publishes nothing false today:
+             measured on fb2.28, ZERO dead keys fall on an array-bodied operation.
           3. It reads body schemas at MaxDepth 32, not the helpers' own default of 8. Depth 8
              truncates the fb2.12-2.16 allOf chains (issue #71); a bespoke walk would have to
-             re-decide that value, and the cheap wrong answer is to accept the default.
+             re-decide that value, and the cheap wrong answer is to accept the default. Note
+             that 32 is INHERITED, not pinned here: the call below passes no -MaxDepth, so the
+             value comes from Get-PfbSpecCapabilities' own default (tools/lib/PfbSpecTools.ps1).
+             Lowering that default would silently lower this report's depth too.
 
         WHAT IT DELIBERATELY DOES *NOT* TAKE FROM THAT FUNCTION IS `Parameters`. That field is
         every parameter regardless of `in:` location, not the query ones. Measured on fb2.28:
@@ -408,9 +417,18 @@ foreach ($record in $inventory) {
     $classification = Get-PfbDeadKeyClassification -DeclarationSite @($declarationSites) -Method $method
 
     # Deduplicate BEFORE sorting. Sort-PfbDeadKeyRecords is an unstable introsort (see its
-    # header), so it is deterministic only over unique keys -- and (Method, Surface) is unique
-    # here precisely because this loop collapses it. One operation can legitimately declare the
-    # same key on both surfaces, which is why Surface is a sort key and not only a label.
+    # header), so it is deterministic only over unique keys, and a duplicate (Method, Surface)
+    # pair would make the COMMITTED artifact's byte order depend on .NET's partitioning -- a
+    # diff that changes with no input change. That is why this dedup is load-bearing rather
+    # than tidiness.
+    #
+    # A duplicate pair is not produced by any spec we pin -- measured on fb2.28: 0 duplicate
+    # (Path, Method) groups across 264 normalized paths, exact-case and case-insensitive -- but
+    # the claim stops there, and deliberately: the index build adds one entry per capability
+    # record with no per-method collapse, so any spec whose version-prefixed path keys normalize
+    # NON-INJECTIVELY onto one endpoint reaches this loop with the same (Method, Surface) twice.
+    # One operation can also legitimately declare the same key on both surfaces, which is why
+    # Surface is a sort key and not only a label.
     $seenSites = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     $uniqueSites = [System.Collections.Generic.List[object]]::new()
     foreach ($site in $declarationSites) {
