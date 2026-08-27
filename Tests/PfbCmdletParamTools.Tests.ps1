@@ -2530,6 +2530,41 @@ Describe 'An abstention is sticky at EVERY tier boundary (issue #141 Task 3)' {
         Get-PfbNestedReferenceWireNameForParameter -FunctionAst $funcAst -ParameterName 'Zeta' | Should -BeNullOrEmpty
         Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Zeta' | Should -BeNullOrEmpty
     }
+
+    It 'abstains when the nested LITERAL sub-form alone finds two disagreeing landings' {
+        # The sibling test above proves the INDEX sub-form does not fall through to the LITERAL
+        # one. It cannot prove the literal sub-form ARBITRATES rather than taking its first
+        # landing, because the index sub-form answers before the literal one is ever reached.
+        # With no index assignment at all the literal sub-form is the only producer, and
+        # returning $literalLandings[0] instead of arbitrating over the whole array survives
+        # every other test in this file -- measured as a surviving mutant in review, on exactly
+        # this fixture.
+        $source = @(
+            'function Test-Fixture {'
+            '    param([string]$Zeta)'
+            '    $q = @{ ''gamma'' = @{ name = $Zeta }; ''delta'' = @{ name = $Zeta } }'
+            '    Invoke-PfbApiRequest -Method PATCH -Endpoint ''widgets'' -QueryParams $q'
+            '}'
+        )
+
+        # Control: one outer key alone resolves, so this fixture shape is capable of answering
+        # and the refusal below is the disagreement talking, not an inert fixture.
+        $controlAst = Get-PfbRoleFixtureAst @(
+            'function Test-Fixture {'
+            '    param([string]$Zeta)'
+            '    $q = @{ ''gamma'' = @{ name = $Zeta } }'
+            '    Invoke-PfbApiRequest -Method PATCH -Endpoint ''widgets'' -QueryParams $q'
+            '}'
+        )
+        (Get-PfbNestedReferenceWireNameForParameter -FunctionAst $controlAst -ParameterName 'Zeta').WireName |
+            Should -Be 'gamma'
+
+        # Both outer keys are real landings on the same variable, role and operation, differing
+        # only in the wire name -- so no name is provable and the whole resolution is refused.
+        $funcAst = Get-PfbRoleFixtureAst $source
+        Get-PfbNestedReferenceWireNameForParameter -FunctionAst $funcAst -ParameterName 'Zeta' | Should -BeNullOrEmpty
+        Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName 'Zeta' | Should -BeNullOrEmpty
+    }
 }
 
 Describe 'Landing components are compared ORDINALLY (issue #141 Task 3)' {
