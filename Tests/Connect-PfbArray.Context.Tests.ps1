@@ -1,4 +1,7 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0' }
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '',
+    Justification = 'Test fixture credential built from a literal; no other idiom exists for constructing a known-value SecureString in a test.')]
+param()
 
 BeforeAll {
     . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')

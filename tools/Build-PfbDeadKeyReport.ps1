@@ -82,6 +82,8 @@ $inventory = @(Get-PfbCmdletParameterInventory -PublicDirectory $PublicDirectory
 # wrong row in a committed artifact rather than a byte-order flap. The dedup at the
 # declaredElsewhere projection is the fix for that case; its reasoning is recorded beside it.
 function Sort-PfbDeadKeyRecords {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '',
+        Justification = 'Internal build-tooling helper in tools/; not exported by the module manifest, so no published surface carries the unapproved verb.')]
     param(
         [AllowEmptyCollection()]
         [object[]]$Records,
