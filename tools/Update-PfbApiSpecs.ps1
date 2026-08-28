@@ -79,7 +79,7 @@ foreach ($version in $targetVersions) {
         $spec = ConvertFrom-PfbRedocHtml -Html $page.Content
 
         if (-not $spec.openapi) {
-            throw "Extracted document has no 'openapi' field — extraction likely failed silently."
+            throw "Extracted document has no 'openapi' field -- extraction likely failed silently."
         }
 
         # Re-serialize pretty-printed for easier local diffing/inspection of the cache.

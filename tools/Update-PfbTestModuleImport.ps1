@@ -11,10 +11,24 @@
     tree (Tests/Update-PfbTestModuleImport.Tests.ps1).
 
     Only the import STATEMENT is replaced, in place, at its own indentation. Surrounding
-    $moduleRoot / $manifest assignments are left alone: several files go on to use them
-    (Tests/RemovedCmdlets.Tests.ps1 asserts against $manifest;
+    $moduleRoot / $manifest assignments are left alone by THIS tool: several files go on to
+    use them (Tests/RemovedCmdlets.Tests.ps1 asserts against $manifest;
     Tests/ArrayConnection.ShouldProcessTarget.Tests.ps1 passes it to Get-PfbTargetRecorder).
-    Deleting them would be a much larger, riskier diff for no gain.
+
+    HISTORICAL NOTE, kept because it was acted on. This paragraph used to end "deleting them
+    would be a much larger, riskier diff for no gain", and the dead assignments it left
+    behind have since been removed -- deliberately, not in ignorance of that sentence. The
+    "no gain" half expired when the analyzer became a project: while 127 known-dead
+    assignments stood, PSUseDeclaredVarsMoreThanAssignments reported nothing but them, so a
+    genuinely dead variable in a NEW test file was invisible and CI could never gate on the
+    rule. The "riskier" half shrank once the risk was measured rather than assumed: the
+    deletion was driven off the analyzer's own file list and the AST, never a regex or a
+    line number, and the three files that defeat three different mechanical strategies
+    (above, plus Tests/Update-PfbTestModuleImport.Tests.ps1, whose $manifest occurrences are
+    all backtick-escaped fixture text) were excluded by the analyzer itself.
+
+    So do not re-close that task on this paragraph's authority. If a future bulk change
+    wants those assignments back, the premise, not the conclusion, is what to re-check.
 
     WHAT GETS REPLACED IS AN AST NODE, NOT A LINE. If the import is the right-hand side of
     a plain assignment, the enclosing AssignmentStatementAst is the replaced node and the

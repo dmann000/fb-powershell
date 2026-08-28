@@ -6,7 +6,7 @@
     regression check of the real committed manifest when present.
 .DESCRIPTION
     Every invocation below passes explicit -OutputPath AND -ReconciliationPath under
-    TestDrive: — never let the script fall back to its real-repo defaults, or running
+    TestDrive: -- never let the script fall back to its real-repo defaults, or running
     these tests would overwrite Reports/PfbValueEnumMap.json and
     Reports/PfbValueEnumReconciliation.md as a side effect.
 #>

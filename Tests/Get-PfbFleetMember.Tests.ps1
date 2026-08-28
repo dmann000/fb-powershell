@@ -1,8 +1,6 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0' }
 
 BeforeAll {
-    $moduleRoot = Split-Path -Parent $PSScriptRoot
-    $manifest = Join-Path $moduleRoot 'PureStorageFlashBladePowerShell.psd1'
     . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
     $null = Import-PfbTestModule
 

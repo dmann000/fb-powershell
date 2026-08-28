@@ -15,7 +15,7 @@ Describe 'Build-PfbCapabilityMap: introduced-in diffing' -Skip:($PSVersionTable.
     BeforeAll {
         New-Item -ItemType Directory -Path 'TestDrive:\specs' -Force | Out-Null
 
-        # v9.0: baseline — GET /widgets (param: filter), POST /widgets (body: name)
+        # v9.0: baseline -- GET /widgets (param: filter), POST /widgets (body: name)
         $specV1 = [ordered]@{
             openapi = '3.0.1'
             info    = @{ version = '9.0' }

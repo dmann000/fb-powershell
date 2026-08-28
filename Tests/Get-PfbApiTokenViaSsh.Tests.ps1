@@ -1,8 +1,9 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0' }
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '',
+    Justification = 'Test fixture credential built from a literal; no other idiom exists for constructing a known-value SecureString in a test.')]
+param()
 
 BeforeAll {
-    $moduleRoot = Split-Path -Parent $PSScriptRoot
-    $manifest   = Join-Path $moduleRoot 'PureStorageFlashBladePowerShell.psd1'
     . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
     $null = Import-PfbTestModule
 

@@ -1,8 +1,6 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0' }
 
 BeforeAll {
-    $moduleRoot = Split-Path -Parent $PSScriptRoot
-    $manifest   = Join-Path $moduleRoot 'PureStorageFlashBladePowerShell.psd1'
     . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
     $null = Import-PfbTestModule
 
@@ -75,7 +73,7 @@ Describe 'New-PfbQuotaUser' {
             # Deliberately does NOT invoke the cmdlet with neither -UserName nor -UserId:
             # PowerShell's own parameter binder can't resolve a parameter set in that case,
             # falls back to the default ('ByName'), and then PROMPTS INTERACTIVELY for the
-            # missing mandatory -UserName instead of letting the cmdlet's own code run —
+            # missing mandatory -UserName instead of letting the cmdlet's own code run --
             # which hangs forever with no TTY to answer it (confirmed live, in both a real
             # interactive terminal and this suite's own non-interactive runner). Asserting
             # against the parameter metadata proves the same "neither supplied" case is

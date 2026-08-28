@@ -131,6 +131,212 @@ jobs:
         shell: pwsh
         run: ./scripts/Invoke-PfbCiPester.ps1 -Edition pwsh7
 
+  # T8 + T11 -- PSScriptAnalyzer.
+  #
+  # WHY A CI JOB AND NOT A HOOK. The PostToolUse parse-check hook is per-edit and only ever
+  # sees the file just written. This rule set is repo-wide and low-frequency: what it catches
+  # is "someone added a 5.1-incompatible construct anywhere", which no per-file check can see.
+  #
+  # WHY ubuntu-latest AND ONE LEG. The analyzer parses; it does not execute the module, so its
+  # findings do not vary by host OS or PowerShell edition -- verified by running the identical
+  # sweep on Windows pwsh 7 and on Ubuntu 26.04 / pwsh 7.6.3 and getting the same total (276
+  # at the time of that check, 149 once the dead-variable cleanup landed), the same zeros on
+  # every guard, and the same Private/ controls at 12 and 2. Running it
+  # across the existing 4-leg matrix would quadruple the cost for four identical results.
+  #
+  # The COMPATIBILITY rules are the apparent exception and are not: they target 5.1 and 7.0 by
+  # configuration, from static profiles that ship with the analyzer on every platform, so this
+  # job reports on 5.1 from a Linux runner with no 5.1 in sight. That the two Windows profiles
+  # resolve on a Linux install was checked, not assumed -- if they did not, the rule would
+  # evaluate nothing and hand the Public/ gate a permanent free pass.
+  #
+  # WHY IT DOES NOT NEED prepare-specs. Nothing here reads tools/specs/, so the job does not
+  # download the spec artifact and does not depend on that job. It starts immediately and
+  # finishes while the test matrix is still running.
+  analyze:
+    name: PSScriptAnalyzer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Pinned and cached for the same reason Pester and Posh-SSH are pinned in
+      # .github/actions/install-test-modules: an unpinned MinimumVersion is how this
+      # repo silently moved from Pester 5 to Pester 6 with nobody deciding to, and a
+      # transient PSGallery blip has already failed a run on a SHA that passed 47s
+      # later. A new analyzer version can add rules or change counts, which would
+      # present as an unexplained CI failure on an unrelated PR.
+      #
+      # Deliberately NOT added as a third module to install-test-modules: that action
+      # runs in all four test legs, which would download the analyzer four times per
+      # run for a job that needs it once.
+      - name: Restore cached PSScriptAnalyzer
+        id: pssa-cache
+        uses: actions/cache@v6
+        with:
+          path: .psmodules
+          key: pssa-${{ runner.os }}-1.25.0
+
+      - name: Save PSScriptAnalyzer
+        if: steps.pssa-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path .psmodules | Out-Null
+          Save-Module PSScriptAnalyzer -RequiredVersion 1.25.0 -Path .psmodules -Force
+
+      - name: Run PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:PSModulePath = (Resolve-Path .psmodules).Path + [IO.Path]::PathSeparator + $env:PSModulePath
+          Import-Module PSScriptAnalyzer -RequiredVersion 1.25.0
+          $settings = './PSScriptAnalyzerSettings.psd1'
+
+          # ---------------------------------------------------------------
+          # CONTROL FIRST. Every assertion below is "this count is zero", and an
+          # analyzer that returns nothing satisfies all of them. That is not
+          # hypothetical: Invoke-ScriptAnalyzer honours -WhatIf and returns an empty
+          # set, and a mis-specified rule name or an unparseable settings file can
+          # produce the same silence. So prove the tool reports a finding it must
+          # report before believing any zero it gives us.
+          # ---------------------------------------------------------------
+          $control = @(Invoke-ScriptAnalyzer -ScriptDefinition 'function Test-Probe { $x = 1 }' `
+              -IncludeRule PSUseDeclaredVarsMoreThanAssignments)
+          if ($control.Count -lt 1) {
+              throw 'CONTROL FAILED: the analyzer found nothing in a snippet that definitely has a finding. Every zero in this run is vacuous.'
+          }
+          Write-Host "control: analyzer live ($($control.Count) finding on the probe)"
+
+          # Paths. The repo ROOT is included as an explicit FILE list, not as a
+          # directory: the module .psd1/.psm1 live there, and a directory sweep of the
+          # five source folders never analyses them -- which silently disables four
+          # manifest/module rules including the PSGallery preset's own
+          # PSMissingModuleManifestField. As files it also cannot recurse and
+          # double-count. build/ is gitignored generated output and stays out.
+          $paths = @('Public', 'Private', 'Tests', 'tools', 'scripts') |
+              Where-Object { Test-Path $_ } |
+              ForEach-Object { [pscustomobject]@{ Path = $_; Recurse = $true } }
+          $paths += Get-ChildItem -File |
+              Where-Object Extension -in '.ps1', '.psm1', '.psd1' |
+              ForEach-Object { [pscustomobject]@{ Path = $_.FullName; Recurse = $false } }
+
+          # -Path takes a single string. Passing an array fails with a type-conversion
+          # error and leaves the variable empty, so a naive .Count then reports a
+          # confident "0 findings". Hence the loop.
+          $all = foreach ($p in $paths) {
+              $splat = @{ Path = $p.Path; Settings = $settings }
+              if ($p.Recurse) { $splat.Recurse = $true }
+              Invoke-ScriptAnalyzer @splat
+          }
+          $all = @($all)
+
+          # Severity round-trips as UInt32 in some paths and compares as neither
+          # reliably; cast to string before comparing, always.
+          $errors = @($all | Where-Object { [string]$_.Severity -eq 'Error' })
+          $warnings = @($all | Where-Object { [string]$_.Severity -eq 'Warning' })
+          Write-Host "total $($all.Count): $($errors.Count) Error, $($warnings.Count) Warning"
+
+          $failures = [System.Collections.Generic.List[string]]::new()
+
+          # --- Guard 1: no Errors, ever. Reached by T9; this holds the line.
+          if ($errors.Count) {
+              $failures.Add("$($errors.Count) Error-severity finding(s)")
+              $errors | ForEach-Object { Write-Host "::error file=$($_.ScriptPath),line=$($_.Line)::$($_.RuleName): $($_.Message)" }
+          }
+
+          # --- Guards 2-5: rules at a genuine repo-wide zero. Each is a REGRESSION
+          # guard: it is not cleaning anything up, it is refusing to let the first one
+          # in. PSUseCompatibleSyntax is the load-bearing one -- it enforces the 5.1
+          # mandate with the real parser rather than the hook's regexes.
+          #
+          # PSUseDeclaredVarsMoreThanAssignments is here only because the 127 dead
+          # $manifest assignments were deleted first. That is the whole point of having
+          # deleted them: at 127 the rule reported nothing but known boilerplate, so a
+          # genuinely dead variable in a new test file was finding 128 of 127 and
+          # invisible, and no gate could ever be written. It is also the rule the
+          # control probe above uses, so its liveness is proven on every run.
+          foreach ($rule in 'PSUseCompatibleSyntax', 'PSAvoidAssignmentToAutomaticVariable', 'PSUseBOMForUnicodeEncodedFile', 'PSUseApprovedVerbs', 'PSUseDeclaredVarsMoreThanAssignments') {
+              $hits = @($all | Where-Object RuleName -eq $rule)
+              if ($hits.Count) {
+                  $failures.Add("$rule regressed: $($hits.Count) finding(s), expected 0")
+                  $hits | ForEach-Object { Write-Host "::error file=$($_.ScriptPath),line=$($_.Line)::$($_.RuleName): $($_.Message)" }
+              }
+          }
+
+          # --- Guards 6-7 (T11): two rules that are clean in Public/ ONLY, so they are
+          # requested explicitly and scoped there.
+          #
+          # THE RuleName FILTER IS MANDATORY, NOT DEFENSIVE. A caller's -IncludeRule is
+          # UNION'd with the settings file's IncludeRules -- measured; it does not
+          # replace it. Unfiltered, this scan returns 22 records over Public/ and none
+          # of them belong to the rule being gated, so the gate would fail on unrelated
+          # preset findings while reporting the wrong cause.
+          foreach ($rule in 'PSProvideCommentHelp', 'PSUseCompatibleCommands') {
+              $scoped = @(Invoke-ScriptAnalyzer -Path 'Public' -Recurse -Settings $settings -IncludeRule $rule |
+                  Where-Object RuleName -eq $rule)
+
+              # Per-rule control: the same rule must be NONZERO in Private/. Without it
+              # a zero cannot be distinguished from an inert rule -- and for
+              # PSProvideCommentHelp that is the LIKELY failure, because its default
+              # ExportedOnly = $true silences it completely in this codebase (one
+              # function per dot-sourced file, exports declared in the manifest). The
+              # settings file sets $false; if that config is ever dropped, this control
+              # fails instead of the gate silently passing forever.
+              $control2 = @(Invoke-ScriptAnalyzer -Path 'Private' -Recurse -Settings $settings -IncludeRule $rule |
+                  Where-Object RuleName -eq $rule)
+              if ($control2.Count -eq 0) {
+                  $failures.Add("CONTROL FAILED for ${rule}: 0 findings in Private/ too, so the Public/ zero proves nothing")
+              }
+
+              if ($scoped.Count) {
+                  # ${rule}, not $rule -- "$rule:" parses the colon as a SCOPE qualifier
+                  # (as in $script:x) and is a syntax error, not a runtime surprise.
+                  $failures.Add("${rule}: $($scoped.Count) finding(s) in Public/, expected 0")
+                  $scoped | ForEach-Object { Write-Host "::error file=$($_.ScriptPath),line=$($_.Line)::$($_.RuleName): $($_.Message)" }
+              } else {
+                  Write-Host "gate $rule (Public/): 0, control Private/: $($control2.Count)"
+              }
+          }
+
+          # Warnings are reported, not gated. 149 stand today and the plan does not
+          # clear them; a threshold would either be met trivially or block every PR.
+          # Revisit only with a number someone has committed to driving down.
+          Write-Host "::notice::PSScriptAnalyzer: $($warnings.Count) Warning-severity findings (not gated)"
+
+          if ($failures.Count) {
+              Write-Host ''
+              $failures | ForEach-Object { Write-Host "FAIL: $_" }
+              throw "PSScriptAnalyzer gate failed: $($failures.Count) condition(s)."
+          }
+          Write-Host 'PSScriptAnalyzer gate passed.'
+
+  # =====================================================================
+  # NOT gated, and why -- each of these would fail today:
+  #
+  #   PSUseCompatibleCommands (repo-wide)    21,889 -- 21,870 of them in Tests/, because
+  #                                          the rule knows only built-in commands and so
+  #                                          reports every Pester `Should` parameter.
+  #                                          Gated on Public/ only, above.
+  #   PSAvoidGlobalVars                      61, a deliberate Pester cross-mock-scope
+  #                                          pattern. In the PSGallery preset, so it is
+  #                                          kept in the settings file and not gated.
+  #   PSUseSingularNouns                     44, deliberately kept in the settings file
+  #                                          and deliberately not gated.
+  #   PSAvoidUsingEmptyCatchBlock            11, deferred to dmann000/fb-powershell#117,
+  #                                          which already adjudicated all three shipped
+  #                                          sites. Reported, never gated -- so this job
+  #                                          is green with them outstanding, and fixing
+  #                                          one would need a live FlashBlade run because
+  #                                          every working fix adds an executable line to
+  #                                          shipped code. A comment does NOT clear this
+  #                                          rule.
+  #
+  # Warning count today: 149. Measured under the committed settings file, not carried
+  # forward -- every earlier figure here went stale within days: 302, then 276 once
+  # T1/T2 and T3 took the BOM 24 and the automatic-variable 1 to zero, then 149 once the
+  # 127 dead $manifest assignments went. Re-measure rather than trusting this line.
+  # =====================================================================
+
   test-windows-powershell-5-1:
     name: Test (windows-latest, Windows PowerShell 5.1)
     runs-on: windows-latest

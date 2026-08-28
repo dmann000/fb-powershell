@@ -17,7 +17,7 @@ function New-PfbServer {
         Pass an empty string to skip auto-creation if the FlashBlade supports it.
     .PARAMETER Attributes
         Full request body as a hashtable. Mutually exclusive with the typed parameters
-        above — use only when a field you need isn't exposed.
+        above -- use only when a field you need isn't exposed.
     .PARAMETER Array
         FlashBlade connection.
     .EXAMPLE

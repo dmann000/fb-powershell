@@ -6,11 +6,11 @@ function New-PfbFileSystemExport {
         Creates a file system export that makes a file system visible on a server under an
         export policy. Per the FlashBlade REST API, an export links three things:
           - a file system (query parameter 'member_names'),
-          - an export policy (query parameter 'policy_names') — an NFS export policy for NFS,
+          - an export policy (query parameter 'policy_names') -- an NFS export policy for NFS,
           - a server, plus (for SMB) an SMB share policy, supplied in the request body.
 
         This replaces the previous behavior, which incorrectly sent 'names=<export>' and an
-        arbitrary body — the API rejected it, so export creation did not work.
+        arbitrary body -- the API rejected it, so export creation did not work.
     .PARAMETER FileSystem
         Name of the file system the export exposes. Sent as 'member_names'.
     .PARAMETER Policy

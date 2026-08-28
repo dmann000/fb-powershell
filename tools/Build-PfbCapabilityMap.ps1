@@ -5,18 +5,18 @@
 .DESCRIPTION
     Loads every cached tools/specs/fb<version>.json in ascending version order and
     records, for each (HTTP method, normalized path), the earliest version it appears
-    in — and likewise for each parameter name and request-body top-level property name
+    in -- and likewise for each parameter name and request-body top-level property name
     on that endpoint. This is the data Phase 2's per-cmdlet capability check and Phase
     3's version-aware ArgumentCompleters will consume.
 
     Deliberately NOT included: per-enum-value "introduced in version X" tracking. The
     FlashBlade OpenAPI spec has no structural JSON Schema `enum` anywhere (verified
-    against fb2.10 and fb2.27) — allowed values are documented only in free-text
+    against fb2.10 and fb2.27) -- allowed values are documented only in free-text
     `description` prose, which is not reliably machine-diffable. See
     tools/lib/PfbSpecTools.ps1 for the full finding.
 
     Also NOT included (deferred, see plan): endpoint/field deprecation or removal
-    tracking, and hardware-model (//S vs //E) capability — that is a separate axis from
+    tracking, and hardware-model (//S vs //E) capability -- that is a separate axis from
     REST version and is handled in a later phase from a different data source.
 
     Each endpoint also carries, where non-empty, readOnlyBodyProperties and

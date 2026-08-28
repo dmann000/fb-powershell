@@ -1802,7 +1802,7 @@ if ($null -ne $response.items) { $allItems.Add($response.items) }
 
     It 'sorts unhandled envelope fields by EndpointCount desc/Field asc with differing counts' {
         # zulu appears on 2 endpoints, alpha and bravo on 1 each
-        # Correct sort: zulu (2), alpha (1), bravo (1) — count takes precedence
+        # Correct sort: zulu (2), alpha (1), bravo (1) -- count takes precedence
         $map = [PSCustomObject]@{
             generatedFrom = @('2.0', '2.1')
             endpoints     = [PSCustomObject]@{

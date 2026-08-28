@@ -4,7 +4,7 @@ function Remove-PfbDataEvictionPolicy {
         Removes a data eviction policy from the FlashBlade.
     .DESCRIPTION
         Deletes a data eviction policy. The policy must not be attached to any file
-        systems — detach via Remove-PfbDataEvictionPolicyFileSystem first.
+        systems -- detach via Remove-PfbDataEvictionPolicyFileSystem first.
     .PARAMETER Name
         Policy name to remove.
     .PARAMETER Id

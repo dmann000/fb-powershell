@@ -10,11 +10,11 @@ function New-PfbFileSystem {
 
         Note: when neither -Nfs nor -Smb nor -Http is passed, the file system is created
         with all protocols disabled. The FlashBlade may still expose internal NFS/SMB
-        export records in a disabled state — this is API behavior, not a module bug. Only
+        export records in a disabled state -- this is API behavior, not a module bug. Only
         the protocol switches you pass are flipped to enabled.
 
         Default exports: on REST 2.16 and newer, this cmdlet sends the API's documented
-        empty value — a quoted empty string as the single default_exports array item — when
+        empty value -- a quoted empty string as the single default_exports array item -- when
         -DefaultExports is omitted, so no default NFS or SMB export is created unless you
         ask for one. On REST 2.0 through 2.15, omission sends no unsupported query key and
         preserves that API era's filesystem access semantics. Explicit -DefaultExports
@@ -51,7 +51,7 @@ function New-PfbFileSystem {
         Enable SMB.
     .PARAMETER SmbSharePolicy
         Name of a pre-existing SMB Share Policy to attach. Without this, SMB defaults to
-        full access — set this for any non-lab share.
+        full access -- set this for any non-lab share.
     .PARAMETER SmbClientPolicy
         Name of a pre-existing SMB Client Policy to attach.
     .PARAMETER SmbContinuousAvailabilityEnabled
@@ -105,7 +105,7 @@ function New-PfbFileSystem {
         attach its built-in full-access share policy to the default SMB export.
     .PARAMETER Attributes
         Full request body as a hashtable. Mutually exclusive with the typed parameters
-        above — use only when the typed params don't expose a field you need.
+        above -- use only when the typed params don't expose a field you need.
         -DefaultExports still applies: it is a query parameter and never enters the body,
         so the hashtable you supply is passed through untouched.
     .PARAMETER Array
@@ -240,7 +240,7 @@ function New-PfbFileSystem {
         if ($SourceSnapshot)                 { $body['source'] = @{ name = $SourceSnapshot } }
         if ($QosPolicy)                      { $body['qos_policy'] = @{ name = $QosPolicy } }
 
-        # NFS — note: local hashtable name avoids collision with [switch]$Nfs (PowerShell vars are case-insensitive)
+        # NFS -- note: local hashtable name avoids collision with [switch]$Nfs (PowerShell vars are case-insensitive)
         $nfsBody = @{}
         if ($Nfs -or $NfsV3)  { $nfsBody['v3_enabled'] = $true }
         if ($Nfs -or $NfsV41) { $nfsBody['v4_1_enabled'] = $true }
@@ -251,11 +251,11 @@ function New-PfbFileSystem {
         elseif ($NfsRules)    { $nfsBody['rules'] = $NfsRules }
         if ($nfsBody.Count -gt 0) { $body['nfs'] = $nfsBody }
 
-        # SMB — local name avoids collision with [switch]$Smb
+        # SMB -- local name avoids collision with [switch]$Smb
         #
         # Two independent triggers build the smb body, and only one of them turns SMB on.
         # -SmbContinuousAvailabilityEnabled configures how SMB behaves if it is serving, so
-        # supplying it must never flip smb.enabled — that would silently expose the file
+        # supplying it must never flip smb.enabled -- that would silently expose the file
         # system over a protocol the caller never asked for, and (without a share policy)
         # under the array's built-in full-access policy.
         $smbEnablementRequested = [bool]($Smb -or $SmbSharePolicy -or $SmbClientPolicy)
@@ -293,7 +293,7 @@ function New-PfbFileSystem {
 
     $queryParams = @{ 'names' = $Name }
 
-    # default_exports is a QUERY parameter only — it must never enter $body, including on the
+    # default_exports is a QUERY parameter only -- it must never enter $body, including on the
     # -Attributes path, where the caller owns the body outright.
     #
     # The local is deliberately named differently from the parameter: a local whose name
@@ -301,7 +301,7 @@ function New-PfbFileSystem {
     # $DefaultExports here would re-run its ValidateSet against the empty value and throw.
     #
     # On REST 2.16 and newer, the omitted case is a single-element array whose one item is a
-    # QUOTED empty string — two literal single-quote characters. The API's documented "empty
+    # QUOTED empty string -- two literal single-quote characters. The API's documented "empty
     # string" value for "create no default exports" is that quoted empty string as the array
     # item: a bare `default_exports=` is rejected by the array with HTTP 400 "Missing or invalid
     # parameter", while the quoted form (`default_exports=%27%27` on the wire) is accepted and
@@ -310,7 +310,7 @@ function New-PfbFileSystem {
     # It must also be an array rather than a scalar: ConvertTo-PfbQueryString joins arrays with
     # commas, and the array form is what the parameter is specified to take. It is assigned in
     # two statements rather than from an if/else expression because an if/else yields pipeline
-    # output, where a single-element array collapses back to its element — direct assignment of
+    # output, where a single-element array collapses back to its element -- direct assignment of
     # an array literal does not.
     $defaultExportsSupported = $false
     if ($Array.ApiVersion) {

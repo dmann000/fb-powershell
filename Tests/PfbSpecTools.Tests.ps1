@@ -1,12 +1,12 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0' }
 <#
 .SYNOPSIS
-    Unit tests for tools/lib/PfbSpecTools.ps1 — the shared spec-extraction and
+    Unit tests for tools/lib/PfbSpecTools.ps1 -- the shared spec-extraction and
     capability-diffing helpers used by tools/Update-PfbApiSpecs.ps1 and
     tools/Build-PfbCapabilityMap.ps1.
 .DESCRIPTION
     These are pure-function unit tests against a small synthetic fixture
-    (Tests/Fixtures/sample-redoc-page.html) and inline synthetic spec objects — no
+    (Tests/Fixtures/sample-redoc-page.html) and inline synthetic spec objects -- no
     network access and no dependency on the real cached specs in tools/specs/.
 #>
 
@@ -31,7 +31,7 @@ Describe 'ConvertFrom-PfbRedocHtml' -Skip:($PSVersionTable.PSVersion.Major -lt 7
 
     It 'correctly walks past braces embedded inside string values (does not truncate early)' {
         # The fixture's description contains a literal "{this}" and the trailing
-        # options.theme.spacing value contains "({ spacing }) => 10" — both would break
+        # options.theme.spacing value contains "({ spacing }) => 10" -- both would break
         # a naive scan for the *first* unmatched-looking '}' instead of a real
         # string-aware balanced-brace scan.
         $spec = ConvertFrom-PfbRedocHtml -Html $fixtureHtml
@@ -47,7 +47,7 @@ Describe 'ConvertFrom-PfbRedocHtml' -Skip:($PSVersionTable.PSVersion.Major -lt 7
 
     It 'decodes non-ASCII characters correctly' {
         $spec = ConvertFrom-PfbRedocHtml -Html $fixtureHtml
-        $spec.info.description | Should -Match 'café'
+        $spec.info.description | Should -Match "caf$([char]0x00E9)"
     }
 
     It 'throws a clear error when the __redoc_state marker is missing' {

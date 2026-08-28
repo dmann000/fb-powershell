@@ -35,6 +35,8 @@ function Sort-PfbSelectorRecord {
         The input records, ordered.
     #>
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '',
+        Justification = 'Internal build-tooling helper in tools/; not exported by the module manifest, so no published surface carries the unapproved verb.')]
     param(
         [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Record,
         [Parameter(Mandatory)][string[]]$Property
@@ -81,6 +83,8 @@ function Sort-PfbSelectorString {
         [string[]]
     #>
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseApprovedVerbs', '',
+        Justification = 'Internal build-tooling helper in tools/; not exported by the module manifest, so no published surface carries the unapproved verb.')]
     param(
         [Parameter(Mandatory)][AllowEmptyCollection()][AllowNull()][string[]]$Value,
         [switch]$Unique

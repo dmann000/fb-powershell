@@ -12,10 +12,10 @@
     parses that prose instead.
 
     Two correctness rules discovered while building this against the real cached specs
-    (fb2.27.json), each with its own regression test — do not regress either:
+    (fb2.27.json), each with its own regression test -- do not regress either:
 
     1. MANY schemas (e.g. Bucket, NfsExportPolicyRuleBase) are `allOf` compositions with
-       no direct `.properties` of their own — the real property and its `description`
+       no direct `.properties` of their own -- the real property and its `description`
        live behind `allOf` branches and $ref's. Reading `.description` directly off such
        a schema's own property node returns nothing; the walker below resolves $ref and
        recurses into `allOf`, exactly like Get-PfbSchemaPropertyNames in PfbSpecTools.ps1.
@@ -64,7 +64,7 @@
        referenced dictionary; reprocessing them here would double-count.
 #>
 
-# Deliberately NOT Set-StrictMode — same reasoning as PfbSpecTools.ps1: these functions
+# Deliberately NOT Set-StrictMode -- same reasoning as PfbSpecTools.ps1: these functions
 # walk heterogeneous PSCustomObjects from JSON where a given node legitimately may or
 # may not have a given property (not every schema has .properties or .allOf).
 
@@ -101,7 +101,7 @@ function ConvertFrom-PfbValueEnumProse {
         enumerated values, if it is actually an enumeration.
     .DESCRIPTION
         Tries, in order: backtick-quoted values (the dominant pattern), then
-        double-quoted values, then bare comma-separated tokens — only for a trigger
+        double-quoted values, then bare comma-separated tokens -- only for a trigger
         sentence that didn't already parse via an earlier pattern. Sentences that match
         the trigger phrase but are not really an enumeration (e.g. a numeric range, or
         free-text prose that happens to contain the trigger words) are explicitly
@@ -148,7 +148,7 @@ function ConvertFrom-PfbValueEnumProse {
     #   "Valid values include QSFP, QSFP+, QSFP28, QSFP56, QSFP-DD, RJ-45, and -."
     # Deliberately conservative: only fires when the sentence has no quote characters or
     # backticks at all (so it can't misfire on the malformed-quote case, e.g. "include
-    # 'success' or failure'." — a real, confirmed-malformed example in the source spec that
+    # 'success' or failure'." -- a real, confirmed-malformed example in the source spec that
     # is left unparsed rather than force-parsed -- nor on a malformed *backtick* case, e.g.
     # policy_type's missing-backtick `smb-client` bug: without this exclusion, a sentence
     # that fails the backtick-parity guard above would fall through here and this
@@ -157,7 +157,7 @@ function ConvertFrom-PfbValueEnumProse {
     # looks like a short comma/space-separated token list (no long runs of lowercase prose
     # words).
     if ($TriggerSentence -notmatch '[''"``]') {
-        # [\s\S] (not '.') so the lazy capture can span an embedded newline — real spec
+        # [\s\S] (not '.') so the lazy capture can span an embedded newline -- real spec
         # prose wraps mid-sentence (e.g. "...`all-squash`, and\n`no-root-squash`.") and
         # '.' does not match '\n' by default, which would otherwise force the match to
         # anchor past the embedded newline onto a later, spurious "are"/"include".
@@ -166,7 +166,7 @@ function ConvertFrom-PfbValueEnumProse {
             $rawTokens = $tail.Groups[1].Value -replace '\band\b', ',' -split ','
             $tokens = $rawTokens | ForEach-Object { $_.Trim() } | Where-Object { $_ }
             # Reject if any token contains whitespace (a real value token here, e.g.
-            # "QSFP28" or "-", never does) — that indicates free-text prose rather than
+            # "QSFP28" or "-", never does) -- that indicates free-text prose rather than
             # a token list, e.g. "controllers and blades from hardware list".
             $looksLikeTokenList = $tokens.Count -gt 0 -and -not ($tokens | Where-Object { $_ -match '\s' })
             if ($looksLikeTokenList) {
@@ -182,7 +182,7 @@ function Get-PfbSchemaPropertyDescriptions {
     <#
     .SYNOPSIS
         Returns resolved { propertyName -> description } pairs for a (possibly $ref'd /
-        allOf'd) schema — the description-carrying counterpart to
+        allOf'd) schema -- the description-carrying counterpart to
         Get-PfbSchemaPropertyNames in PfbSpecTools.ps1.
     .DESCRIPTION
         Resolves $ref chains and merges across "allOf" branches, same pattern as
@@ -261,7 +261,7 @@ function Get-PfbSpecValueEnums {
         OpenAPI spec, across components.schemas properties, components.parameters, and
         inline (non-$ref) parameters defined directly on a spec.paths operation.
     .DESCRIPTION
-        Never collapses by bare property/parameter name — each record's Key is
+        Never collapses by bare property/parameter name -- each record's Key is
         "<SchemaName>.<PropertyName>" for schema properties (Kind = 'schema'), the
         parameter's own component name (Kind = 'parameter'), or
         "<METHOD> <path>#<paramName>" for a parameter defined inline on a path operation
@@ -271,7 +271,7 @@ function Get-PfbSpecValueEnums {
         inline-define a same-named parameter with a different value set.
 
         Every description that matches the trigger phrase produces a record, whether or
-        not it successfully parsed into values — callers must check .Parsed rather than
+        not it successfully parsed into values -- callers must check .Parsed rather than
         assume every returned record has a usable value list. This is deliberate: it is
         the mechanism by which "unparsed" prose is surfaced rather than silently dropped.
     .OUTPUTS
@@ -279,14 +279,14 @@ function Get-PfbSpecValueEnums {
 
         Key is the collision-safe identity ("SchemaName.PropertyName", the parameter's
         own components.parameters dictionary key, or "<METHOD> <path>#<paramName>" for an
-        inline-parameter record) — always unique, always what downstream diffing/storage
+        inline-parameter record) -- always unique, always what downstream diffing/storage
         should key on. Name is the field's own short name as it actually appears on the
         wire (the schema property name, or the parameter's "name" field, e.g.
-        "protocol") — the more useful match target for reconciling against a cmdlet's
+        "protocol") -- the more useful match target for reconciling against a cmdlet's
         hand-written parameter, since a query parameter's components.parameters
         dictionary key does not have to equal its wire "name". For inline-parameter
         records, Key already ends in "#<Name>", so Name is always redundant with the
-        tail of Key by construction — kept as its own field anyway, for the same
+        tail of Key by construction -- kept as its own field anyway, for the same
         uniform-shape reason 'schema'/'parameter' records carry it.
     #>
     [CmdletBinding()]
@@ -346,7 +346,7 @@ function Get-PfbSpecValueEnums {
             # Strip the version prefix every real path carries (e.g.
             # "/api/2.27/arrays/space") down to the version-stable form
             # ("arrays/space") that also matches the literal -Endpoint string every
-            # cmdlet passes to Invoke-PfbApiRequest (see PfbCmdletParamTools.ps1) — the
+            # cmdlet passes to Invoke-PfbApiRequest (see PfbCmdletParamTools.ps1) -- the
             # same normalized path MUST produce the same Key across every spec version
             # or the introduced-in-version diffing in Build-PfbValueEnumMap.ps1 would
             # never recognize the field as the same one release to release. A handful
@@ -362,7 +362,7 @@ function Get-PfbSpecValueEnums {
 
                 foreach ($paramNode in $operation.parameters) {
                     # A bare $ref pointer, e.g. { "$ref": "#/components/parameters/Type" }
-                    # — already covered by the components.parameters pass above.
+                    # -- already covered by the components.parameters pass above.
                     # Reprocessing it here would double-count the same definition under
                     # two different Keys and inflate entryCount without adding real
                     # coverage.
