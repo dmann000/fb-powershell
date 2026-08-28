@@ -64,6 +64,8 @@ requires them to stay there:
 | `PSUseCompatibleSyntax` | all | targets 5.1 and 7.0 |
 | `PSUseBOMForUnicodeEncodedFile` | all | the mojibake defect; see below |
 | `PSAvoidAssignmentToAutomaticVariable` | all | |
+| `PSUseApprovedVerbs` | all | the three `Sort-*` helpers are suppressed at the site, not excluded |
+| `PSUseDeclaredVarsMoreThanAssignments` | all | gateable only because the 127 dead `$manifest` assignments were deleted first |
 | `PSUseCompatibleCommands` | `Public/` only | see "Scoped, not repo-wide" |
 | `PSProvideCommentHelp` | `Public/` only | needs `ExportedOnly = $false` to evaluate anything here |
 
@@ -104,7 +106,8 @@ directories and doubles every count.
 
 A third, if you use `-EnableExit`: the exit code is the *count* of records, and it
 truncates mod 256. Pair it with a rule or severity filter, or a sweep finding 276
-issues exits 20 -- a number small enough to look like a real count.
+issues exits 20 -- a number small enough to look like a real count. (276 is this
+repo's own figure from before the dead-variable cleanup, not a hypothetical.)
 
 ## Rules deliberately not enabled
 
@@ -219,10 +222,19 @@ Invoke-ScriptAnalyzer -ScriptDefinition 'function Test-Probe { $x = 1 }' `
 into it: it analyses nothing and returns an empty result with no error. Reading is not
 a side effect, and a read must never be suppressed by `-WhatIf`.
 
-## Pending
+## Why `PSUseDeclaredVarsMoreThanAssignments` is a gate at all
 
-`PSUseDeclaredVarsMoreThanAssignments` is in the allowlist but **not yet a gate**. It
-reaches zero only after the dead-variable cleanup in `Tests/` lands, plus one
-hand-fixed assignment whose right-hand side creates a fixture the test depends on (the
-assignment goes, the call stays). Once both are done, add it to the guard list in the
-`analyze` job.
+It is worth recording, because the rule spent a long time reporting 127 findings and
+being useless. All 127 were the same dead `$manifest` / `$moduleRoot` boilerplate in
+`Tests/`, left behind deliberately by `tools/Update-PfbTestModuleImport.ps1`. While
+they stood, a genuinely dead variable in a *new* test file arrived as finding 128 of
+127 known ones and was invisible, and no gate could be written at any threshold.
+
+Deleting them is what converted the rule from noise into a signal, which is the
+argument for having done it. Note also that this is the rule the job's liveness probe
+uses, so its own guard is the one that cannot pass vacuously.
+
+Two of the 127 needed hands rather than the script, and both are the interesting kind
+of exception: one file assigns `$moduleRoot` twice, only one of which is dead; the
+other's right-hand side is a call that creates the fixture the test depends on, so the
+assignment went and the call stayed.

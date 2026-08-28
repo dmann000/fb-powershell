@@ -139,8 +139,9 @@ jobs:
   #
   # WHY ubuntu-latest AND ONE LEG. The analyzer parses; it does not execute the module, so its
   # findings do not vary by host OS or PowerShell edition -- verified by running the identical
-  # sweep on Windows pwsh 7 and on Ubuntu 26.04 / pwsh 7.6.3 and getting the same 276 total,
-  # the same zeros on every guard, and the same Private/ controls at 12 and 2. Running it
+  # sweep on Windows pwsh 7 and on Ubuntu 26.04 / pwsh 7.6.3 and getting the same total (276
+  # at the time of that check, 149 once the dead-variable cleanup landed), the same zeros on
+  # every guard, and the same Private/ controls at 12 and 2. Running it
   # across the existing 4-leg matrix would quadruple the cost for four identical results.
   #
   # The COMPATIBILITY rules are the apparent exception and are not: they target 5.1 and 7.0 by
@@ -243,11 +244,18 @@ jobs:
               $errors | ForEach-Object { Write-Host "::error file=$($_.ScriptPath),line=$($_.Line)::$($_.RuleName): $($_.Message)" }
           }
 
-          # --- Guards 2-4: rules at a genuine repo-wide zero. Each is a REGRESSION
+          # --- Guards 2-5: rules at a genuine repo-wide zero. Each is a REGRESSION
           # guard: it is not cleaning anything up, it is refusing to let the first one
           # in. PSUseCompatibleSyntax is the load-bearing one -- it enforces the 5.1
           # mandate with the real parser rather than the hook's regexes.
-          foreach ($rule in 'PSUseCompatibleSyntax', 'PSAvoidAssignmentToAutomaticVariable', 'PSUseBOMForUnicodeEncodedFile', 'PSUseApprovedVerbs') {
+          #
+          # PSUseDeclaredVarsMoreThanAssignments is here only because the 127 dead
+          # $manifest assignments were deleted first. That is the whole point of having
+          # deleted them: at 127 the rule reported nothing but known boilerplate, so a
+          # genuinely dead variable in a new test file was finding 128 of 127 and
+          # invisible, and no gate could ever be written. It is also the rule the
+          # control probe above uses, so its liveness is proven on every run.
+          foreach ($rule in 'PSUseCompatibleSyntax', 'PSAvoidAssignmentToAutomaticVariable', 'PSUseBOMForUnicodeEncodedFile', 'PSUseApprovedVerbs', 'PSUseDeclaredVarsMoreThanAssignments') {
               $hits = @($all | Where-Object RuleName -eq $rule)
               if ($hits.Count) {
                   $failures.Add("$rule regressed: $($hits.Count) finding(s), expected 0")
@@ -255,7 +263,7 @@ jobs:
               }
           }
 
-          # --- Guards 5-6 (T11): two rules that are clean in Public/ ONLY, so they are
+          # --- Guards 6-7 (T11): two rules that are clean in Public/ ONLY, so they are
           # requested explicitly and scoped there.
           #
           # THE RuleName FILTER IS MANDATORY, NOT DEFENSIVE. A caller's -IncludeRule is
@@ -290,7 +298,7 @@ jobs:
               }
           }
 
-          # Warnings are reported, not gated. 276 stand today and the plan does not
+          # Warnings are reported, not gated. 149 stand today and the plan does not
           # clear them; a threshold would either be met trivially or block every PR.
           # Revisit only with a number someone has committed to driving down.
           Write-Host "::notice::PSScriptAnalyzer: $($warnings.Count) Warning-severity findings (not gated)"
@@ -305,11 +313,6 @@ jobs:
   # =====================================================================
   # NOT gated, and why -- each of these would fail today:
   #
-  #   PSUseDeclaredVarsMoreThanAssignments   127, all the dead $manifest boilerplate.
-  #                                          Add it once T4 AND T4b have landed. Note the
-  #                                          end state is 1, not 0, until T4b fixes the
-  #                                          $file assignment in
-  #                                          Update-PfbEmptyPipelineGuards.Tests.ps1:285.
   #   PSUseCompatibleCommands (repo-wide)    21,889 -- 21,870 of them in Tests/, because
   #                                          the rule knows only built-in commands and so
   #                                          reports every Pester `Should` parameter.
@@ -328,10 +331,10 @@ jobs:
   #                                          shipped code. A comment does NOT clear this
   #                                          rule.
   #
-  # Warning count today: 276. Measured under the committed settings file at the commit
-  # that adds this job, not carried forward -- the earlier figure of 302 was already
-  # wrong by the time T1/T2 and T3 landed and took the BOM 24 and the automatic-variable
-  # 1 to zero.
+  # Warning count today: 149. Measured under the committed settings file, not carried
+  # forward -- every earlier figure here went stale within days: 302, then 276 once
+  # T1/T2 and T3 took the BOM 24 and the automatic-variable 1 to zero, then 149 once the
+  # 127 dead $manifest assignments went. Re-measure rather than trusting this line.
   # =====================================================================
 
   test-windows-powershell-5-1:
