@@ -381,9 +381,12 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
         # build. Measured against the committed artifact at issue #141 (specVersion 2.28):
         # parametersInventoried 2168, keysEvaluated 1779 -- so the headroom below is 168 and 179
         # respectively, and the 900/700 collapse misses by a wide margin. (Both figures were
-        # 2174 / 1757 when this comment was written; parametersInventoried has since settled at
-        # 2168 through ordinary cmdlet churn, and keysEvaluated ROSE because #141 taught the
-        # resolver three assignment shapes it had been skipping. The floors are unchanged --
+        # 2174 / 1757 when this comment was written, and BOTH moved in two steps, not one:
+        # ordinary cmdlet churn took parametersInventoried 2174 -> 2168 and keysEvaluated
+        # 1757 -> 1747 -- those are main's committed figures, measured, not inferred -- and then
+        # #141 raised keysEvaluated 1747 -> 1779 by teaching the resolver three assignment shapes
+        # it had been skipping. Attributing the whole keysEvaluated delta to #141 would credit it
+        # with +22 when it earned +32 against a base that had fallen. The floors are unchanged;
         # keysEvaluated rising is the direction they exist to protect.)
         #
         # deadKey and the skip counts are deliberately NOT floored. Those must be free to fall

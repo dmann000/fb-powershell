@@ -46,7 +46,9 @@
     string -- exactly what this script prints for an undeclared change, so a reviewed change can
     be pasted straight in. A bare array is REFUSED rather than quietly accepted, because an array
     cannot carry the ref it was measured at and that omission is the defect described under
-    -BaselineRef. tools/inventory-tuple-baselines/issue-141-task4.json is the worked example.
+    -BaselineRef. tools/inventory-tuple-baselines/landed/issue-141-task4.json is the worked
+    example -- read it for the shape; it lives under landed/ because it has been retired, so it
+    is no longer a file to pass to -DeclarationPath.
 
     RETIREMENT, and why it is a documented step rather than a softer rail. A declaration file
     describes a change that has not landed yet. Once its commits ARE the baseline, every entry
@@ -60,7 +62,7 @@
     # Normal use. The ref comes from the declaration file, so this is correct even on a stacked
     # branch whose base is not an ancestor of origin/main.
     ./tools/Compare-PfbInventoryTuple.ps1 `
-        -DeclarationPath ./tools/inventory-tuple-baselines/issue-141-task4.json
+        -DeclarationPath ./tools/inventory-tuple-baselines/<your-declaration>.json
 .EXAMPLE
     # No declarations: report every row that moved against origin/main. Exits 1 if any did.
     ./tools/Compare-PfbInventoryTuple.ps1 -BaselineRef origin/main

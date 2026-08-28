@@ -476,7 +476,7 @@ Run in this order:
 
    ```powershell
    ./tools/Compare-PfbInventoryTuple.ps1 `
-       -DeclarationPath ./tools/inventory-tuple-baselines/issue-141-task4.json
+       -DeclarationPath ./tools/inventory-tuple-baselines/<your-declaration>.json
    ```
 
 ## Response-shape drift (`Build-PfbResponseShapeMap.ps1`)
@@ -728,7 +728,7 @@ summary count that went up.
 # Normal use. The declaration file carries the ref it was measured at, so this is
 # correct even on a stacked branch whose base is not an ancestor of origin/main.
 ./tools/Compare-PfbInventoryTuple.ps1 `
-    -DeclarationPath ./tools/inventory-tuple-baselines/issue-141-task4.json
+    -DeclarationPath ./tools/inventory-tuple-baselines/<your-declaration>.json
 
 # No declarations: report every row that moved against origin/main. Exits 1 if any did.
 ./tools/Compare-PfbInventoryTuple.ps1 -BaselineRef origin/main

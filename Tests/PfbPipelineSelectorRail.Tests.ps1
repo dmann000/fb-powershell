@@ -16,8 +16,8 @@
     object is rebuilt from the report's own ProbeProperties/ProbeTypes fields instead.
 
     Waivers are keyed by (cmdlet, parameter) PAIR, not by (cmdlet, parameter, producer)
-    triple. The 264 finding rows are producer multiplicity over 101 real defects; a
-    triple-keyed file would be 264 entries against psd1's hard 500-element parse cap for a
+    triple. The 266 finding rows are producer multiplicity over 102 real defects; a
+    triple-keyed file would be 266 entries against psd1's hard 500-element parse cap for a
     single collection literal, and would list the same defect up to a dozen times. The rail
     still names the producing endpoint in its failure text as evidence.
 
@@ -186,7 +186,7 @@ Describe 'Rail A - no unwaived selector coercion' -Skip:($PSVersionTable.PSVersi
     }
 
     It 'no Family-scoped waiver has escalated onto its primary producer' {
-        # A pair-keyed waiver is blind to WHERE the coercion happens, and 100 of the 101 are
+        # A pair-keyed waiver is blind to WHERE the coercion happens, and 101 of the 102 are
         # waived precisely because the obvious chain -- the cmdlet's own base-path GET -- is
         # safe. Without this, a change that breaks property-name binding on, say,
         # Remove-PfbFileSystem would turn `Get-PfbFileSystem | Remove-PfbFileSystem` into a

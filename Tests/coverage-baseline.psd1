@@ -222,10 +222,15 @@
         # the gate asserts that reconciliation on every run, so a container the walk misses is
         # a red rather than a quietly smaller number.
         #
-        # Since seeding, TWO entries have moved, and the arithmetic below accounts for both:
-        # PfbApiDriftTools.Tests.ps1 8 -> 12 for issue #113 (+4), and
-        # Build-PfbFieldCmdletMap.Tests.ps1 15 -> 26 for issue #141 Task 4 (+11). Each carries
-        # its own note at its entry. 297 + 4 + 11 = 312, which is what the entries sum to.
+        # Since seeding, THREE entries have moved, and the arithmetic below accounts for all
+        # three: PfbApiDriftTools.Tests.ps1 8 -> 12 for issue #113 (+4),
+        # Build-PfbFieldCmdletMap.Tests.ps1 15 -> 26 for issue #141 Task 4 (+11), and
+        # Build-PfbDeadKeyReport.Tests.ps1 6 -> 16 for issue #141 Task 5 (+10). Each carries
+        # its own note at its entry. 297 + 4 + 11 + 10 = 322, which is what the entries sum to.
+        #
+        # The third entry was added by #141 Task 6 while this note still said TWO -- i.e. the
+        # exact failure the paragraph below describes, committed by the same mechanism one
+        # revision later. Recomputed from the map, not incremented by hand: 19 entries, 322.
         #
         # Recompute this total from the map itself rather than adjusting it by the delta in
         # hand -- an earlier revision of this note said "one entry has moved ... sum to 307",
