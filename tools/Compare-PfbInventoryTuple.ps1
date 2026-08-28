@@ -6,7 +6,7 @@
     working tree -- and fails unless every move was declared in advance.
 .DESCRIPTION
     A resolver change can WITHDRAW a resolution as easily as add one, and no total shows it.
-    Issue #141 Task 3 raised the Typed count by 61 while silently demoting
+    Issue #141 Task 3 raised the Typed count by 29 (61 across #141 as a whole) while silently demoting
     Update-PfbBucketAuditFilter -BucketName from a confident 'bucket_names' to unresolved;
     the only thing that caught it was a human diffing rows by hand in a code review. This
     script is that diff, made runnable and repeatable.
@@ -47,8 +47,10 @@
     be pasted straight in. A bare array is REFUSED rather than quietly accepted, because an array
     cannot carry the ref it was measured at and that omission is the defect described under
     -BaselineRef. tools/inventory-tuple-baselines/landed/issue-141-task4.json is the worked
-    example -- read it for the shape; it lives under landed/ because it has been retired, so it
-    is no longer a file to pass to -DeclarationPath.
+    example -- read it for the shape. It lives under landed/ because it has been retired, so it is
+    not a file any ROUTINE run should pass; pass it explicitly only to reproduce Task 4's evidence,
+    and note its baselineRef is an intermediate feature-branch commit that a squash merge may leave
+    unreachable, in which case the run fails on ref resolution rather than on STALE-DECL.
 
     RETIREMENT, and why it is a documented step rather than a softer rail. A declaration file
     describes a change that has not landed yet. Once its commits ARE the baseline, every entry

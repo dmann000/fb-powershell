@@ -338,7 +338,7 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
         # strictly worse than a new DESTRUCTIVE dead key alongside a surviving selector.
         #
         # Same visit-everything reasoning as the test above, and here the payoff is sharper:
-        # this collection has only 18 entries, so "somebody fixed all of them" is one PR. Any
+        # this collection has only 7 entries, so "somebody fixed all of them" is one PR. Any
         # non-emptiness floor -- on this collection or on deadKeys -- would make the gate red on
         # precisely its own success. An equality against the input size does not.
         $scanInput = @($committedReport.noSurvivingSelector)
