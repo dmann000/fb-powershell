@@ -882,8 +882,8 @@ function Get-PfbSwaggerIndexVersions {
         [string]$IndexHtml
     )
 
-    $matches = [regex]::Matches($IndexHtml, 'redoc/fb(\d+\.\d+)-api-reference\.html')
-    $versions = $matches | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique
+    $versionMatches = [regex]::Matches($IndexHtml, 'redoc/fb(\d+\.\d+)-api-reference\.html')
+    $versions = $versionMatches | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique
 
     return $versions | ForEach-Object {
         $parts = $_ -split '\.'
