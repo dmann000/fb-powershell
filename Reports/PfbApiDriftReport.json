@@ -5276,33 +5276,6 @@
       "annotations": []
     },
     {
-      "endpoint": "PATCH /buckets/audit-filters",
-      "cmdlets": [
-        "Update-PfbBucketAuditFilter"
-      ],
-      "missingQueryParameters": [
-        "bucket_names"
-      ],
-      "missingBodyProperties": [],
-      "readOnlyFields": [],
-      "confidence": {
-        "level": "partial",
-        "unresolvedParameters": [
-          {
-            "parameter": "BucketName",
-            "surface": "AttributesOnly",
-            "file": "Public/Bucket/Update-PfbBucketAuditFilter.ps1",
-            "line": 78
-          }
-        ],
-        "escapeHatchOnly": [
-          "BucketName"
-        ],
-        "caveat": "body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability"
-      },
-      "annotations": []
-    },
-    {
       "endpoint": "PATCH /certificates",
       "cmdlets": [
         "Update-PfbCertificate"
@@ -19081,7 +19054,7 @@
     },
     {
       "name": "bucket_names",
-      "cmdletCount": 15,
+      "cmdletCount": 16,
       "cmdlets": [
         "Get-PfbBucketAccessPolicy",
         "Get-PfbBucketAccessPolicyRule",
@@ -19097,6 +19070,7 @@
         "Remove-PfbBucketAccessPolicy",
         "Remove-PfbBucketAuditFilter",
         "Remove-PfbBucketCorsPolicy",
+        "Update-PfbBucketAuditFilter",
         "Update-PfbLifecycleRule"
       ]
     },

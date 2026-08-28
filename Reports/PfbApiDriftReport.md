@@ -21,12 +21,12 @@ This report accepts **false positives in order to eliminate false negatives**. A
 ## Summary
 
 - Uncovered endpoints: 95
-- Endpoints with parameter gaps: 355
+- Endpoints with parameter gaps: 354
 - Missing body properties (addable): 395
-- Missing query parameters (addable): 539
+- Missing query parameters (addable): 538
 - Read-only body fields (not addable -- see the Read-only fields section below): 384
 - Phantom fields silently excluded (accumulated in the capability map, absent from the newest analysed spec): 40
-- Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 11
+- Partial-confidence endpoints (see `How to read this report` above, and each row's marker in the Parameter gaps table): 10
 - Systemic gaps (distinct field names collapsed across high-confidence endpoints, detailed below): 297
 - ValidateSet drift: 0
 - New ValidateSet candidates: 2
@@ -293,7 +293,6 @@ Endpoints an existing cmdlet already calls, where the capability map knows of a 
 | `PATCH /audit-file-systems-policies` | Update-PfbAuditFileSystemPolicy |  | add_log_targets, control_type, location, log_targets, name, remove_log_targets, rules | `high` |  |
 | `PATCH /audit-object-store-policies` | Update-PfbAuditObjectStorePolicy |  | add_log_targets, location, log_targets, name, remove_log_targets | `high` |  |
 | `PATCH /buckets` | Remove-PfbBucket, Update-PfbBucket | cancel_in_progress_storage_class_transition, ignore_usage | eradication_config, hard_limit_enabled, object_lock_config, public_access_config, qos_policy, retention_lock, storage_class | `high` |  |
-| `PATCH /buckets/audit-filters` | Update-PfbBucketAuditFilter | bucket_names |  | `partial` -- /!\ 1 unresolved param (see Partial-confidence detail below) |  |
 | `PATCH /certificates` | Update-PfbCertificate |  |  | `high` |  |
 | `PATCH /data-eviction-policies` | Update-PfbDataEvictionPolicy |  | location | `high` |  |
 | `PATCH /directory-services` | Update-PfbDirectoryService | ids | base_dn, bind_password, bind_user, ca_certificate, ca_certificate_group, enabled, management, nfs, smb, uris | `high` |  |
@@ -438,7 +437,6 @@ Per the decision-6 procedure above: open each parameter at its `file:line` and f
 | Endpoint | Parameter | Surface | File:Line | Caveat |
 |---|---|---|---|---|
 | `GET /arrays` | `-Endpoint` | TypedUnresolved | `Public/Connection/Test-PfbConnection.ps1:31` | one or more parameters could not be traced to a wire name and have no -Attributes escape hatch; lists reflect typed-parameter coverage only, not full wire reachability |
-| `PATCH /buckets/audit-filters` | `-BucketName` | AttributesOnly | `Public/Bucket/Update-PfbBucketAuditFilter.ps1:78` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `PATCH /file-systems` | `-NfsEnabled` | AttributesOnly | `Public/FileSystem/Update-PfbFileSystem.ps1:72` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `PATCH /file-systems` | `-NfsExportPolicy` | AttributesOnly | `Public/FileSystem/Update-PfbFileSystem.ps1:78` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |
 | `PATCH /file-systems` | `-NfsRules` | AttributesOnly | `Public/FileSystem/Update-PfbFileSystem.ps1:75` | body reachable only via -Attributes; lists reflect typed-parameter coverage, not wire reachability |

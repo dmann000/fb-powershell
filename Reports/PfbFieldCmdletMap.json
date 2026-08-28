@@ -17709,6 +17709,16 @@
     },
     {
       "cmdlet": "Update-PfbBucketAuditFilter",
+      "parameter": "BucketName",
+      "wireName": "bucket_names",
+      "status": "no-spec-enum-found",
+      "matchedKey": null,
+      "specValues": null,
+      "stableSinceOldestVersion": null,
+      "recommendation": null
+    },
+    {
+      "cmdlet": "Update-PfbBucketAuditFilter",
       "parameter": "Name",
       "wireName": "names",
       "status": "no-spec-enum-found",
@@ -20778,10 +20788,6 @@
     {
       "cmdlet": "New-PfbServer",
       "parameter": "CreateDirectoryService"
-    },
-    {
-      "cmdlet": "Update-PfbBucketAuditFilter",
-      "parameter": "BucketName"
     },
     {
       "cmdlet": "Update-PfbFileSystem",

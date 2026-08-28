@@ -11,12 +11,12 @@ no request leaves the machine, and nothing here is inferred from pattern-matchin
 | Metric | Value |
 |---|---:|
 | `probePairs` | 1247 |
-| `evaluatedPairs` | 1233 |
-| `candidatePairs` | 647 |
-| `candidateRate` | 0.5247 |
+| `evaluatedPairs` | 1241 |
+| `candidatePairs` | 655 |
+| `candidateRate` | 0.5278 |
 | `findings` | 266 |
 | `findingPairs` | 102 |
-| `confirmationRate` | 0.4111 |
+| `confirmationRate` | 0.4061 |
 | `controlLeakage` | 0 |
 | `assistedRows` | 212 |
 

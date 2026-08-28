@@ -723,6 +723,118 @@ function New-PfbWireLanding {
     }
 }
 
+function Test-PfbIsDefaultingAliasAssignment {
+    <#
+    .SYNOPSIS
+        True when an assignment supplies ANOTHER parameter's wire key as a fallback default,
+        rather than landing this parameter's own identity.
+    .DESCRIPTION
+        Arbitration treats two disagreeing keys for one parameter as an ambiguity and
+        abstains. That is right when both keys really are candidate names for the parameter,
+        and wrong when one of them is a documented convenience default for a DIFFERENT
+        parameter that happens to reuse this parameter's value.
+
+        Update-PfbBucketAuditFilter is the case that forced this. -BucketName lands in
+        'bucket_names' at its own unconditional `if`, and ALSO appears as the fallback arm of
+        a separate if/elseif chain whose primary arm assigns 'names' from -Name:
+
+            if ($BucketName) { $queryParams['bucket_names'] = $BucketName }
+            ...
+            if ($PSBoundParameters.ContainsKey('Name')) { $queryParams['names'] = $Name -join ',' }
+            elseif ($BucketName)                        { $queryParams['names'] = $BucketName }
+
+        'names' is -Name's key; the elseif only spares a -BucketName-only caller from
+        restating the same value. Counting it as a second landing of -BucketName made the two
+        keys disagree, the arbitration abstain, and PATCH /buckets/audit-filters drop to
+        partial confidence -- which Tests/Issue31.DriftConfidence.Tests.ps1 catches, because a
+        parser-untraceable write endpoint is one the drift report can no longer see gaps on.
+
+        The test is structural, not a name list: the same key must be assigned to the same
+        target variable in an EARLIER sibling clause of the SAME if/elseif chain, from an
+        expression that does not mention this parameter. Earlier matters -- the primary arm
+        owns the key and the fallback defers to it. Restricting it to one chain matters too:
+        two independent `if` blocks assigning one key from two parameters is a genuine
+        ambiguity and must still abstain.
+    .OUTPUTS
+        [bool]
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Management.Automation.Language.AssignmentStatementAst]$Assignment,
+
+        [Parameter(Mandatory)]
+        [string]$ParameterName,
+
+        [Parameter(Mandatory)]
+        [string]$WireName,
+
+        [Parameter(Mandatory)]
+        [string]$TargetVariable
+    )
+
+    # Walk up to the statement block this assignment sits in that is a clause of an if
+    # statement. Anything else -- a bare block, a loop body, the function body -- has no
+    # sibling arms and therefore cannot be a defaulting fallback.
+    $node = $Assignment
+    $block = $null
+    while ($node.Parent) {
+        if ($node -is [System.Management.Automation.Language.StatementBlockAst] -and
+            $node.Parent -is [System.Management.Automation.Language.IfStatementAst]) {
+            $block = $node
+            break
+        }
+        $node = $node.Parent
+    }
+    if (-not $block) { return $false }
+
+    $ifStatement = $block.Parent
+
+    # Which arm are we in? Clauses are ordered as written; the else clause is last.
+    $myIndex = -1
+    for ($i = 0; $i -lt $ifStatement.Clauses.Count; $i++) {
+        if ([object]::ReferenceEquals($ifStatement.Clauses[$i].Item2, $block)) { $myIndex = $i; break }
+    }
+    if ($myIndex -lt 0) {
+        if ([object]::ReferenceEquals($ifStatement.ElseClause, $block)) { $myIndex = $ifStatement.Clauses.Count }
+        else { return $false }
+    }
+    if ($myIndex -eq 0) { return $false }   # the primary arm owns its key by definition
+
+    foreach ($earlier in 0..($myIndex - 1)) {
+        $earlierBlock = $ifStatement.Clauses[$earlier].Item2
+        $siblings = $earlierBlock.FindAll({
+            param($n)
+            $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+            $n.Left -is [System.Management.Automation.Language.IndexExpressionAst]
+        }, $true)
+
+        foreach ($sibling in $siblings) {
+            $sibTarget = $sibling.Left.Target -as [System.Management.Automation.Language.VariableExpressionAst]
+            $sibKey = $sibling.Left.Index -as [System.Management.Automation.Language.StringConstantExpressionAst]
+            if (-not $sibTarget -or -not $sibKey) { continue }
+            if (-not [string]::Equals($sibKey.Value, $WireName, [System.StringComparison]::Ordinal)) { continue }
+            if (-not [string]::Equals($sibTarget.VariablePath.UserPath, $TargetVariable, [System.StringComparison]::Ordinal)) { continue }
+
+            # The earlier arm must assign this key from something OTHER than our parameter.
+            # If it mentions our parameter too, both arms are landing the same parameter and
+            # this is one landing, not an alias.
+            $mentions = $sibling.Right.FindAll({
+                param($n) $n -is [System.Management.Automation.Language.VariableExpressionAst]
+            }, $true)
+            $mentionsOurs = $false
+            foreach ($m in $mentions) {
+                if ([string]::Equals($m.VariablePath.UserPath, $ParameterName, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    $mentionsOurs = $true; break
+                }
+            }
+            if (-not $mentionsOurs) { return $true }
+        }
+    }
+
+    return $false
+}
+
 function Resolve-PfbParameterWireLanding {
     <#
     .SYNOPSIS
@@ -802,7 +914,14 @@ function Resolve-PfbParameterWireLanding {
 
         if (Test-PfbWireValueIsParameter -ValueAst $assign.Right -ParameterName $ParameterName -IsBooleanLikeParameter:$IsBooleanLikeParameter) {
             $landing = New-PfbWireLanding -FunctionAst $FunctionAst -WireName $keyExpr.Value -TargetVariable $targetVar.VariablePath.UserPath
-            if ($landing) { $landings.Add($landing) }
+            if ($landing) {
+                # TAG, do not drop -- see the alias filter below and
+                # Test-PfbIsDefaultingAliasAssignment.
+                Add-Member -InputObject $landing -NotePropertyName 'IsDefaultingAlias' -NotePropertyValue (
+                    [bool](Test-PfbIsDefaultingAliasAssignment -Assignment $assign -ParameterName $ParameterName -WireName $keyExpr.Value -TargetVariable $targetVar.VariablePath.UserPath)
+                ) -Force
+                $landings.Add($landing)
+            }
         }
     }
 
@@ -813,7 +932,26 @@ function Resolve-PfbParameterWireLanding {
     # answer -- asking `if ($literalMatch)` instead would read an abstention as a miss and
     # fall through, which is the whole failure this resolver exists to prevent.
     $tierLandings = $null
-    if ($landings.Count -gt 0) { $tierLandings = $landings.ToArray() }
+    if ($landings.Count -gt 0) {
+        # A landing tagged IsDefaultingAlias is dropped ONLY when the parameter still has an
+        # unflagged landing of its own. That proviso is the whole safety of the rule.
+        #
+        # Update-PfbBucketAuditFilter: -BucketName holds 'bucket_names' unconditionally AND
+        # appears in the elseif that defaults -Name's 'names'. Dropping the flagged one leaves
+        # 'bucket_names' -- the parameter's real identity -- and the abstention correctly
+        # disappears.
+        #
+        # New-PfbFleetMember is why the proviso exists. -Members lands 'members' in the elseif
+        # of a chain whose first arm builds the same key from -FleetKey. That is structurally
+        # identical to the alias shape, but neither arm defaults the other: they are two
+        # alternative constructions, and -Members has NO other landing. Dropping it would
+        # delete the parameter's only evidence and push POST /fleets/members to partial
+        # confidence -- the very regression this whole change set out to repair, just moved to
+        # a different endpoint. Keeping every landing when all of them are flagged makes the
+        # rule a tie-breaker rather than a deletion.
+        $unflagged = @($landings | Where-Object { -not $_.IsDefaultingAlias })
+        $tierLandings = if ($unflagged.Count -gt 0) { $unflagged } else { $landings.ToArray() }
+    }
 
     # Second idiom: the whole hashtable is built as a LITERAL initializer rather than keyed
     # into afterwards -- `$queryParams = @{ 'names' = $Name }`, the dominant shape across

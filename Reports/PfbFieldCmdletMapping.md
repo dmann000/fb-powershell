@@ -9,7 +9,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - matched: 2
 - collision: 1
 - not-found-in-resource: 29
-- no-spec-enum-found: 2035
+- no-spec-enum-found: 2036
 
 | Cmdlet | Parameter | Wire name | Status | Spec values | Recommendation |
 |---|---|---|---|---|---|
@@ -46,7 +46,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 | `Update-PfbWorkload` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbWormPolicy` | `-DefaultRetention` | default_retention | not-found-in-resource |  |  |
 
-## Attributes-only parameters (no typed field to attach either mechanism to): 24
+## Attributes-only parameters (no typed field to attach either mechanism to): 23
 
 - `New-PfbBucketAuditFilter -Name`
 - `New-PfbFileSystem -DefaultExports`
@@ -65,7 +65,6 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `New-PfbFileSystem -SmbSharePolicy`
 - `New-PfbFileSystem -SnapshotDirectoryEnabled`
 - `New-PfbServer -CreateDirectoryService`
-- `Update-PfbBucketAuditFilter -BucketName`
 - `Update-PfbFileSystem -NfsEnabled`
 - `Update-PfbFileSystem -NfsExportPolicy`
 - `Update-PfbFileSystem -NfsRules`

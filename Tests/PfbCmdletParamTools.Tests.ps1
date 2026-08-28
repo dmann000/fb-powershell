@@ -3368,3 +3368,107 @@ Describe 'Compare-PfbInventoryTupleSet: the row-level regression gate (issue #14
         $result.IsClean | Should -BeFalse
     }
 }
+
+Describe 'Test-PfbIsDefaultingAliasAssignment: a fallback arm is not a second wire name (issue #141 Task 6)' {
+    <#
+        Some cmdlets write the SAME wire key from a later arm of one if/elseif chain, as a
+        convenience default derived from a DIFFERENT parameter. Before this rule the resolver
+        counted that arm as a landing of the parameter named in the arm's condition, so the
+        parameter appeared to land two different keys, the arbitration abstained, and the
+        endpoint lost parser traceability -- PATCH /buckets/audit-filters fell to `partial`
+        confidence and tripped the issue #31 guard.
+
+        The rule flags such an arm, and the caller drops flagged landings ONLY when the
+        parameter still has an unflagged landing of its own. That proviso is the whole safety
+        of it: New-PfbFleetMember writes `members` from an earlier arm built out of -FleetKey
+        and again from an elseif built out of -Members, but neither arm defaults the other and
+        -Members has no other landing, so dropping it would delete that parameter's only
+        evidence and relocate the same regression onto POST /fleets/members.
+    #>
+
+    It 'flags an arm whose earlier sibling writes the same key from another parameter' {
+        $ast = Get-PfbRoleFixtureAst @(
+            'function Set-FixtureThing {'
+            '    [CmdletBinding()]'
+            '    param([string]$Alpha, [string]$Beta, [PSCustomObject]$Array)'
+            '    $queryParams = @{}'
+            '    if ($Alpha) { $queryParams[''alpha''] = $Alpha }'
+            '    if ($PSBoundParameters.ContainsKey(''Beta'')) { $queryParams[''names''] = $Beta }'
+            '    elseif ($Alpha) { $queryParams[''names''] = $Alpha }'
+            '    Invoke-PfbApiRequest -Array $Array -Method PATCH -Endpoint ''widgets'' -QueryParams $queryParams'
+            '}'
+        )
+        # -Alpha keeps its own unflagged landing, so the flagged 'names' arm is dropped.
+        $wire = Get-PfbWireNameForParameter -FunctionAst $ast -ParameterName 'Alpha'
+        $wire.WireName | Should -Be 'alpha' -Because 'the elseif arm defaults names= from -Alpha rather than naming it'
+    }
+
+    It 'does not flag the primary arm of the chain' {
+        $ast = Get-PfbRoleFixtureAst @(
+            'function Set-FixtureThing {'
+            '    [CmdletBinding()]'
+            '    param([string]$Beta, [PSCustomObject]$Array)'
+            '    $queryParams = @{}'
+            '    if ($Beta) { $queryParams[''names''] = $Beta }'
+            '    Invoke-PfbApiRequest -Array $Array -Method PATCH -Endpoint ''widgets'' -QueryParams $queryParams'
+            '}'
+        )
+        $wire = Get-PfbWireNameForParameter -FunctionAst $ast -ParameterName 'Beta'
+        $wire.WireName | Should -Be 'names'
+    }
+
+    It 'keeps a flagged landing when it is the parameter''s ONLY landing (New-PfbFleetMember shape)' {
+        # The regression this proviso exists to prevent: without it -Members resolves to
+        # nothing and POST /fleets/members loses parser traceability.
+        $ast = Get-PfbRoleFixtureAst @(
+            'function New-FixtureMember {'
+            '    [CmdletBinding()]'
+            '    param([string]$FleetKey, [object[]]$Members, [PSCustomObject]$Array)'
+            '    $body = @{}'
+            '    if ($PSCmdlet.ParameterSetName -eq ''FleetKey'') {'
+            '        $body[''members''] = @(@{ key = $FleetKey })'
+            '    }'
+            '    elseif ($PSBoundParameters.ContainsKey(''Members'')) {'
+            '        $body[''members''] = @($Members)'
+            '    }'
+            '    Invoke-PfbApiRequest -Array $Array -Method POST -Endpoint ''fleets/members'' -Body $body'
+            '}'
+        )
+        $wire = Get-PfbWireNameForParameter -FunctionAst $ast -ParameterName 'Members'
+        $wire | Should -Not -BeNullOrEmpty -Because 'dropping the only landing relocates the regression'
+        $wire.WireName | Should -Be 'members'
+    }
+
+    It 'leaves a genuine two-key ambiguity abstaining -- independent ifs are not a chain' {
+        $ast = Get-PfbRoleFixtureAst @(
+            'function Set-FixtureThing {'
+            '    [CmdletBinding()]'
+            '    param([string]$Alpha, [PSCustomObject]$Array)'
+            '    $queryParams = @{}'
+            '    if ($Alpha) { $queryParams[''alpha''] = $Alpha }'
+            '    if ($Alpha) { $queryParams[''names''] = $Alpha }'
+            '    Invoke-PfbApiRequest -Array $Array -Method PATCH -Endpoint ''widgets'' -QueryParams $queryParams'
+            '}'
+        )
+        $wire = Get-PfbWireNameForParameter -FunctionAst $ast -ParameterName 'Alpha'
+        $wire.WireName | Should -BeNullOrEmpty -Because 'two sibling-less ifs are real ambiguity, not a defaulting alias'
+    }
+
+    It 'resolves the real <Cmdlet> -<Parameter> to <Expected>' -ForEach @(
+        @{ Cmdlet = 'Update-PfbBucketAuditFilter'; Path = 'Public/Bucket/Update-PfbBucketAuditFilter.ps1'; Parameter = 'BucketName'; Expected = 'bucket_names' }
+        @{ Cmdlet = 'Update-PfbBucketAuditFilter'; Path = 'Public/Bucket/Update-PfbBucketAuditFilter.ps1'; Parameter = 'Name'; Expected = 'names' }
+        @{ Cmdlet = 'New-PfbFleetMember'; Path = 'Public/Replication/New-PfbFleetMember.ps1'; Parameter = 'Members'; Expected = 'members' }
+    ) {
+        $repoRoot = Split-Path -Parent $PSScriptRoot
+        $file = Join-Path $repoRoot $Path
+        $tokens = $null
+        $parseErrors = $null
+        $fileAst = [System.Management.Automation.Language.Parser]::ParseFile($file, [ref]$tokens, [ref]$parseErrors)
+        @($parseErrors).Count | Should -Be 0
+        $funcAst = $fileAst.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) |
+            Where-Object { $_.Name -eq $Cmdlet } | Select-Object -First 1
+        $funcAst | Should -Not -BeNullOrEmpty
+        $wire = Get-PfbWireNameForParameter -FunctionAst $funcAst -ParameterName $Parameter
+        $wire.WireName | Should -Be $Expected
+    }
+}
