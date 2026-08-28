@@ -78,6 +78,42 @@ $candidates = @($inventory | Where-Object { $_.Surface -eq 'Typed' -and -not $_.
 $attributesOnly = @($inventory | Where-Object { $_.Surface -eq 'AttributesOnly' } | ForEach-Object { [ordered]@{ cmdlet = $_.Cmdlet; parameter = $_.Parameter } })
 $typedUnresolved = @($inventory | Where-Object { $_.Surface -eq 'TypedUnresolved' } | ForEach-Object { [ordered]@{ cmdlet = $_.Cmdlet; parameter = $_.Parameter } })
 
+# Non-applicable residual (issue #141 Task 4). Its own collection, NOT folded into
+# typedUnresolved: that list is read as "the tool could not find this field's wire name", and
+# neither of these rows is a standard-request field whose name went missing.
+#
+# What that does NOT license is the stronger claim that the parameter never reaches the wire.
+# 'OutsideStandardRequest' is a statement about THIS RESOLVER'S REACH -- the declaring cmdlet
+# issues no Invoke-PfbApiRequest call, so there is no standard payload to read a key out of --
+# and several of these parameters demonstrably do reach the array by other means:
+# Public/Connection/Connect-PfbArray.ps1:331 builds @{ username = $Username; password = ... }
+# and POSTs it to /api/login at :351 via Invoke-WebRequest. Rendering these rows as "not a
+# wire field" would be a confident false statement about six real cmdlets, which is the same
+# class of error the never-guess contract exists to prevent, merely in prose instead of JSON.
+#
+# `surface` is carried per row because the two reasons are not interchangeable to a reader
+# deciding what to do next -- 'NotWireParameter' is an audited request control with no query or
+# body key and needs nothing done, while 'OutsideStandardRequest' says the whole cmdlet sits off
+# the standard request path and is where a future reviewer would look first if that ever stopped
+# being true.
+$notApplicable = @($inventory | Where-Object { $_.Surface -in @('NotWireParameter', 'OutsideStandardRequest') } |
+        ForEach-Object { [ordered]@{ cmdlet = $_.Cmdlet; parameter = $_.Parameter; surface = $_.Surface } })
+
+# Every inventory row lands in exactly one of five buckets, and this asserts it rather than
+# assuming it. Four are emitted below; the fifth (Typed WITH a ValidateSet) is deliberately
+# emitted nowhere -- this report recommends ADDING a ValidateSet, and those parameters already
+# have one. Without this check a Surface value added upstream and not taught to this script
+# would simply disappear from the report, which is the quietest possible failure and exactly
+# the one issue #141 exists to stop.
+$typedWithValidateSet = @($inventory | Where-Object { $_.Surface -eq 'Typed' -and $_.HasValidateSet })
+$partitioned = $candidates.Count + $typedWithValidateSet.Count + $attributesOnly.Count + $typedUnresolved.Count + $notApplicable.Count
+if ($partitioned -ne $inventory.Count) {
+    throw ("Inventory partition is incomplete: $($inventory.Count) rows in, $partitioned classified " +
+        "(typed-no-validateset $($candidates.Count), typed-with-validateset $($typedWithValidateSet.Count), " +
+        "attributesOnly $($attributesOnly.Count), typedUnresolved $($typedUnresolved.Count), notApplicable $($notApplicable.Count)). " +
+        'A Surface value this script has not been taught would otherwise vanish from the report silently.')
+}
+
 $entries = foreach ($cand in $candidates) {
     $hint = Get-PfbResourceHint -CmdletName $cand.Cmdlet
     $resolution = Resolve-PfbFieldValueEnum -WireName $cand.WireName -ResourceHint $hint -Endpoint $cand.Endpoint -Method $cand.Method -History $history -OldestVersion $oldestVersion
@@ -100,6 +136,7 @@ $manifest = [ordered]@{
     entries        = $entries
     attributesOnly = $attributesOnly
     typedUnresolved = $typedUnresolved
+    notApplicable   = $notApplicable
 }
 
 $outputDir = Split-Path -Parent $OutputPath
@@ -146,6 +183,12 @@ $mdLines.Add('')
 $mdLines.Add("## Typed but unresolved wire name (needs manual inspection): $($typedUnresolved.Count)")
 $mdLines.Add('')
 foreach ($u in $typedUnresolved) { $mdLines.Add("- ``$($u.cmdlet) -$($u.parameter)``") }
+$mdLines.Add('')
+$mdLines.Add("## Outside this resolver's reach (no standard-request field to inspect): $($notApplicable.Count)")
+$mdLines.Add('')
+$mdLines.Add('Listed separately from the section above on purpose: neither is a standard-request field whose wire name went unresolved. `NotWireParameter` is an audited request control (`-Eradicate`, `-Force`) with no query or body key. `OutsideStandardRequest` means the declaring cmdlet issues no `Invoke-PfbApiRequest` call, so this resolver cannot see its payload -- it does **not** mean the parameter has no wire effect; `Connect-PfbArray -Username`/`-Password`, for example, reach `/api/login` through bespoke HTTP.')
+$mdLines.Add('')
+foreach ($n in $notApplicable) { $mdLines.Add("- ``$($n.cmdlet) -$($n.parameter)`` ($($n.surface))") }
 $mdLines.Add('')
 
 Set-Content -Path $ReportPath -Value ($mdLines -join "`n") -Encoding UTF8

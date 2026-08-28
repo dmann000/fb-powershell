@@ -222,6 +222,26 @@
         # the gate asserts that reconciliation on every run, so a container the walk misses is
         # a red rather than a quietly smaller number.
         #
+        # Since seeding, THREE entries have moved, and the arithmetic below accounts for all
+        # three: PfbApiDriftTools.Tests.ps1 8 -> 12 for issue #113 (+4),
+        # Build-PfbFieldCmdletMap.Tests.ps1 15 -> 26 for issue #141 Task 4 (+11), and
+        # Build-PfbDeadKeyReport.Tests.ps1 6 -> 16 for issue #141 Task 5 (+10). Each carries
+        # its own note at its entry. 297 + 4 + 11 + 10 = 322, which is what the entries sum to.
+        #
+        # The third entry was added by #141 Task 6 while this note still said TWO -- i.e. the
+        # exact failure the paragraph below describes, committed by the same mechanism one
+        # revision later. Recomputed from the map, not incremented by hand: 19 entries, 322.
+        #
+        # Recompute this total from the map itself rather than adjusting it by the delta in
+        # hand -- an earlier revision of this note said "one entry has moved ... sum to 307",
+        # which was wrong in both halves because it was written against the #141 change alone
+        # and never reconciled with #113's, already landed. A running total that is only ever
+        # incremented drifts silently; the check is
+        # `(Import-PowerShellDataFile Tests/coverage-baseline.psd1).winps51.ExpectedSkips.Values |
+        #  Measure-Object -Sum`. The edition key is not optional -- ExpectedSkips is nested under
+        # winps51 and pwsh7 separately, and omitting it throws on pwsh 7 but yields NOTHING on
+        # 5.1 without StrictMode, which is the direction that would quietly confirm any total.
+        #
         # Every entry is the same cause: a Describe carrying
         # -Skip:($PSVersionTable.PSVersion.Major -lt 7), or a whole tooling file gated that way,
         # because the generator or spec-walking code under test needs pwsh 7. They RUN on 7 --
@@ -240,10 +260,26 @@
             'Update-PfbTestModuleImport.Tests.ps1'               = 34
             'PfbPipelineSelectorTools.Tests.ps1'                 = 33
             'PfbSelectorProbeHarness.Tests.ps1'                  = 16
-            'Build-PfbFieldCmdletMap.Tests.ps1'                  = 15
+            # 15 -> 26 for issue #141 Task 4: two new Describes (the five-bucket partition
+            # reconciliation and the unknown-Surface refusal) exercise
+            # tools/Build-PfbFieldCmdletMap.ps1 itself, which carries `#Requires -Version 7.0`,
+            # so they take the file's existing PS7 gate. 25 of those 26 landed with the Task 4
+            # commits; the 26th is the review-fix test asserting the non-applicable section
+            # never claims those parameters miss the wire. Measured on Windows PowerShell 5.1,
+            # not inferred -- 0 passed / 26 skipped for this file alone.
+            'Build-PfbFieldCmdletMap.Tests.ps1'                  = 26
             'PfbPipelineSelectorRail.Tests.ps1'                  = 11
             'Build-PfbResponseShapeMap.Tests.ps1'                = 9
-            'Build-PfbDeadKeyReport.Tests.ps1'                   = 6
+            # 6 -> 16 for issue #141 Task 5: ten new Its across the file's two existing
+            # PS7-gated Describes -- the dead-key declaration classification work (declaration
+            # index, the wrong-surface/wrong-verb priority ladder, case tolerance on both the
+            # endpoint and the key axis, and the provenance list's dedup and ordering). No new
+            # Describe and no gate change, so every added It inherits the file's existing
+            # -Skip:($PSVersionTable.PSVersion.Major -lt 7) and lands on the 5.1 skip count.
+            # Measured on Windows PowerShell 5.1 for this file alone, read out of the runner's
+            # child winps51.json rather than its Write-Host summary: 0 passed / 0 failed /
+            # 16 skipped, container ok. No headroom added -- these entries are exact.
+            'Build-PfbDeadKeyReport.Tests.ps1'                   = 16
             # Mixed files: some Describes PS7-gated, others deliberately ungated so they
             # execute on both legs. The passing halves are what several RequiredDescribes
             # entries above are asserting, so these two numbers moving in opposite directions

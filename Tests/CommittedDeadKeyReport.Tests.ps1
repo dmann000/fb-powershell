@@ -116,6 +116,11 @@ BeforeAll {
         'Get-PfbKeytabDownload|GET|keytabs/download'
         'Get-PfbLegalHoldEntity|GET|legal-holds/held-entities'
         'Get-PfbNodeGroupNode|GET|node-groups/nodes'
+        # ADDED by issue #141. CSR has exactly one selector-shaped query key, 'names', and
+        # POST certificates/certificate-signing-requests declares zero query keys -- so no
+        # selector survives. Visible only now because #141 taught the resolver the assignment
+        # shape that writes this key; the operation's spec has always declared none.
+        'New-PfbCertificateSigningRequest|POST|certificates/certificate-signing-requests'
         'New-PfbNlmReclamation|POST|file-systems/locks/nlm-reclamations'
         'Remove-PfbNodeGroupNode|DELETE|node-groups/nodes'
     )
@@ -132,8 +137,32 @@ BeforeAll {
     # pin: dead keys legitimately fall as fixes land, and a pin would red every such fix and
     # make the gate a tax on doing the right thing. The cost of the ceiling is precisely the
     # slack being closed here, so closing it promptly is the whole discipline.
-    $script:baselineDeadKeyCount = 83
-    $script:baselineNoSurvivingSelectorCount = 6
+    #
+    # RAISED 83 -> 85 by issue #141, against everything the paragraph above says, so the raise has
+    # to earn the exception rather than assert it. It earns it this way: #141 changed no cmdlet. It
+    # taught the wire-name resolver three assignment shapes it had been skipping silently, so 126
+    # parameters that were never evaluated are now evaluated. Two of them turn out to have been
+    # dead all along:
+    #
+    #   Get-PfbAlert|Flagged|flagged|GET|alerts
+    #     -- GET /alerts declares no 'flagged' query key. PATCH /alerts declares it as a BODY
+    #        property, which is why this is the single WRONG-SURFACE record in the report.
+    #   New-PfbCertificateSigningRequest|Name|names|POST|certificates/certificate-signing-requests
+    #     -- the operation declares zero query keys, so 'names' cannot be among them. It is also
+    #        the new $baselineNoSurvivingSelector entry above, for the same underlying reason.
+    #
+    # Both are PRE-EXISTING module defects that #141 makes visible; it introduces neither. Measured
+    # against main's committed report, the diff is +2 and -0 -- no previously-reported record was
+    # lost, which is the other half of the claim and the half a passing test would not show.
+    #
+    # That is the ONLY shape of argument that justifies raising this gate: the detector improved
+    # and the defect was already there. A raise because new code sends a new dead key is precisely
+    # the regression this ceiling exists to catch, and must never be cleared this way.
+    #
+    # Re-lower on either fix. Both defects are tracked as the follow-up issue named in the #141
+    # plan; fixing them returns this to 83.
+    $script:baselineDeadKeyCount = 85
+    $script:baselineNoSurvivingSelectorCount = 7
     $script:baselineSkipReasons = @{
         # New-PfbBucketAuditFilter|Name was introduced by 9d08ecc as a new parameter, so
         # nothing that was evaluable stopped being evaluated. The parameter demonstrably
@@ -154,7 +183,30 @@ BeforeAll {
         # means the resolver cannot see it, not that it goes nowhere). Absent either, a growing
         # count is the coverage regression this ceiling exists to catch -- do not bump it to
         # clear a red.
-        'wire name unresolved'           = 127
+        # LOWERED 127 -> 32 by issue #141, and lowering is the direction this ceiling calls better,
+        # so the risk here is the opposite one: leaving it high. The bucket fell because #141 split
+        # what used to be one undifferentiated "cannot resolve" population. The inventory still has
+        # 66 rows with no WireName, but 34 of them are now explicitly and SEPARATELY accounted for
+        # as 28 'outside standard request' + 6 'not wire parameter' below. Left at 127 this ceiling
+        # would carry 95 rows of slack and reproduce exactly the failure the note above describes:
+        # reporting safety it is no longer providing.
+        #
+        # Never raise this bucket to clear a red. The two conditions in the note above still apply
+        # to any raise, and neither is satisfied by a reclassification.
+        'wire name unresolved'           = 32
+        # NEW vocabulary, added by issue #141, and both are required rather than optional: the scan
+        # below treats an unknown skip reason as an offender AND asserts it visited every reason
+        # ($scanned -eq $skipReasonCount). Omit either key and the gate reds for a confusing
+        # reason; get the vocabulary wrong in the other direction and the scan covers less than the
+        # report contains while still passing.
+        #
+        # These two are ceilinged rather than unceilinged because they are NOT the 'body property'
+        # case. Both name a population the resolver has positively CLASSIFIED -- a parameter that
+        # does not travel in a standard request, or is not a wire parameter at all -- rather than
+        # one it failed to read. Growth in either therefore does mean rows left the evaluated set,
+        # which is what a ceiling is for.
+        'outside standard request'       = 28
+        'not wire parameter'             = 6
         'endpoint/method ambiguous'      = 14
         'endpoint/verb absent from spec' = 0
     }
@@ -173,7 +225,7 @@ BeforeAll {
     # Reconciliation still catches arithmetic inconsistency, but it does NOT catch a realistic
     # reclassification that moves one record from keysEvaluated into this bucket while preserving
     # the total. The keysEvaluated floor is the remaining coverage-collapse check, with deliberate
-    # headroom from its measured 1757. This reason is unceilinged because that weaker watch is the
+    # headroom from its measured 1779. This reason is unceilinged because that weaker watch is the
     # accepted cost of avoiding false reds on legitimate body-surface work.
     $script:baselineUnceilingedSkipReasons = @('body property')
 }
@@ -286,7 +338,7 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
         # strictly worse than a new DESTRUCTIVE dead key alongside a surviving selector.
         #
         # Same visit-everything reasoning as the test above, and here the payoff is sharper:
-        # this collection has only 18 entries, so "somebody fixed all of them" is one PR. Any
+        # this collection has only 7 entries, so "somebody fixed all of them" is one PR. Any
         # non-emptiness floor -- on this collection or on deadKeys -- would make the gate red on
         # precisely its own success. An equality against the input size does not.
         $scanInput = @($committedReport.noSurvivingSelector)
@@ -310,8 +362,8 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
 
     It 'keeps the inventory covered: parametersInventoried and keysEvaluated stay above their floors' {
         # THE COVERAGE-COLLAPSE GUARD. Without it every other assertion in this file can be
-        # satisfied by a report that simply stopped looking: cut parametersInventoried 2174 ->
-        # 900 and keysEvaluated 1757 -> 700, and a third of the dead keys and a third of the
+        # satisfied by a report that simply stopped looking: cut parametersInventoried 2168 ->
+        # 900 and keysEvaluated 1779 -> 700, and a third of the dead keys and a third of the
         # groups vanish from the gate's view with every ceiling and every allowlist still
         # cleared. That was reproduced against this file before this test existed -- all six
         # tests passed. A gate reporting safety it does not provide is worse than no gate.
@@ -326,15 +378,22 @@ Describe 'Committed dead-key report (REGRESSION guard, no spec cache required)' 
         # floor of 20 against 29 published specs: this asserts "the mechanism still ran over
         # the corpus", and the real figures move with ordinary cmdlet churn and with genuine
         # reclassification. Pinning them would turn every unrelated cmdlet addition into a red
-        # build. Measured at the baseline commit (specVersion 2.28): parametersInventoried
-        # 2174, keysEvaluated 1757 -- so the headroom below is 174 and 157 respectively, and
-        # the 900/700 collapse misses by a wide margin.
+        # build. Measured against the committed artifact at issue #141 (specVersion 2.28):
+        # parametersInventoried 2168, keysEvaluated 1779 -- so the headroom below is 168 and 179
+        # respectively, and the 900/700 collapse misses by a wide margin. (Both figures were
+        # 2174 / 1757 when this comment was written, and BOTH moved in two steps, not one:
+        # ordinary cmdlet churn took parametersInventoried 2174 -> 2168 and keysEvaluated
+        # 1757 -> 1747 -- those are main's committed figures, measured, not inferred -- and then
+        # #141 raised keysEvaluated 1747 -> 1779 by teaching the resolver three assignment shapes
+        # it had been skipping. Attributing the whole keysEvaluated delta to #141 would credit it
+        # with +22 when it earned +32 against a base that had fallen. The floors are unchanged;
+        # keysEvaluated rising is the direction they exist to protect.)
         #
         # deadKey and the skip counts are deliberately NOT floored. Those must be free to fall
         # to zero; that is the whole monotone design, and flooring them would recreate the bug
         # this file was sent back for.
-        $committedReport.counts.parametersInventoried | Should -BeGreaterOrEqual 2000 -Because "the AST inventory must still be walking the whole of Public/: it reported $($committedReport.counts.parametersInventoried) parameters against a measured 2174. A large drop is a coverage collapse, not an improvement -- the keys that disappeared were not proven safe, they stopped being looked at."
-        $committedReport.counts.keysEvaluated | Should -BeGreaterOrEqual 1600 -Because "the classifier must still be evaluating the bulk of the inventory: it reported $($committedReport.counts.keysEvaluated) evaluated keys against a measured 1757. Every key that stops being evaluated leaves the gate's view silently."
+        $committedReport.counts.parametersInventoried | Should -BeGreaterOrEqual 2000 -Because "the AST inventory must still be walking the whole of Public/: it reported $($committedReport.counts.parametersInventoried) parameters against a measured 2168. A large drop is a coverage collapse, not an improvement -- the keys that disappeared were not proven safe, they stopped being looked at."
+        $committedReport.counts.keysEvaluated | Should -BeGreaterOrEqual 1600 -Because "the classifier must still be evaluating the bulk of the inventory: it reported $($committedReport.counts.keysEvaluated) evaluated keys against a measured 1779. Every key that stops being evaluated leaves the gate's view silently."
         # THE RECONCILIATION, both halves -- and the two halves are NOT of equal strength. Said
         # plainly, because an earlier version of this comment overclaimed the first one:
         #

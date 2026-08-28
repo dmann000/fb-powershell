@@ -1,5 +1,6 @@
 <#
-    Accepted pipeline-selector findings for issue #90 -- the debt register Rail A enforces.
+    Accepted pipeline-selector findings -- the debt register Rail A enforces. Found by the #90
+    audit; tracked for fix in #152 / #153 / #123 (see the Issue field note below).
 
     Rail A (Tests/PfbPipelineSelectorRail.Tests.ps1) re-probes every pair in
     Reports/PfbPipelineSelectorMap.json and fails on any Coerced or WrongScalar selector not
@@ -7,10 +8,17 @@
     its waiver rather than leave a licence behind for the next reintroduction.
 
     ONE ENTRY PER (Cmdlet, Parameter) PAIR, NOT PER PRODUCING ENDPOINT. The current report's
-    264 finding rows are producer multiplicity over 101 real defects; keying by triple would be
-    264 entries against psd1's hard 500-element cap for a single collection literal, and would
+    266 finding rows are producer multiplicity over 102 real defects; keying by triple would be
+    266 entries against psd1's hard 500-element cap for a single collection literal, and would
     list the same defect up to a dozen times. (The pre-fix audit measured 389 rows over 127
     pairs; the guards and renames delivered for #90 account for the reduction.)
+
+    264 rows / 101 pairs -> 266 / 102 at issue #141, and the added pair is NOT new module debt.
+    #141 changed no cmdlet; it taught the wire-name resolver assignment shapes it had been
+    skipping, so Get-PfbUserGroupQuotaPolicy|Name entered the probe candidate set for the first
+    time and reproduced a defect that was always there. Candidates moved 629 -> 655 while probe
+    pairs stayed at 1247, which is the measurement that distinguishes "the rail can see more"
+    from "the module does more".
 
     Scope and Producers are LOAD-BEARING, not annotation -- pair-level keying is otherwise
     blind to where a coercion happens. Rail A fails if a Family-scoped waiver's pair starts
@@ -21,9 +29,25 @@
     Family = only against another endpoint in the same resource family), Issue, Producers (how
     many endpoints reproduce it), Why.
 
-    Issue is #90 for every entry because the fix issue does not exist yet -- #90 delivers the
-    audit and this rail, and the split issue is filed after the PR exists. Re-pointing these at
-    that issue is a follow-up commit.
+    Issue now names a FIX issue, not the audit that found the defect. Every entry pointed at
+    #90 (and the one at #141) until issue #141's PR; #90 is closed, and pointing a live register
+    at a closed issue is how it stops being read. The 102 pairs split by root cause, measured
+    from Reports/PfbPipelineSelectorMap.json rather than assigned by hand:
+
+      #152 (64) -- the join-item class. A family endpoint returns join records whose members are
+        objects (member, policy, usually context) and which carry no name, so a name-shaped
+        selector cannot bind by property name. One coherent cause; plausibly one fix for all.
+      #153 (37) -- items with no name for unrelated reasons: alert/hardware records keyed on
+        component_name, @{group=; member=} membership items, realm/object-store associations.
+        Deliberately NOT merged into #152 -- there is no shared structure to key a fix on.
+      #123 (1)  -- Get-PfbUserGroupQuotaPolicyRule|PolicyName. Structurally a member of the #152
+        class, but it already has its own issue and a different blocker: the array honours a
+        policy_names key the published OpenAPI omits, so the fix is upstream, not here.
+
+    64 + 37 + 1 = 102, which is every entry; the split is total and has no residue. #152 counts
+    that pair in its 65-pair class because the class is defined by root cause, while the waiver
+    points at #123 because that is where the fix is tracked. Both numbers are right; they answer
+    different questions.
 
     Clusters below are the audit report's root-cause clusters (issue-90-audit-report.md, 3.3),
     not cosmetic grouping: each cluster is one fix, not N.
@@ -37,7 +61,7 @@
         # policy_name/member_name/role_name string, so a name-shaped selector can never bind by
         # property name. One API design decision repeated across roughly a dozen endpoint
         # families: fix it as one change, not sixteen.
-        @{ Cmdlet = 'Get-PfbUserGroupQuotaPolicyRule';             Parameter = 'PolicyName';  Scope = 'Primary'; Issue = '#90'; Producers = 4
+        @{ Cmdlet = 'Get-PfbUserGroupQuotaPolicyRule';             Parameter = 'PolicyName';  Scope = 'Primary'; Issue = '#123'; Producers = 4
             Why = 'GET /user-group-quota-policies/rules returns policy as a nested object, never a flat policy_name, so policy_names receives the stringified rule item. Waived rather than fixed because the array honours a policy_names key the published OpenAPI omits, and the published spec governs.' }
 
         # === Cluster 2 -- sub-resources that have no name at all (0 pairs still waived here; the
@@ -70,205 +94,212 @@
         # -- every pipeline chain this module advertises works. "Family endpoints coerce" is a
         # count of PRODUCING ENDPOINTS for that pair; the named one is an example, and the
         # mechanism described belongs to it.
-        @{ Cmdlet = 'Get-PfbActiveDirectory';                      Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbActiveDirectory';                      Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /active-directory/test -- the /test endpoint returns a test-result item, not a resource, so it has no name.' }
-        @{ Cmdlet = 'Get-PfbAdmin';                                Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 5
+        @{ Cmdlet = 'Get-PfbAdmin';                                Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 5
             Why = 'Primary producer binds -Name correctly; 5 family endpoints coerce, e.g. GET /admins/api-tokens -- its items carry no name (admin, api_token, context).' }
-        @{ Cmdlet = 'Get-PfbAdminCache';                           Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 5
+        @{ Cmdlet = 'Get-PfbAdminCache';                           Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 5
             Why = 'Primary producer binds -Name correctly; 5 family endpoints coerce, e.g. GET /admins/api-tokens -- its items carry no name (admin, api_token, context).' }
-        @{ Cmdlet = 'Get-PfbAlertWatcher';                         Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbAlertWatcher';                         Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /alert-watchers/test -- the /test endpoint returns a test-result item, not a resource, so it has no name.' }
-        @{ Cmdlet = 'Get-PfbAuditFileSystemPolicy';                Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbAuditFileSystemPolicy';                Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /audit-file-systems-policies/members -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbAuditObjectStorePolicy';               Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbAuditObjectStorePolicy';               Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /audit-object-store-policies/members -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbCertificate';                          Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbCertificate';                          Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /certificates/certificate-groups -- that join item returns its endpoints as objects (group, member) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbCertificateGroup';                     Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbCertificateGroup';                     Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /certificate-groups/certificates -- that join item returns its endpoints as objects (group, member) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbCertificateGroupUse';                  Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbCertificateGroupUse';                  Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /certificate-groups/certificates -- that join item returns its endpoints as objects (group, member) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbCertificateUse';                       Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbCertificateUse';                       Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /certificates/certificate-groups -- that join item returns its endpoints as objects (group, member) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbDataEvictionPolicy';                   Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 2
+        @{ Cmdlet = 'Get-PfbDataEvictionPolicy';                   Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 2
             Why = 'Primary producer binds -Name correctly; 2 family endpoints coerce, e.g. GET /data-eviction-policies/file-systems -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbDirectoryService';                     Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 4
+        @{ Cmdlet = 'Get-PfbDirectoryService';                     Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 4
             Why = 'Primary producer binds -Name correctly; 4 family endpoints coerce, e.g. GET /directory-services/local/groups/members -- its items carry no name (context, group, group_gid, is_primary_group, local_directory_service, member, member_id, realms, server).' }
-        @{ Cmdlet = 'Get-PfbDirectoryServiceRole';                 Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 4
+        @{ Cmdlet = 'Get-PfbDirectoryServiceRole';                 Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 4
             Why = 'Primary producer binds -Name correctly; 4 family endpoints coerce, e.g. GET /directory-services/local/groups/members -- its items carry no name (context, group, group_gid, is_primary_group, local_directory_service, member, member_id, realms, server).' }
-        @{ Cmdlet = 'Get-PfbFileLock';                             Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 9
+        @{ Cmdlet = 'Get-PfbFileLock';                             Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 9
             Why = 'Primary producer binds -Name correctly; 9 family endpoints coerce, e.g. GET /file-systems/audit-policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbFileLockClient';                       Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 9
+        @{ Cmdlet = 'Get-PfbFileLockClient';                       Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 9
             Why = 'Primary producer binds -Name correctly; 9 family endpoints coerce, e.g. GET /file-systems/audit-policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbFileSystem';                           Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 9
+        @{ Cmdlet = 'Get-PfbFileSystem';                           Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 9
             Why = 'Primary producer binds -Name correctly; 9 family endpoints coerce, e.g. GET /file-systems/audit-policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbFileSystemGroupPerformance';           Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 9
+        @{ Cmdlet = 'Get-PfbFileSystemGroupPerformance';           Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 9
             Why = 'Primary producer binds -Name correctly; 9 family endpoints coerce, e.g. GET /file-systems/audit-policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbFileSystemSession';                    Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 9
+        @{ Cmdlet = 'Get-PfbFileSystemSession';                    Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 9
             Why = 'Primary producer binds -Name correctly; 9 family endpoints coerce, e.g. GET /file-systems/audit-policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbFileSystemSnapshot';                   Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbFileSystemSnapshot';                   Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /file-system-snapshots/policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbFileSystemSnapshotTransfer';           Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbFileSystemSnapshotTransfer';           Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /file-system-snapshots/policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbFileSystemStorageClass';               Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 9
+        @{ Cmdlet = 'Get-PfbFileSystemStorageClass';               Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 9
             Why = 'Primary producer binds -Name correctly; 9 family endpoints coerce, e.g. GET /file-systems/audit-policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbFileSystemUserPerformance';            Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 9
+        @{ Cmdlet = 'Get-PfbFileSystemUserPerformance';            Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 9
             Why = 'Primary producer binds -Name correctly; 9 family endpoints coerce, e.g. GET /file-systems/audit-policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbFleet';                                Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 2
+        @{ Cmdlet = 'Get-PfbFleet';                                Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 2
             Why = 'Primary producer binds -Name correctly; 2 family endpoints coerce, e.g. GET /fleets/fleet-key -- its items carry no name (created, expires, fleet_key).' }
-        @{ Cmdlet = 'Get-PfbKmip';                                 Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbKmip';                                 Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /kmip/test -- the /test endpoint returns a test-result item, not a resource, so it has no name.' }
-        @{ Cmdlet = 'Get-PfbLegalHold';                            Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbLegalHold';                            Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /legal-holds/held-entities -- its items carry no name (file_system, legal_hold, path, status).' }
-        @{ Cmdlet = 'Get-PfbLocalDirectoryService';                Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 4
+        @{ Cmdlet = 'Get-PfbLocalDirectoryService';                Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 4
             Why = 'Primary producer binds -Name correctly; 4 family endpoints coerce, e.g. GET /directory-services/local/groups/members -- its items carry no name (context, group, group_gid, is_primary_group, local_directory_service, member, member_id, realms, server).' }
-        @{ Cmdlet = 'Get-PfbLocalGroup';                           Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 4
+        @{ Cmdlet = 'Get-PfbLocalGroup';                           Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 4
             Why = 'Primary producer binds -Name correctly; 4 family endpoints coerce, e.g. GET /directory-services/local/groups/members -- its items carry no name (context, group, group_gid, is_primary_group, local_directory_service, member, member_id, realms, server).' }
-        @{ Cmdlet = 'Get-PfbManagementAccessPolicy';               Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 3
+        @{ Cmdlet = 'Get-PfbManagementAccessPolicy';               Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 3
             Why = 'Primary producer binds -Name correctly; 3 family endpoints coerce, e.g. GET /management-access-policies/admins -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbNetworkAccessPolicy';                  Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbNetworkAccessPolicy';                  Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /network-access-policies/members -- that join item returns its endpoints as objects (member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbNetworkInterface';                     Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 5
+        @{ Cmdlet = 'Get-PfbNetworkInterface';                     Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 5
             Why = 'Primary producer binds -Name correctly; 5 family endpoints coerce, e.g. GET /network-interfaces/neighbors -- its items carry no name (initial_ttl_in_sec, local_port, neighbor_chassis, neighbor_port).' }
-        @{ Cmdlet = 'Get-PfbNetworkInterfaceConnector';            Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 5
+        @{ Cmdlet = 'Get-PfbNetworkInterfaceConnector';            Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 5
             Why = 'Primary producer binds -Name correctly; 5 family endpoints coerce, e.g. GET /network-interfaces/neighbors -- its items carry no name (initial_ttl_in_sec, local_port, neighbor_chassis, neighbor_port).' }
-        @{ Cmdlet = 'Get-PfbNetworkInterfaceConnectorPerformance'; Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 5
+        @{ Cmdlet = 'Get-PfbNetworkInterfaceConnectorPerformance'; Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 5
             Why = 'Primary producer binds -Name correctly; 5 family endpoints coerce, e.g. GET /network-interfaces/neighbors -- its items carry no name (initial_ttl_in_sec, local_port, neighbor_chassis, neighbor_port).' }
-        @{ Cmdlet = 'Get-PfbNetworkInterfaceConnectorSettings';    Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 5
+        @{ Cmdlet = 'Get-PfbNetworkInterfaceConnectorSettings';    Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 5
             Why = 'Primary producer binds -Name correctly; 5 family endpoints coerce, e.g. GET /network-interfaces/neighbors -- its items carry no name (initial_ttl_in_sec, local_port, neighbor_chassis, neighbor_port).' }
-        @{ Cmdlet = 'Get-PfbNodeGroup';                            Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbNodeGroup';                            Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /node-groups/nodes -- that join item returns its endpoints as objects (group, member) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbNodeGroupUse';                         Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbNodeGroupUse';                         Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /node-groups/nodes -- that join item returns its endpoints as objects (group, member) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbObjectStoreAccessPolicy';              Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 2
+        @{ Cmdlet = 'Get-PfbObjectStoreAccessPolicy';              Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 2
             Why = 'Primary producer binds -Name correctly; 2 family endpoints coerce, e.g. GET /object-store-access-policies/object-store-roles -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbObjectStoreRole';                      Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbObjectStoreRole';                      Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /object-store-roles/object-store-access-policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbObjectStoreUser';                      Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbObjectStoreUser';                      Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /object-store-users/object-store-access-policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbOidcIdp';                              Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbOidcIdp';                              Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /sso/saml2/idps/test -- the /test endpoint returns a test-result item, not a resource, so it has no name.' }
-        @{ Cmdlet = 'Get-PfbPolicy';                               Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 4
+        @{ Cmdlet = 'Get-PfbPolicy';                               Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 4
             Why = 'Primary producer binds -Name correctly; 4 family endpoints coerce, e.g. GET /policies/file-system-replica-links -- that join item returns its endpoints as objects (context, link, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbPolicyAll';                            Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbPolicyAll';                            Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /policies-all/members -- that join item returns its endpoints as objects (context, link, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbQosPolicy';                            Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 3
+        @{ Cmdlet = 'Get-PfbQosPolicy';                            Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 3
             Why = 'Primary producer binds -Name correctly; 3 family endpoints coerce, e.g. GET /qos-policies/buckets -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbRealm';                                Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbRealm';                                Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /realms/defaults -- its items carry no name (context, object_store, realm).' }
-        @{ Cmdlet = 'Get-PfbRealmSpace';                           Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbRealmSpace';                           Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /realms/defaults -- its items carry no name (context, object_store, realm).' }
-        @{ Cmdlet = 'Get-PfbRealmStorageClass';                    Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbRealmStorageClass';                    Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /realms/defaults -- its items carry no name (context, object_store, realm).' }
-        @{ Cmdlet = 'Get-PfbResiliencyGroup';                      Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbResiliencyGroup';                      Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /resiliency-groups/members -- that join item returns its endpoints as objects (group, member) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbSaml2Idp';                             Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbSaml2Idp';                             Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /sso/saml2/idps/test -- the /test endpoint returns a test-result item, not a resource, so it has no name.' }
-        @{ Cmdlet = 'Get-PfbSnmpManager';                          Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbSnmpManager';                          Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /snmp-managers/test -- the /test endpoint returns a test-result item, not a resource, so it has no name.' }
-        @{ Cmdlet = 'Get-PfbSshCaPolicy';                          Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 3
+        @{ Cmdlet = 'Get-PfbSshCaPolicy';                          Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 3
             Why = 'Primary producer binds -Name correctly; 3 family endpoints coerce, e.g. GET /ssh-certificate-authority-policies/admins -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbStorageClassTieringPolicy';            Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbStorageClassTieringPolicy';            Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /storage-class-tiering-policies/members -- that join item returns its endpoints as objects (member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbSupport';                              Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 2
+        @{ Cmdlet = 'Get-PfbSupport';                              Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 2
             Why = 'Primary producer binds -Name correctly; 2 family endpoints coerce, e.g. GET /support/system-manifest -- its items carry no name (context, system-manifest).' }
-        @{ Cmdlet = 'Get-PfbSupportDiagnostics';                   Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbSupportDiagnostics';                   Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /support-diagnostics/settings -- its items carry no name (last_updated, version).' }
-        @{ Cmdlet = 'Get-PfbSupportDiagnosticsDetails';            Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbSupportDiagnosticsDetails';            Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /support-diagnostics/settings -- its items carry no name (last_updated, version).' }
-        @{ Cmdlet = 'Get-PfbSyslogServer';                         Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbSyslogServer';                         Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /syslog-servers/test -- the /test endpoint returns a test-result item, not a resource, so it has no name.' }
-        @{ Cmdlet = 'Get-PfbTlsPolicy';                            Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 2
+        @{ Cmdlet = 'Get-PfbTlsPolicy';                            Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 2
             Why = 'Primary producer binds -Name correctly; 2 family endpoints coerce, e.g. GET /tls-policies/members -- that join item returns its endpoints as objects (member, policy) and carries no name.' }
-        @{ Cmdlet = 'Get-PfbWorkload';                             Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        # NEW at issue #141, and new only to the RAIL -- not to the module. -Name was invisible
+        # here until #141 taught the wire-name resolver the assignment shape that writes it
+        # (inventory row moved TypedUnresolved -> Typed|names|Query|GET|user-group-quota-policies),
+        # so the pair entered the probe candidate set and immediately reproduced the same
+        # nested-join-item defect as the two entries above it. Nothing about the cmdlet changed.
+        @{ Cmdlet = 'Get-PfbUserGroupQuotaPolicy';                 Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 2
+            Why = 'Primary producer binds -Name correctly; 2 family endpoints coerce, GET /user-group-quota-policies/file-systems and /members -- both join items return their endpoints as objects (context, member, policy) and carry no name, so a name-shaped selector cannot bind by property name and is stringified to names=@{context=; member=; policy=}. Same root cause as the Get-PfbTlsPolicy and Get-PfbWormPolicy entries: one API design decision, one fix.' }
+        @{ Cmdlet = 'Get-PfbWorkload';                             Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /workloads/tags -- its items carry no name (context, copyable, key, namespace, resource, value).' }
-        @{ Cmdlet = 'Get-PfbWormPolicy';                           Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Get-PfbWormPolicy';                           Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /worm-data-policies/members -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbActiveDirectory';                   Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbActiveDirectory';                   Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /active-directory/test -- the /test endpoint returns a test-result item, not a resource, so it has no name.' }
-        @{ Cmdlet = 'Remove-PfbAdminCache';                        Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 5
+        @{ Cmdlet = 'Remove-PfbAdminCache';                        Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 5
             Why = 'Primary producer binds -Name correctly; 5 family endpoints coerce, e.g. GET /admins/api-tokens -- its items carry no name (admin, api_token, context).' }
-        @{ Cmdlet = 'Remove-PfbAlertWatcher';                      Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbAlertWatcher';                      Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /alert-watchers/test -- the /test endpoint returns a test-result item, not a resource, so it has no name.' }
-        @{ Cmdlet = 'Remove-PfbAuditFileSystemPolicy';             Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbAuditFileSystemPolicy';             Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /audit-file-systems-policies/members -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbAuditObjectStorePolicy';            Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbAuditObjectStorePolicy';            Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /audit-object-store-policies/members -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbCertificate';                       Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbCertificate';                       Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /certificates/certificate-groups -- that join item returns its endpoints as objects (group, member) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbCertificateGroup';                  Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbCertificateGroup';                  Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /certificate-groups/certificates -- that join item returns its endpoints as objects (group, member) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbDataEvictionPolicy';                Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 2
+        @{ Cmdlet = 'Remove-PfbDataEvictionPolicy';                Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 2
             Why = 'Primary producer binds -Name correctly; 2 family endpoints coerce, e.g. GET /data-eviction-policies/file-systems -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbDirectoryServiceRole';              Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 4
+        @{ Cmdlet = 'Remove-PfbDirectoryServiceRole';              Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 4
             Why = 'Primary producer binds -Name correctly; 4 family endpoints coerce, e.g. GET /directory-services/local/groups/members -- its items carry no name (context, group, group_gid, is_primary_group, local_directory_service, member, member_id, realms, server).' }
-        @{ Cmdlet = 'Remove-PfbFileLock';                          Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 9
+        @{ Cmdlet = 'Remove-PfbFileLock';                          Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 9
             Why = 'Primary producer binds -Name correctly; 9 family endpoints coerce, e.g. GET /file-systems/audit-policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbFileSystem';                        Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 9
+        @{ Cmdlet = 'Remove-PfbFileSystem';                        Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 9
             Why = 'Primary producer binds -Name correctly; 9 family endpoints coerce, e.g. GET /file-systems/audit-policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbFileSystemSession';                 Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 9
+        @{ Cmdlet = 'Remove-PfbFileSystemSession';                 Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 9
             Why = 'Primary producer binds -Name correctly; 9 family endpoints coerce, e.g. GET /file-systems/audit-policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbFileSystemSnapshot';                Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbFileSystemSnapshot';                Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /file-system-snapshots/policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbFileSystemSnapshotTransfer';        Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbFileSystemSnapshotTransfer';        Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /file-system-snapshots/policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbFleet';                             Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 2
+        @{ Cmdlet = 'Remove-PfbFleet';                             Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 2
             Why = 'Primary producer binds -Name correctly; 2 family endpoints coerce, e.g. GET /fleets/fleet-key -- its items carry no name (created, expires, fleet_key).' }
-        @{ Cmdlet = 'Remove-PfbLegalHold';                         Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbLegalHold';                         Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /legal-holds/held-entities -- its items carry no name (file_system, legal_hold, path, status).' }
-        @{ Cmdlet = 'Remove-PfbLocalGroup';                        Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 4
+        @{ Cmdlet = 'Remove-PfbLocalGroup';                        Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 4
             Why = 'Primary producer binds -Name correctly; 4 family endpoints coerce, e.g. GET /directory-services/local/groups/members -- its items carry no name (context, group, group_gid, is_primary_group, local_directory_service, member, member_id, realms, server).' }
-        @{ Cmdlet = 'Remove-PfbManagementAccessPolicy';            Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 3
+        @{ Cmdlet = 'Remove-PfbManagementAccessPolicy';            Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 3
             Why = 'Primary producer binds -Name correctly; 3 family endpoints coerce, e.g. GET /management-access-policies/admins -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbNetworkAccessRule';                 Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbNetworkAccessRule';                 Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /network-access-policies/members -- that join item returns its endpoints as objects (member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbNetworkInterface';                  Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 5
+        @{ Cmdlet = 'Remove-PfbNetworkInterface';                  Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 5
             Why = 'Primary producer binds -Name correctly; 5 family endpoints coerce, e.g. GET /network-interfaces/neighbors -- its items carry no name (initial_ttl_in_sec, local_port, neighbor_chassis, neighbor_port).' }
-        @{ Cmdlet = 'Remove-PfbNodeGroup';                         Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbNodeGroup';                         Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /node-groups/nodes -- that join item returns its endpoints as objects (group, member) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbObjectStoreAccessPolicy';           Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 2
+        @{ Cmdlet = 'Remove-PfbObjectStoreAccessPolicy';           Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 2
             Why = 'Primary producer binds -Name correctly; 2 family endpoints coerce, e.g. GET /object-store-access-policies/object-store-roles -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbObjectStoreAccessPolicyRule';       Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 2
+        @{ Cmdlet = 'Remove-PfbObjectStoreAccessPolicyRule';       Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 2
             Why = 'Primary producer binds -Name correctly; 2 family endpoints coerce, e.g. GET /object-store-access-policies/object-store-roles -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbObjectStoreRole';                   Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbObjectStoreRole';                   Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /object-store-roles/object-store-access-policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbObjectStoreTrustPolicyRule';        Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbObjectStoreTrustPolicyRule';        Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /object-store-roles/object-store-access-policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbObjectStoreUser';                   Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbObjectStoreUser';                   Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /object-store-users/object-store-access-policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbOidcIdp';                           Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbOidcIdp';                           Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /sso/saml2/idps/test -- the /test endpoint returns a test-result item, not a resource, so it has no name.' }
-        @{ Cmdlet = 'Remove-PfbPolicy';                            Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 4
+        @{ Cmdlet = 'Remove-PfbPolicy';                            Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 4
             Why = 'Primary producer binds -Name correctly; 4 family endpoints coerce, e.g. GET /policies/file-system-replica-links -- that join item returns its endpoints as objects (context, link, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbQosPolicy';                         Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 3
+        @{ Cmdlet = 'Remove-PfbQosPolicy';                         Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 3
             Why = 'Primary producer binds -Name correctly; 3 family endpoints coerce, e.g. GET /qos-policies/buckets -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbRealm';                             Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbRealm';                             Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /realms/defaults -- its items carry no name (context, object_store, realm).' }
-        @{ Cmdlet = 'Remove-PfbSaml2Idp';                          Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbSaml2Idp';                          Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /sso/saml2/idps/test -- the /test endpoint returns a test-result item, not a resource, so it has no name.' }
-        @{ Cmdlet = 'Remove-PfbSnmpManager';                       Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbSnmpManager';                       Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /snmp-managers/test -- the /test endpoint returns a test-result item, not a resource, so it has no name.' }
-        @{ Cmdlet = 'Remove-PfbSshCaPolicy';                       Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 3
+        @{ Cmdlet = 'Remove-PfbSshCaPolicy';                       Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 3
             Why = 'Primary producer binds -Name correctly; 3 family endpoints coerce, e.g. GET /ssh-certificate-authority-policies/admins -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbStorageClassTieringPolicy';         Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbStorageClassTieringPolicy';         Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /storage-class-tiering-policies/members -- that join item returns its endpoints as objects (member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbSyslogServer';                      Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbSyslogServer';                      Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /syslog-servers/test -- the /test endpoint returns a test-result item, not a resource, so it has no name.' }
-        @{ Cmdlet = 'Remove-PfbTlsPolicy';                         Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 2
+        @{ Cmdlet = 'Remove-PfbTlsPolicy';                         Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 2
             Why = 'Primary producer binds -Name correctly; 2 family endpoints coerce, e.g. GET /tls-policies/members -- that join item returns its endpoints as objects (member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbUserGroupQuotaPolicy';              Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 2
+        @{ Cmdlet = 'Remove-PfbUserGroupQuotaPolicy';              Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 2
             Why = 'Primary producer binds -Name correctly; 2 family endpoints coerce, e.g. GET /user-group-quota-policies/file-systems -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Remove-PfbWorkload';                          Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbWorkload';                          Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /workloads/tags -- its items carry no name (context, copyable, key, namespace, resource, value).' }
-        @{ Cmdlet = 'Remove-PfbWormPolicy';                        Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Remove-PfbWormPolicy';                        Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /worm-data-policies/members -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Update-PfbKmip';                              Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Update-PfbKmip';                              Parameter = 'Name';        Scope = 'Family';  Issue = '#153'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /kmip/test -- the /test endpoint returns a test-result item, not a resource, so it has no name.' }
-        @{ Cmdlet = 'Update-PfbObjectStoreAccessPolicyRule';       Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 2
+        @{ Cmdlet = 'Update-PfbObjectStoreAccessPolicyRule';       Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 2
             Why = 'Primary producer binds -Name correctly; 2 family endpoints coerce, e.g. GET /object-store-access-policies/object-store-roles -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Update-PfbObjectStoreRole';                   Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Update-PfbObjectStoreRole';                   Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /object-store-roles/object-store-access-policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
-        @{ Cmdlet = 'Update-PfbObjectStoreTrustPolicyRule';        Parameter = 'Name';        Scope = 'Family';  Issue = '#90'; Producers = 1
+        @{ Cmdlet = 'Update-PfbObjectStoreTrustPolicyRule';        Parameter = 'Name';        Scope = 'Family';  Issue = '#152'; Producers = 1
             Why = 'Primary producer binds -Name correctly; one family endpoint coerces, GET /object-store-roles/object-store-access-policies -- that join item returns its endpoints as objects (context, member, policy) and carries no name.' }
     )
 }

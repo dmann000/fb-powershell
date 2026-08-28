@@ -2,12 +2,14 @@
   "specVersion": "2.28",
   "counts": {
     "parametersInventoried": 2168,
-    "keysEvaluated": 1747,
-    "ok": 1664,
-    "deadKey": 83,
+    "keysEvaluated": 1780,
+    "ok": 1695,
+    "deadKey": 85,
     "skipReasons": {
-      "wire name unresolved": 127,
-      "body property": 280,
+      "wire name unresolved": 31,
+      "outside standard request": 28,
+      "not wire parameter": 6,
+      "body property": 309,
       "endpoint/method ambiguous": 14,
       "endpoint/verb absent from spec": 0
     }
@@ -15,6 +17,30 @@
   "deadKeys": [
     {
       "severity": "WRONG-RESULTS",
+      "cmdlet": "Get-PfbAlert",
+      "parameter": "Flagged",
+      "wireKey": "flagged",
+      "method": "GET",
+      "endpoint": "alerts",
+      "declared": [
+        "continuation_token",
+        "filter",
+        "ids",
+        "limit",
+        "names",
+        "offset",
+        "sort"
+      ],
+      "classification": "WRONG-SURFACE",
+      "declaredElsewhere": [
+        {
+          "method": "PATCH",
+          "surface": "Body"
+        }
+      ]
+    },
+    {
+      "severity": "WRONG-RESULTS",
       "cmdlet": "Get-PfbArrayClientPerformance",
       "parameter": "EndTime",
       "wireKey": "end_time",
@@ -27,7 +53,9 @@
         "protocol",
         "sort",
         "total_only"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -43,7 +71,9 @@
         "protocol",
         "sort",
         "total_only"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -59,7 +89,9 @@
         "protocol",
         "sort",
         "total_only"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -74,7 +106,9 @@
         "names",
         "sort",
         "total_only"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -89,7 +123,9 @@
         "names",
         "sort",
         "total_only"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -104,7 +140,9 @@
         "names",
         "sort",
         "total_only"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -113,7 +151,9 @@
       "wireKey": "filter",
       "method": "GET",
       "endpoint": "arrays/erasures",
-      "declared": []
+      "declared": [],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -122,7 +162,9 @@
       "wireKey": "limit",
       "method": "GET",
       "endpoint": "arrays/erasures",
-      "declared": []
+      "declared": [],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -131,7 +173,9 @@
       "wireKey": "sort",
       "method": "GET",
       "endpoint": "arrays/erasures",
-      "declared": []
+      "declared": [],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -146,7 +190,9 @@
         "end_time",
         "resolution",
         "start_time"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -161,7 +207,9 @@
         "end_time",
         "resolution",
         "start_time"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -176,7 +224,9 @@
         "end_time",
         "resolution",
         "start_time"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -191,7 +241,9 @@
         "end_time",
         "resolution",
         "start_time"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -206,7 +258,9 @@
         "end_time",
         "resolution",
         "start_time"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -221,7 +275,9 @@
         "end_time",
         "resolution",
         "start_time"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -237,7 +293,9 @@
         "resolution",
         "start_time",
         "type"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -253,7 +311,9 @@
         "resolution",
         "start_time",
         "type"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -269,7 +329,9 @@
         "resolution",
         "start_time",
         "type"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -284,7 +346,9 @@
         "end_time",
         "resolution",
         "start_time"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -299,7 +363,9 @@
         "end_time",
         "resolution",
         "start_time"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -314,7 +380,9 @@
         "end_time",
         "resolution",
         "start_time"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -325,7 +393,9 @@
       "endpoint": "logs-async/download",
       "declared": [
         "names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -346,7 +416,9 @@
         "limit",
         "names",
         "paths"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -367,7 +439,9 @@
         "limit",
         "names",
         "paths"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -382,7 +456,9 @@
         "continuation_token",
         "filter",
         "limit"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -397,7 +473,9 @@
         "continuation_token",
         "filter",
         "limit"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -412,7 +490,9 @@
         "continuation_token",
         "filter",
         "limit"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -431,7 +511,9 @@
         "names",
         "sort",
         "total_only"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -450,7 +532,9 @@
         "names",
         "sort",
         "total_only"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -469,7 +553,9 @@
         "names",
         "sort",
         "total_only"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -487,7 +573,9 @@
         "names",
         "protocols",
         "user_names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -505,7 +593,9 @@
         "names",
         "protocols",
         "user_names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -527,6 +617,17 @@
         "owner_ids",
         "sort",
         "total_only"
+      ],
+      "classification": "WRONG-VERB",
+      "declaredElsewhere": [
+        {
+          "method": "DELETE",
+          "surface": "Query"
+        },
+        {
+          "method": "PATCH",
+          "surface": "Query"
+        }
       ]
     },
     {
@@ -549,6 +650,13 @@
         "owner_ids",
         "sort",
         "total_only"
+      ],
+      "classification": "WRONG-VERB",
+      "declaredElsewhere": [
+        {
+          "method": "POST",
+          "surface": "Query"
+        }
       ]
     },
     {
@@ -569,6 +677,13 @@
         "offset",
         "sort",
         "total_only"
+      ],
+      "classification": "WRONG-VERB",
+      "declaredElsewhere": [
+        {
+          "method": "DELETE",
+          "surface": "Query"
+        }
       ]
     },
     {
@@ -588,7 +703,9 @@
         "total_only",
         "uids",
         "user_names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -607,7 +724,9 @@
         "total_only",
         "uids",
         "user_names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -626,7 +745,9 @@
         "total_only",
         "uids",
         "user_names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -638,7 +759,9 @@
       "declared": [
         "keytab_ids",
         "keytab_names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -650,7 +773,9 @@
       "declared": [
         "keytab_ids",
         "keytab_names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -662,7 +787,9 @@
       "declared": [
         "keytab_ids",
         "keytab_names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -674,7 +801,9 @@
       "declared": [
         "keytab_ids",
         "keytab_names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -686,7 +815,9 @@
       "declared": [
         "keytab_ids",
         "keytab_names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -703,7 +834,9 @@
         "limit",
         "names",
         "paths"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -720,7 +853,9 @@
         "limit",
         "names",
         "paths"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -737,7 +872,9 @@
         "limit",
         "names",
         "paths"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -754,7 +891,9 @@
         "limit",
         "names",
         "paths"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -771,7 +910,9 @@
         "limit",
         "names",
         "paths"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -788,7 +929,9 @@
         "limit",
         "names",
         "paths"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -800,7 +943,9 @@
       "declared": [
         "end_time",
         "start_time"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -812,7 +957,9 @@
       "declared": [
         "end_time",
         "start_time"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -824,7 +971,9 @@
       "declared": [
         "end_time",
         "start_time"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -843,7 +992,9 @@
         "node_names",
         "offset",
         "sort"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -862,7 +1013,9 @@
         "node_names",
         "offset",
         "sort"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -881,7 +1034,9 @@
         "node_names",
         "offset",
         "sort"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -900,7 +1055,9 @@
         "node_names",
         "offset",
         "sort"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -918,7 +1075,9 @@
         "names",
         "offset",
         "sort"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -939,7 +1098,9 @@
         "policy_ids",
         "policy_names",
         "sort"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -960,7 +1121,9 @@
         "policy_ids",
         "policy_names",
         "sort"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -972,7 +1135,9 @@
       "declared": [
         "ids",
         "names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -984,7 +1149,9 @@
       "declared": [
         "ids",
         "names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -996,7 +1163,9 @@
       "declared": [
         "ids",
         "names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -1015,6 +1184,17 @@
         "names",
         "offset",
         "sort"
+      ],
+      "classification": "WRONG-VERB",
+      "declaredElsewhere": [
+        {
+          "method": "DELETE",
+          "surface": "Query"
+        },
+        {
+          "method": "POST",
+          "surface": "Query"
+        }
       ]
     },
     {
@@ -1034,6 +1214,17 @@
         "names",
         "offset",
         "sort"
+      ],
+      "classification": "WRONG-VERB",
+      "declaredElsewhere": [
+        {
+          "method": "DELETE",
+          "surface": "Query"
+        },
+        {
+          "method": "POST",
+          "surface": "Query"
+        }
       ]
     },
     {
@@ -1051,7 +1242,9 @@
         "ids",
         "limit",
         "names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -1068,7 +1261,9 @@
         "ids",
         "limit",
         "names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -1084,7 +1279,9 @@
         "ids",
         "limit",
         "names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "WRONG-RESULTS",
@@ -1100,7 +1297,20 @@
         "ids",
         "limit",
         "names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
+    },
+    {
+      "severity": "CREATE",
+      "cmdlet": "New-PfbCertificateSigningRequest",
+      "parameter": "Name",
+      "wireKey": "names",
+      "method": "POST",
+      "endpoint": "certificates/certificate-signing-requests",
+      "declared": [],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "CREATE",
@@ -1111,7 +1321,9 @@
       "endpoint": "file-systems/locks/nlm-reclamations",
       "declared": [
         "context_names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "CREATE",
@@ -1126,7 +1338,9 @@
         "member_names",
         "policy_ids",
         "policy_names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "DESTRUCTIVE",
@@ -1144,7 +1358,9 @@
         "names",
         "paths",
         "recursive"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "DESTRUCTIVE",
@@ -1157,6 +1373,17 @@
         "member_ids",
         "member_names",
         "unreachable"
+      ],
+      "classification": "WRONG-VERB",
+      "declaredElsewhere": [
+        {
+          "method": "GET",
+          "surface": "Query"
+        },
+        {
+          "method": "POST",
+          "surface": "Query"
+        }
       ]
     },
     {
@@ -1173,6 +1400,13 @@
         "local_directory_service_names",
         "names",
         "sids"
+      ],
+      "classification": "WRONG-VERB",
+      "declaredElsewhere": [
+        {
+          "method": "GET",
+          "surface": "Query"
+        }
       ]
     },
     {
@@ -1186,6 +1420,17 @@
         "ids",
         "names",
         "versions"
+      ],
+      "classification": "WRONG-VERB",
+      "declaredElsewhere": [
+        {
+          "method": "GET",
+          "surface": "Query"
+        },
+        {
+          "method": "POST",
+          "surface": "Query"
+        }
       ]
     },
     {
@@ -1199,6 +1444,17 @@
         "ids",
         "names",
         "versions"
+      ],
+      "classification": "WRONG-VERB",
+      "declaredElsewhere": [
+        {
+          "method": "GET",
+          "surface": "Query"
+        },
+        {
+          "method": "POST",
+          "surface": "Query"
+        }
       ]
     },
     {
@@ -1213,6 +1469,17 @@
         "ids",
         "names",
         "versions"
+      ],
+      "classification": "WRONG-VERB",
+      "declaredElsewhere": [
+        {
+          "method": "GET",
+          "surface": "Query"
+        },
+        {
+          "method": "POST",
+          "surface": "Query"
+        }
       ]
     },
     {
@@ -1227,6 +1494,17 @@
         "ids",
         "names",
         "versions"
+      ],
+      "classification": "WRONG-VERB",
+      "declaredElsewhere": [
+        {
+          "method": "GET",
+          "surface": "Query"
+        },
+        {
+          "method": "POST",
+          "surface": "Query"
+        }
       ]
     },
     {
@@ -1241,7 +1519,9 @@
         "node_group_names",
         "node_ids",
         "node_names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "DESTRUCTIVE",
@@ -1255,7 +1535,9 @@
         "node_group_names",
         "node_ids",
         "node_names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "DESTRUCTIVE",
@@ -1267,7 +1549,9 @@
       "declared": [
         "context_names",
         "names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "DESTRUCTIVE",
@@ -1282,7 +1566,9 @@
         "member_names",
         "policy_ids",
         "policy_names"
-      ]
+      ],
+      "classification": "UNDECLARED",
+      "declaredElsewhere": []
     },
     {
       "severity": "DESTRUCTIVE",
@@ -1296,6 +1582,17 @@
         "ids",
         "names",
         "versions"
+      ],
+      "classification": "WRONG-VERB",
+      "declaredElsewhere": [
+        {
+          "method": "GET",
+          "surface": "Query"
+        },
+        {
+          "method": "POST",
+          "surface": "Query"
+        }
       ]
     },
     {
@@ -1310,6 +1607,17 @@
         "ids",
         "names",
         "versions"
+      ],
+      "classification": "WRONG-VERB",
+      "declaredElsewhere": [
+        {
+          "method": "GET",
+          "surface": "Query"
+        },
+        {
+          "method": "POST",
+          "surface": "Query"
+        }
       ]
     }
   ],
@@ -1333,6 +1641,11 @@
       "cmdlet": "Get-PfbNodeGroupNode",
       "method": "GET",
       "endpoint": "node-groups/nodes"
+    },
+    {
+      "cmdlet": "New-PfbCertificateSigningRequest",
+      "method": "POST",
+      "endpoint": "certificates/certificate-signing-requests"
     },
     {
       "cmdlet": "New-PfbNlmReclamation",

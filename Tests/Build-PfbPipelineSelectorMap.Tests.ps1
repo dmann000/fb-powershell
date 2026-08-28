@@ -97,15 +97,27 @@ Describe 'Build-PfbPipelineSelectorMap' {
         #                            which Rail A pins from the opposite direction -- a waiver
         #                            for a pair that no longer coerces fails there -- so the
         #                            two figures cannot drift apart quietly.
+        #
+        # Re-baselined again at issue #141: findings 264 -> 266, pairs 101 -> 102. The one added
+        # pair is Get-PfbUserGroupQuotaPolicy|Name on two family endpoints, and it is NOT new
+        # module debt -- #141 changed no cmdlet. It taught the wire-name resolver assignment
+        # shapes it had been skipping, so that parameter resolved to a wire name for the first
+        # time and entered the candidate set.
+        #
+        # THE MEASUREMENT THAT MAKES THAT MORE THAN AN ASSERTION, and the reason probePairs is
+        # pinned separately below: probePairs stayed at 1247 across the change while candidates
+        # moved 629 -> 647. The probe population is unchanged; only how many of it resolve well
+        # enough to be probed moved. Had probePairs moved too, the generator's own input would
+        # have changed and this re-baseline would need a different argument entirely.
         $report = Get-Content $script:reportPath -Raw | ConvertFrom-Json
         $report.totals.probePairs | Should -Be 1247
-        $report.totals.findings | Should -Be 264
+        $report.totals.findings | Should -Be 266
 
         $pairs = @($report.results |
                 Where-Object { $_.Outcome -in @('Coerced', 'WrongScalar') } |
                 ForEach-Object { "$($_.Cmdlet)/$($_.Parameter)" } |
                 Sort-Object -Unique)
-        $pairs.Count | Should -Be 101
+        $pairs.Count | Should -Be 102
     }
 
     It 'records only BindError as unmeasured' {

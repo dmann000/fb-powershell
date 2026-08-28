@@ -532,6 +532,114 @@ Describe 'Get-PfbParameterCoverageGaps' {
             $gap.Confidence.Level | Should -Be 'partial'
         }
     }
+
+    Context 'confidence is lowered by UNRESOLVED surfaces only, never by non-applicable ones (issue #141 Task 4, Step 7)' {
+        # Before Task 4 this function asked `Surface -ne 'Typed'`, which is a denylist: every
+        # value invented upstream lands in the "lower the confidence" branch by default. Two
+        # such values now exist and neither is a gap -- a parameter that is not a wire field
+        # at all is not a wire field this tool failed to find -- so 34 real parameters were
+        # casting doubt on every endpoint their cmdlets reach. The condition is now an
+        # exhaustive switch, and these tests pin both halves of it.
+
+        BeforeAll {
+            $script:t4CapMap = [PSCustomObject]@{
+                endpoints = [PSCustomObject]@{
+                    'DELETE /widgets' = [PSCustomObject]@{
+                        minVersion     = '2.0'
+                        parameters     = [PSCustomObject]@{ names = '2.0'; kind = '2.0' }
+                        bodyProperties = [PSCustomObject]@{}
+                    }
+                }
+            }
+            $script:t4Endpoints = @(
+                [PSCustomObject]@{ Key = 'DELETE /widgets'; Method = 'DELETE'; Endpoint = '/widgets'; Resolved = $true; Cmdlet = 'Remove-PfbFixtureWidget'; File = 'x' }
+            )
+
+            # One resolved row so the endpoint has a real gap ('kind') to report either way,
+            # plus one row whose Surface is the variable under test.
+            function script:New-PfbT4Inventory {
+                param([string]$Surface)
+                @(
+                    [PSCustomObject]@{ Cmdlet = 'Remove-PfbFixtureWidget'; Parameter = 'Name'; Surface = 'Typed'
+                        WireName = 'names'; HasValidateSet = $false; ValidateSetValues = $null
+                        Endpoint = 'widgets'; Method = 'DELETE'; File = 'x'; Line = 3 }
+                    [PSCustomObject]@{ Cmdlet = 'Remove-PfbFixtureWidget'; Parameter = 'Zeta'; Surface = $Surface
+                        WireName = $null; HasValidateSet = $false; ValidateSetValues = $null
+                        Endpoint = $null; Method = $null; File = 'x'; Line = 4 }
+                )
+            }
+        }
+
+        It 'keeps confidence high for a <Surface> row, which is an answer and not a gap' -ForEach @(
+            @{ Surface = 'NotWireParameter' }
+            @{ Surface = 'OutsideStandardRequest' }
+        ) {
+            $result = Get-PfbParameterCoverageGaps -CapabilityMap $t4CapMap -CmdletInventory (New-PfbT4Inventory -Surface $Surface) -CalledEndpoints $t4Endpoints
+            $gap = $result | Where-Object { $_.Endpoint -eq 'DELETE /widgets' }
+            $gap | Should -Not -BeNullOrEmpty -Because 'the endpoint must still be reported; only its confidence is at issue'
+            $gap.MissingQueryParameters | Should -Be @('kind')
+            $gap.Confidence.Level | Should -Be 'high'
+            $gap.Confidence.UnresolvedParameters | Should -BeNullOrEmpty
+            $gap.Confidence.Caveat | Should -BeNullOrEmpty
+        }
+
+        It 'still lowers confidence for a <Surface> row, which is a real gap in this tool''s reach' -ForEach @(
+            @{ Surface = 'AttributesOnly'; ExpectEscapeHatch = $true }
+            @{ Surface = 'TypedUnresolved'; ExpectEscapeHatch = $false }
+        ) {
+            # The control for the pair above. Without it, both tests would also pass against a
+            # function that had stopped lowering confidence for anything at all.
+            $result = Get-PfbParameterCoverageGaps -CapabilityMap $t4CapMap -CmdletInventory (New-PfbT4Inventory -Surface $Surface) -CalledEndpoints $t4Endpoints
+            $gap = $result | Where-Object { $_.Endpoint -eq 'DELETE /widgets' }
+            $gap.Confidence.Level | Should -Be 'partial'
+            @($gap.Confidence.UnresolvedParameters.Parameter) | Should -Be @('Zeta')
+            ($gap.Confidence.UnresolvedParameters | Where-Object Parameter -eq 'Zeta').Surface | Should -Be $Surface
+            ($gap.Confidence.UnresolvedParameters | Where-Object Parameter -eq 'Zeta').Line | Should -Be 4
+            if ($ExpectEscapeHatch) {
+                $gap.Confidence.EscapeHatchOnly | Should -Be @('Zeta')
+            }
+            else {
+                $gap.Confidence.EscapeHatchOnly | Should -BeNullOrEmpty
+            }
+        }
+
+        It 'does not let a non-applicable row''s wire name into the exposed set that suppresses gaps' {
+            # 'Typed' is the only branch that contributes to the exposed-wire-name set. A
+            # non-applicable row carries no WireName in practice, but the switch must not admit
+            # one if a future row ever does -- otherwise a request control could silently
+            # suppress a real missing field.
+            $inventory = @(
+                [PSCustomObject]@{ Cmdlet = 'Remove-PfbFixtureWidget'; Parameter = 'Name'; Surface = 'Typed'
+                    WireName = 'names'; HasValidateSet = $false; ValidateSetValues = $null
+                    Endpoint = 'widgets'; Method = 'DELETE'; File = 'x'; Line = 3 }
+                [PSCustomObject]@{ Cmdlet = 'Remove-PfbFixtureWidget'; Parameter = 'Eradicate'; Surface = 'NotWireParameter'
+                    WireName = 'kind'; HasValidateSet = $false; ValidateSetValues = $null
+                    Endpoint = $null; Method = $null; File = 'x'; Line = 4 }
+            )
+            $result = Get-PfbParameterCoverageGaps -CapabilityMap $t4CapMap -CmdletInventory $inventory -CalledEndpoints $t4Endpoints
+            $gap = $result | Where-Object { $_.Endpoint -eq 'DELETE /widgets' }
+            $gap.MissingQueryParameters | Should -Be @('kind')
+        }
+
+        It 'throws on a Surface value it has never been taught, rather than guessing a bucket' {
+            # The whole point of replacing the denylist: an unknown value must be a loud
+            # failure, not a silent default into either bucket. The message has to name the row
+            # so the failure is actionable.
+            { Get-PfbParameterCoverageGaps -CapabilityMap $t4CapMap -CmdletInventory (New-PfbT4Inventory -Surface 'SomethingNew') -CalledEndpoints $t4Endpoints } |
+                Should -Throw -ExpectedMessage '*SomethingNew*'
+        }
+
+        It 'covers every Surface the inventory can actually emit' {
+            # Ties the switch's arms to the producer's enum. If a sixth Surface is added to
+            # tools/lib/PfbCmdletParamTools.ps1 without a branch here, the throw above turns
+            # from a guard into a real outage on the next report build -- and this test is what
+            # says so at the time the value is added.
+            foreach ($surface in @(Get-PfbParameterSurfaceName)) {
+                { Get-PfbParameterCoverageGaps -CapabilityMap $t4CapMap -CmdletInventory (New-PfbT4Inventory -Surface $surface) -CalledEndpoints $t4Endpoints } |
+                    Should -Not -Throw -Because "'$surface' is a value Get-PfbCmdletParameterInventory emits today"
+            }
+        }
+    }
 }
 
 Describe 'Get-PfbValidateSetDrift' {

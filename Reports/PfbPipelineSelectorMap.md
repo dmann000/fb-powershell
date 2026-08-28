@@ -11,12 +11,12 @@ no request leaves the machine, and nothing here is inferred from pattern-matchin
 | Metric | Value |
 |---|---:|
 | `probePairs` | 1247 |
-| `evaluatedPairs` | 1213 |
-| `candidatePairs` | 629 |
-| `candidateRate` | 0.5185 |
-| `findings` | 264 |
-| `findingPairs` | 101 |
-| `confirmationRate` | 0.4197 |
+| `evaluatedPairs` | 1241 |
+| `candidatePairs` | 655 |
+| `candidateRate` | 0.5278 |
+| `findings` | 266 |
+| `findingPairs` | 102 |
+| `confirmationRate` | 0.4061 |
 | `controlLeakage` | 0 |
 | `assistedRows` | 212 |
 
@@ -28,11 +28,11 @@ defect appears once per producing endpoint, so rows always exceed pairs.
 | Outcome | Rows | Finding? |
 |---|---:|---|
 | `BindError` | 4 | triage -- the harness never invoked, the only unmeasured outcome |
-| `Bound` | 577 | no -- the selector bound as intended |
+| `Bound` | 579 | no -- the selector bound as intended |
 | `CmdletError` | 6 | no -- the cmdlet threw before any request was built |
-| `Coerced` | 264 | **yes** -- a stringified object reached the wire |
+| `Coerced` | 266 | **yes** -- a stringified object reached the wire |
 | `Guarded` | 116 | no -- a #64/#90 coercion guard fired |
-| `NoSelector` | 47 | no -- reported observation |
+| `NoSelector` | 43 | no -- reported observation |
 | `Unbindable` | 233 | no -- PowerShell declined to bind this probe object at all. Note that pass 4 is ByPropertyName WITH coercion, so a ByPropertyName-only parameter whose alias matches an object-valued property CAN still coerce; this outcome is not a structural immunity |
 
 ## Findings
@@ -203,6 +203,8 @@ Ordered with primary-producer rows first: those are the chains a user would most
 | `Get-PfbSyslogServer` | `Name` | `GET /syslog-servers/test` |  | `names=@{component_address=PROBE-component_address; component_name=PROBE-component_name; description=PROBE-description; destination=PROBE-destination; enabled=PROBE-enabled; resource=; result_details=PROBE-result_details; success=PROBE-success; test_type=PROBE-test_type}` |
 | `Get-PfbTlsPolicy` | `Name` | `GET /tls-policies/members` |  | `names=@{member=; policy=}` |
 | `Get-PfbTlsPolicy` | `Name` | `GET /tls-policies/network-interfaces` |  | `names=@{member=; policy=}` |
+| `Get-PfbUserGroupQuotaPolicy` | `Name` | `GET /user-group-quota-policies/file-systems` |  | `names=@{context=; member=; policy=}` |
+| `Get-PfbUserGroupQuotaPolicy` | `Name` | `GET /user-group-quota-policies/members` |  | `names=@{context=; member=; policy=}` |
 | `Get-PfbUserGroupQuotaPolicyRule` | `PolicyName` | `GET /user-group-quota-policies` |  | `policy_names=@{context=; enabled=PROBE-enabled; id=PROBE-id; is_local=PROBE-is_local; location=; name=PROBE-name; policy_type=PROBE-policy_type; realms=System.Object[]; rules=System.Object[]; version=PROBE-version}` |
 | `Get-PfbUserGroupQuotaPolicyRule` | `PolicyName` | `GET /user-group-quota-policies/file-systems` |  | `policy_names=@{context=; member=; policy=}` |
 | `Get-PfbUserGroupQuotaPolicyRule` | `PolicyName` | `GET /user-group-quota-policies/members` |  | `policy_names=@{context=; member=; policy=}` |

@@ -9,7 +9,7 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - matched: 2
 - collision: 1
 - not-found-in-resource: 29
-- no-spec-enum-found: 1974
+- no-spec-enum-found: 2036
 
 | Cmdlet | Parameter | Wire name | Status | Spec values | Recommendation |
 |---|---|---|---|---|---|
@@ -46,16 +46,10 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 | `Update-PfbWorkload` | `-NewName` | name | not-found-in-resource |  |  |
 | `Update-PfbWormPolicy` | `-DefaultRetention` | default_retention | not-found-in-resource |  |  |
 
-## Attributes-only parameters (no typed field to attach either mechanism to): 75
+## Attributes-only parameters (no typed field to attach either mechanism to): 23
 
-- `New-PfbActiveDirectory -Name`
-- `New-PfbAuditFileSystemPolicy -Enabled`
-- `New-PfbAuditObjectStorePolicy -Enabled`
 - `New-PfbBucketAuditFilter -Name`
-- `New-PfbCertificateSigningRequest -Name`
-- `New-PfbDns -Name`
 - `New-PfbFileSystem -DefaultExports`
-- `New-PfbFileSystem -FastRemoveDirectoryEnabled`
 - `New-PfbFileSystem -HardLimit`
 - `New-PfbFileSystem -Http`
 - `New-PfbFileSystem -MultiProtocolAccessControlStyle`
@@ -70,112 +64,61 @@ Reporting only -- no `Public/` cmdlet is edited by this script. Every `matched` 
 - `New-PfbFileSystem -SmbContinuousAvailabilityEnabled`
 - `New-PfbFileSystem -SmbSharePolicy`
 - `New-PfbFileSystem -SnapshotDirectoryEnabled`
-- `New-PfbFileSystem -Writable`
-- `New-PfbFleet -Name`
-- `New-PfbLag -Name`
-- `New-PfbNfsExportPolicy -Enabled`
-- `New-PfbNodeGroup -Name`
-- `New-PfbPolicy -Enabled`
-- `New-PfbQuotaGroup -FileSystemName`
-- `New-PfbQuotaGroup -GroupId`
-- `New-PfbQuotaGroup -GroupName`
-- `New-PfbQuotaUser -FileSystemName`
-- `New-PfbQuotaUser -UserId`
-- `New-PfbQuotaUser -UserName`
-- `New-PfbS3ExportPolicy -Enabled`
 - `New-PfbServer -CreateDirectoryService`
-- `New-PfbSmbClientPolicy -Enabled`
-- `New-PfbSmbSharePolicy -Enabled`
-- `New-PfbSnmpManager -Name`
-- `New-PfbSshCaPolicy -Name`
-- `New-PfbStorageClassTieringPolicy -Name`
-- `New-PfbSyslogServer -Name`
-- `New-PfbTarget -Name`
-- `New-PfbTlsPolicy -Name`
-- `New-PfbUserGroupQuotaPolicy -Enabled`
-- `New-PfbUserGroupQuotaPolicyRule -Enforced`
-- `New-PfbWormPolicy -Name`
-- `Update-PfbAlert -Flagged`
-- `Update-PfbAlertWatcher -Enabled`
-- `Update-PfbAuditFileSystemPolicy -Enabled`
-- `Update-PfbAuditObjectStorePolicy -Enabled`
-- `Update-PfbBucket -Destroyed`
-- `Update-PfbDirectoryService -Name`
-- `Update-PfbFileSystem -Destroyed`
-- `Update-PfbFileSystem -HardLimitEnabled`
-- `Update-PfbFileSystem -HttpEnabled`
 - `Update-PfbFileSystem -NfsEnabled`
 - `Update-PfbFileSystem -NfsExportPolicy`
 - `Update-PfbFileSystem -NfsRules`
 - `Update-PfbFileSystem -SmbClientPolicy`
 - `Update-PfbFileSystem -SmbEnabled`
 - `Update-PfbFileSystem -SmbSharePolicy`
-- `Update-PfbNetworkAccessPolicy -Enabled`
-- `Update-PfbNfsExportPolicy -Enabled`
-- `Update-PfbPolicy -Enabled`
-- `Update-PfbQuotaGroup -FileSystemName`
-- `Update-PfbQuotaGroup -GroupId`
-- `Update-PfbQuotaGroup -GroupName`
-- `Update-PfbQuotaUser -FileSystemName`
-- `Update-PfbQuotaUser -UserName`
-- `Update-PfbRealm -Destroyed`
-- `Update-PfbS3ExportPolicy -Enabled`
-- `Update-PfbSmbClientPolicy -Enabled`
-- `Update-PfbSmbSharePolicy -Enabled`
-- `Update-PfbUserGroupQuotaPolicy -Enabled`
 
-## Typed but unresolved wire name (needs manual inspection): 52
+## Typed but unresolved wire name (needs manual inspection): 8
 
-- `Connect-PfbArray -AllArrays`
-- `Connect-PfbArray -ApiToken`
-- `Connect-PfbArray -ApiVersion`
-- `Connect-PfbArray -ClientId`
-- `Connect-PfbArray -Context`
-- `Connect-PfbArray -Credential`
-- `Connect-PfbArray -Endpoint`
-- `Connect-PfbArray -HttpTimeout`
-- `Connect-PfbArray -IgnoreCertificateError`
-- `Connect-PfbArray -Issuer`
-- `Connect-PfbArray -KeyId`
-- `Connect-PfbArray -Kind`
-- `Connect-PfbArray -Password`
-- `Connect-PfbArray -PrivateKeyFile`
-- `Connect-PfbArray -PrivateKeyPassword`
-- `Connect-PfbArray -Username`
-- `Get-PfbAlert -Flagged`
-- `Get-PfbApiVersion -Endpoint`
-- `Get-PfbApiVersion -IgnoreCertificateError`
-- `Get-PfbConnection -Endpoint`
 - `Get-PfbHardwareTemperature -Limit`
-- `Get-PfbUserGroupQuotaPolicy -Id`
-- `Get-PfbUserGroupQuotaPolicy -Name`
-- `Invoke-PfbInContext -AllArrays`
-- `Invoke-PfbInContext -Context`
-- `Invoke-PfbInContext -Kind`
-- `Invoke-PfbInContext -ScriptBlock`
 - `New-PfbDataEvictionPolicy -Disabled`
 - `New-PfbFileSystemSnapshot -SourceName`
 - `New-PfbFleetMember -FleetKey`
 - `New-PfbLocalGroupMember -Member`
 - `New-PfbWorkloadPlacementRecommendation -Inputs`
-- `Remove-PfbBucket -Eradicate`
-- `Remove-PfbFileSystem -Eradicate`
-- `Remove-PfbFileSystemSession -Force`
-- `Remove-PfbFileSystemSnapshot -Eradicate`
-- `Remove-PfbQuotaGroup -FileSystemName`
-- `Remove-PfbQuotaGroup -GroupId`
-- `Remove-PfbQuotaGroup -GroupName`
-- `Remove-PfbQuotaUser -FileSystemName`
-- `Remove-PfbQuotaUser -UserName`
-- `Remove-PfbRealm -Eradicate`
-- `Remove-PfbServer -Eradicate`
-- `Set-PfbContext -AllArrays`
-- `Set-PfbContext -AllowErrors`
-- `Set-PfbContext -Context`
-- `Set-PfbContext -Kind`
-- `Set-PfbCredential -Credential`
 - `Set-PfbWorkloadTag -Tags`
 - `Test-PfbConnection -Endpoint`
-- `Update-PfbDataEvictionPolicy -Enabled`
-- `Update-PfbWorkload -Destroyed`
+
+## Outside this resolver's reach (no standard-request field to inspect): 34
+
+Listed separately from the section above on purpose: neither is a standard-request field whose wire name went unresolved. `NotWireParameter` is an audited request control (`-Eradicate`, `-Force`) with no query or body key. `OutsideStandardRequest` means the declaring cmdlet issues no `Invoke-PfbApiRequest` call, so this resolver cannot see its payload -- it does **not** mean the parameter has no wire effect; `Connect-PfbArray -Username`/`-Password`, for example, reach `/api/login` through bespoke HTTP.
+
+- `Connect-PfbArray -AllArrays` (OutsideStandardRequest)
+- `Connect-PfbArray -ApiToken` (OutsideStandardRequest)
+- `Connect-PfbArray -ApiVersion` (OutsideStandardRequest)
+- `Connect-PfbArray -ClientId` (OutsideStandardRequest)
+- `Connect-PfbArray -Context` (OutsideStandardRequest)
+- `Connect-PfbArray -Credential` (OutsideStandardRequest)
+- `Connect-PfbArray -Endpoint` (OutsideStandardRequest)
+- `Connect-PfbArray -HttpTimeout` (OutsideStandardRequest)
+- `Connect-PfbArray -IgnoreCertificateError` (OutsideStandardRequest)
+- `Connect-PfbArray -Issuer` (OutsideStandardRequest)
+- `Connect-PfbArray -KeyId` (OutsideStandardRequest)
+- `Connect-PfbArray -Kind` (OutsideStandardRequest)
+- `Connect-PfbArray -Password` (OutsideStandardRequest)
+- `Connect-PfbArray -PrivateKeyFile` (OutsideStandardRequest)
+- `Connect-PfbArray -PrivateKeyPassword` (OutsideStandardRequest)
+- `Connect-PfbArray -Username` (OutsideStandardRequest)
+- `Get-PfbApiVersion -Endpoint` (OutsideStandardRequest)
+- `Get-PfbApiVersion -IgnoreCertificateError` (OutsideStandardRequest)
+- `Get-PfbConnection -Endpoint` (OutsideStandardRequest)
+- `Invoke-PfbInContext -AllArrays` (OutsideStandardRequest)
+- `Invoke-PfbInContext -Context` (OutsideStandardRequest)
+- `Invoke-PfbInContext -Kind` (OutsideStandardRequest)
+- `Invoke-PfbInContext -ScriptBlock` (OutsideStandardRequest)
+- `Remove-PfbBucket -Eradicate` (NotWireParameter)
+- `Remove-PfbFileSystem -Eradicate` (NotWireParameter)
+- `Remove-PfbFileSystemSession -Force` (NotWireParameter)
+- `Remove-PfbFileSystemSnapshot -Eradicate` (NotWireParameter)
+- `Remove-PfbRealm -Eradicate` (NotWireParameter)
+- `Remove-PfbServer -Eradicate` (NotWireParameter)
+- `Set-PfbContext -AllArrays` (OutsideStandardRequest)
+- `Set-PfbContext -AllowErrors` (OutsideStandardRequest)
+- `Set-PfbContext -Context` (OutsideStandardRequest)
+- `Set-PfbContext -Kind` (OutsideStandardRequest)
+- `Set-PfbCredential -Credential` (OutsideStandardRequest)
 

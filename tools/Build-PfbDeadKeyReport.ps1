@@ -74,6 +74,13 @@ $inventory = @(Get-PfbCmdletParameterInventory -PublicDirectory $PublicDirectory
 # -Property list (WireKey for deadKeys is enough today), here and in the mirrored comparer in
 # Tests/CommittedDeadKeyReport.Tests.ps1. Do not reach for a "stable sort" instead -- a total
 # order is what makes the artifact reproducible.
+#
+# THAT REMEDY IS FOR THESE TOP-LEVEL SORTS ONLY. Do NOT reach for it on a duplicate
+# (Method, Surface) pair inside declaredElsewhere. A site object carries only those two
+# properties, so there is no third property to break the tie with -- and even a total order there
+# would still publish BOTH rows, `declaredElsewhere: [DELETE/Query, DELETE/Query]`, which is a
+# wrong row in a committed artifact rather than a byte-order flap. The dedup at the
+# declaredElsewhere projection is the fix for that case; its reasoning is recorded beside it.
 function Sort-PfbDeadKeyRecords {
     param(
         [AllowEmptyCollection()]
@@ -163,16 +170,214 @@ function Get-PfbDeadKeySeverity {
     }
 }
 
+function Get-PfbDeadKeyDeclarationIndex {
+    <#
+    .SYNOPSIS
+        One record per (method, normalized endpoint) carrying every query key and every
+        top-level body property that operation declares. Built ONCE per generator run.
+    .DESCRIPTION
+        This index exists only to EXPLAIN a deadness that Get-PfbDeclaredQueryKey has already
+        proven. It never decides whether a record is dead.
+
+        BUILT ON Get-PfbSpecCapabilities RATHER THAN A BESPOKE WALK, deliberately, for three
+        measured reasons -- all three are ways a hand-rolled body read returns a plausible ZERO:
+
+          1. It derives BodyProperties through Get-PfbSchemaPropertyNames, which resolves
+             $ref AND allOf. PATCH /alerts' body schema is a bare `$ref`; resolving that ONE
+             level lands on a node whose only key is `allOf`, so a reader that then takes
+             `.properties` gets an EMPTY LIST -- measured against fb2.28. Alert.flagged is
+             reachable no other way, so such a reader classifies Get-PfbAlert -Flagged as
+             UNDECLARED: a confident false assertion published under a field name that reads
+             as authoritative. The walker returns all 18 properties including `flagged`.
+          2. It hops a `type: array` request body onto its `items` element schema (issue #82).
+             A bespoke `Get-PfbSchemaPropertyNames -Schema $op.requestBody.content.<type>.schema`
+             call has nothing to descend for an array body and silently records zero body
+             properties. RESIDUAL, stated because it is a real loss of precision and not a
+             bug: a Body site found inside an array ELEMENT reads identically to a top-level
+             one, so `declaredElsewhere` cannot tell "the field belongs on each element of the
+             posted array" from "the field belongs on the body object". It is the right trade
+             anyway -- omitting the hop manufactures a false UNDECLARED, an assertion of
+             absence, which is the worse direction -- and it publishes nothing false today:
+             measured on fb2.28, ZERO dead keys fall on an array-bodied operation.
+          3. It reads body schemas at MaxDepth 32, not the helpers' own default of 8. Depth 8
+             truncates the fb2.12-2.16 allOf chains (issue #71); a bespoke walk would have to
+             re-decide that value, and the cheap wrong answer is to accept the default. Note
+             that 32 is INHERITED, not pinned here: the call below passes no -MaxDepth, so the
+             value comes from Get-PfbSpecCapabilities' own default (tools/lib/PfbSpecTools.ps1).
+             Lowering that default would silently lower this report's depth too.
+
+        WHAT IT DELIBERATELY DOES *NOT* TAKE FROM THAT FUNCTION IS `Parameters`. That field is
+        every parameter regardless of `in:` location, not the query ones. Measured on fb2.28:
+        630 header-parameter occurrences (`api-token`, `X-Request-ID`) across 629 of the 632
+        operations. Using it as the query-declaration set would inject two header names into
+        almost every operation's declarations and could report a genuinely dead key as
+        WRONG-VERB. Query keys come from Get-PfbDeclaredQueryKey instead -- the SAME function
+        that gates deadness -- so the classification's notion of "declared as a query key" is
+        identical to the gate's by construction and the two can never contradict each other.
+
+        WHY A NULL FROM THAT HELPER SKIPS THE OPERATION, AND WHY THAT LOSES NOTHING. It returns
+        $null for "this path/verb is not in the spec", which here means only that the
+        capability record's normalized path is one of the five UNVERSIONED meta paths
+        (/api/login, /api/logout, /api/api_version, /api/login-banner, /oauth2/1.0/token):
+        normalizing strips no prefix from them, so re-adding /api/<version>/ misses. Measured
+        on fb2.28: exactly those 5 of 632 records, and every versioned path round-trips. No
+        record can reach classification through such an endpoint, because the deadness gate
+        below has already called this same helper on the record's own endpoint and required a
+        non-$null answer -- which proves /api/<version>/<endpoint> is a real path key, and a
+        path key carries all of its own verbs. So the index is complete for every endpoint that
+        can reach it. Skipping is not a silent gap; it is the honest alternative to recording an
+        operation whose query declarations this generator cannot read.
+
+        CASE-INSENSITIVE (Ordinal-ignore-case) SETS on purpose. The deadness gate is
+        `@($declared) -contains $wireName`, and PowerShell's -contains is case-INSENSITIVE. An
+        ordinal-exact index here would be STRICTER than the gate it explains, so a key the gate
+        would have called declared could be reported UNDECLARED. Every key on this surface is
+        lower-case snake_case today, so this changes no current row -- it removes a way for the
+        explanation to disagree with the finding.
+    #>
+    param(
+        [Parameter(Mandatory)] $Spec,
+        [Parameter(Mandatory)] [string]$Version
+    )
+
+    $index = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.List[object]]]::new(
+        [System.StringComparer]::OrdinalIgnoreCase)
+
+    foreach ($capability in @(Get-PfbSpecCapabilities -Spec $Spec)) {
+        $endpointKey = ([string]$capability.Path).TrimStart('/')
+        $method = ([string]$capability.Method).ToUpperInvariant()
+
+        $queryKeys = Get-PfbDeclaredQueryKey -Spec $Spec -Endpoint $endpointKey -Method $method -Version $Version
+        if ($null -eq $queryKeys) { continue }
+
+        if (-not $index.ContainsKey($endpointKey)) {
+            $index[$endpointKey] = [System.Collections.Generic.List[object]]::new()
+        }
+        $index[$endpointKey].Add([PSCustomObject]@{
+            Method    = $method
+            QueryKeys = [System.Collections.Generic.HashSet[string]]::new(
+                [string[]]@($queryKeys), [System.StringComparer]::OrdinalIgnoreCase)
+            BodyKeys  = [System.Collections.Generic.HashSet[string]]::new(
+                [string[]]@($capability.BodyProperties), [System.StringComparer]::OrdinalIgnoreCase)
+        })
+    }
+
+    return $index
+}
+
+function Get-PfbDeadKeyDeclarationSite {
+    <#
+    .SYNOPSIS
+        Every (method, surface) pair on the SAME normalized endpoint that declares $WireKey.
+    .DESCRIPTION
+        Returns an empty list when nothing on the endpoint declares the key -- which is the
+        positive assertion behind UNDECLARED, and is the reason the index above is built with
+        the repo's real schema walker rather than a one-level read.
+
+        Only the endpoint the record itself resolved to is consulted. A similarly named
+        endpoint is not a declaration, and neither is an older spec version: the caller passes
+        the one pinned spec.
+    #>
+    param(
+        [Parameter(Mandatory)] $DeclarationIndex,
+        [Parameter(Mandatory)] [string]$Endpoint,
+        [Parameter(Mandatory)] [string]$WireKey
+    )
+
+    $sites = [System.Collections.Generic.List[object]]::new()
+    $endpointKey = $Endpoint.TrimStart('/')
+    if (-not $DeclarationIndex.ContainsKey($endpointKey)) { return $sites }
+
+    foreach ($operation in $DeclarationIndex[$endpointKey]) {
+        if ($operation.BodyKeys.Contains($WireKey)) {
+            $sites.Add([PSCustomObject]@{ Method = $operation.Method; Surface = 'Body' })
+        }
+        if ($operation.QueryKeys.Contains($WireKey)) {
+            $sites.Add([PSCustomObject]@{ Method = $operation.Method; Surface = 'Query' })
+        }
+    }
+
+    return $sites
+}
+
+function Get-PfbDeadKeyClassification {
+    <#
+    .SYNOPSIS
+        WRONG-SURFACE, WRONG-VERB or UNDECLARED for a key already proven dead on $Method.
+    .DESCRIPTION
+        Priority is diagnostic, not arithmetic: a body declaration anywhere on the endpoint is
+        the most actionable finding (the field exists, the cmdlet is sending it on the wrong
+        surface), so it outranks a query declaration on another verb. Only when NEITHER exists
+        is UNDECLARED emitted, and UNDECLARED is a POSITIVE ASSERTION that no operation on the
+        endpoint declares the key on either surface -- see the index's help for why that
+        assertion is only safe with a $ref/allOf-aware body reader.
+
+        THE `$_.Method -ne $Method` COMPONENT IS PROVABLY REDUNDANT TODAY, and is kept as a
+        statement of intent rather than as a working guard. A Query site on the CURRENT method
+        cannot exist: the index's query keys come from Get-PfbDeclaredQueryKey with the same
+        endpoint, the same method and the same case-insensitive membership test that just
+        declared this key dead. Do not read a surviving mutant of that comparison as a missing
+        test -- it is an equivalent mutant. The ARM itself is live and tested: replacing the
+        whole condition with $false reds the WRONG-VERB fixture.
+    #>
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [object[]]$DeclarationSite,
+
+        [Parameter(Mandatory)] [string]$Method
+    )
+
+    if (@($DeclarationSite | Where-Object { $_.Surface -eq 'Body' }).Count -gt 0) {
+        return 'WRONG-SURFACE'
+    }
+    if (@($DeclarationSite | Where-Object { $_.Surface -eq 'Query' -and $_.Method -ne $Method }).Count -gt 0) {
+        return 'WRONG-VERB'
+    }
+    return 'UNDECLARED'
+}
+
+# ORDER IS PART OF THE ARTIFACT: this is an [ordered] dictionary serialized verbatim into
+# counts.skipReasons, so inserting a key rewrites the JSON. The two issue #141 Task 4 states
+# sit immediately after 'wire name unresolved' because that is the bucket they were being
+# absorbed into before they existed, and reading them adjacent to it is how a maintainer sees
+# the reclassification rather than a count that merely fell.
+#
+# THE FOUR OLD KEYS ARE ADMISSIONS OF IGNORANCE; THE TWO NEW ONES ARE ANSWERS. 'wire name
+# unresolved' means this AST resolver could not find a key that may well exist. 'outside
+# standard request' means the declaring function issues no Invoke-PfbApiRequest call at all,
+# and 'not wire parameter' means an audited request control with no query/body key. Neither
+# says anything about bespoke HTTP: Connect-PfbArray's -Username/-Password are 'outside
+# standard request' AND reach the wire, in a login body posted through Invoke-WebRequest.
+# Do not retitle these buckets as "not a wire field".
 $skipReasons = [ordered]@{
     'wire name unresolved'          = 0
+    'outside standard request'      = 0
+    'not wire parameter'            = 0
     'body property'                 = 0
     'endpoint/method ambiguous'     = 0
     'endpoint/verb absent from spec' = 0
 }
+$declarationIndex = Get-PfbDeadKeyDeclarationIndex -Spec $spec -Version $specVersion
 $deadKeyRecords = [System.Collections.Generic.List[object]]::new()
 $evaluatedRecords = [System.Collections.Generic.List[object]]::new()
 
 foreach ($record in $inventory) {
+    # BEFORE the null-WireName test, not after, and that ordering is the whole point of these
+    # two branches. Both Surface values carry WireName = $null BY CONSTRUCTION -- the
+    # inventory's Surface ladder tests `if ($wireName) { 'Typed' }` first, so it cannot reach
+    # either value with a resolved name -- so a null-WireName test placed first swallows every
+    # one of them into 'wire name unresolved' and the reclassification produces no visible
+    # movement at all. Tested by fixture in both directions: each state increments only its own
+    # bucket, and 'wire name unresolved' keeps its own genuinely-unresolved rows.
+    if ($record.Surface -eq 'OutsideStandardRequest') {
+        $skipReasons['outside standard request']++
+        continue
+    }
+    if ($record.Surface -eq 'NotWireParameter') {
+        $skipReasons['not wire parameter']++
+        continue
+    }
     if ($null -eq $record.WireName) {
         $skipReasons['wire name unresolved']++
         continue
@@ -211,14 +416,59 @@ foreach ($record in $inventory) {
         continue
     }
 
+    # Classification is strictly ADDITIVE to the finding above: $status decided deadness from
+    # the current operation's own query declarations, and nothing below can change it. If a
+    # change here moves which records are dead, it has exceeded its remit.
+    $declarationSites = Get-PfbDeadKeyDeclarationSite -DeclarationIndex $declarationIndex `
+        -Endpoint ([string]$record.Endpoint) -WireKey $wireName
+    $classification = Get-PfbDeadKeyClassification -DeclarationSite @($declarationSites) -Method $method
+
+    # Deduplicate, and NOT for the reason the top-level sorts carry. The introsort-stability
+    # argument documented at the head of Sort-PfbDeadKeyRecords does NOT apply here: a site
+    # object holds only Method and Surface and the projection below emits only those two, so a
+    # tie on both sort keys is a tie on the ENTIRE serialised record and an unstable sort cannot
+    # move a byte among byte-identical elements. Measured: with this dedup removed and a
+    # duplicate planted, the two entries serialise to one distinct string.
+    #
+    # What the dedup actually prevents is a WRONG ROW -- `declaredElsewhere: [DELETE/Query,
+    # DELETE/Query]`, published in a committed artifact, asserting two declaration sites where
+    # the spec has one. The assertion that catches it is in
+    # Tests/Build-PfbDeadKeyReport.Tests.ps1 -- search for the string
+    # "has a duplicated declaredElsewhere entry", which is unique in that file. Follow it on a
+    # red here.
+    #
+    # Deliberately a searchable string and NOT a line number. Two successive attempts to cite
+    # this same assertion by line range were both stale on arrival: each was derived from the
+    # file as it stood BEFORE the citing commit's own comment insertions shifted the target
+    # downward. A range is only correct if it is re-derived after the edit that writes it, and a
+    # pointer that silently rots is worse than none, because this comment bills itself as the
+    # thing to follow when the dedup reds.
+    # Do NOT reach for the "add a final tie-break property" remedy at the head of
+    # Sort-PfbDeadKeyRecords: a tie-break makes the order total and still publishes both rows.
+    #
+    # A duplicate pair is not produced by any spec we pin -- measured on fb2.28: 0 duplicate
+    # (Path, Method) groups across 264 normalized paths, exact-case and case-insensitive -- but
+    # the claim stops there, and deliberately: the index build adds one entry per capability
+    # record with no per-method collapse, so any spec whose version-prefixed path keys normalize
+    # NON-INJECTIVELY onto one endpoint reaches this loop with the same (Method, Surface) twice.
+    # One operation can also legitimately declare the same key on both surfaces, which is why
+    # Surface is a sort key and not only a label.
+    $seenSites = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $uniqueSites = [System.Collections.Generic.List[object]]::new()
+    foreach ($site in $declarationSites) {
+        if ($seenSites.Add(('{0}|{1}' -f $site.Method, $site.Surface))) { $uniqueSites.Add($site) }
+    }
+
     $deadKeyRecords.Add([PSCustomObject]@{
-        Cmdlet    = $record.Cmdlet
-        Parameter = $record.Parameter
-        Severity  = Get-PfbDeadKeySeverity -Method $method
-        WireKey   = $wireName
-        Method    = $method
-        Endpoint  = $record.Endpoint
-        Declared  = @($declared)
+        Cmdlet            = $record.Cmdlet
+        Parameter         = $record.Parameter
+        Severity          = Get-PfbDeadKeySeverity -Method $method
+        WireKey           = $wireName
+        Method            = $method
+        Endpoint          = $record.Endpoint
+        Declared          = @($declared)
+        Classification    = $classification
+        DeclaredElsewhere = @(Sort-PfbDeadKeyRecords -Records @($uniqueSites) -Property @('Method', 'Surface'))
     })
 }
 
@@ -307,6 +557,18 @@ $sortedDeadKeys = @(Sort-PfbDeadKeyRecords -Records @($deadKeyRecords) -Property
             method    = $_.Method
             endpoint  = $_.Endpoint
             declared  = @($_.Declared)
+            # `declared` above stays exactly what it has always been -- the CURRENT
+            # operation's query-key list. These two are appended so no consumer keyed on
+            # field order or on the old names moves.
+            classification    = $_.Classification
+            # ALWAYS an array, EMPTY for UNDECLARED, never $null: a consumer reading null
+            # cannot tell "no declaration anywhere" from "this generator did not look".
+            declaredElsewhere = @(@($_.DeclaredElsewhere) | ForEach-Object {
+                [ordered]@{
+                    method  = $_.Method
+                    surface = $_.Surface
+                }
+            })
         }
     })
 $sortedNoSurvivingSelector = @(Sort-PfbDeadKeyRecords -Records @($noSurvivingSelectorRecords) -Property @('Cmdlet', 'Method', 'Endpoint') |
