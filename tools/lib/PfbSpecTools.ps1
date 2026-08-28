@@ -15,19 +15,19 @@
           Redoc.hydrate(__redoc_state, container);
         </script>
 
-    There is no standalone .json/.yaml URL — the page's "Download" button serializes this
+    There is no standalone .json/.yaml URL -- the page's "Download" button serializes this
     in-memory object to a client-side blob: URL, which cannot be fetched directly. These
     helpers extract the embedded object server-side instead.
 
     Confirmed (2025-07-08, specs fb2.10 and fb2.27):
       - The object is a single valid JSON value (ConvertFrom-Json handles it directly).
       - Paths for versioned resource endpoints are prefixed with the REST version itself,
-        e.g. "/api/2.27/arrays" vs "/api/2.10/arrays" — must be normalized before
+        e.g. "/api/2.27/arrays" vs "/api/2.10/arrays" -- must be normalized before
         comparing the same logical endpoint across versions. A handful of auth/meta
         endpoints (/api/login, /api/api_version, /api/logout, /api/login-banner,
         /oauth2/1.0/token) are NOT version-prefixed and are left as-is.
       - Path items include a vendor extension key "x-pure-authorization-resource"
-        alongside real HTTP-method keys — must filter to actual HTTP verbs.
+        alongside real HTTP-method keys -- must filter to actual HTTP verbs.
       - Parameters and request bodies are almost always $ref'd into
         components.parameters / components.schemas rather than inlined.
       - The spec contains NO structural JSON Schema "enum" anywhere (verified: zero
@@ -36,7 +36,7 @@
         free-text `description` prose ("Valid values are `none`, `enabled`, ..."). This
         means per-enum-value "introduced in version X" tracking is NOT derivable from
         structured data, and is intentionally out of scope for the generated capability
-        map — only endpoint, parameter, and request-body top-level property existence are
+        map -- only endpoint, parameter, and request-body top-level property existence are
         tracked.
 #>
 
@@ -171,7 +171,7 @@ function Resolve-PfbRef {
 
         $refPath = $current.'$ref'
         if ($refPath -notlike '#/*') {
-            # External ref — not supported, return as-is rather than guess.
+            # External ref -- not supported, return as-is rather than guess.
             break
         }
 

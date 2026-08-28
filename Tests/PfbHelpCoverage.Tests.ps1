@@ -174,7 +174,7 @@ BeforeAll {
     # harmless. Measured, not assumed -- the two look alike and behave oppositely.
     #
     # This is what closes the shapes the position-only version of this lookup failed open on. An
-    # ordinary `<#…#>` block, or an unknown-keyword one, on the line directly above a help block
+    # ordinary `<#...#>` block, or an unknown-keyword one, on the line directly above a help block
     # takes the help block down with it; a stray `.WIBBLE` below one does the same. A blank line
     # before an offending BLOCK makes them two runs again and the help renders -- but a bad line
     # INSIDE the block cannot be rescued that way.
@@ -264,7 +264,7 @@ BeforeAll {
     # so there is one rule to encode rather than one per edition.
     #
     # The unit is the RUN, defined by Get-PfbCommentRun above, not the block. Modelling position
-    # alone is precisely what made the previous version fail open: it asked where a `<#…#>` block
+    # alone is precisely what made the previous version fail open: it asked where a `<#...#>` block
     # sat and never asked what shared its run.
     #
     # REGIONS, searched in this order and moving on whenever a region holds no help run:
@@ -1585,7 +1585,7 @@ function Get-PfbFixture {
             Should -BeNullOrEmpty -Because 'the voided run''s .PARAMETER Other never renders, so crediting it would invent an orphan'
 
         # LINE-COMMENT help is real help, both as the thing that renders and as the thing that
-        # suppresses. The old lookup only ever looked at `<#…#>` tokens, so it skipped this run
+        # suppresses. The old lookup only ever looked at `<#...#>` tokens, so it skipped this run
         # entirely and credited the block below -- a block Get-Help never reaches.
         $records['linecomment-help-claims-run'].HasHelpBlock |
             Should -BeTrue -Because 'measured: `# .SYNOPSIS` on consecutive lines is comment-based help and Get-Help renders it'

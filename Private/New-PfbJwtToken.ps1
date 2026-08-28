@@ -72,7 +72,7 @@ function New-PfbJwtToken {
             $rsa.ImportRSAPrivateKey($keyBytes, [ref]$bytesRead)
         }
         else {
-            # PS 5.1 — use RSACryptoServiceProvider with manual PKCS#1 parsing
+            # PS 5.1 -- use RSACryptoServiceProvider with manual PKCS#1 parsing
             $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider
             # Try importing as PKCS#1 via CNG if available
             try {
@@ -95,7 +95,7 @@ function New-PfbJwtToken {
             $rsa.ImportPkcs8PrivateKey($keyBytes, [ref]$bytesRead)
         }
         else {
-            # PS 5.1 — CNG can import PKCS#8 directly
+            # PS 5.1 -- CNG can import PKCS#8 directly
             $cng = [System.Security.Cryptography.CngKey]::Import($keyBytes, [System.Security.Cryptography.CngKeyBlobFormat]::Pkcs8PrivateBlob)
             $rsa = New-Object System.Security.Cryptography.RSACng($cng)
         }

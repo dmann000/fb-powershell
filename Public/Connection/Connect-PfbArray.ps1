@@ -44,7 +44,7 @@ function Connect-PfbArray {
         The API token for authentication. Generate via the FlashBlade CLI or GUI.
     .PARAMETER Username
         Login name of the array user. For Credential auth: used with -Password.
-        For Certificate auth: the JWT 'sub' claim — the array user to act as.
+        For Certificate auth: the JWT 'sub' claim -- the array user to act as.
     .PARAMETER Password
         Password for the specified username as a SecureString.
     .PARAMETER Credential
@@ -318,7 +318,7 @@ function Connect-PfbArray {
         $nativeLoginSupported = [bool]($parsedVersions | Where-Object { $_.Major -gt 2 -or ($_.Major -eq 2 -and $_.Minor -ge 26) })
 
         if ($nativeLoginSupported) {
-            # Native REST 2.x username/password login — POST /api/login with JSON body.
+            # Native REST 2.x username/password login -- POST /api/login with JSON body.
             # /api/login is unversioned and is part of REST 2.x. No SSH required.
             $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
             try {
@@ -485,7 +485,7 @@ function Connect-PfbArray {
             'release (Update-Module).')
     }
 
-    # Build connection object — properties align with PureRestClientBase (Pfa2)
+    # Build connection object -- properties align with PureRestClientBase (Pfa2)
     $connection = [PSCustomObject]@{
         PSTypeName           = 'PureStorage.FlashBlade.Connection'
         # Pfa2-aligned properties
@@ -508,7 +508,7 @@ function Connect-PfbArray {
         # Diagnostic: array outruns the bundled capability map's scanned range. Deliberately
         # NOT in $defaultProps below -- diagnostic state, not default-display material.
         ExceedsCapabilityMapCoverage = $exceedsCapabilityMapCoverage
-        # Certificate/OAuth2 refresh state — only populated when AuthMethod is 'Certificate'
+        # Certificate/OAuth2 refresh state -- only populated when AuthMethod is 'Certificate'
         ClientId             = $ClientId
         Issuer               = $Issuer
         KeyId                = $KeyId
@@ -530,8 +530,8 @@ function Connect-PfbArray {
     }
 
     # Hide secrets from default display. Sensitive fields (ApiToken, AuthToken,
-    # BearerToken) are still accessible programmatically — Format-List * / direct
-    # property access ($conn.ApiToken) work — but they no longer appear in the
+    # BearerToken) are still accessible programmatically -- Format-List * / direct
+    # property access ($conn.ApiToken) work -- but they no longer appear in the
     # default Format-List view that runs when a user just types $conn at the prompt.
     $defaultProps = @(
         'HttpEndpoint', 'Endpoint', 'Username', 'AuthMethod',

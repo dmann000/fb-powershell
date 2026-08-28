@@ -213,7 +213,7 @@ function Invoke-PfbApiRequest {
         $restParams['SkipCertificateCheck'] = $true
     }
 
-    # HTTP timeout handling — default to 30s if the connection object predates this field
+    # HTTP timeout handling -- default to 30s if the connection object predates this field
     $restParams['TimeoutSec'] = if ($Array.HttpTimeoutMs) { [int][Math]::Ceiling($Array.HttpTimeoutMs / 1000.0) } else { 30 }
 
     # If the caller set a page-size/limit query param (every Get-Pfb* cmdlet's -Limit maps to
@@ -313,7 +313,7 @@ function Invoke-PfbApiRequest {
                     $reconnectSucceeded = $true
                 }
                 catch {
-                    # Reconnect failed — fall through to error formatting below
+                    # Reconnect failed -- fall through to error formatting below
                 }
 
                 if (-not $reconnectSucceeded) {

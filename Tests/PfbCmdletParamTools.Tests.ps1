@@ -1,14 +1,14 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0' }
 <#
 .SYNOPSIS
-    Unit tests for tools/lib/PfbCmdletParamTools.ps1 — the AST-based cmdlet parameter
+    Unit tests for tools/lib/PfbCmdletParamTools.ps1 -- the AST-based cmdlet parameter
     inventory used by tools/Build-PfbFieldCmdletMap.ps1.
 .DESCRIPTION
     Runs against a small synthetic Public/-shaped directory under TestDrive, built from
     real patterns observed in this repo's actual cmdlets (New-PfbAlertWatcher's simple
     $body['wire_name'] = $Param assignment, New-PfbNetworkInterface's -Attributes escape
     hatch and its unresolvable $AttachedServers | ForEach-Object {...} pipeline, and
-    Get-PfbArrayPerformance's $queryParams assignment) — no dependency on the real Public/
+    Get-PfbArrayPerformance's $queryParams assignment) -- no dependency on the real Public/
     tree so the test stays stable if cmdlets change.
 #>
 

@@ -30,7 +30,7 @@ function Get-PfbPolicyAllMember {
         One or more member types to filter by (e.g. "file-systems", "object-store-users").
         Tab-completes the values documented as of this module's release, but the server's
         accepted set has grown across REST versions and may include newer values not offered
-        here — any value is passed through as-is, not validated client-side.
+        here -- any value is passed through as-is, not validated client-side.
     .PARAMETER Filter
         A server-side filter expression to narrow results.
     .PARAMETER Limit

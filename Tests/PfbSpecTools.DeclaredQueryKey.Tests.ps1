@@ -3,7 +3,7 @@
 .SYNOPSIS
     Unit tests for Get-PfbDeclaredQueryKey (tools/lib/PfbSpecTools.ps1).
 .DESCRIPTION
-    Pure-function unit tests against in-memory synthetic spec objects — no network access
+    Pure-function unit tests against in-memory synthetic spec objects -- no network access
     and no dependency on the cached specs in tools/specs/, so this file runs with no spec
     cache present.
 

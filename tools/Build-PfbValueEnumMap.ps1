@@ -10,13 +10,13 @@
     to attribute each entry its earliest-seen ("introduced in") version. The current
     legal value set recorded for each entry reflects the newest processed version.
 
-    This is data-extraction and validation only — it does NOT wire up ArgumentCompleters
+    This is data-extraction and validation only -- it does NOT wire up ArgumentCompleters
     and does NOT change Assert-PfbApiCapability enforcement. See
     Value-Enum-Extraction-Work.md for the full design rationale and non-goals.
 
     Also writes a reconciliation report (Reports/PfbValueEnumReconciliation.md) comparing
     this newly extracted data against every existing hand-written `ValidateSet` in
-    Public/ that encodes a spec-documented value enum. Report only — no Public/ cmdlet
+    Public/ that encodes a spec-documented value enum. Report only -- no Public/ cmdlet
     is edited by this script.
 .PARAMETER SpecsDirectory
     Where cached spec JSON files live. Defaults to tools/specs relative to this script.
@@ -79,20 +79,20 @@ $specFiles = $specFiles | ForEach-Object {
 
 # One record per (SchemaName.PropertyName) or parameter key, tracking the earliest
 # version it was ever seen in (MinVersion) and the most recently processed version's
-# record (LastRecord) — the latter supplies the "current legal value set" / current
+# record (LastRecord) -- the latter supplies the "current legal value set" / current
 # parsed-vs-unparsed status, since values and prose can change release to release.
 #
 # $seen is deliberately case-INSENSITIVE (PowerShell's [ordered]@{} default) rather than
 # a stricter Ordinal comparer. Confirmed live: the real spec renames a schema's casing
-# between versions (e.g. "SNMPAgent" in early REST versions to "SnmpAgent" by fb2.27) —
+# between versions (e.g. "SNMPAgent" in early REST versions to "SnmpAgent" by fb2.27) --
 # NOT a squash-mode-style same-name-different-meaning collision, just a vendor casing
 # convention change over time for the *same* logical schema. A case-sensitive dictionary
 # would keep both as separate entries, which in turn produces a manifest JSON with two
-# top-level keys differing only by case — and PowerShell's ConvertFrom-Json (producing a
+# top-level keys differing only by case -- and PowerShell's ConvertFrom-Json (producing a
 # PSCustomObject, the idiom used everywhere else in this repo, including every consumer
 # of this file) hard-errors on that ("Cannot convert the JSON string because it contains
 # keys with different casing"). So each case-insensitive-equivalent group collapses to
-# one entry, but — unlike a real squash-mode merge — nothing about its VALUES gets
+# one entry, but -- unlike a real squash-mode merge -- nothing about its VALUES gets
 # blended: .Key is re-recorded on every sighting so the final output uses whichever
 # version's casing was seen LAST (i.e. matches the newest/current spec), while
 # MinVersion still reflects the earliest sighting under any casing.
@@ -172,13 +172,13 @@ Write-Host "Wrote $($entries.Count) entries ($($unparsed.Count) unparsed) from $
 # Every ValidateSet found (as of this writing) whose values encode a spec-documented
 # value enum, excluding Invoke-PfbApiRequest.ps1's HTTP-verb ValidateSet (not spec data).
 # "Name" here is the field's wire name (request-body key or query-parameter name), which
-# is what Get-PfbSpecValueEnums records as each entry's .name — see its header comment
+# is what Get-PfbSpecValueEnums records as each entry's .name -- see its header comment
 # for why that differs from a parameter's components.parameters dictionary key.
 # "ResourceHint" is a prefix filter on the schema half of an entry's Key (e.g.
 # 'NetworkInterface' matches 'NetworkInterface.services' and 'NetworkInterfacePatch.services'
 # but not an unrelated schema that happens to share the property name 'services'). This is
-# NOT a real field->cmdlet/endpoint mapping (explicitly out of scope for this phase — see
-# Value-Enum-Extraction-Work.md) — it is a best-effort disambiguation to avoid a false
+# NOT a real field->cmdlet/endpoint mapping (explicitly out of scope for this phase -- see
+# Value-Enum-Extraction-Work.md) -- it is a best-effort disambiguation to avoid a false
 # "stale"/"exact-match" claim built on an unrelated schema's same-named field. A field name
 # common enough to appear on many resources (protocol, type) can still legitimately collide
 # even after hint-filtering; that is reported as 'collision', not force-resolved.
@@ -188,7 +188,7 @@ $handWritten = @(
     [PSCustomObject]@{ File = 'Public/Bucket/New-PfbBucket.ps1'; Line = 29; Parameter = '-Versioning'; Name = 'versioning'; ResourceHint = 'Bucket'; Values = @('enabled', 'suspended', 'none') }
     [PSCustomObject]@{ File = 'Public/Bucket/Update-PfbBucket.ps1'; Line = 31; Parameter = '-Versioning'; Name = 'versioning'; ResourceHint = 'Bucket'; Values = @('enabled', 'suspended', 'none') }
     # '_multiProtocol' is the actual nested body-object schema name for this field (confirmed
-    # by direct spec inspection) — a literal alias, not a fuzzy resource-name guess.
+    # by direct spec inspection) -- a literal alias, not a fuzzy resource-name guess.
     [PSCustomObject]@{ File = 'Public/FileSystem/New-PfbFileSystem.ps1'; Line = 179; Parameter = '-MultiProtocolAccessControlStyle'; Name = 'access_control_style'; ResourceHint = @('FileSystem', '_multiProtocol'); Values = @('nfs', 'smb', 'shared', 'independent', 'mode-bits') }
     [PSCustomObject]@{ File = 'Public/FileSystem/New-PfbFileSystem.ps1'; Line = 192; Parameter = '-GroupOwnership'; Name = 'group_ownership'; ResourceHint = 'FileSystem'; Values = @('creator', 'parent-directory') }
     [PSCustomObject]@{ File = 'Public/FileSystem/Update-PfbFileSystem.ps1'; Line = 97; Parameter = '-RequestedPromotionState'; Name = 'requested_promotion_state'; ResourceHint = 'FileSystem'; Values = @('promoted', 'demoted') }
@@ -211,7 +211,7 @@ $reconciliation = foreach ($hw in $handWritten) {
 
     # Strict prefix (not substring-contains): "NetworkInterface*" must correctly exclude
     # the unrelated "_networkInterfaceNeighbor*" private schemas (a real collision found
-    # live) — those start with an underscore, so a plain prefix check already excludes
+    # live) -- those start with an underscore, so a plain prefix check already excludes
     # them without needing a word-boundary check. Known private nested-object schemas
     # that don't share the resource's own name prefix are listed as explicit extra hints
     # above (e.g. '_multiProtocol'), not matched via a
@@ -236,7 +236,7 @@ $reconciliation = foreach ($hw in $handWritten) {
     }
     elseif ($candidates.Count -eq 0) {
         # The field name exists elsewhere in the spec, just not under this cmdlet's own
-        # resource — do not claim exact-match/stale against an unrelated schema.
+        # resource -- do not claim exact-match/stale against an unrelated schema.
         $status = 'not-found-in-resource'
         $note = "field '$($hw.Name)' not found under any of [$($hints -join ', ')]-hinted schemas; found elsewhere: $($allMatches.Key -join '; ')"
     }
@@ -280,7 +280,7 @@ $mdLines.Add('# Value-Enum Reconciliation Report')
 $mdLines.Add('')
 $mdLines.Add("Generated by ``tools/Build-PfbValueEnumMap.ps1`` against ``Reports/PfbValueEnumMap.json`` ($($processedVersions.Count) REST versions, $($entries.Count) entries).")
 $mdLines.Add('')
-$mdLines.Add('Compares every hand-written `ValidateSet` in `Public/` that encodes a spec-documented value enum against the newly extracted prose data. Report only — no `Public/` cmdlet is edited by this script. See `Value-Enum-Extraction-Work.md` for the full non-goal list.')
+$mdLines.Add('Compares every hand-written `ValidateSet` in `Public/` that encodes a spec-documented value enum against the newly extracted prose data. Report only -- no `Public/` cmdlet is edited by this script. See `Value-Enum-Extraction-Work.md` for the full non-goal list.')
 $mdLines.Add('')
 $mdLines.Add('| File:Line | Parameter | Hand-written values | Spec values | Status | Note |')
 $mdLines.Add('|---|---|---|---|---|---|')

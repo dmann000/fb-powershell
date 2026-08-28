@@ -1,11 +1,11 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0' }
 <#
 .SYNOPSIS
-    Unit tests for tools/lib/PfbValueEnumTools.ps1 — the prose "Valid/Possible values"
+    Unit tests for tools/lib/PfbValueEnumTools.ps1 -- the prose "Valid/Possible values"
     extraction helpers used by tools/Build-PfbValueEnumMap.ps1.
 .DESCRIPTION
     Pure-function unit tests against small synthetic spec objects (same
-    [PSCustomObject]-fixture style as Tests/PfbSpecTools.Tests.ps1) — no network access
+    [PSCustomObject]-fixture style as Tests/PfbSpecTools.Tests.ps1) -- no network access
     and no dependency on the real cached specs in tools/specs/.
 #>
 
@@ -40,7 +40,7 @@ Describe 'Get-PfbValueEnumTriggerSentence' {
     It 'isolates only the trigger sentence, not trailing prose that repeats the values' {
         # Regression for the trigger-sentence-scoping rule: the preset export-rule
         # description explains each backtick-quoted value again in a paragraph *after*
-        # the enum sentence — the trigger sentence itself must not swallow that tail.
+        # the enum sentence -- the trigger sentence itself must not swallow that tail.
         $desc = @'
 Specifies access control for the export. Valid values are `root-squash`, `all-squash`, and
 `no-root-squash`.
@@ -473,7 +473,7 @@ Describe 'Build-PfbValueEnumMap.ps1: inline-parameter-to-$ref refactor keeps the
         # Reproduces the real Get-PfbArraySpace `type` history exactly: v1 defines it
         # inline on GET /arrays/space with a full "Valid values..." description; v2
         # refactors the SAME parameter into a components.parameters $ref with
-        # byte-identical description text — a pure documentation refactor, not an API
+        # byte-identical description text -- a pure documentation refactor, not an API
         # change. The field must still be attributed to v1, not v2, once diffed.
         New-Item -ItemType Directory -Path 'TestDrive:\inlineSpecs' -Force | Out-Null
 

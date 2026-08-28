@@ -4,7 +4,7 @@ function New-PfbNetworkInterface {
         Creates a new network interface (VIP) on the FlashBlade.
     .DESCRIPTION
         Creates a virtual IP. The FlashBlade derives the associated subnet, gateway,
-        netmask, MTU and VLAN from `-Address` — those fields are read-only in the API
+        netmask, MTU and VLAN from `-Address` -- those fields are read-only in the API
         and cannot be sent in the create body. A subnet covering `-Address` must already
         exist (create with New-PfbSubnet).
     .PARAMETER Name
@@ -23,7 +23,7 @@ function New-PfbNetworkInterface {
     .PARAMETER Attributes
         Full request body as a hashtable. Use this only when the typed parameters above
         don't expose a field you need (e.g. a brand-new 2.x API field). Mutually
-        exclusive with -Address / -Services / -AttachedServers / -Type — if you pass
+        exclusive with -Address / -Services / -AttachedServers / -Type -- if you pass
         -Attributes, those typed params will not be accepted.
     .PARAMETER Array
         The FlashBlade connection object.

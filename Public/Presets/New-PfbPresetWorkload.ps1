@@ -6,7 +6,7 @@ function New-PfbPresetWorkload {
         Defines a parameterized template that workloads can be instantiated from. The body
         schema (PresetWorkloadPost) is heavily nested (directory_configurations,
         placement_configurations, platform_features are required; export/QoS/quota/snapshot
-        configurations are optional). Pass the full body via -Attributes — the typed surface
+        configurations are optional). Pass the full body via -Attributes -- the typed surface
         would be too large to be useful.
     .PARAMETER Name
         Preset name(s) to create.
