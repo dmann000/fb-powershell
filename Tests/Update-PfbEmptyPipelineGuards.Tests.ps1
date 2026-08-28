@@ -282,7 +282,7 @@ Describe 'Update-PfbEmptyPipelineGuards - fixture shapes' {
         $lines = @(Get-NormalFixtureLines -FunctionName 'Get-PfbRemoteArray')
         $requestIndex = [array]::IndexOf($lines, ($lines | Where-Object { $_ -like '*Invoke-PfbApiRequest*' } | Select-Object -First 1))
         $withGuard = @($lines[0..($requestIndex - 1)]) + @('        ' + $script:guard) + @($lines[$requestIndex..($lines.Count - 1)])
-        $file = New-GuardFixture -Root $root -Name 'Get-PfbRemoteArray' -Lines $withGuard
+        $null = New-GuardFixture -Root $root -Name 'Get-PfbRemoteArray' -Lines $withGuard
 
         $summary = & $script:generator -PublicRoot $root -Confirm:$false
 

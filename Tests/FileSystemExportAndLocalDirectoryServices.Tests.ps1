@@ -1,7 +1,6 @@
 #Requires -Modules @{ ModuleName = 'Pester'; ModuleVersion = '5.0' }
 
 BeforeAll {
-    $moduleRoot = Split-Path -Parent $PSScriptRoot
     . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
     $null = Import-PfbTestModule
     $script:fakeArray = [PSCustomObject]@{ Endpoint = 'fb.example.test'; ApiVersion = '2.26'; AuthToken = 'x' }

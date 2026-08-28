@@ -188,7 +188,6 @@ $tableCoverageCase = @(
 # ---------------------------------------------------------------------------
 
 BeforeAll {
-    $moduleRoot = Split-Path -Parent $PSScriptRoot
     . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
     $null = Import-PfbTestModule
 

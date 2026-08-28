@@ -4,8 +4,6 @@
 param()
 
 BeforeAll {
-    $moduleRoot = Split-Path -Parent $PSScriptRoot
-    $manifest   = Join-Path $moduleRoot 'PureStorageFlashBladePowerShell.psd1'
     . (Join-Path $PSScriptRoot 'PfbTestModule.ps1')
     $null = Import-PfbTestModule
 
