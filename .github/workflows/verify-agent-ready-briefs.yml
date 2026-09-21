@@ -1,0 +1,76 @@
+name: Verify Agent-Ready Briefs
+
+# Asserts the promise `status:agent-ready` makes. docs/TRIAGE-ROLES.md defines that label as
+# "a brief is attached", not "this issue looks small" -- and nothing enforced it. When the
+# label taxonomy was first applied, five issues carried it; writing briefs against them
+# demoted three. The label was 60% wrong and no check in the repository could say so.
+#
+# That matters more than a tidiness argument, because the label is an interface. A scheduled
+# worker pops from it, so an unbriefed issue sitting there is a wasted unattended run that
+# ends in a question no one is present to answer.
+#
+# NOT A PULL REQUEST GATE, deliberately. This asks a question about repository state -- which
+# issues carry which labels, and what is commented on them -- not about a diff. There is no
+# pull request on which it is the right answer, and nothing a contributor could change on
+# their branch to turn it green. Putting it on `pull_request` would produce a red build whose
+# cause lives outside the build, which is the most expensive kind of gate to own.
+#
+# The unit tests are not run here. Tests/PfbAgentBriefTools.Tests.ps1 exercises the classifier
+# against fixtures, and cross-platform-tests.yml has no paths filter, so those already run on
+# every pull request on both editions. This workflow answers one question, against live state.
+#
+# THE CONTROL IS THE POINT OF THE SCRIPT, NOT OF THIS FILE. A gate that filters issues by
+# label and passes when the result is empty cannot distinguish "the queue is drained" from "the
+# label was renamed", "the filter has a typo" or "the token lost its scope" -- all of which
+# report green forever. scripts/Assert-PfbAgentReadyBrief.ps1 therefore fetches the label
+# itself first and fails when it is absent. Do not remove that step to make a local run
+# quieter; this repository has already filed a wrong public issue by trusting an empty result
+# that had no control beside it.
+
+on:
+  schedule:
+    # 07:00 UTC on Mondays -- ahead of the week rather than inside it, and offset from
+    # update-api-capability-map.yml's Monday cron so two jobs do not contend for a runner
+    # while answering unrelated questions.
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'owner/name to check. Defaults to the repository running the workflow.'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  # Reading issues and their comments is the whole job, and issue comments are covered by
+  # the `issues` scope rather than by `contents`. No write scope anywhere: this reports, it
+  # does not relabel. Moving an optimistically-labelled issue back to status:triage is a
+  # judgement about whether the issue is understood yet -- which is the judgement the brief
+  # was supposed to record in the first place, so a bot must not make it.
+  issues: read
+
+concurrency:
+  group: agent-ready-briefs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: status:agent-ready carries a brief
+    runs-on: ubuntu-latest
+    # Seconds, not minutes: two API calls plus one per labelled issue, and pure text
+    # classification after that. The timeout is a stuck-network guard, not a budget.
+    timeout-minutes: 5
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      # No spec cache, no module import, no Pester. The script reads issue state and
+      # classifies comment text; it touches nothing else in the tree.
+      - name: Assert every status:agent-ready issue carries a brief
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $params = @{}
+          if ('${{ inputs.repository }}') { $params['Repository'] = '${{ inputs.repository }}' }
+          ./scripts/Assert-PfbAgentReadyBrief.ps1 @params
