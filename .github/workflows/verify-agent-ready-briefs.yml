@@ -64,12 +64,18 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@v7
 
-      # No spec cache, no module import, no Pester. The script reads issue state and
-      # classifies comment text; it touches nothing else in the tree.
+      # No spec cache, no module import, no Pester, and no GitHub CLI. The script makes
+      # three plain GETs with Invoke-RestMethod -- the same way everything under tools/
+      # reaches the network -- and classifies comment text.
+      #
+      # The token is an optimisation, not a requirement: the repository is public, so all
+      # three endpoints answer anonymously. It is passed because anonymous callers get 60
+      # requests an hour counted per source IP, and hosted runners share egress IPs, which
+      # would surface as a 403 that reads like a finding rather than like a quota.
       - name: Assert every status:agent-ready issue carries a brief
         shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $params = @{}
           if ('${{ inputs.repository }}') { $params['Repository'] = '${{ inputs.repository }}' }

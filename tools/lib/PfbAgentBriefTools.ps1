@@ -21,8 +21,12 @@
     train people to pad sections. This answers only the structural question the label
     promises, which is the question that was silently wrong.
 
-    5.1 CONSTRAINT: dot-sourced by a test file that runs on the winps51 leg. No ternaries,
-    no `??`, no pipeline chain operators.
+    The `#Requires -Version 5.1` above is not a compatibility commitment -- nothing here
+    ships to the Gallery, and the 5.1/7 rules bind the module, not its tooling. It is
+    simply true: this file needs nothing from 7, and the test suite's winps51 leg loads
+    it. Claiming 7.0 instead would make the test file skip on that leg, which the coverage
+    gate then requires to be declared as an exact skip count -- machinery bought for no
+    benefit.
 #>
 
 # The eight sections docs/AGENT-BRIEF.md's template carries. Written as a literal rather

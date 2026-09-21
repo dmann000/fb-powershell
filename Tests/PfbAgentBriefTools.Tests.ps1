@@ -28,8 +28,12 @@
     while carrying no claim. An unrecognised form is reported, not thrown on, because the
     three forms are prose and a legitimate fourth phrasing is likelier than a real defect.
 
-    5.1 CONSTRAINT: this file runs on the winps51 leg. No ternaries, no `??`, no pipeline
-    chain operators, no `ConvertFrom-Json -Depth`.
+    NOT EDITION-GATED, unlike the other tooling test files. They carry
+    `-Skip:($PSVersionTable.PSVersion.Major -lt 7)` because the generators they cover need
+    7. The classifier under test needs nothing from either edition, so this file runs on
+    both legs and skips zero tests -- which is also why it needs no entry in
+    Tests/coverage-baseline.psd1, where ExpectedSkips is an exact pin and only files that
+    actually skip are declared.
 #>
 
 BeforeAll {
