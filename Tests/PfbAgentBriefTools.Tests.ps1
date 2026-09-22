@@ -108,6 +108,35 @@ Describe 'Test-PfbAgentBrief' {
             $result.IsBrief | Should -BeTrue
         }
 
+        It 'classifies a CRLF brief identically to an LF one' {
+            # Both line endings are constructed here rather than inherited from whatever the
+            # checkout happens to hold, because a fixture that inherits cannot catch this:
+            # the here-string above is LF in this repo and CRLF on a Windows runner with
+            # core.autocrlf=true, so the same assertion tests a different input per leg.
+            # This is the defect that reached CI -- the heading regex anchored with
+            # `[ \t]*$`, and in .NET multiline mode `$` sits immediately before the `\n`
+            # with the `\r` still in front of it, so the anchor could not be reached. It
+            # failed on both Windows legs and passed on ubuntu and macos. The GitHub API
+            # returns comment bodies as authored too, so CRLF is a real input and not only
+            # a checkout artifact.
+            $lf = $script:validBrief -replace "`r`n", "`n"
+            $crlf = $lf -replace "`n", "`r`n"
+            $crlf | Should -Match "`r`n"   # the fixture really is CRLF, not silently LF
+
+            $lfResult = Test-PfbAgentBrief -CommentBody $lf
+            $crlfResult = Test-PfbAgentBrief -CommentBody $crlf
+
+            $crlfResult.IsBrief | Should -Be $lfResult.IsBrief
+            $crlfResult.VerificationForm | Should -Be $lfResult.VerificationForm
+            @($crlfResult.MissingSections).Count | Should -Be @($lfResult.MissingSections).Count
+
+            # Asserted absolutely as well as comparatively: if the classifier ever broke on
+            # both forms the comparison alone would still pass.
+            $crlfResult.IsBrief | Should -BeTrue
+            @($crlfResult.MissingSections).Count | Should -Be 0
+            $crlfResult.VerificationForm | Should -Be 'live-verified'
+        }
+
         It 'returns IsBrief false for an empty or whitespace body' {
             (Test-PfbAgentBrief -CommentBody '').IsBrief | Should -BeFalse
             (Test-PfbAgentBrief -CommentBody "   `n  ").IsBrief | Should -BeFalse

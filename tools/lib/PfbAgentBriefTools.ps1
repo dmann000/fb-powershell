@@ -81,9 +81,19 @@ function Test-PfbAgentBrief {
 
     if ([string]::IsNullOrWhiteSpace($CommentBody)) { return $result }
 
+    # Normalise line endings before any anchored match. In .NET multiline mode `$` matches
+    # immediately before a `\n`, so a CRLF body leaves a `\r` sitting between the heading
+    # text and the anchor and `[ \t]*$` cannot reach it. Both sources of this body carry
+    # CRLF some of the time -- the GitHub API returns comment bodies as authored, and a
+    # here-string fixture in the test file inherits the checkout's line endings, which on a
+    # Windows runner with core.autocrlf=true is CRLF. That is not a cosmetic difference:
+    # the heading match gates everything below it, so a `\r` turns a valid brief into
+    # `IsBrief = $false` and reports the issue as carrying no brief at all.
+    $body = $CommentBody -replace "`r`n", "`n" -replace "`r", "`n"
+
     # An ATX heading whose text is exactly "Agent Brief", at any level, any case. Anchored
     # to line start and end so a sentence containing the phrase cannot match.
-    if ($CommentBody -notmatch '(?im)^[ \t]*#{1,6}[ \t]*Agent[ \t]+Brief[ \t]*$') { return $result }
+    if ($body -notmatch '(?im)^[ \t]*#{1,6}[ \t]*Agent[ \t]+Brief[ \t]*$') { return $result }
     $result.IsBrief = $true
 
     foreach ($section in $script:PfbAgentBriefRequiredSections) {
@@ -91,11 +101,11 @@ function Test-PfbAgentBrief {
         # name: "n/a" is not in the list today but a future section with a regex
         # metacharacter in it would otherwise match the wrong thing, or nothing.
         $pattern = '(?im)^[ \t]*\*\*' + [regex]::Escape($section) + ':\*\*'
-        if ($CommentBody -notmatch $pattern) { $missing.Add($section) }
+        if ($body -notmatch $pattern) { $missing.Add($section) }
     }
     $result.MissingSections = $missing.ToArray()
 
-    $result.VerificationForm = Get-PfbAgentBriefVerificationForm -CommentBody $CommentBody
+    $result.VerificationForm = Get-PfbAgentBriefVerificationForm -CommentBody $body
     return $result
 }
 
@@ -126,7 +136,12 @@ function Get-PfbAgentBriefVerificationForm {
         [string]$CommentBody
     )
 
-    $match = [regex]::Match($CommentBody, '(?im)^[ \t]*\*\*Verification:\*\*[ \t]*(?<claim>[^\r\n]*)')
+    # Normalised here as well as in Test-PfbAgentBrief, not instead of it: this function is
+    # callable on its own, and a guard that only works when the caller happened to
+    # normalise first is not a guard. See the note there for why a `\r` matters.
+    $body = $CommentBody -replace "`r`n", "`n" -replace "`r", "`n"
+
+    $match = [regex]::Match($body, '(?im)^[ \t]*\*\*Verification:\*\*[ \t]*(?<claim>[^\r\n]*)')
     if (-not $match.Success) { return 'absent' }
 
     $claim = $match.Groups['claim'].Value.Trim()
