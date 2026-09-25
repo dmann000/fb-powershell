@@ -238,8 +238,10 @@ Describe 'backlog workflow' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
     }
 
     It 'reads contents and issues only, with no secret but the built-in token' {
-        $script:workflow | Should -Match '(?m)^  contents: read\s*$'
-        $script:workflow | Should -Match '(?m)^  issues: read\s*$'
+        # Only the top-level permissions: block; a scalar (write-all) leaves it empty.
+        $permissions = [regex]::Match($script:workflow, '(?ms)^permissions:[ \t]*\r?\n(.*?)(?=^\S)').Groups[1].Value
+        @([regex]::Matches($permissions, '(?m)^  ([a-z-]+: \S+)') | ForEach-Object { $_.Groups[1].Value }) -join ',' | Should -BeExactly 'contents: read,issues: read'
+        $script:workflow | Should -Not -Match 'write-all'
         @([regex]::Matches($script:workflow, '(?m)^\s+[a-z-]+: write\s*$')).Count | Should -Be 0
         @([regex]::Matches($script:workflow, 'secrets\.([A-Za-z_]+)') | ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -cne 'GITHUB_TOKEN' }).Count | Should -Be 0
     }
@@ -252,15 +254,17 @@ Describe 'backlog workflow' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
     It 'passes -First only when the input is non-empty, which it is not on workflow_run' {
         $script:workflow | Should -Match ([regex]::Escape('BACKLOG_FIRST: ${{ inputs.first }}'))
         $script:workflow | Should -Match ([regex]::Escape("if (`$env:BACKLOG_FIRST) { `$params['First'] = [int]`$env:BACKLOG_FIRST }"))
-        $script:workflow | Should -Not -Match '-First \$\{\{'
+        # Every run: | block (its more-indented lines, blank lines included) takes input via env only.
+        $runBlocks = @([regex]::Matches($script:workflow, '(?m)^([ \t]+)(?:- )?run: \|[ \t]*\r?\n((?:(?:\1[ \t]+\S[^\r\n]*|[ \t]*)(?:\r?\n|$))+)') | ForEach-Object { $_.Groups[2].Value })
+        $runBlocks.Count | Should -Be 2
+        @($runBlocks | Where-Object { $_.Contains('${{') }).Count | Should -Be 0
     }
 
     It 'publishes the Markdown to the job summary and the JSON as a 90-day artifact, on the pinned actions' {
         @([regex]::Matches($script:workflow, '(?m)^\s+uses: (\S+)') | ForEach-Object { $_.Groups[1].Value }) -join ',' |
             Should -BeExactly 'actions/checkout@v7,actions/upload-artifact@v5'
         $script:workflow | Should -Match ([regex]::Escape("OutputPath = (Join-Path `$env:RUNNER_TEMP 'backlog')"))
-        $script:workflow | Should -Match 'PfbBacklog\.md'
-        $script:workflow | Should -Match '\$env:GITHUB_STEP_SUMMARY'
+        $script:workflow | Should -Match "(?m)Get-Content -LiteralPath \(Join-Path \`$env:RUNNER_TEMP 'backlog/PfbBacklog\.md'\) -Raw \|[ \t]*\r?\n[ \t]+Out-File -FilePath \`$env:GITHUB_STEP_SUMMARY -Append\b"
         $script:workflow | Should -Match '(?m)^\s+path: \$\{\{ runner\.temp \}\}/backlog/PfbBacklog\.json\s*$'
         $script:workflow | Should -Match '(?m)^\s+retention-days: 90\s*$'
     }
