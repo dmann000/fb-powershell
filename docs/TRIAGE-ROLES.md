@@ -5,7 +5,7 @@ worker decides what to pick up by reading them, and a reconciler decides what no
 again. This document pins the vocabulary so that meaning does not drift.
 
 If you are applying labels by hand, the short version is: **exactly one label from each of
-the five single-valued axes, on every open issue.**
+the five single-valued axes, on every open issue** (with one documented `source:` exception).
 
 ## The five axes
 
@@ -15,7 +15,7 @@ the five single-valued axes, on every open issue.**
 | `priority:` | `P0` `P1` `P2` `P3` | yes |
 | `size:` | `S` `M` `L` | yes |
 | `area:` | the noun-families below | yes |
-| `source:` | `drift` `human` `livetest` | yes |
+| `source:` | `drift` `human` `livetest` | yes, except a paired legacy issue (see [`source:`](#source)) |
 | `needs:` | `live-test` | no — a flag, present or absent |
 
 The stock GitHub labels (`bug`, `enhancement`, `documentation`, …) still exist and are
@@ -144,6 +144,14 @@ post-merge stamper. Do not remove the label
 from an issue that carries such a block: the reconciler would stop seeing the issue, and
 file its findings again as new.
 
+**The one legal exception to single-valued `source:`.** An issue a person opened
+(`source:human` or `source:livetest`) can later be *paired* with the drift findings it
+already covers, by stamping a machine block onto it. Stamping adds `source:drift` and
+leaves the original label in place, so that issue carries two `source:` labels. There,
+`source:drift` means "tracked by tooling", not "opened by tooling"; the other label still
+records who found the problem. Do not remove either one. Any other issue with two
+`source:` labels is an error.
+
 ## `needs:live-test`
 
 The issue cannot be closed on mocked tests alone; it needs verification against a real
@@ -159,7 +167,12 @@ makes an issue invisible to the queue, and two of them make its state ambiguous.
 $all = gh issue list --state open --limit 200 --json number,labels | ConvertFrom-Json
 foreach ($axis in 'status','priority','size','area','source') {
     $bad = @($all | Where-Object {
-        @($_.labels.name | Where-Object { $_ -like "${axis}:*" }).Count -ne 1
+        $values = @($_.labels.name | Where-Object { $_ -like "${axis}:*" })
+        # A paired legacy issue legally carries source:drift beside its origin label.
+        if ($axis -eq 'source' -and $values.Count -eq 2 -and $values -contains 'source:drift') {
+            $values = @($values | Where-Object { $_ -ne 'source:drift' })
+        }
+        $values.Count -ne 1
     })
     "{0,-9} {1}/{2} ok   offenders: {3}" -f $axis, ($all.Count - $bad.Count), $all.Count, (($bad.number) -join ',')
 }
