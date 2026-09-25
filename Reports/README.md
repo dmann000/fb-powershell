@@ -68,6 +68,9 @@ up as artifact drift.
 
 All of the above are **reporting only** — none of them edit any `Public/` cmdlet. A human
 (or an agent, on request) reads a report and decides what, if anything, to build next.
+`PfbApiDriftReport.json` and `PfbDeadKeyReport.json` also feed `tools/New-PfbDriftIssue.ps1`,
+which files and maintains GitHub issues from their findings -- a dry run unless given
+`-Apply`; see "Drift issue reconciler" in `tools/README.md`.
 
 `tools/` holds a second class of generator, and the naming already encodes the distinction:
 `Build-Pfb*` emits `Data/` and `Reports/` artifacts, `Update-Pfb*` mutates tracked source in

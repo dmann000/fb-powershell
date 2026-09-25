@@ -203,3 +203,33 @@ Describe 'New-PfbDriftIssue.ps1' {
         $result.Plan.Aborted | Should -BeFalse
     }
 }
+
+Describe 'drift-issues workflow' {
+    BeforeAll {
+        $script:workflow = [System.IO.File]::ReadAllText((Join-Path (Join-Path (Join-Path $script:repoRoot '.github') 'workflows') 'drift-issues.yml'))
+    }
+
+    It 'runs only when dispatched by hand' {
+        # Only the on: block, up to the next top-level key -- `issues: write` under
+        # permissions: is not a trigger.
+        $on = [regex]::Match($script:workflow, '(?ms)^on:\r?\n(.*?)(?=^\S)').Groups[1].Value
+        $on | Should -Match '(?m)^  workflow_dispatch:'
+        @([regex]::Matches($on, '(?m)^  ([a-z_]+):') | ForEach-Object { $_.Groups[1].Value }) -join ',' | Should -BeExactly 'workflow_dispatch'
+    }
+
+    It 'defaults the apply input to false and passes -Apply only when it is true' {
+        $script:workflow | Should -Match '(?s)apply:.*?type: boolean.*?default: false'
+        $script:workflow | Should -Match ([regex]::Escape("if ('`${{ inputs.apply }}' -eq 'true') { `$params['Apply'] = `$true }"))
+    }
+
+    It 'asks for issues: write and nothing else writable, using only the built-in token' {
+        $script:workflow | Should -Match '(?m)^  issues: write\s*$'
+        $script:workflow | Should -Match '(?m)^  contents: read\s*$'
+        @([regex]::Matches($script:workflow, '(?m)^  [a-z-]+: write')).Count | Should -Be 1
+        @([regex]::Matches($script:workflow, 'secrets\.([A-Za-z_]+)') | ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -cne 'GITHUB_TOKEN' }).Count | Should -Be 0
+    }
+
+    It 'never cancels a run in progress, which could leave half its writes made' {
+        $script:workflow | Should -Match '(?m)^  cancel-in-progress: false\s*$'
+    }
+}

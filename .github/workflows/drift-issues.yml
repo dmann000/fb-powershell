@@ -1,0 +1,58 @@
+name: Drift Issues
+
+# Reconciles the committed drift reports with this repository's issues:
+# tools/New-PfbDriftIssue.ps1 files one issue per new group of findings, appends new
+# findings to a group's open issue, notes findings that stop being reported, and labels an
+# issue status:resolved-upstream when none of its findings remain. It never closes an issue.
+#
+# MANUAL ONLY, AND A DRY RUN BY DEFAULT. v1 runs on workflow_dispatch alone, and the
+# `apply` input defaults to false, so a dispatch with no choices made prints the plan to the
+# job summary and writes nothing. Scheduling it is a later, deliberate decision.
+#
+# NO SECRETS. The built-in GITHUB_TOKEN with `issues: write` is all the script needs; gh is
+# preinstalled on the runner and reads GH_TOKEN. Nothing here needs a repository secret, so
+# nothing here depends on one being provisioned.
+#
+# NOT CANCELLED MID-RUN. An applying run writes issue by issue; cancelling one halfway
+# leaves some of its writes made. The next run would reconcile them, but there is no reason
+# to create that state on purpose, so a second dispatch queues behind the first.
+#
+# No Pester here: Tests/New-PfbDriftIssue.Tests.ps1 and Tests/PfbDriftIssueTools.Tests.ps1
+# already run on every pull request, on both editions, in cross-platform-tests.yml.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Write to GitHub. Leave unticked for a dry run that only prints the plan.'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: drift-issues
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    name: Reconcile drift findings with issues
+    runs-on: ubuntu-latest
+    # A few hundred API calls at most, and the create cap bounds the writes. The timeout is
+    # a stuck-network guard, not a budget.
+    timeout-minutes: 15
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Reconcile (dry run unless apply is ticked)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $params = @{ Repo = '${{ github.repository }}'; GhCommand = 'gh' }
+          if ('${{ inputs.apply }}' -eq 'true') { $params['Apply'] = $true }
+          ./tools/New-PfbDriftIssue.ps1 @params

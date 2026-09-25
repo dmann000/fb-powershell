@@ -33,6 +33,7 @@ harmless, but nothing reads them. Do not use them to express state.
 | `status:needs-review` | A PR is open and waiting on human review. |
 | `status:blocked` | Cannot proceed. **The blocker must be named in a comment.** |
 | `status:human-only` | Requires human judgment or access. An agent must not pick it up even if it looks tractable. |
+| `status:resolved-upstream` | Set by `tools/New-PfbDriftIssue.ps1` when none of a drift issue's findings are reported any more. A person confirms and closes it; tooling never closes an issue. |
 
 Normal flow:
 
@@ -48,6 +49,12 @@ Legal departures from it:
   regression: it means someone tried to write the brief and found the scope unsettled.
   Better discovered by a person than by a worker burning an unattended run.
 - Anything may close. A closing *reason* carries meaning here — see below.
+- `tools/New-PfbDriftIssue.ps1` moves an issue from any state to `resolved-upstream` when
+  all of its findings stop being reported, and from `resolved-upstream` back to `triage`
+  whenever it has a finding that is still reported. It checks this on every run, so it
+  also puts back a label that disagrees with the findings. It **replaces** the current
+  `status:` label rather than adding a second one, so the one-per-axis invariant holds,
+  and its comment names the label it replaced.
 
 ### Two rules that exist because a machine reads this
 
@@ -126,6 +133,12 @@ itself.
 | `source:human` | Opened by a person, from observation or field feedback. |
 | `source:livetest` | Opened from evidence measured against a real array. |
 
+`source:drift` is also a trust anchor. `tools/New-PfbDriftIssue.ps1` reads the machine
+block at the end of an issue body only on an issue carrying this label, because anyone
+can write an issue body but only collaborators can apply labels. Do not remove the label
+from an issue that carries such a block: the reconciler would stop seeing the issue, and
+file its findings again as new.
+
 ## `needs:live-test`
 
 The issue cannot be closed on mocked tests alone; it needs verification against a real
@@ -146,6 +159,11 @@ foreach ($axis in 'status','priority','size','area','source') {
     "{0,-9} {1}/{2} ok   offenders: {3}" -f $axis, ($all.Count - $bad.Count), $all.Count, (($bad.number) -join ',')
 }
 ```
+
+Issues filed by the drift reconciler arrive with `status:triage`, `source:drift`, one
+`area:` and `needs:live-test`, and deliberately without `priority:` or `size:`:
+assigning those is triage, and `status:triage` says nobody has done it yet. The check
+above lists them until someone does, which is the intended signal.
 
 ## A note on canonical names
 
