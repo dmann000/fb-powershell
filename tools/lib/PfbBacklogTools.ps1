@@ -484,6 +484,9 @@ function Get-PfbBacklogSortKey {
     }
     $size = [array]::IndexOf($script:PfbBacklogSize, [string]$Row.size)
     if ($size -lt 0) { $size = $script:PfbBacklogSize.Count }
+    if (@($script:PfbBacklogImpactClass.Keys) -cnotcontains [string]$Row.impactClass) {
+        throw "Issue #$($Row.number) has no known impact class ('$($Row.impactClass)'), so it cannot be ranked. Get-PfbBacklogImpact assigns one to every ranked row; ranking without it means a caller skipped impact."
+    }
     $impact = [int]$script:PfbBacklogImpactClass[[string]$Row.impactClass].Rank
 
     $priority

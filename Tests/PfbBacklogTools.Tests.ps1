@@ -468,18 +468,20 @@ Describe 'Calibration: the hand triage of #163-#172 (<Eol>)' -ForEach $script:li
 Describe 'Get-PfbBacklogRankedRow' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
     It 'orders by every key in turn, and names the key that placed each row' {
         $rows = @(
-            (Build-TestRow -Number 13 -Priority 'P1' -Status 'design-approved' -Impact 'B' -Size 'M' -Live 4)
-            (Build-TestRow -Number 50 -Priority 'P0' -Status 'agent-ready' -Impact 'A' -Size 'S' -Live 1)
-            (Build-TestRow -Number 20 -Priority 'P1' -Status 'design-approved' -Impact 'B' -Size 'S' -Live 1)
-            (Build-TestRow -Number 12 -Priority 'P1' -Status 'design-approved' -Impact 'B' -Size 'M' -Live 4)
-            (Build-TestRow -Number 40 -Priority 'P1' -Status 'agent-ready' -Impact 'A' -Size 'S' -Live 1)
-            (Build-TestRow -Number 15 -Priority 'P1' -Status 'design-approved' -Impact 'B' -Size 'M' -Live 5)
-            (Build-TestRow -Number 30 -Priority 'P1' -Status 'design-approved' -Impact 'A' -Size 'S' -Live 1)
+            # Each row is worse than the one below it on the key after the one that places it,
+            # so swapping any two keys in the lib reorders the result.
+            (Build-TestRow -Number 11 -Priority 'P1' -Status 'design-approved' -Impact 'B' -Size 'M' -Live 3)
+            (Build-TestRow -Number 40 -Priority 'P1' -Status 'design-approved' -Impact 'A' -Size 'L' -Live 1)
+            (Build-TestRow -Number 20 -Priority 'P1' -Status 'design-approved' -Impact 'B' -Size 'M' -Live 9)
+            (Build-TestRow -Number 60 -Priority 'P0' -Status 'design-approved' -Impact 'B' -Size 'M' -Live 1)
+            (Build-TestRow -Number 10 -Priority 'P1' -Status 'design-approved' -Impact 'B' -Size 'M' -Live 3)
+            (Build-TestRow -Number 30 -Priority 'P1' -Status 'design-approved' -Impact 'B' -Size 'S' -Live 1)
+            (Build-TestRow -Number 50 -Priority 'P1' -Status 'agent-ready' -Impact 'B' -Size 'M' -Live 1)
         )
         $ranked = @(Get-PfbBacklogRankedRow -Row $rows -Lane 'build')
-        @($ranked | ForEach-Object { $_.number }) -join ',' | Should -BeExactly '50,40,30,20,15,12,13'
+        @($ranked | ForEach-Object { $_.number }) -join ',' | Should -BeExactly '60,50,40,30,20,10,11'
         @($ranked | ForEach-Object { $_.rank }) -join ',' | Should -BeExactly '1,2,3,4,5,6,7'
-        $ranked[0].decidedBy | Should -BeNullOrEmpty
+        $ranked[0].decidedBy | Should -BeNull
         @($ranked | Select-Object -Skip 1 | ForEach-Object { $_.decidedBy }) -join ',' |
             Should -BeExactly 'priority,readiness,impact,size,liveFindings,number'
     }
@@ -527,5 +529,15 @@ Describe 'Get-PfbBacklogRankedRow' -Skip:($PSVersionTable.PSVersion.Major -lt 7)
     It 'refuses to rank a row with no single known priority' {
         { Get-PfbBacklogRankedRow -Lane 'build' -Row @((Build-TestRow -Number 9 -Priority '')) } |
             Should -Throw -ExpectedMessage 'Issue #9 has no single known priority*'
+    }
+
+    It 'refuses to rank a row with an unknown impact class' {
+        { Get-PfbBacklogRankedRow -Lane 'build' -Row @((Build-TestRow -Number 8 -Priority 'P1' -Impact 'a')) } |
+            Should -Throw -ExpectedMessage 'Issue #8 has no known impact class*'
+    }
+
+    It 'refuses a non-build status in the build lane' {
+        { Get-PfbBacklogRankedRow -Lane 'build' -Row @((Build-TestRow -Number 7 -Priority 'P1' -Status 'needs-design')) } |
+            Should -Throw -ExpectedMessage "*has status 'needs-design', which is not a build-lane status."
     }
 }
