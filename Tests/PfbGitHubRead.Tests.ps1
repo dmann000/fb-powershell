@@ -55,6 +55,7 @@ BeforeAll {
     # before the call for exactly this reason -- instead of hard-coding a depth that is
     # Pester's business. Measured: three scopes up from a mock body on Pester 6.0.1.
     function Set-TestResponseHeader {
+        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'Test helper writing a mock response-header variable; nothing to confirm.')]
         param([Parameter(Mandatory = $true)][string]$Name, [Parameter(Mandatory = $true)]$Value)
         for ($depth = 1; $depth -lt 64; $depth++) {
             try { $null = Get-Variable -Name $Name -Scope $depth -ErrorAction Stop }
