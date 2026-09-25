@@ -1109,3 +1109,74 @@ function Format-PfbDriftComment {
     if ($lines.Count -eq 1) { throw 'A drift comment needs at least one change to report.' }
     return ($lines -join "`n")
 }
+
+function ConvertFrom-PfbSettledDriftKey {
+    <#
+    .SYNOPSIS
+        Reads the optional '**Drift keys:**' field of one docs/settled/ entry.
+    .DESCRIPTION
+        Keys are comma- or space-separated, backticks optional:
+          fp:<16 hex>        one finding, by fingerprint
+          param:<wire name>  every parameterGap finding for that wire name
+          family:<segment>   every finding whose endpoint family is <segment>
+          category:<token>   every finding of that category
+        An unrecognised key throws, naming the file: a typo that silently matched nothing
+        would re-file exactly the finding the entry declined. Lines inside a fenced code
+        block are ignored, so an entry (or the README) can show an example.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Text,
+        [Parameter(Mandatory = $true)][string]$Source
+    )
+
+    $fence = $null
+    foreach ($line in (($Text -replace "`r`n", "`n" -replace "`r", "`n") -split "`n")) {
+        $trimmed = $line.Trim()
+        $wasInFence = $null -ne $fence
+        $fence = Get-PfbDriftFenceState -Line $line -State $fence
+        if ($wasInFence -or ($null -ne $fence)) { continue }
+        if (-not ($trimmed -match '^\*\*Drift keys:\*\*(?<rest>.*)$')) { continue }
+        $rest = $Matches['rest']
+        foreach ($token in ($rest -split '[,\s]+')) {
+            $clean = $token.Trim().Trim([char]0x60)
+            if ($clean -eq '') { continue }
+            if (-not ($clean -cmatch '^(?<kind>fp|param|family|category):(?<value>\S+)$')) {
+                throw "$Source has an unrecognised drift key '$clean'. Keys are fp:, param:, family: or category: (docs/settled/README.md). The reconciler stops rather than ignore it, because an ignored key would re-file the finding this entry declined."
+            }
+            $kind = $Matches['kind']
+            $value = $Matches['value']
+            if ($kind -ceq 'fp' -and $value -cnotmatch '^[0-9a-f]{16}$') {
+                throw "$Source has drift key '$clean', but a fingerprint is 16 lowercase hex characters."
+            }
+            if ($kind -ceq 'category' -and $script:PfbDriftCategoryToken -cnotcontains $value) {
+                throw "$Source has drift key '$clean', but '$value' is not a category token ($($script:PfbDriftCategoryToken -join ', '))."
+            }
+            [PSCustomObject]@{ Kind = $kind; Value = $value; Raw = $clean; Source = $Source }
+        }
+    }
+}
+
+function Find-PfbSettledDriftKey {
+    <#
+    .SYNOPSIS
+        The first settled key that matches a finding, or $null.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]$Finding,
+        [AllowEmptyCollection()][object[]]$SettledKey = @()
+    )
+
+    foreach ($key in @(Get-PfbDriftItem $SettledKey)) {
+        $hit = $false
+        switch -CaseSensitive ($key.Kind) {
+            'fp' { $hit = $Finding.Fingerprint -ceq $key.Value }
+            'param' { $hit = ($Finding.Category -ceq 'parameterGap') -and ($Finding.Parameter -ceq $key.Value) }
+            'family' { $hit = $Finding.Family -ceq $key.Value }
+            'category' { $hit = $Finding.Category -ceq $key.Value }
+        }
+        if ($hit) { return $key }
+    }
+    return $null
+}

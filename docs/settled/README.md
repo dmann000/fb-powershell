@@ -49,6 +49,29 @@ One-paragraph statement of what is settled.
 **Prior requests:** issue links, one per line.
 ```
 
+### Optional sixth field: `Drift keys`
+
+An entry that settles a drift-report finding can say so, and `tools/New-PfbDriftIssue.ps1`
+then skips that finding instead of filing it. Add the field last, after `Prior requests`:
+
+    **Drift keys:** `param:allow_errors`, `fp:0123456789abcdef`
+
+Each key is one of:
+
+| Key | Matches |
+|---|---|
+| `fp:<16 hex>` | Exactly one finding: the fingerprint in the last column of a drift issue's table. |
+| `param:<wire name>` | Every parameter-gap finding for that wire name, query or body, on any endpoint. |
+| `family:<segment>` | Every finding whose endpoint path starts with `/<segment>`. |
+| `category:<token>` | Every finding of one category; the tokens are listed in `tools/lib/PfbDriftIssueTools.ps1`. |
+
+Prefer the narrowest key that states the decision: a `family:` key also silences findings
+nobody has looked at yet. Keys match findings, not issues, and they are read from every
+file here except this README.
+
+An unrecognised key stops the reconciler instead of being ignored. A typo that silently
+matched nothing would re-file exactly the finding the entry declined.
+
 ### Why `Premise` and `What would reopen this` exist
 
 Because a recorded decision expires with its premise, and a rejection that outlives its

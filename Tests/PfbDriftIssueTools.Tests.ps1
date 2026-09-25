@@ -631,3 +631,56 @@ Describe 'issue and comment formatting' {
         { Format-PfbDriftComment } | Should -Throw -ExpectedMessage '*at least one change*'
     }
 }
+
+Describe 'settled drift keys' {
+    BeforeAll {
+        $script:tick = [string][char]0x60
+        $script:fence = $script:tick * 3
+    }
+
+    It 'parses every key kind from a Drift keys line, backticks optional' {
+        $text = "# Something`n`n**Settled:** 2026-09-23.`n**Drift keys:** $($script:tick)fp:0123456789abcdef$($script:tick), param:allow_errors family:certificates, $($script:tick)category:newValidateSetCandidate$($script:tick)`n"
+        $keys = @(ConvertFrom-PfbSettledDriftKey -Text $text -Source 'x.md')
+        (@($keys | ForEach-Object { '{0}={1}' -f $_.Kind, $_.Value }) -join ';') | Should -BeExactly 'fp=0123456789abcdef;param=allow_errors;family=certificates;category=newValidateSetCandidate'
+        $keys[0].Source | Should -BeExactly 'x.md'
+        $keys[0].Raw | Should -BeExactly 'fp:0123456789abcdef'
+    }
+
+    It 'returns nothing for an entry without the field, and reads a CRLF entry' {
+        @(ConvertFrom-PfbSettledDriftKey -Text "# Entry`n`n**Settled:** yes." -Source 'a.md').Count | Should -Be 0
+        @(ConvertFrom-PfbSettledDriftKey -Text "# Entry`r`n**Drift keys:** family:arrays`r`n" -Source 'b.md').Count | Should -Be 1
+    }
+
+    It 'ignores a Drift keys line inside a fenced code block' {
+        $text = "Example:`n$($script:fence)`n**Drift keys:** param:allow_errors`n$($script:fence)`n"
+        @(ConvertFrom-PfbSettledDriftKey -Text $text -Source 'README.md').Count | Should -Be 0
+    }
+
+    It 'stops on a key it does not recognise: <Token>' -ForEach @(
+        @{ Token = 'params:allow_errors' }
+        @{ Token = 'fp:0123' }
+        @{ Token = 'fp:0123456789ABCDEF' }
+        @{ Token = 'category:systemicGap' }
+        @{ Token = 'allow_errors' }
+    ) {
+        { ConvertFrom-PfbSettledDriftKey -Text "**Drift keys:** $Token" -Source 'typo.md' } | Should -Throw -ExpectedMessage '*typo.md*'
+    }
+
+    It 'matches a finding by family, param, fp and category, returning the first key that matches' {
+        $gap = Build-TestFinding -Category 'parameterGap' -Endpoint 'GET /certificates' -Field 'query:allow_errors' -Parameter 'allow_errors' -Detail $script:gapDetail
+        $keys = @(ConvertFrom-PfbSettledDriftKey -Text '**Drift keys:** family:certificates, param:allow_errors' -Source 'a.md')
+        (Find-PfbSettledDriftKey -Finding $gap -SettledKey $keys).Raw | Should -BeExactly 'family:certificates'
+        (Find-PfbSettledDriftKey -Finding $gap -SettledKey @($keys[1])).Raw | Should -BeExactly 'param:allow_errors'
+        $fpKey = @(ConvertFrom-PfbSettledDriftKey -Text "**Drift keys:** fp:$($gap.Fingerprint)" -Source 'b.md')
+        (Find-PfbSettledDriftKey -Finding $gap -SettledKey $fpKey).Kind | Should -BeExactly 'fp'
+        $categoryKey = @(ConvertFrom-PfbSettledDriftKey -Text '**Drift keys:** category:parameterGap' -Source 'c.md')
+        (Find-PfbSettledDriftKey -Finding $gap -SettledKey $categoryKey).Kind | Should -BeExactly 'category'
+    }
+
+    It 'matches param: only against parameter gaps, and returns $null when nothing matches' {
+        $dead = Build-TestFinding -Category 'deadKey' -Endpoint 'GET /alerts' -Field 'allow_errors' -Detail $script:deadDetail
+        $keys = @(ConvertFrom-PfbSettledDriftKey -Text '**Drift keys:** param:allow_errors, family:certificates' -Source 'a.md')
+        Find-PfbSettledDriftKey -Finding $dead -SettledKey $keys | Should -BeNullOrEmpty
+        Find-PfbSettledDriftKey -Finding $dead -SettledKey @() | Should -BeNullOrEmpty
+    }
+}
