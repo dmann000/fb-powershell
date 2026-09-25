@@ -746,10 +746,42 @@ Describe 'Format-PfbBacklogMarkdown' -Skip:($PSVersionTable.PSVersion.Major -lt 
         $lines = @((Format-PfbBacklogMarkdown -Backlog $script:mdBacklog -First 1) -split "`n")
         $lines | Should -Contain '_+2 more._'
         $lines | Should -Not -Contain '| 2 | [#11](https://github.com/example/repo/issues/11) Issue 11 | P0 | S | B | 1 |  | readiness |'
+        $lines | Should -Not -Contain "- #19: $($script:PfbBacklogResolvedNote)"
+    }
+
+    It 'renders a triage row with no proposal as none: needs a person, with Differs empty' {
+        $raw = Build-TestRestIssue -Number 31 -Label @('status:triage', 'priority:P2', 'size:M', 'area:ci', 'source:human')
+        $backlog = Get-PfbBacklog -Issue @($raw) -Finding @() -Repo 'example/repo' -SpecVersion '2.28' -GeneratedAt 'x'
+        @((Format-PfbBacklogMarkdown -Backlog $backlog) -split "`n") |
+            Should -Contain '| - | [#31](https://github.com/example/repo/issues/31) Issue 31 | P2 | M | - | 0 |  | none: needs a person |  |'
+    }
+
+    It 'escapes < in a title, so GFM does not strip it as raw HTML, and leaves the JSON title as it is' {
+        $raw = Build-TestRestIssue -Number 32 -Title 'Add <name> support' -Label @('status:in-progress', 'area:ci', 'source:human')
+        $backlog = Get-PfbBacklog -Issue @($raw) -Finding @() -Repo 'example/repo' -SpecVersion '2.28' -GeneratedAt 'x'
+        (Format-PfbBacklogMarkdown -Backlog $backlog) | Should -Match ([regex]::Escape('[#32](https://github.com/example/repo/issues/32) Add \<name> support |'))
+        $backlog.lanes.inFlight[0].title | Should -BeExactly 'Add <name> support'
+    }
+
+    It 'escapes an HTML comment in a labelErrors cell, and leaves the JSON problem as it is' {
+        $raw = Build-TestRestIssue -Number 33 -Label @('status:<!-- x -->', 'priority:P2', 'size:S', 'area:ci', 'source:human')
+        $backlog = Get-PfbBacklog -Issue @($raw) -Finding @() -Repo 'example/repo' -SpecVersion '2.28' -GeneratedAt 'x'
+        @((Format-PfbBacklogMarkdown -Backlog $backlog) -split "`n") |
+            Should -Contain '| - | [#33](https://github.com/example/repo/issues/33) Issue 33 | P2 | S | - | 0 |  | unknown status: label (status:\<!-- x -->) |'
+        @($backlog.lanes.labelErrors[0].labelProblems)[0] | Should -BeExactly 'unknown status: label (status:<!-- x -->)'
+    }
+
+    It 'renders the whole fixture under Set-StrictMode -Version Latest' {
+        Set-StrictMode -Version Latest
+        (Format-PfbBacklogMarkdown -Backlog $script:mdBacklog) | Should -BeExactly $script:md
     }
 
     It 'lists a shown row''s notes under its table' {
         $script:mdLines | Should -Contain "- #19: $($script:PfbBacklogResolvedNote)"
+    }
+
+    It 'backslash-escapes < in a cell' {
+        Format-PfbBacklogCell -Text 'Add <name> support' | Should -BeExactly 'Add \<name> support'
     }
 
     It 'escapes pipes and flattens newlines in titles' {

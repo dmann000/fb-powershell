@@ -665,14 +665,19 @@ function Get-PfbBacklog {
 function Format-PfbBacklogCell {
     <#
     .SYNOPSIS
-        Text made safe for one Markdown table cell: line breaks flattened, pipes escaped.
+        Text made safe for one Markdown table cell: line breaks flattened, | and < escaped.
+    .DESCRIPTION
+        A backslash escapes any ASCII punctuation in CommonMark. Escaping < stops GFM from
+        reading a title such as 'Add <name> support', or a problem that echoes an HTML
+        comment, as raw HTML and dropping it. Only the Markdown is escaped; the JSON keeps
+        the text as it is.
     #>
     [CmdletBinding()]
     [OutputType([string])]
     param([AllowNull()][AllowEmptyString()][string]$Text)
 
     if ([string]::IsNullOrEmpty($Text)) { return '' }
-    return (($Text -replace '\r\n|\r|\n', ' ') -replace '\|', '\|')
+    return (($Text -replace '\r\n|\r|\n', ' ') -replace '[|<]', '\$0')
 }
 
 function Format-PfbBacklogMarkdown {
