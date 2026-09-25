@@ -330,6 +330,41 @@ Describe 'Get-PfbDriftFinding' {
         { Get-PfbDriftFinding -DriftReport (Build-TestDriftReport) -DeadKeyReport $dead } | Should -Throw -ExpectedMessage '*deadKeys*'
     }
 
+    It 'stops on a dead-key report that carries a schemaVersion, since it understands only the unversioned shape' {
+        $dead = Build-TestDeadKeyReport -Json '{ "schemaVersion": 2 }'
+        { Get-PfbDriftFinding -DriftReport (Build-TestDriftReport) -DeadKeyReport $dead } | Should -Throw -ExpectedMessage '*dead-key report is schemaVersion 2*'
+    }
+
+    It 'stops on a <Category> row with no <Member>, naming the category, member and row' -ForEach @(
+        @{ Category = 'uncoveredEndpoints'; Member = 'endpoint'; Where = '"minVersion":"2.3"'; Drift = '{ "uncoveredEndpoints": [ { "minVersion": "2.3" } ] }'; Dead = '{}' }
+        @{ Category = 'parameterGaps'; Member = 'endpoint'; Where = '"missingQueryParameters":'; Drift = '{ "parameterGaps": [ { "cmdlets": [], "missingQueryParameters": [ "ids" ], "missingBodyProperties": [], "readOnlyFields": [] } ] }'; Dead = '{}' }
+        @{ Category = 'responseFieldRemovals'; Member = 'endpoint'; Where = '"field":"colour"'; Drift = '{ "responseFieldRemovals": [ { "field": "colour", "location": "items", "introducedVersion": "2.0", "lastSeenVersion": "2.10" } ] }'; Dead = '{}' }
+        @{ Category = 'responseFieldRemovals'; Member = 'location'; Where = "on endpoint 'GET /widgets'"; Drift = '{ "responseFieldRemovals": [ { "endpoint": "GET /widgets", "field": "colour", "introducedVersion": "2.0", "lastSeenVersion": "2.10" } ] }'; Dead = '{}' }
+        @{ Category = 'responseFieldRemovals'; Member = 'field'; Where = "on endpoint 'GET /widgets'"; Drift = '{ "responseFieldRemovals": [ { "endpoint": "GET /widgets", "name": "colour", "location": "items", "introducedVersion": "2.0", "lastSeenVersion": "2.10" } ] }'; Dead = '{}' }
+        @{ Category = 'responseFieldRenameCandidates'; Member = 'endpoint'; Where = '"from":"server"'; Drift = '{ "responseFieldRenameCandidates": [ { "location": "items", "from": "server", "to": "attached_servers", "version": "2.20" } ] }'; Dead = '{}' }
+        @{ Category = 'responseFieldRenameCandidates'; Member = 'location'; Where = "on endpoint 'GET /widgets'"; Drift = '{ "responseFieldRenameCandidates": [ { "endpoint": "GET /widgets", "from": "server", "to": "attached_servers", "version": "2.20" } ] }'; Dead = '{}' }
+        @{ Category = 'responseFieldRenameCandidates'; Member = 'from'; Where = "on endpoint 'GET /widgets'"; Drift = '{ "responseFieldRenameCandidates": [ { "endpoint": "GET /widgets", "location": "items", "to": "attached_servers", "version": "2.20" } ] }'; Dead = '{}' }
+        @{ Category = 'responseFieldRenameCandidates'; Member = 'to'; Where = "on endpoint 'GET /widgets'"; Drift = '{ "responseFieldRenameCandidates": [ { "endpoint": "GET /widgets", "location": "items", "from": "server", "to": "", "version": "2.20" } ] }'; Dead = '{}' }
+        @{ Category = 'validateSetDrift'; Member = 'cmdlet'; Where = '"parameter":"Mode"'; Drift = '{ "validateSetDrift": [ { "parameter": "Mode", "missingValues": [ "fast" ], "staleValues": [] } ] }'; Dead = '{}' }
+        @{ Category = 'validateSetDrift'; Member = 'parameter'; Where = '"cmdlet":"Get-PfbWidget"'; Drift = '{ "validateSetDrift": [ { "cmdlet": "Get-PfbWidget", "missingValues": [ "fast" ], "staleValues": [] } ] }'; Dead = '{}' }
+        @{ Category = 'newValidateSetCandidates'; Member = 'cmdlet'; Where = '"parameter":"Kind"'; Drift = '{ "newValidateSetCandidates": [ { "parameter": "Kind", "wireName": "kind", "specValues": [ "a" ], "recommendation": "ArgumentCompleter" } ] }'; Dead = '{}' }
+        @{ Category = 'newValidateSetCandidates'; Member = 'parameter'; Where = '"cmdlet":"Get-PfbWidget"'; Drift = '{ "newValidateSetCandidates": [ { "cmdlet": "Get-PfbWidget", "wireName": "kind", "specValues": [ "a" ], "recommendation": "ArgumentCompleter" } ] }'; Dead = '{}' }
+        @{ Category = 'unhandledResponseEnvelopeFields'; Member = 'field'; Where = '"endpointCount":140'; Drift = '{ "unhandledResponseEnvelopeFields": [ { "name": "errors", "endpointCount": 140 } ] }'; Dead = '{}' }
+        @{ Category = 'deadKeys'; Member = 'wireKey'; Where = "on endpoint 'widgets'"; Drift = '{}'; Dead = '{ "deadKeys": [ { "severity": "WRONG-RESULTS", "cmdlet": "Get-PfbWidget", "parameter": "Flavour", "key": "flavour", "method": "GET", "endpoint": "widgets", "classification": "UNDECLARED" } ] }' }
+        @{ Category = 'deadKeys'; Member = 'method'; Where = "on endpoint 'widgets'"; Drift = '{}'; Dead = '{ "deadKeys": [ { "severity": "WRONG-RESULTS", "cmdlet": "Get-PfbWidget", "parameter": "Flavour", "wireKey": "flavour", "endpoint": "widgets", "classification": "UNDECLARED" } ] }' }
+        @{ Category = 'deadKeys'; Member = 'endpoint'; Where = '"wireKey":"flavour"'; Drift = '{}'; Dead = '{ "deadKeys": [ { "severity": "WRONG-RESULTS", "cmdlet": "Get-PfbWidget", "parameter": "Flavour", "wireKey": "flavour", "method": "GET", "classification": "UNDECLARED" } ] }' }
+        @{ Category = 'noSurvivingSelector'; Member = 'method'; Where = "on endpoint 'widgets/parts'"; Drift = '{}'; Dead = '{ "noSurvivingSelector": [ { "cmdlet": "Get-PfbWidgetPart", "endpoint": "widgets/parts" } ] }' }
+        @{ Category = 'noSurvivingSelector'; Member = 'endpoint'; Where = '"cmdlet":"Get-PfbWidgetPart"'; Drift = '{}'; Dead = '{ "noSurvivingSelector": [ { "cmdlet": "Get-PfbWidgetPart", "method": "GET" } ] }' }
+    ) {
+        { Get-PfbDriftFinding -DriftReport (Build-TestDriftReport -Json $Drift) -DeadKeyReport (Build-TestDeadKeyReport -Json $Dead) } |
+            Should -Throw -ExpectedMessage "A $Category row (*$Where*) has no '$Member' member, or it is empty.*"
+    }
+
+    It 'stops on a required member that is present but empty' {
+        $dead = Build-TestDeadKeyReport -Json '{ "deadKeys": [ { "severity": "WRONG-RESULTS", "cmdlet": "Get-PfbWidget", "parameter": "Flavour", "wireKey": "", "method": "GET", "endpoint": "widgets", "classification": "UNDECLARED" } ] }'
+        { Get-PfbDriftFinding -DriftReport (Build-TestDriftReport) -DeadKeyReport $dead } | Should -Throw -ExpectedMessage "A deadKeys row (on endpoint 'widgets') has no 'wireKey' member, or it is empty.*"
+    }
+
     It 'reads a missingQueryParameters entry whether the report wrote an object or a bare string' {
         $report = Build-TestDriftReport -Json '{ "parameterGaps": [ { "endpoint": "GET /widgets", "cmdlets": [], "missingQueryParameters": [ { "name": "ids", "type": "string" }, "sort" ], "missingBodyProperties": [], "readOnlyFields": [] } ] }'
         $result = @(Get-PfbDriftFinding -DriftReport $report -DeadKeyReport (Build-TestDeadKeyReport))

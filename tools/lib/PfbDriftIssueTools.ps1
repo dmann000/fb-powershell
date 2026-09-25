@@ -221,6 +221,43 @@ function Get-PfbDriftFingerprint {
     return $hex.Substring(0, 16)
 }
 
+function Get-PfbDriftRowValue {
+    <#
+    .SYNOPSIS
+        Returns a required member of a report row as a non-empty string, or throws.
+    .DESCRIPTION
+        Every member that feeds the frozen fingerprint tuple is read through here. A member
+        that is absent (renamed by the generator) or empty would otherwise read as '' and
+        collapse distinct rows onto one garbage fingerprint, merged without a word -- and a
+        fingerprint is stamped into issues for good. The throw names the category, the member
+        and the row: its endpoint where it has one, else the row itself.
+    .OUTPUTS
+        [string] The member's value.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]$Row,
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][string]$Category
+    )
+
+    $value = ''
+    $property = $Row.PSObject.Properties[$Name]
+    if ($null -ne $property -and $null -ne $property.Value) { $value = [string]$property.Value }
+    if (-not [string]::IsNullOrWhiteSpace($value)) { return $value }
+
+    $endpointProperty = $Row.PSObject.Properties['endpoint']
+    if ($Name -cne 'endpoint' -and $null -ne $endpointProperty -and -not [string]::IsNullOrWhiteSpace([string]$endpointProperty.Value)) {
+        $where = "on endpoint '$($endpointProperty.Value)'"
+    }
+    else {
+        $text = $Row | ConvertTo-Json -Compress -Depth 4
+        if ($text.Length -gt 200) { $text = $text.Substring(0, 200) + '...' }
+        $where = $text
+    }
+    throw "A $Category row ($where) has no '$Name' member, or it is empty. The report's shape has probably changed; fix the reader before fingerprinting it, because a missing member collapses distinct rows onto one garbage fingerprint that is stamped into issues for good."
+}
+
 function ConvertTo-PfbDriftFindingRecord {
     <#
     .SYNOPSIS
@@ -287,7 +324,9 @@ function Get-PfbDriftFinding {
         contextCardinality (not findings).
 
         A missing category property throws instead of reading as zero findings: zero
-        findings would make every open drift issue look resolved.
+        findings would make every open drift issue look resolved. Likewise every row member
+        the tuple above needs is read through Get-PfbDriftRowValue, which throws on an absent
+        or empty member instead of fingerprinting it as ''.
     #>
     [CmdletBinding()]
     param(
@@ -308,17 +347,25 @@ function Get-PfbDriftFinding {
     if ($missing.Count -gt 0) {
         throw "The dead-key report has no $($missing -join ', ') property."
     }
+    # The dead-key report has never carried a schemaVersion (its generator writes specVersion,
+    # counts, deadKeys and noSurvivingSelector), so the unversioned shape is the one this
+    # reader understands. A generator that starts versioning it has changed something.
+    if ($deadNames -ccontains 'schemaVersion') {
+        throw "The dead-key report is schemaVersion $($DeadKeyReport.schemaVersion); this reconciler understands only the unversioned shape. Review the deadKeys and noSurvivingSelector shapes before accepting it."
+    }
 
     $records = [System.Collections.Generic.List[object]]::new()
 
     foreach ($row in @(Get-PfbDriftItem $DriftReport.uncoveredEndpoints)) {
-        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'uncoveredEndpoint' -Endpoint $row.endpoint -Detail @{
+        $rowEndpoint = Get-PfbDriftRowValue -Row $row -Name 'endpoint' -Category 'uncoveredEndpoints'
+        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'uncoveredEndpoint' -Endpoint $rowEndpoint -Detail @{
                     MinVersion = [string]$row.minVersion
                 }))
     }
 
     foreach ($row in @(Get-PfbDriftItem $DriftReport.parameterGaps)) {
-        $cmdlets = @(Get-PfbDriftSortedString -Value @(Get-PfbDriftItem $row.cmdlets))
+        $rowEndpoint = Get-PfbDriftRowValue -Row $row -Name 'endpoint' -Category 'parameterGaps'
+        $cmdlets =@(Get-PfbDriftSortedString -Value @(Get-PfbDriftItem $row.cmdlets))
         $level = ''
         $caveat = ''
         if ($null -ne $row.confidence) {
@@ -347,7 +394,7 @@ function Get-PfbDriftFinding {
             if ([string]::IsNullOrWhiteSpace($name)) {
                 throw "parameterGaps row '$($row.endpoint)' has a $location parameter with no name."
             }
-            $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'parameterGap' -Endpoint $row.endpoint `
+            $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'parameterGap' -Endpoint $rowEndpoint `
                         -Field ('{0}:{1}' -f $location, $name) -Parameter $name -Detail @{
                         Location    = $location
                         Cmdlets     = $cmdlets
@@ -359,30 +406,41 @@ function Get-PfbDriftFinding {
     }
 
     foreach ($row in @(Get-PfbDriftItem $DriftReport.responseFieldRemovals)) {
-        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'responseFieldRemoval' -Endpoint $row.endpoint `
-                    -Field ('{0}:{1}' -f $row.location, $row.field) -Detail @{
+        $rowEndpoint = Get-PfbDriftRowValue -Row $row -Name 'endpoint' -Category 'responseFieldRemovals'
+        $location = Get-PfbDriftRowValue -Row $row -Name 'location' -Category 'responseFieldRemovals'
+        $field = Get-PfbDriftRowValue -Row $row -Name 'field' -Category 'responseFieldRemovals'
+        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'responseFieldRemoval' -Endpoint $rowEndpoint `
+                    -Field ('{0}:{1}' -f $location, $field) -Detail @{
                     IntroducedVersion = [string]$row.introducedVersion
                     LastSeenVersion   = [string]$row.lastSeenVersion
                 }))
     }
 
     foreach ($row in @(Get-PfbDriftItem $DriftReport.responseFieldRenameCandidates)) {
-        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'responseFieldRename' -Endpoint $row.endpoint `
-                    -Field ('{0}:{1}->{2}' -f $row.location, $row.from, $row.to) -Detail @{
-                    From    = [string]$row.from
-                    To      = [string]$row.to
+        $rowEndpoint = Get-PfbDriftRowValue -Row $row -Name 'endpoint' -Category 'responseFieldRenameCandidates'
+        $location = Get-PfbDriftRowValue -Row $row -Name 'location' -Category 'responseFieldRenameCandidates'
+        $from = Get-PfbDriftRowValue -Row $row -Name 'from' -Category 'responseFieldRenameCandidates'
+        $to = Get-PfbDriftRowValue -Row $row -Name 'to' -Category 'responseFieldRenameCandidates'
+        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'responseFieldRename' -Endpoint $rowEndpoint `
+                    -Field ('{0}:{1}->{2}' -f $location, $from, $to) -Detail @{
+                    From    = $from
+                    To      = $to
                     Version = [string]$row.version
                 }))
     }
 
     foreach ($row in @(Get-PfbDriftItem $DriftReport.validateSetDrift)) {
+        # Read before the value loops, so a row with a missing member stops the run even
+        # when this report happens to list no values for it.
+        $rowCmdlet = Get-PfbDriftRowValue -Row $row -Name 'cmdlet' -Category 'validateSetDrift'
+        $rowParameter = Get-PfbDriftRowValue -Row $row -Name 'parameter' -Category 'validateSetDrift'
         foreach ($kind in 'missing', 'stale') {
             $values = @(Get-PfbDriftItem $row.missingValues)
             if ($kind -eq 'stale') { $values = @(Get-PfbDriftItem $row.staleValues) }
             foreach ($value in $values) {
-                $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'validateSetDrift' -Cmdlet $row.cmdlet `
-                            -Field ('{0}:{1}={2}:{3}' -f $row.cmdlet, $row.parameter, $kind, $value) -Detail @{
-                            Parameter = [string]$row.parameter
+                $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'validateSetDrift' -Cmdlet $rowCmdlet `
+                            -Field ('{0}:{1}={2}:{3}' -f $rowCmdlet, $rowParameter, $kind, $value) -Detail @{
+                            Parameter = $rowParameter
                             Kind      = $kind
                             Value     = [string]$value
                         }))
@@ -391,9 +449,11 @@ function Get-PfbDriftFinding {
     }
 
     foreach ($row in @(Get-PfbDriftItem $DriftReport.newValidateSetCandidates)) {
-        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'newValidateSetCandidate' -Cmdlet $row.cmdlet `
-                    -Field ('{0}:{1}' -f $row.cmdlet, $row.parameter) -Detail @{
-                    Parameter      = [string]$row.parameter
+        $rowCmdlet = Get-PfbDriftRowValue -Row $row -Name 'cmdlet' -Category 'newValidateSetCandidates'
+        $rowParameter = Get-PfbDriftRowValue -Row $row -Name 'parameter' -Category 'newValidateSetCandidates'
+        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'newValidateSetCandidate' -Cmdlet $rowCmdlet `
+                    -Field ('{0}:{1}' -f $rowCmdlet, $rowParameter) -Detail @{
+                    Parameter      = $rowParameter
                     WireName       = [string]$row.wireName
                     SpecValues     = @(Get-PfbDriftItem $row.specValues)
                     Recommendation = [string]$row.recommendation
@@ -401,14 +461,18 @@ function Get-PfbDriftFinding {
     }
 
     foreach ($row in @(Get-PfbDriftItem $DriftReport.unhandledResponseEnvelopeFields)) {
-        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'unhandledEnvelopeField' -Field ([string]$row.field) -Detail @{
+        $field = Get-PfbDriftRowValue -Row $row -Name 'field' -Category 'unhandledResponseEnvelopeFields'
+        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'unhandledEnvelopeField' -Field $field -Detail @{
                     EndpointCount = [int]$row.endpointCount
                 }))
     }
 
     foreach ($row in @(Get-PfbDriftItem $DeadKeyReport.deadKeys)) {
-        $endpoint = ConvertTo-PfbDriftEndpoint -Method $row.method -Path $row.endpoint
-        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'deadKey' -Endpoint $endpoint -Field ([string]$row.wireKey) -Detail @{
+        $rowMethod = Get-PfbDriftRowValue -Row $row -Name 'method' -Category 'deadKeys'
+        $rowPath = Get-PfbDriftRowValue -Row $row -Name 'endpoint' -Category 'deadKeys'
+        $wireKey = Get-PfbDriftRowValue -Row $row -Name 'wireKey' -Category 'deadKeys'
+        $endpoint = ConvertTo-PfbDriftEndpoint -Method $rowMethod -Path $rowPath
+        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'deadKey' -Endpoint $endpoint -Field $wireKey -Detail @{
                     Cmdlets        = @([string]$row.cmdlet)
                     Parameters     = @('{0} -{1}' -f $row.cmdlet, $row.parameter)
                     ReportSeverity = [string]$row.severity
@@ -417,7 +481,9 @@ function Get-PfbDriftFinding {
     }
 
     foreach ($row in @(Get-PfbDriftItem $DeadKeyReport.noSurvivingSelector)) {
-        $endpoint = ConvertTo-PfbDriftEndpoint -Method $row.method -Path $row.endpoint
+        $rowMethod = Get-PfbDriftRowValue -Row $row -Name 'method' -Category 'noSurvivingSelector'
+        $rowPath = Get-PfbDriftRowValue -Row $row -Name 'endpoint' -Category 'noSurvivingSelector'
+        $endpoint = ConvertTo-PfbDriftEndpoint -Method $rowMethod -Path $rowPath
         $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'noSurvivingSelector' -Endpoint $endpoint -Detail @{
                     Cmdlets = @([string]$row.cmdlet)
                 }))
