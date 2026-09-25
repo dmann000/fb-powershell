@@ -223,3 +223,227 @@ function Get-PfbDriftFingerprint {
     $hex = -join ($bytes | ForEach-Object { $_.ToString('x2') })
     return $hex.Substring(0, 16)
 }
+
+function ConvertTo-PfbDriftFindingRecord {
+    <#
+    .SYNOPSIS
+        Builds one finding record. The only constructor, so every finding has one shape.
+    .DESCRIPTION
+        A Field holding '@{' or whitespace throws. Both are what PowerShell makes of an
+        object or an array cast to [string] ('@{name=ids}', 'a b'), and a report that changed
+        a list from strings to objects would otherwise be fingerprinted as garbage and
+        stamped into issues -- where the frozen tuple means it can never be re-keyed.
+    .OUTPUTS
+        [PSCustomObject] Category, Endpoint, Field, Family, Parameter, Cmdlet, GroupKey
+        ($null until Get-PfbDriftGroup), Fingerprint, Severity, Detail.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$Category,
+        [AllowEmptyString()][string]$Endpoint = '',
+        [AllowEmptyString()][string]$Field = '',
+        [AllowEmptyString()][string]$Parameter = '',
+        [AllowEmptyString()][string]$Cmdlet = '',
+        [Parameter(Mandatory = $true)][hashtable]$Detail
+    )
+
+    if ($Field.Contains('@{') -or $Field -match '\s') {
+        throw "A $Category finding on '$Endpoint' has field '$Field', which looks like a stringified object or carries whitespace. The report's shape has probably changed; fix the reader before fingerprinting it, because a fingerprint is stamped into issues for good."
+    }
+    $normalised = ''
+    if ($Endpoint -ne '') { $normalised = ConvertTo-PfbDriftEndpoint -Endpoint $Endpoint }
+    return [PSCustomObject]@{
+        Category    = $Category
+        Endpoint    = $normalised
+        Field       = $Field
+        Family      = (Get-PfbDriftFamily -Endpoint $normalised)
+        Parameter   = $Parameter
+        Cmdlet      = $Cmdlet
+        GroupKey    = $null
+        Fingerprint = (Get-PfbDriftFingerprint -Category $Category -Endpoint $normalised -Field $Field)
+        Severity    = [int]$script:PfbDriftSeverity[$Category]
+        Detail      = [PSCustomObject]$Detail
+    }
+}
+
+function Get-PfbDriftFinding {
+    <#
+    .SYNOPSIS
+        Flattens both reports into one finding per atomic gap, grouped and fingerprinted.
+    .DESCRIPTION
+        Categories read, and the fingerprint tuple each produces:
+
+          uncoveredEndpoints              uncoveredEndpoint        <endpoint>  ''
+          parameterGaps (per param)       parameterGap             <endpoint>  query:<name> | body:<name>
+          responseFieldRemovals           responseFieldRemoval     <endpoint>  <location>:<field>
+          responseFieldRenameCandidates   responseFieldRename      <endpoint>  <location>:<from>-><to>
+          validateSetDrift (per value)    validateSetDrift         ''          <cmdlet>:<param>=missing:<v> | =stale:<v>
+          newValidateSetCandidates        newValidateSetCandidate  ''          <cmdlet>:<param>
+          unhandledResponseEnvelopeFields unhandledEnvelopeField   ''          <field>
+          deadKeys                        deadKey                  <endpoint>  <wireKey>
+          noSurvivingSelector             noSurvivingSelector      <endpoint>  ''
+
+        Deliberately NOT read: readOnlyFields (the report lists them "for completeness
+        only" -- no cmdlet can ever set one), systemicGaps (an aggregate whose every
+        endpoint x name pair is already a parameterGaps entry; the systemic grouping is
+        recomputed from the atoms in Get-PfbDriftGroup), conventionStrength and
+        contextCardinality (not findings).
+
+        A missing category property throws instead of reading as zero findings: zero
+        findings would make every open drift issue look resolved.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]$DriftReport,
+        [Parameter(Mandatory = $true)]$DeadKeyReport
+    )
+
+    $driftNames = @($DriftReport.PSObject.Properties | ForEach-Object { $_.Name })
+    $missing = @($script:PfbDriftReportRequiredProperty | Where-Object { $driftNames -cnotcontains $_ })
+    if ($missing.Count -gt 0) {
+        throw "The drift report has no $($missing -join ', ') property. A renamed or removed category would otherwise read as zero findings and make every open drift issue look resolved."
+    }
+    if ([string]$DriftReport.schemaVersion -ne '1') {
+        throw "The drift report is schemaVersion $($DriftReport.schemaVersion); this reconciler understands 1. Review the category shapes before raising it."
+    }
+    $deadNames = @($DeadKeyReport.PSObject.Properties | ForEach-Object { $_.Name })
+    $missing = @($script:PfbDeadKeyReportRequiredProperty | Where-Object { $deadNames -cnotcontains $_ })
+    if ($missing.Count -gt 0) {
+        throw "The dead-key report has no $($missing -join ', ') property."
+    }
+
+    $records = [System.Collections.Generic.List[object]]::new()
+
+    foreach ($row in @(Get-PfbDriftItem $DriftReport.uncoveredEndpoints)) {
+        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'uncoveredEndpoint' -Endpoint $row.endpoint -Detail @{
+                    MinVersion = [string]$row.minVersion
+                }))
+    }
+
+    foreach ($row in @(Get-PfbDriftItem $DriftReport.parameterGaps)) {
+        $cmdlets = @(Get-PfbDriftSortedString -Value @(Get-PfbDriftItem $row.cmdlets))
+        $level = ''
+        $caveat = ''
+        if ($null -ne $row.confidence) {
+            $level = [string]$row.confidence.level
+            $caveat = [string]$row.confidence.caveat
+        }
+        $notes = @(@(Get-PfbDriftItem $row.annotations) | ForEach-Object { '{0}: {1}' -f $_.kind, $_.note })
+
+        $names = [System.Collections.Generic.List[object]]::new()
+        foreach ($entry in @(Get-PfbDriftItem $row.missingQueryParameters)) {
+            # Bare strings in every committed report so far, but read the object shape too:
+            # missingBodyProperties already moved to it, and a query list that followed would
+            # otherwise stringify each entry into a garbage field such as 'query:@{name=ids}'.
+            if ($entry -is [string]) { $names.Add(@('query', $entry)) }
+            else { $names.Add(@('query', [string]$entry.name)) }
+        }
+        foreach ($entry in @(Get-PfbDriftItem $row.missingBodyProperties)) {
+            # Polymorphic in the committed report: an object carrying .name on most rows, a
+            # bare string on a few (7 of 354 rows when this was written, e.g. PATCH /file-systems).
+            if ($entry -is [string]) { $names.Add(@('body', $entry)) }
+            else { $names.Add(@('body', [string]$entry.name)) }
+        }
+        foreach ($pair in $names) {
+            $location = $pair[0]
+            $name = $pair[1]
+            if ([string]::IsNullOrWhiteSpace($name)) {
+                throw "parameterGaps row '$($row.endpoint)' has a $location parameter with no name."
+            }
+            $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'parameterGap' -Endpoint $row.endpoint `
+                        -Field ('{0}:{1}' -f $location, $name) -Parameter $name -Detail @{
+                        Location    = $location
+                        Cmdlets     = $cmdlets
+                        Confidence  = $level
+                        Caveat      = $caveat
+                        Annotations = $notes
+                    }))
+        }
+    }
+
+    foreach ($row in @(Get-PfbDriftItem $DriftReport.responseFieldRemovals)) {
+        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'responseFieldRemoval' -Endpoint $row.endpoint `
+                    -Field ('{0}:{1}' -f $row.location, $row.field) -Detail @{
+                    IntroducedVersion = [string]$row.introducedVersion
+                    LastSeenVersion   = [string]$row.lastSeenVersion
+                }))
+    }
+
+    foreach ($row in @(Get-PfbDriftItem $DriftReport.responseFieldRenameCandidates)) {
+        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'responseFieldRename' -Endpoint $row.endpoint `
+                    -Field ('{0}:{1}->{2}' -f $row.location, $row.from, $row.to) -Detail @{
+                    From    = [string]$row.from
+                    To      = [string]$row.to
+                    Version = [string]$row.version
+                }))
+    }
+
+    foreach ($row in @(Get-PfbDriftItem $DriftReport.validateSetDrift)) {
+        foreach ($kind in 'missing', 'stale') {
+            $values = @(Get-PfbDriftItem $row.missingValues)
+            if ($kind -eq 'stale') { $values = @(Get-PfbDriftItem $row.staleValues) }
+            foreach ($value in $values) {
+                $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'validateSetDrift' -Cmdlet $row.cmdlet `
+                            -Field ('{0}:{1}={2}:{3}' -f $row.cmdlet, $row.parameter, $kind, $value) -Detail @{
+                            Parameter = [string]$row.parameter
+                            Kind      = $kind
+                            Value     = [string]$value
+                        }))
+            }
+        }
+    }
+
+    foreach ($row in @(Get-PfbDriftItem $DriftReport.newValidateSetCandidates)) {
+        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'newValidateSetCandidate' -Cmdlet $row.cmdlet `
+                    -Field ('{0}:{1}' -f $row.cmdlet, $row.parameter) -Detail @{
+                    Parameter      = [string]$row.parameter
+                    WireName       = [string]$row.wireName
+                    SpecValues     = @(Get-PfbDriftItem $row.specValues)
+                    Recommendation = [string]$row.recommendation
+                }))
+    }
+
+    foreach ($row in @(Get-PfbDriftItem $DriftReport.unhandledResponseEnvelopeFields)) {
+        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'unhandledEnvelopeField' -Field ([string]$row.field) -Detail @{
+                    EndpointCount = [int]$row.endpointCount
+                }))
+    }
+
+    foreach ($row in @(Get-PfbDriftItem $DeadKeyReport.deadKeys)) {
+        $endpoint = ConvertTo-PfbDriftEndpoint -Method $row.method -Path $row.endpoint
+        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'deadKey' -Endpoint $endpoint -Field ([string]$row.wireKey) -Detail @{
+                    Cmdlets        = @([string]$row.cmdlet)
+                    Parameters     = @('{0} -{1}' -f $row.cmdlet, $row.parameter)
+                    ReportSeverity = [string]$row.severity
+                    Classification = [string]$row.classification
+                }))
+    }
+
+    foreach ($row in @(Get-PfbDriftItem $DeadKeyReport.noSurvivingSelector)) {
+        $endpoint = ConvertTo-PfbDriftEndpoint -Method $row.method -Path $row.endpoint
+        $records.Add((ConvertTo-PfbDriftFindingRecord -Category 'noSurvivingSelector' -Endpoint $endpoint -Detail @{
+                    Cmdlets = @([string]$row.cmdlet)
+                }))
+    }
+
+    # Two rows with one fingerprint are one gap (e.g. two cmdlets sending the same dead
+    # key to the same endpoint): keep the first, and merge the cmdlet lists into it.
+    $byFingerprint = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    foreach ($record in $records) {
+        if (-not $byFingerprint.ContainsKey($record.Fingerprint)) {
+            $byFingerprint[$record.Fingerprint] = $record
+            continue
+        }
+        $kept = $byFingerprint[$record.Fingerprint]
+        foreach ($listName in 'Cmdlets', 'Parameters') {
+            if (@($kept.Detail.PSObject.Properties | ForEach-Object { $_.Name }) -ccontains $listName) {
+                $kept.Detail.$listName = @(Get-PfbDriftSortedString -Value (@($kept.Detail.$listName) + @($record.Detail.$listName)))
+            }
+        }
+    }
+
+    $findings = @($byFingerprint.Values)
+    $index = @{}
+    foreach ($finding in $findings) { $index[$finding.Fingerprint] = $finding }
+    foreach ($fingerprint in @(Get-PfbDriftSortedString -Value @($index.Keys))) { $index[$fingerprint] }
+}
