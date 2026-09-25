@@ -99,6 +99,41 @@ BeforeAll {
         else { $finding.GroupKey = $GroupKey }
         return $finding
     }
+
+    # An issue as ConvertFrom-PfbDriftIssue returns it. A GroupKey makes a group block; no
+    # GroupKey but some fingerprints makes a paired block; neither makes a plain issue. The
+    # default labels carry source:drift, so the block is trusted; leave it out of -Labels to
+    # model an issue anyone could have written.
+    function Build-TestIssue {
+        param(
+            [int]$Number,
+            [string]$State = 'OPEN',
+            [string]$StateReason = '',
+            [string]$GroupKey = '',
+            [string[]]$Fingerprints = @(),
+            [string[]]$Vanished = @(),
+            [string[]]$Labels = @('source:drift', 'status:triage'),
+            [string]$Prefix = 'Human text.'
+        )
+        $body = $Prefix
+        if ($GroupKey -ne '' -or $Fingerprints.Count -gt 0 -or $Vanished.Count -gt 0) {
+            $marker = [PSCustomObject]@{ Kind = 'paired'; GroupKey = $null; Fingerprints = $Fingerprints; Vanished = $Vanished }
+            if ($GroupKey -ne '') {
+                $marker.Kind = 'group'
+                $marker.GroupKey = $GroupKey
+            }
+            $body = ConvertTo-PfbDriftIssueBody -Body $Prefix -Marker $marker
+        }
+        $raw = [PSCustomObject]@{
+            number      = $Number
+            title       = "Issue $Number"
+            body        = $body
+            state       = $State
+            stateReason = $StateReason
+            labels      = @($Labels | ForEach-Object { [PSCustomObject]@{ name = $_ } })
+        }
+        return @(ConvertFrom-PfbDriftIssue -Issue @($raw))[0]
+    }
 }
 
 Describe 'Get-PfbDriftFingerprint' {
@@ -682,5 +717,136 @@ Describe 'settled drift keys' {
         $keys = @(ConvertFrom-PfbSettledDriftKey -Text '**Drift keys:** param:allow_errors, family:certificates' -Source 'a.md')
         Find-PfbSettledDriftKey -Finding $dead -SettledKey $keys | Should -BeNullOrEmpty
         Find-PfbSettledDriftKey -Finding $dead -SettledKey @() | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'Get-PfbDriftFindingDisposition' {
+    BeforeAll {
+        $script:widget = Build-TestFinding -Category 'uncoveredEndpoint' -Endpoint 'GET /widgets' -Detail @{ MinVersion = '2.0' }
+        $script:fp = $script:widget.Fingerprint
+        $script:other = '00000000000000aa'
+        function Get-TestDisposition {
+            param([object[]]$Issue = @(), [object[]]$SettledKey = @())
+            @(Get-PfbDriftFindingDisposition -Finding @($script:widget) -Issue $Issue -SettledKey $SettledKey)[0]
+        }
+    }
+
+    It 'leaves a finding alone when an open issue records it' {
+        $d = Get-TestDisposition -Issue @(Build-TestIssue -Number 5 -GroupKey 'family:other' -Fingerprints @($script:fp))
+        $d.Disposition | Should -BeExactly 'Tracked'
+        $d.IssueNumber | Should -Be 5
+    }
+
+    It 'skips a finding a closed not-planned issue declined' {
+        $d = Get-TestDisposition -Issue @(Build-TestIssue -Number 3 -State 'CLOSED' -StateReason 'NOT_PLANNED' -Fingerprints @($script:fp))
+        $d.Disposition | Should -BeExactly 'Declined'
+        $d.Reason | Should -BeExactly 'declined #3'
+    }
+
+    It 'files a finding still reported after its completed issue closed into a reopen group' {
+        $d = Get-TestDisposition -Issue @(Build-TestIssue -Number 4 -State 'CLOSED' -StateReason 'COMPLETED' -GroupKey 'family:widgets' -Fingerprints @($script:fp))
+        $d.Disposition | Should -BeExactly 'Create'
+        $d.GroupKey | Should -BeExactly 'reopen:4'
+        $d.ReopenedFrom | Should -Be 4
+        $d.Reason | Should -BeExactly 'still reported after #4 closed'
+    }
+
+    It 'appends a regression to the open reopen issue for the same closed issue' {
+        $issues = @(
+            Build-TestIssue -Number 4 -State 'CLOSED' -StateReason 'COMPLETED' -GroupKey 'family:widgets' -Fingerprints @($script:fp)
+            Build-TestIssue -Number 9 -GroupKey 'reopen:4' -Fingerprints @($script:other)
+        )
+        $d = Get-TestDisposition -Issue $issues
+        $d.Disposition | Should -BeExactly 'Append'
+        $d.IssueNumber | Should -Be 9
+        $d.GroupKey | Should -BeExactly 'reopen:4'
+    }
+
+    It 'treats a close with no recorded reason as completed, and ignores a duplicate' {
+        (Get-TestDisposition -Issue @(Build-TestIssue -Number 2 -State 'CLOSED' -StateReason '' -Fingerprints @($script:fp))).GroupKey | Should -BeExactly 'reopen:2'
+        $dup = Get-TestDisposition -Issue @(Build-TestIssue -Number 2 -State 'CLOSED' -StateReason 'DUPLICATE' -Fingerprints @($script:fp))
+        $dup.Disposition | Should -BeExactly 'Create'
+        $dup.GroupKey | Should -BeExactly 'family:widgets'
+    }
+
+    It 'skips a finding a docs/settled entry covers' {
+        $keys = @(ConvertFrom-PfbSettledDriftKey -Text "**Drift keys:** fp:$($script:fp)" -Source 'widgets.md')
+        $d = Get-TestDisposition -SettledKey $keys
+        $d.Disposition | Should -BeExactly 'Settled'
+        $d.Reason | Should -BeExactly "settled: widgets.md (fp:$($script:fp))"
+    }
+
+    It 'appends an unrecorded finding to its group''s open drift issue' {
+        $d = Get-TestDisposition -Issue @(Build-TestIssue -Number 6 -GroupKey 'family:widgets' -Fingerprints @($script:other))
+        $d.Disposition | Should -BeExactly 'Append'
+        $d.IssueNumber | Should -Be 6
+        $d.Reason | Should -BeExactly 'append to #6'
+    }
+
+    It 'queues an unrecorded finding with no open group issue for creation' {
+        $d = Get-TestDisposition
+        $d.Disposition | Should -BeExactly 'Create'
+        $d.GroupKey | Should -BeExactly 'family:widgets'
+        $d.Reason | Should -BeExactly 'new'
+    }
+
+    It 'never appends to a paired legacy issue' {
+        (Get-TestDisposition -Issue @(Build-TestIssue -Number 7 -Fingerprints @($script:other))).Disposition | Should -BeExactly 'Create'
+    }
+
+    It 'recognises a finding an open issue recorded as vanished' {
+        $d = Get-TestDisposition -Issue @(Build-TestIssue -Number 8 -GroupKey 'family:widgets' -Vanished @($script:fp))
+        $d.Disposition | Should -BeExactly 'Reappeared'
+        $d.IssueNumber | Should -Be 8
+    }
+
+    It 'lets a block on an issue without source:drift claim nothing: not tracked, not declined, not a group' {
+        $outsider = @('status:triage')
+        (Get-TestDisposition -Issue @(Build-TestIssue -Number 40 -Fingerprints @($script:fp) -Labels $outsider)).Disposition | Should -BeExactly 'Create'
+        (Get-TestDisposition -Issue @(Build-TestIssue -Number 41 -State 'CLOSED' -StateReason 'NOT_PLANNED' -Fingerprints @($script:fp) -Labels $outsider)).Disposition | Should -BeExactly 'Create'
+        $captured = Get-TestDisposition -Issue @(Build-TestIssue -Number 42 -GroupKey 'family:widgets' -Fingerprints @($script:other) -Labels $outsider)
+        $captured.Disposition | Should -BeExactly 'Create'
+        $captured.IssueNumber | Should -BeNullOrEmpty
+        # The control: the same declining issue, labelled, does decline.
+        (Get-TestDisposition -Issue @(Build-TestIssue -Number 41 -State 'CLOSED' -StateReason 'NOT_PLANNED' -Fingerprints @($script:fp))).Disposition | Should -BeExactly 'Declined'
+    }
+
+    Context 'precedence when more than one row applies' {
+        It 'an open issue beats a declined one' {
+            $issues = @(
+                Build-TestIssue -Number 3 -State 'CLOSED' -StateReason 'NOT_PLANNED' -Fingerprints @($script:fp)
+                Build-TestIssue -Number 5 -GroupKey 'family:widgets' -Fingerprints @($script:fp)
+            )
+            (Get-TestDisposition -Issue $issues).Disposition | Should -BeExactly 'Tracked'
+        }
+
+        It 'a settled entry beats a declined issue' {
+            $keys = @(ConvertFrom-PfbSettledDriftKey -Text '**Drift keys:** family:widgets' -Source 'w.md')
+            (Get-TestDisposition -Issue @(Build-TestIssue -Number 3 -State 'CLOSED' -StateReason 'NOT_PLANNED' -Fingerprints @($script:fp)) -SettledKey $keys).Disposition | Should -BeExactly 'Settled'
+        }
+
+        It 'a declined issue beats a completed one' {
+            $issues = @(
+                Build-TestIssue -Number 3 -State 'CLOSED' -StateReason 'NOT_PLANNED' -Fingerprints @($script:fp)
+                Build-TestIssue -Number 4 -State 'CLOSED' -StateReason 'COMPLETED' -Fingerprints @($script:fp)
+            )
+            (Get-TestDisposition -Issue $issues).Disposition | Should -BeExactly 'Declined'
+        }
+
+        It 'the most recent completed issue names the reopen group' {
+            $issues = @(
+                Build-TestIssue -Number 11 -State 'CLOSED' -StateReason 'COMPLETED' -Fingerprints @($script:fp)
+                Build-TestIssue -Number 4 -State 'CLOSED' -StateReason 'COMPLETED' -Fingerprints @($script:fp)
+            )
+            (Get-TestDisposition -Issue $issues).GroupKey | Should -BeExactly 'reopen:11'
+        }
+
+        It 'the lowest-numbered open issue wins when two claim the same group' {
+            $issues = @(
+                Build-TestIssue -Number 12 -GroupKey 'family:widgets' -Fingerprints @('00000000000000bb')
+                Build-TestIssue -Number 6 -GroupKey 'family:widgets' -Fingerprints @($script:other)
+            )
+            (Get-TestDisposition -Issue $issues).IssueNumber | Should -Be 6
+        }
     }
 }

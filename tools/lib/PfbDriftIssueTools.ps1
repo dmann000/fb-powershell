@@ -1180,3 +1180,129 @@ function Find-PfbSettledDriftKey {
     }
     return $null
 }
+
+function Get-PfbDriftFindingDisposition {
+    <#
+    .SYNOPSIS
+        Decides, per finding, which row of the reconcile table applies.
+    .DESCRIPTION
+        First match wins:
+          Tracked     an OPEN issue records the fingerprint                    -> nothing
+          Reappeared  an OPEN issue records it as vanished                     -> move it back
+          Settled     a docs/settled/ Drift key matches                        -> skip
+          Declined    a CLOSED not-planned issue records it                    -> skip, 'declined #N'
+          Create/     a CLOSED completed issue records it (a close with no     -> group reopen:<N>;
+            Append      recorded reason counts as completed; N = the newest)     append if open, else create
+          Append      the finding's group has an OPEN group issue              -> append
+          Create      none of the above                                        -> queue for creation
+        Open issues come first because an open issue is the current claim on a finding,
+        and because it is what makes a "still reported after #N" issue idempotent: once
+        filed, the next run finds the fingerprint open and leaves it. A CLOSED duplicate is
+        ignored -- the issue it duplicates carries the decision. A closed issue's vanished
+        list counts with its fingerprints: it was that issue's finding either way. Where
+        several issues qualify, the lowest-numbered open issue wins; for a completed
+        close, the highest number (the most recent) names the reopen group.
+
+        Only an issue with a Marker counts, and ConvertFrom-PfbDriftIssue sets one only on
+        an issue labelled source:drift: a block on anyone else's issue claims nothing.
+    .OUTPUTS
+        [PSCustomObject] Finding, Disposition, GroupKey, IssueNumber, ReopenedFrom, Reason.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Finding,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Issue,
+        [AllowEmptyCollection()][object[]]$SettledKey = @()
+    )
+
+    $activeOpen = @{}
+    $vanishedOpen = @{}
+    $declined = @{}
+    $completed = @{}
+    $openGroup = [System.Collections.Generic.Dictionary[string, int]]::new([System.StringComparer]::Ordinal)
+
+    $issues = @(@(Get-PfbDriftItem $Issue) | Where-Object { $null -ne $_.Marker } | Sort-Object -Property Number)
+    foreach ($item in $issues) {
+        $marker = $item.Marker
+        if ($item.State -ceq 'OPEN') {
+            foreach ($fp in @(Get-PfbDriftItem $marker.Fingerprints)) {
+                if (-not $activeOpen.ContainsKey($fp)) { $activeOpen[$fp] = $item.Number }
+            }
+            foreach ($fp in @(Get-PfbDriftItem $marker.Vanished)) {
+                if (-not $vanishedOpen.ContainsKey($fp)) { $vanishedOpen[$fp] = $item.Number }
+            }
+            if ($marker.Kind -ceq 'group' -and -not $openGroup.ContainsKey($marker.GroupKey)) {
+                $openGroup[$marker.GroupKey] = $item.Number
+            }
+            continue
+        }
+        $all = @(Get-PfbDriftItem $marker.Fingerprints) + @(Get-PfbDriftItem $marker.Vanished)
+        switch -CaseSensitive ($item.StateReason) {
+            'NOT_PLANNED' {
+                foreach ($fp in $all) { if (-not $declined.ContainsKey($fp)) { $declined[$fp] = $item.Number } }
+            }
+            'DUPLICATE' { }
+            default {
+                foreach ($fp in $all) { $completed[$fp] = $item.Number }
+            }
+        }
+    }
+
+    foreach ($f in @(Get-PfbDriftItem $Finding)) {
+        $fp = $f.Fingerprint
+        $disposition = 'Create'
+        $groupKey = $f.GroupKey
+        $number = $null
+        $reopenedFrom = 0
+        $reason = 'new'
+
+        $key = $null
+        if (-not $activeOpen.ContainsKey($fp) -and -not $vanishedOpen.ContainsKey($fp)) {
+            $key = Find-PfbSettledDriftKey -Finding $f -SettledKey $SettledKey
+        }
+
+        if ($activeOpen.ContainsKey($fp)) {
+            $disposition = 'Tracked'
+            $number = $activeOpen[$fp]
+            $reason = "tracked in #$number"
+        }
+        elseif ($vanishedOpen.ContainsKey($fp)) {
+            $disposition = 'Reappeared'
+            $number = $vanishedOpen[$fp]
+            $reason = "reported again; #$number recorded it as vanished"
+        }
+        elseif ($null -ne $key) {
+            $disposition = 'Settled'
+            $reason = "settled: $($key.Source) ($($key.Raw))"
+        }
+        elseif ($declined.ContainsKey($fp)) {
+            $disposition = 'Declined'
+            $number = $declined[$fp]
+            $reason = "declined #$number"
+        }
+        elseif ($completed.ContainsKey($fp)) {
+            $reopenedFrom = $completed[$fp]
+            $groupKey = "reopen:$reopenedFrom"
+            $reason = "still reported after #$reopenedFrom closed"
+            if ($openGroup.ContainsKey($groupKey)) {
+                $disposition = 'Append'
+                $number = $openGroup[$groupKey]
+                $reason += "; append to #$number"
+            }
+        }
+        elseif ($openGroup.ContainsKey($groupKey)) {
+            $disposition = 'Append'
+            $number = $openGroup[$groupKey]
+            $reason = "append to #$number"
+        }
+
+        [PSCustomObject]@{
+            Finding      = $f
+            Disposition  = $disposition
+            GroupKey     = $groupKey
+            IssueNumber  = $number
+            ReopenedFrom = $reopenedFrom
+            Reason       = $reason
+        }
+    }
+}
