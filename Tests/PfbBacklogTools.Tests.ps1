@@ -197,10 +197,10 @@ Describe 'Get-PfbBacklogPlacement' -Skip:($PSVersionTable.PSVersion.Major -lt 7)
     }
 
     It 'keeps <Name> in the <Lane> lane with a warning' -ForEach @(
-        @{ Name = 'two size: labels'; Lane = 'build'; Label = @('status:agent-ready', 'priority:P1', 'size:S', 'size:M', 'area:wire-contract', 'source:drift'); Expected = 'more than one size: label (size:M, size:S); treated as missing' }
-        @{ Name = 'an unknown size:'; Lane = 'build'; Label = @('status:agent-ready', 'priority:P1', 'size:XL', 'area:wire-contract', 'source:drift'); Expected = 'unknown size: label (size:XL); treated as missing' }
-        @{ Name = 'a triage issue with two priority: labels'; Lane = 'triage'; Label = @('status:triage', 'priority:P1', 'priority:P2', 'size:S', 'area:wire-contract', 'source:drift'); Expected = 'more than one priority: label (priority:P1, priority:P2); treated as missing' }
-        @{ Name = 'a triage issue with an unknown priority:'; Lane = 'triage'; Label = @('status:triage', 'priority:urgent', 'size:S', 'area:ci', 'source:human'); Expected = 'unknown priority: label (priority:urgent); treated as missing' }
+        @{ Name = 'two size: labels'; NullField = 'Size'; Lane = 'build'; Label = @('status:agent-ready', 'priority:P1', 'size:S', 'size:M', 'area:wire-contract', 'source:drift'); Expected = 'more than one size: label (size:M, size:S); treated as missing' }
+        @{ Name = 'an unknown size:'; NullField = 'Size'; Lane = 'build'; Label = @('status:agent-ready', 'priority:P1', 'size:XL', 'area:wire-contract', 'source:drift'); Expected = 'unknown size: label (size:XL); treated as missing' }
+        @{ Name = 'a triage issue with two priority: labels'; NullField = 'Priority'; Lane = 'triage'; Label = @('status:triage', 'priority:P1', 'priority:P2', 'size:S', 'area:wire-contract', 'source:drift'); Expected = 'more than one priority: label (priority:P1, priority:P2); treated as missing' }
+        @{ Name = 'a triage issue with an unknown priority:'; NullField = 'Priority'; Lane = 'triage'; Label = @('status:triage', 'priority:urgent', 'size:S', 'area:ci', 'source:human'); Expected = 'unknown priority: label (priority:urgent); treated as missing' }
         @{ Name = 'two origin source: labels'; Lane = 'design'; Label = @('status:needs-design', 'priority:P2', 'size:M', 'area:fusion', 'source:human', 'source:livetest'); Expected = 'two source: labels and neither is source:drift (source:human, source:livetest)' }
         @{ Name = 'three source: labels'; Lane = 'parked'; Label = @('status:blocked', 'priority:P1', 'size:S', 'area:ci', 'source:drift', 'source:human', 'source:livetest'); Expected = 'three or more source: labels (source:drift, source:human, source:livetest)' }
         @{ Name = 'no area: label'; Lane = 'inFlight'; Label = @('status:in-progress', 'priority:P1', 'size:S', 'source:human'); Expected = 'no area: label' }
@@ -211,6 +211,15 @@ Describe 'Get-PfbBacklogPlacement' -Skip:($PSVersionTable.PSVersion.Major -lt 7)
         $placement.Lane | Should -BeExactly $Lane
         @($placement.Errors).Count | Should -Be 0
         @($placement.Warnings) -join ' / ' | Should -BeExactly $Expected
+        if ($NullField) { $placement.$NullField | Should -BeNullOrEmpty }
+    }
+
+    It 'lists a malformed block before a missing priority: in Errors' {
+        $placement = Get-TestPlacement -Label @('status:agent-ready', 'size:S', 'area:wire-contract', 'source:drift') -BlockError 'Issue #7: boom'
+        $placement.Lane | Should -BeExactly 'labelErrors'
+        @($placement.Errors).Count | Should -Be 2
+        $placement.Errors[0] | Should -BeExactly 'malformed pfb-drift block: Issue #7: boom'
+        $placement.Errors[1] | Should -BeExactly 'no priority: label on a ranked lane'
     }
 
     It 'accepts source:drift beside the origin label without a warning (the paired legacy exception)' {
