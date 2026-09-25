@@ -155,7 +155,7 @@ function ConvertFrom-PfbDriftGhJson {
     <#
         gh's JSON array, as a flat array of records.
 
-        THE ASSIGNMENT IS LOAD-BEARING, for the reason scripts/Assert-PfbAgentReadyBrief.ps1
+        THE ASSIGNMENT IS LOAD-BEARING, for the reason tools/lib/PfbGitHubRead.ps1
         records: Windows PowerShell 5.1's ConvertFrom-Json writes a JSON array to the
         pipeline as ONE object, so @($json | ConvertFrom-Json) is a one-element array whose
         element is the whole array. Assigning first and then unrolling flattens it. The

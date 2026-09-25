@@ -34,7 +34,8 @@
     one issue list, one comment list per labelled issue -- so it uses Invoke-RestMethod,
     which is already how everything under tools/ reaches the network. `gh api` would add a
     PATH dependency to a runner for nothing but a base URL and a JSON parse, and no
-    workflow in this repository uses it.
+    workflow in this repository uses it. The GETs themselves live in
+    tools/lib/PfbGitHubRead.ps1, shared with tools/Build-PfbBacklog.ps1.
 
     The repository is public, so all three endpoints answer without a token; that is
     verified, not assumed. A token is therefore optional and is used only for the rate
@@ -72,102 +73,13 @@ param(
 $ErrorActionPreference = 'Stop'
 
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'tools/lib/PfbAgentBriefTools.ps1')
+. (Join-Path (Split-Path -Parent $PSScriptRoot) 'tools/lib/PfbGitHubRead.ps1')
 
 $agentReadyLabel = 'status:agent-ready'
 
-$script:PfbGitHubApiRoot = 'https://api.github.com'
-$script:PfbPageSize = 100
-
-function Invoke-PfbGitHubApi {
-    <#
-        One GET against the REST API, with the token applied when there is one.
-
-        Rate limiting is separated from every other 403 on purpose. A quota 403 and a
-        permissions 403 demand opposite responses -- wait, versus fix the workflow -- and
-        GitHub distinguishes them only by the x-ratelimit-remaining header, which is why
-        this reads the header instead of matching on the message text.
-    #>
-    param(
-        [Parameter(Mandatory = $true)][string]$Path,
-        [string]$BearerToken
-    )
-
-    $headers = @{
-        'Accept'               = 'application/vnd.github+json'
-        'X-GitHub-Api-Version' = '2022-11-28'
-        # GitHub rejects a request with no User-Agent. Invoke-RestMethod sets one, but
-        # naming the caller is what makes an abuse-detection response traceable to this
-        # gate rather than to "some PowerShell".
-        'User-Agent'           = 'fb-powershell-agent-ready-brief-gate'
-    }
-    if ($BearerToken) { $headers['Authorization'] = "Bearer $BearerToken" }
-
-    $uri = "$script:PfbGitHubApiRoot/$Path"
-    try {
-        return Invoke-RestMethod -Uri $uri -Headers $headers -Method Get -ErrorAction Stop
-    }
-    catch {
-        $status = ''
-        $remaining = ''
-        if ($_.Exception.Response) {
-            $status = [string][int]$_.Exception.Response.StatusCode
-            $header = $null
-            if ($_.Exception.Response.Headers.TryGetValues('x-ratelimit-remaining', [ref]$header)) {
-                $remaining = [string]@($header)[0]
-            }
-        }
-        if ($status -eq '403' -and $remaining -eq '0') {
-            throw "GitHub rate limit exhausted while reading $Path. Unauthenticated callers get 60 requests an hour per source IP; pass -Token or set GITHUB_TOKEN to raise it to 1,000. This is a quota, not a missing label -- do not read it as a finding."
-        }
-        throw "GET $uri failed$(if ($status) { " with HTTP $status" }): $($_.Exception.Message)"
-    }
-}
-
-function Invoke-PfbGitHubList {
-    <#
-        A list endpoint, with a truncation guard instead of pagination.
-
-        `gh api --paginate` follows Link headers; Invoke-RestMethod does not, so a result
-        that exactly fills a page is indistinguishable here from one that has more behind
-        it. Rather than implement Link parsing for an endpoint that is meant to hold a
-        handful of issues, this refuses to answer when the page is full. A full page is
-        itself the finding: a hundred issues labelled status:agent-ready means the label
-        has stopped meaning anything, which is the defect this gate exists to catch.
-    #>
-    param(
-        [Parameter(Mandatory = $true)][string]$Path,
-        [string]$BearerToken,
-        [Parameter(Mandatory = $true)][string]$Description
-    )
-
-    # THE ASSIGNMENT IS LOAD-BEARING. Invoke-RestMethod writes a JSON array to the pipeline
-    # as ONE non-enumerated object, so `@(Invoke-PfbGitHubApi ...)` yields a single element
-    # that IS the array rather than the array's elements. Measured: @(call) gives Count 1
-    # with elem0 of type Object[], while assigning first and then wrapping gives Count 2 of
-    # PSCustomObject. Assigning to a variable and wrapping that is what flattens it.
-    #
-    # This is not a style preference. With the nested shape, `$issue.number` returns an
-    # ARRAY of every issue number via member enumeration, and the truncation guard below
-    # compares 1 against the page size and can never fire. Both failures are silent in the
-    # direction of passing.
-    $response = Invoke-PfbGitHubApi -Path $Path -BearerToken $BearerToken
-    $page = @($response)
-
-    if ($page.Count -ge $script:PfbPageSize) {
-        throw "$Description returned a full page of $script:PfbPageSize, so there may be more behind it and this gate would silently judge only the first page. Paginate this call before trusting the result."
-    }
-
-    # A self-check on the shape the comment above describes, because the nested form is
-    # indistinguishable from the flat one until something casts a member to [int]. Three
-    # lines here turn a silent wrong answer into a named failure.
-    foreach ($element in $page) {
-        if ($element -is [System.Collections.IEnumerable] -and $element -isnot [string]) {
-            throw "$Description came back nested: an element is a collection rather than a record. The response was not flattened, so member access would enumerate across records instead of reading one."
-        }
-    }
-
-    return @($page)
-}
+# Every request names this gate. tools/lib/PfbGitHubRead.ps1 makes -UserAgent mandatory,
+# with no shared default, so an abuse-detection response stays traceable to one caller.
+$userAgent = 'fb-powershell-agent-ready-brief-gate'
 
 function ConvertTo-PfbNormalisedIssue {
     <#
@@ -240,7 +152,7 @@ else {
     # deleted label produces zero issues and a permanently green check.
     $encodedLabel = [uri]::EscapeDataString($agentReadyLabel)
     try {
-        $labelRecord = Invoke-PfbGitHubApi -Path "repos/$Repository/labels/$encodedLabel" -BearerToken $bearer
+        $labelRecord = Invoke-PfbGitHubApi -Path "repos/$Repository/labels/$encodedLabel" -UserAgent $userAgent -BearerToken $bearer
     }
     catch {
         throw "Control failed: the label '$agentReadyLabel' could not be read from $Repository, so a zero-violation result would be meaningless. Underlying error: $($_.Exception.Message)"
@@ -254,7 +166,7 @@ else {
     # /issues returns pull requests as well as issues; a PR carries a `pull_request` key
     # and an issue does not. Left unfiltered, a labelled PR would be asked for a brief it
     # has no reason to have.
-    $listed = @(Invoke-PfbGitHubList -BearerToken $bearer -Description "The issue list for '$agentReadyLabel'" `
+    $listed = @(Invoke-PfbGitHubList -BearerToken $bearer -UserAgent $userAgent -Description "The issue list for '$agentReadyLabel'" `
             -Path "repos/$Repository/issues?state=open&labels=$encodedLabel&per_page=$script:PfbPageSize")
     foreach ($item in $listed) {
         if ($item.PSObject.Properties.Name -contains 'pull_request' -and $null -ne $item.pull_request) { continue }
@@ -263,7 +175,7 @@ else {
         # COUNT under the same property name, which would normalise to zero comment bodies
         # and fail every issue. Cheap in practice -- the label is meant to hold a handful
         # of issues, and if it ever holds hundreds that is itself the finding.
-        $comments = @(Invoke-PfbGitHubList -BearerToken $bearer -Description "Comments on #$($item.number)" `
+        $comments = @(Invoke-PfbGitHubList -BearerToken $bearer -UserAgent $userAgent -Description "Comments on #$($item.number)" `
                 -Path "repos/$Repository/issues/$($item.number)/comments?per_page=$script:PfbPageSize")
         $issues += [PSCustomObject]@{
             Number   = [int]$item.number
