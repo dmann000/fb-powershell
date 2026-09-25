@@ -90,7 +90,19 @@ exit 0
         }
         if ($Apply) { $params['Apply'] = $true }
         if ($AcceptMassVanish) { $params['AcceptMassVanish'] = $true }
-        & $script:scriptPath @params 6>$null 3>$null
+        # The script appends its tables to $env:GITHUB_STEP_SUMMARY, and in CI that is the
+        # real job summary of the Pester run -- where a test's 'APPLY' table would read as a
+        # real apply. Point it at this run's fixture directory, and put it back afterwards.
+        $hadSummary = Test-Path -Path 'Env:GITHUB_STEP_SUMMARY'
+        $savedSummary = $env:GITHUB_STEP_SUMMARY
+        $env:GITHUB_STEP_SUMMARY = Join-Path (Split-Path -Parent $Paths.Log) 'step-summary.md'
+        try {
+            & $script:scriptPath @params 6>$null 3>$null
+        }
+        finally {
+            if ($hadSummary) { $env:GITHUB_STEP_SUMMARY = $savedSummary }
+            else { Remove-Item -Path 'Env:GITHUB_STEP_SUMMARY' -ErrorAction SilentlyContinue }
+        }
     }
 
     # Every call the fake received, one tab-joined argv per string.
