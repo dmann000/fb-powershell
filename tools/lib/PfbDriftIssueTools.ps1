@@ -505,3 +505,298 @@ function Get-PfbDriftGroup {
         $f
     }
 }
+
+function Assert-PfbDriftMarker {
+    <#
+    .SYNOPSIS
+        Throws unless a marker object is one the machine block can carry unambiguously.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)]$Marker)
+
+    if ($Marker.Kind -cne 'group' -and $Marker.Kind -cne 'paired') {
+        throw "A marker's kind is 'group' or 'paired', not '$($Marker.Kind)'."
+    }
+    if ($Marker.Kind -ceq 'group' -and ([string]$Marker.GroupKey) -cnotmatch $script:PfbDriftGroupKeyPattern) {
+        throw "'$($Marker.GroupKey)' is not a drift group key."
+    }
+    foreach ($fingerprint in (@(Get-PfbDriftItem $Marker.Fingerprints) + @(Get-PfbDriftItem $Marker.Vanished))) {
+        if ([string]$fingerprint -cnotmatch '^[0-9a-f]{16}$') {
+            throw "'$fingerprint' is not a drift fingerprint (16 lowercase hex characters)."
+        }
+    }
+    $vanished = @(Get-PfbDriftItem $Marker.Vanished)
+    $both = @(@(Get-PfbDriftItem $Marker.Fingerprints) | Where-Object { $vanished -ccontains $_ })
+    if ($both.Count -gt 0) {
+        throw "Fingerprint(s) $($both -join ', ') are recorded as both active and vanished."
+    }
+}
+
+function Format-PfbDriftMarker {
+    <#
+    .SYNOPSIS
+        Renders a marker as the machine block that ends a drift issue body.
+    .DESCRIPTION
+        <!-- pfb-drift-block:start -->
+        <!-- pfb-drift-group: family:file-systems -->    (or: <!-- pfb-drift-paired: legacy -->)
+        <!-- pfb-drift-fingerprints: 0123456789abcdef,... -->
+        <!-- pfb-drift-vanished: ... -->                  (only when non-empty)
+        <!-- pfb-drift-block:end -->
+
+        Fingerprint lists are emitted ordinally sorted and de-duplicated, so formatting a
+        parsed block reproduces it exactly.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]$Marker,
+        [string]$NewLine = "`n"
+    )
+
+    if ($NewLine -cne "`n" -and $NewLine -cne "`r`n") { throw '-NewLine is LF or CRLF.' }
+    Assert-PfbDriftMarker -Marker $Marker
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines.Add('<!-- pfb-drift-block:start -->')
+    if ($Marker.Kind -ceq 'group') { $lines.Add("<!-- pfb-drift-group: $($Marker.GroupKey) -->") }
+    else { $lines.Add('<!-- pfb-drift-paired: legacy -->') }
+    $active = @(Get-PfbDriftSortedString -Value @(Get-PfbDriftItem $Marker.Fingerprints))
+    if ($active.Count -gt 0) { $lines.Add("<!-- pfb-drift-fingerprints: $($active -join ',') -->") }
+    else { $lines.Add('<!-- pfb-drift-fingerprints: -->') }
+    $vanished = @(Get-PfbDriftSortedString -Value @(Get-PfbDriftItem $Marker.Vanished))
+    if ($vanished.Count -gt 0) { $lines.Add("<!-- pfb-drift-vanished: $($vanished -join ',') -->") }
+    $lines.Add('<!-- pfb-drift-block:end -->')
+    return ($lines -join $NewLine)
+}
+
+function Get-PfbDriftBlockSpan {
+    <#
+    .SYNOPSIS
+        Finds the one pfb-drift block among a body's lines, or reports that there is none.
+    .DESCRIPTION
+        Lines are compared trimmed, so indentation and a stray CR do not matter. Lines inside
+        a fenced code block are skipped, so an issue quoting an example block in a fence is
+        not mistaken for a stamped one. Everything malformed throws: this decides which
+        issues the reconciler may write to, and guessing would mean rewriting a person's
+        text on a misread.
+
+        A start marker inside a fence that is NEVER CLOSED also throws. A person pasting
+        output under an opening fence with no closer is a common habit, and it would
+        otherwise hide a real block: the issue would look unclaimed, its group would be filed
+        a second time, and the rewrite would append a second block. ConvertFrom-PfbDriftIssue
+        parses only trusted issues, so this cannot be used to stop a run from outside.
+    .OUTPUTS
+        $null, or [PSCustomObject] Start, End (line indexes of the delimiters) and Lines
+        (the trimmed lines between them).
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][AllowEmptyCollection()][AllowEmptyString()][string[]]$Line)
+
+    $inFence = $false
+    $fenceLine = -1
+    $fenceHidesStart = $false
+    $start = -1
+    $end = -1
+    $starts = 0
+    $ends = 0
+    for ($i = 0; $i -lt $Line.Count; $i++) {
+        $text = $Line[$i].Trim()
+        if ($text.StartsWith($script:PfbDriftFence) -or $text.StartsWith('~~~')) {
+            $inFence = -not $inFence
+            if ($inFence) {
+                $fenceLine = $i
+                $fenceHidesStart = $false
+            }
+            continue
+        }
+        if ($inFence) {
+            if ($text -cmatch '^<!--\s*pfb-drift-block:start\s*-->$') { $fenceHidesStart = $true }
+            continue
+        }
+        if ($text -cmatch '^<!--\s*pfb-drift-block:start\s*-->$') { $starts++; $start = $i; continue }
+        if ($text -cmatch '^<!--\s*pfb-drift-block:end\s*-->$') { $ends++; $end = $i; continue }
+        $inside = ($starts -eq 1 -and $ends -eq 0)
+        if (-not $inside -and $text -cmatch '^<!--\s*pfb-drift-') {
+            throw "A pfb-drift marker line sits outside a pfb-drift block: '$text'."
+        }
+    }
+
+    if ($inFence -and $fenceHidesStart) {
+        throw "A pfb-drift block start marker sits inside an unterminated code fence (opened on line $($fenceLine + 1)), so it cannot be told apart from a quoted example. Close the fence, or move the block out of it."
+    }
+    if ($starts -eq 0 -and $ends -eq 0) { return $null }
+    if ($starts -ne 1 -or $ends -ne 1) {
+        throw "Expected exactly one pfb-drift block; found $starts start and $ends end marker(s)."
+    }
+    if ($end -lt $start) { throw 'The pfb-drift block end marker comes before its start marker.' }
+
+    $inner = [System.Collections.Generic.List[string]]::new()
+    for ($i = $start + 1; $i -lt $end; $i++) { $inner.Add($Line[$i].Trim()) }
+    return [PSCustomObject]@{ Start = $start; End = $end; Lines = $inner.ToArray() }
+}
+
+function ConvertFrom-PfbDriftMarker {
+    <#
+    .SYNOPSIS
+        Parses the machine block out of an issue body. $null when the body has none.
+    .OUTPUTS
+        [PSCustomObject] Kind ('group'|'paired'), GroupKey ($null when paired),
+        Fingerprints and Vanished (ordinally sorted string arrays).
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][AllowNull()][AllowEmptyString()][string]$Body)
+
+    if ([string]::IsNullOrEmpty($Body)) { return $null }
+    $lines = ($Body -replace "`r`n", "`n" -replace "`r", "`n") -split "`n"
+    $span = Get-PfbDriftBlockSpan -Line $lines
+    if ($null -eq $span) { return $null }
+
+    $values = @{}
+    foreach ($text in $span.Lines) {
+        if ($text -eq '') { continue }
+        if (-not ($text -cmatch '^<!--\s*pfb-drift-(?<key>group|paired|fingerprints|vanished):(?<value>.*?)-->$')) {
+            throw "Unrecognised line in the pfb-drift block: '$text'."
+        }
+        $key = $Matches['key']
+        if ($values.ContainsKey($key)) { throw "The pfb-drift block has more than one '$key' line." }
+        $values[$key] = $Matches['value'].Trim()
+    }
+
+    if ($values.ContainsKey('group') -eq $values.ContainsKey('paired')) {
+        throw 'A pfb-drift block needs exactly one of a group line or a paired line.'
+    }
+    if ($values.ContainsKey('paired') -and $values['paired'] -cne 'legacy') {
+        throw "A paired line reads 'pfb-drift-paired: legacy', not '$($values['paired'])'."
+    }
+    if (-not $values.ContainsKey('fingerprints')) { throw 'The pfb-drift block has no fingerprints line.' }
+
+    $vanishedText = ''
+    if ($values.ContainsKey('vanished')) { $vanishedText = $values['vanished'] }
+    $marker = [PSCustomObject]@{
+        Kind         = 'paired'
+        GroupKey     = $null
+        Fingerprints = @(@($values['fingerprints'] -split ',') | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
+        Vanished     = @(@($vanishedText -split ',') | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
+    }
+    if ($values.ContainsKey('group')) {
+        $marker.Kind = 'group'
+        $marker.GroupKey = $values['group']
+    }
+    Assert-PfbDriftMarker -Marker $marker
+    $marker.Fingerprints = @(Get-PfbDriftSortedString -Value $marker.Fingerprints)
+    $marker.Vanished = @(Get-PfbDriftSortedString -Value $marker.Vanished)
+    return $marker
+}
+
+function ConvertTo-PfbDriftIssueBody {
+    <#
+    .SYNOPSIS
+        An issue body with its machine block replaced by -Marker, or appended if absent.
+    .DESCRIPTION
+        Every character outside the block is preserved exactly -- line endings, trailing
+        whitespace, non-ASCII text. This is written back to issues people wrote, so any
+        normalisation here would silently edit someone's prose on github.com. The block
+        uses the body's own line ending: CRLF if the body contains any CRLF.
+
+        The result is parsed back before it is returned, and must yield exactly -Marker.
+        Appending after a person's unclosed code fence, for one, would put the block inside
+        the fence; this throws instead of handing back a body whose block does not count.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)][AllowNull()][AllowEmptyString()][string]$Body,
+        [Parameter(Mandatory = $true)]$Marker
+    )
+
+    if ($null -eq $Body) { $Body = '' }
+    $newLine = "`n"
+    if ($Body.Contains("`r`n")) { $newLine = "`r`n" }
+    $block = Format-PfbDriftMarker -Marker $Marker -NewLine $newLine
+
+    # Split keeping each line's terminator attached, so joining the pieces is lossless.
+    $pieces = [regex]::Split($Body, '(?<=\n)')
+    $bare = @($pieces | ForEach-Object { $_.TrimEnd([char[]]"`r`n") })
+    $span = Get-PfbDriftBlockSpan -Line $bare
+
+    if ($null -eq $span) {
+        if ($Body -eq '') { $result = $block }
+        else {
+            $prefix = $Body
+            if (-not $prefix.EndsWith("`n")) { $prefix += $newLine }
+            $result = $prefix + $newLine + $block
+        }
+    }
+    else {
+        $builder = [System.Text.StringBuilder]::new()
+        for ($i = 0; $i -lt $span.Start; $i++) { [void]$builder.Append($pieces[$i]) }
+        [void]$builder.Append($block)
+        [void]$builder.Append($pieces[$span.End].Substring($bare[$span.End].Length))
+        for ($i = $span.End + 1; $i -lt $pieces.Count; $i++) { [void]$builder.Append($pieces[$i]) }
+        $result = $builder.ToString()
+    }
+
+    $parsed = $null
+    $why = 'it holds no block at all'
+    try { $parsed = ConvertFrom-PfbDriftMarker -Body $result }
+    catch { $why = $_.Exception.Message }
+    if ($null -eq $parsed -or (Format-PfbDriftMarker -Marker $parsed) -cne (Format-PfbDriftMarker -Marker $Marker)) {
+        if ($null -ne $parsed) { $why = 'it holds a different block' }
+        throw "The rewritten body does not parse back to the pfb-drift block just written, so it must not be written: $why"
+    }
+    return $result
+}
+
+function ConvertFrom-PfbDriftIssue {
+    <#
+    .SYNOPSIS
+        Normalises `gh issue list --json number,title,body,state,stateReason,labels` rows.
+    .DESCRIPTION
+        THE TRUST BOUNDARY. A machine block is read only on an issue labelled source:drift.
+        The repository is public: anyone can open an issue, write a valid block into it and
+        close it as not planned, which would otherwise decline every finding it lists for
+        good, capture a group (so the reconciler edits and comments on a stranger's issue),
+        or mark everything tracked. Only collaborators can add labels, so the label is the
+        anchor, and gh already returns it. On any other issue the block is ignored entirely
+        -- Marker is $null, so it is neither tracked nor declined, and a malformed one does
+        not throw (else anyone could stop every run). IgnoredBlock says one was seen.
+
+        On a trusted issue a malformed block throws, naming the issue, before anything is
+        planned -- so one hand-edited issue stops the whole run instead of being silently
+        skipped or silently rewritten.
+    .OUTPUTS
+        [PSCustomObject] Number, Title, State ('OPEN'|'CLOSED'), StateReason ('COMPLETED',
+        'NOT_PLANNED', 'DUPLICATE', or '' when GitHub recorded none), Labels, Body, Trusted,
+        IgnoredBlock, Marker.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Issue)
+
+    foreach ($raw in @(Get-PfbDriftItem $Issue)) {
+        $labels = @(@(Get-PfbDriftItem $raw.labels) | ForEach-Object {
+                if ($_ -is [string]) { $_ } else { [string]$_.name }
+            })
+        $body = [string]$raw.body
+        $trusted = $labels -ccontains $script:PfbDriftLabel.Source
+        $marker = $null
+        if ($trusted) {
+            try {
+                $marker = ConvertFrom-PfbDriftMarker -Body $body
+            }
+            catch {
+                throw "Issue #$($raw.number): $($_.Exception.Message) Fix or remove the block by hand; the reconciler will not guess which findings an issue carries."
+            }
+        }
+        [PSCustomObject]@{
+            Number       = [int]$raw.number
+            Title        = [string]$raw.title
+            State        = ([string]$raw.state).ToUpperInvariant()
+            StateReason  = ([string]$raw.stateReason).ToUpperInvariant()
+            Labels       = $labels
+            Body         = $body
+            Trusted      = $trusted
+            IgnoredBlock = (-not $trusted) -and $body.Contains('pfb-drift-block:start')
+            Marker       = $marker
+        }
+    }
+}

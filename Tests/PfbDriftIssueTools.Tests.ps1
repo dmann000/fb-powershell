@@ -354,3 +354,157 @@ Describe 'Get-PfbDriftGroup' {
         $byKey['noSurvivingSelector|'] | Should -BeExactly 'deadkey:widgets'
     }
 }
+
+Describe 'machine block markers' {
+    BeforeAll {
+        $script:fpA = '0123456789abcdef'
+        $script:fpB = 'fedcba9876543210'
+        $script:fpC = '00000000000000aa'
+        $script:emDash = [string][char]0x2014
+        $script:arrow = [string][char]0x2192
+        $script:fence = ([string][char]0x60) * 3
+    }
+
+    It 'formats a group block that parses back to the same marker, sorted and de-duplicated' {
+        $marker = [PSCustomObject]@{ Kind = 'group'; GroupKey = 'family:widgets'; Fingerprints = @($script:fpB, $script:fpA, $script:fpA); Vanished = @() }
+        $text = Format-PfbDriftMarker -Marker $marker
+        $parsed = ConvertFrom-PfbDriftMarker -Body ("Some text.`n`n" + $text)
+        $parsed.Kind | Should -BeExactly 'group'
+        $parsed.GroupKey | Should -BeExactly 'family:widgets'
+        ($parsed.Fingerprints -join ',') | Should -BeExactly "$($script:fpA),$($script:fpB)"
+        @($parsed.Vanished).Count | Should -Be 0
+        Format-PfbDriftMarker -Marker $parsed | Should -BeExactly $text
+    }
+
+    It 'round-trips a paired block carrying vanished fingerprints' {
+        $marker = [PSCustomObject]@{ Kind = 'paired'; GroupKey = $null; Fingerprints = @($script:fpA); Vanished = @($script:fpC) }
+        $text = Format-PfbDriftMarker -Marker $marker
+        $text | Should -Match 'pfb-drift-paired: legacy'
+        $parsed = ConvertFrom-PfbDriftMarker -Body $text
+        $parsed.Kind | Should -BeExactly 'paired'
+        $parsed.GroupKey | Should -BeNullOrEmpty
+        ($parsed.Vanished -join ',') | Should -BeExactly $script:fpC
+        Format-PfbDriftMarker -Marker $parsed | Should -BeExactly $text
+    }
+
+    It 'round-trips a block with no active fingerprints' {
+        $marker = [PSCustomObject]@{ Kind = 'group'; GroupKey = 'deadkey:arrays'; Fingerprints = @(); Vanished = @($script:fpA) }
+        $text = Format-PfbDriftMarker -Marker $marker
+        $parsed = ConvertFrom-PfbDriftMarker -Body $text
+        @($parsed.Fingerprints).Count | Should -Be 0
+        Format-PfbDriftMarker -Marker $parsed | Should -BeExactly $text
+    }
+
+    It 'returns $null for a body with no block, an empty body and a null body' {
+        ConvertFrom-PfbDriftMarker -Body 'Just a person writing.' | Should -BeNullOrEmpty
+        ConvertFrom-PfbDriftMarker -Body '' | Should -BeNullOrEmpty
+        ConvertFrom-PfbDriftMarker -Body $null | Should -BeNullOrEmpty
+    }
+
+    It 'parses a CRLF body' {
+        $body = "Intro`r`n`r`n<!-- pfb-drift-block:start -->`r`n<!-- pfb-drift-group: family:widgets -->`r`n<!-- pfb-drift-fingerprints: $($script:fpA) -->`r`n<!-- pfb-drift-block:end -->`r`n"
+        (ConvertFrom-PfbDriftMarker -Body $body).GroupKey | Should -BeExactly 'family:widgets'
+    }
+
+    It 'ignores a block quoted inside a fenced code block' {
+        $block = Format-PfbDriftMarker -Marker ([PSCustomObject]@{ Kind = 'group'; GroupKey = 'family:widgets'; Fingerprints = @($script:fpA); Vanished = @() })
+        $body = "An example of the format:`n$($script:fence)`n$block`n$($script:fence)`n"
+        ConvertFrom-PfbDriftMarker -Body $body | Should -BeNullOrEmpty
+    }
+
+    # Each row names the message its own check owns, so a row cannot pass on a different
+    # check firing -- or, in the red run, on the command not existing yet.
+    It 'throws on a malformed block: <Case>' -ForEach @(
+        @{ Case = 'two blocks'; Message = '*found 2 start and 2 end*'; Body = "<!-- pfb-drift-block:start -->`n<!-- pfb-drift-group: family:a -->`n<!-- pfb-drift-fingerprints: 0123456789abcdef -->`n<!-- pfb-drift-block:end -->`n<!-- pfb-drift-block:start -->`n<!-- pfb-drift-block:end -->" }
+        @{ Case = 'start without end'; Message = '*found 1 start and 0 end*'; Body = "<!-- pfb-drift-block:start -->`n<!-- pfb-drift-group: family:a -->`n<!-- pfb-drift-fingerprints: 0123456789abcdef -->" }
+        @{ Case = 'end before start'; Message = '*end marker comes before its start*'; Body = "<!-- pfb-drift-block:end -->`n<!-- pfb-drift-block:start -->" }
+        @{ Case = 'unknown line'; Message = '*Unrecognised line in the pfb-drift block*'; Body = "<!-- pfb-drift-block:start -->`n<!-- pfb-drift-group: family:a -->`n<!-- pfb-drift-fingerprints: 0123456789abcdef -->`n<!-- pfb-drift-extra: x -->`n<!-- pfb-drift-block:end -->" }
+        @{ Case = 'bad fingerprint'; Message = "*'0123' is not a drift fingerprint*"; Body = "<!-- pfb-drift-block:start -->`n<!-- pfb-drift-group: family:a -->`n<!-- pfb-drift-fingerprints: 0123 -->`n<!-- pfb-drift-block:end -->" }
+        @{ Case = 'group and paired'; Message = '*exactly one of a group line or a paired line*'; Body = "<!-- pfb-drift-block:start -->`n<!-- pfb-drift-group: family:a -->`n<!-- pfb-drift-paired: legacy -->`n<!-- pfb-drift-fingerprints: 0123456789abcdef -->`n<!-- pfb-drift-block:end -->" }
+        @{ Case = 'neither group nor paired'; Message = '*exactly one of a group line or a paired line*'; Body = "<!-- pfb-drift-block:start -->`n<!-- pfb-drift-fingerprints: 0123456789abcdef -->`n<!-- pfb-drift-block:end -->" }
+        @{ Case = 'active and vanished at once'; Message = '*recorded as both active and vanished*'; Body = "<!-- pfb-drift-block:start -->`n<!-- pfb-drift-group: family:a -->`n<!-- pfb-drift-fingerprints: 0123456789abcdef -->`n<!-- pfb-drift-vanished: 0123456789abcdef -->`n<!-- pfb-drift-block:end -->" }
+        @{ Case = 'marker line outside a block'; Message = '*marker line sits outside a pfb-drift block*'; Body = "Text`n<!-- pfb-drift-fingerprints: 0123456789abcdef -->" }
+        @{ Case = 'duplicated line'; Message = "*more than one 'fingerprints' line*"; Body = "<!-- pfb-drift-block:start -->`n<!-- pfb-drift-group: family:a -->`n<!-- pfb-drift-fingerprints: 0123456789abcdef -->`n<!-- pfb-drift-fingerprints: fedcba9876543210 -->`n<!-- pfb-drift-block:end -->" }
+        @{ Case = 'bad group key'; Message = "*'bogus:a' is not a drift group key*"; Body = "<!-- pfb-drift-block:start -->`n<!-- pfb-drift-group: bogus:a -->`n<!-- pfb-drift-fingerprints: 0123456789abcdef -->`n<!-- pfb-drift-block:end -->" }
+        @{ Case = 'block hidden by an unterminated fence'; Message = '*inside an unterminated code fence (opened on line 2)*'; Body = "Human wrote this:`n$(([string][char]0x60) * 3)`nsome code`n<!-- pfb-drift-block:start -->`n<!-- pfb-drift-group: family:a -->`n<!-- pfb-drift-fingerprints: 0123456789abcdef -->`n<!-- pfb-drift-block:end -->" }
+    ) {
+        { ConvertFrom-PfbDriftMarker -Body $Body } | Should -Throw -ExpectedMessage $Message
+    }
+
+    It 'still reads a body whose unterminated fence hides no block, and a block before one' {
+        ConvertFrom-PfbDriftMarker -Body "Output:`n$($script:fence)`nno closer here" | Should -BeNullOrEmpty
+        $block = Format-PfbDriftMarker -Marker ([PSCustomObject]@{ Kind = 'group'; GroupKey = 'family:widgets'; Fingerprints = @($script:fpA); Vanished = @() })
+        (ConvertFrom-PfbDriftMarker -Body "$block`n`nLater:`n$($script:fence)`nno closer here").GroupKey | Should -BeExactly 'family:widgets'
+    }
+
+    It 'refuses to append a block where it would not count: after an unclosed fence' {
+        $marker = [PSCustomObject]@{ Kind = 'paired'; GroupKey = $null; Fingerprints = @($script:fpA); Vanished = @() }
+        { ConvertTo-PfbDriftIssueBody -Body "Here is the output:`n$($script:fence)`nerror text" -Marker $marker } | Should -Throw -ExpectedMessage '*does not parse back to the pfb-drift block just written*'
+    }
+
+    It 'replaces the block and preserves every other character, including non-ASCII text and CRLF' {
+        $prefix = "Intro with an em dash $($script:emDash) and an arrow $($script:arrow).  `r`n`r`n"
+        $suffix = "`r`nTrailing line $($script:emDash)`r`n"
+        $old = [PSCustomObject]@{ Kind = 'group'; GroupKey = 'family:widgets'; Fingerprints = @($script:fpA); Vanished = @() }
+        $body = $prefix + (Format-PfbDriftMarker -Marker $old -NewLine "`r`n") + $suffix
+        $new = [PSCustomObject]@{ Kind = 'group'; GroupKey = 'family:widgets'; Fingerprints = @($script:fpA, $script:fpC); Vanished = @() }
+        $result = ConvertTo-PfbDriftIssueBody -Body $body -Marker $new
+        $result.StartsWith($prefix) | Should -BeTrue
+        $result.EndsWith($suffix) | Should -BeTrue
+        $result.Contains("-->`r`n<!-- pfb-drift-group") | Should -BeTrue
+        ((ConvertFrom-PfbDriftMarker -Body $result).Fingerprints -join ',') | Should -BeExactly "$($script:fpC),$($script:fpA)"
+    }
+
+    It 'appends a block to a body without one, leaving the original as an exact prefix' {
+        $body = "A person's issue $($script:emDash) no block yet."
+        $marker = [PSCustomObject]@{ Kind = 'paired'; GroupKey = $null; Fingerprints = @($script:fpB); Vanished = @() }
+        $result = ConvertTo-PfbDriftIssueBody -Body $body -Marker $marker
+        $result.StartsWith($body) | Should -BeTrue
+        (ConvertFrom-PfbDriftMarker -Body $result).Kind | Should -BeExactly 'paired'
+        (ConvertTo-PfbDriftIssueBody -Body '' -Marker $marker) | Should -BeExactly (Format-PfbDriftMarker -Marker $marker)
+    }
+
+    It 'is idempotent: rewriting with the same marker changes nothing' {
+        $marker = [PSCustomObject]@{ Kind = 'group'; GroupKey = 'family:widgets'; Fingerprints = @($script:fpA); Vanished = @() }
+        $once = ConvertTo-PfbDriftIssueBody -Body 'Text.' -Marker $marker
+        ConvertTo-PfbDriftIssueBody -Body $once -Marker $marker | Should -BeExactly $once
+    }
+
+    It 'normalises gh issue rows' {
+        $raw = [PSCustomObject]@{ number = 12; title = 'T'; body = 'plain'; state = 'closed'; stateReason = $null; labels = @([PSCustomObject]@{ name = 'source:drift' }, 'status:triage') }
+        $issue = @(ConvertFrom-PfbDriftIssue -Issue @($raw))[0]
+        $issue.Number | Should -Be 12
+        $issue.State | Should -BeExactly 'CLOSED'
+        $issue.StateReason | Should -BeExactly ''
+        ($issue.Labels -join ',') | Should -BeExactly 'source:drift,status:triage'
+        $issue.Trusted | Should -BeTrue
+        $issue.Marker | Should -BeNullOrEmpty
+    }
+
+    It 'names the issue when a trusted issue''s block is malformed' {
+        $raw = [PSCustomObject]@{ number = 77; title = 'T'; body = "<!-- pfb-drift-block:start -->`n<!-- pfb-drift-fingerprints: zz -->`n<!-- pfb-drift-block:end -->"; state = 'OPEN'; stateReason = ''; labels = @('source:drift') }
+        { ConvertFrom-PfbDriftIssue -Issue @($raw) } | Should -Throw -ExpectedMessage '*Issue #77: *'
+    }
+
+    It 'reads a block only on an issue labelled source:drift, and never throws on anyone else''s' {
+        $valid = "Planted.`n`n" + (Format-PfbDriftMarker -Marker ([PSCustomObject]@{ Kind = 'paired'; GroupKey = $null; Fingerprints = @($script:fpA); Vanished = @() }))
+        $broken = "<!-- pfb-drift-block:start -->`n<!-- pfb-drift-fingerprints: zz -->"
+        $hidden = "Output:`n$($script:fence)`n$valid"
+        $rows = @(
+            [PSCustomObject]@{ number = 31; title = 'T'; body = $valid; state = 'CLOSED'; stateReason = 'NOT_PLANNED'; labels = @('status:triage') }
+            [PSCustomObject]@{ number = 32; title = 'T'; body = $broken; state = 'OPEN'; stateReason = ''; labels = @() }
+            [PSCustomObject]@{ number = 33; title = 'T'; body = $hidden; state = 'OPEN'; stateReason = ''; labels = @('Source:Drift') }
+            [PSCustomObject]@{ number = 34; title = 'T'; body = $valid; state = 'OPEN'; stateReason = ''; labels = @('source:drift') }
+        )
+        $issues = @(ConvertFrom-PfbDriftIssue -Issue $rows)
+        foreach ($untrusted in $issues[0..2]) {
+            $untrusted.Trusted | Should -BeFalse
+            $untrusted.Marker | Should -BeNullOrEmpty
+            $untrusted.IgnoredBlock | Should -BeTrue
+        }
+        # The control: the same valid block on a labelled issue is read.
+        $issues[3].Trusted | Should -BeTrue
+        $issues[3].IgnoredBlock | Should -BeFalse
+        ($issues[3].Marker.Fingerprints -join ',') | Should -BeExactly $script:fpA
+    }
+}
