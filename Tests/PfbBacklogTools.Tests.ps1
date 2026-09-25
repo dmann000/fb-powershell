@@ -40,6 +40,11 @@ BeforeDiscovery {
         @{ Number = 171; Priority = 'P1'; Size = 'S'; Mix = @{ 'WRONG-RESULTS' = 3 } }
         @{ Number = 172; Priority = 'P1'; Size = 'S'; Mix = @{ 'WRONG-RESULTS' = 3 } }
     )
+
+    $script:assembledCalibration = @(
+        @{ Eol = 'LF'; NewLine = "`n"; Cases = $script:calibrationCases }
+        @{ Eol = 'CRLF'; NewLine = "`r`n"; Cases = $script:calibrationCases }
+    )
 }
 
 BeforeAll {
@@ -142,6 +147,42 @@ BeforeAll {
         $sizeValue = $null
         if ($Size) { $sizeValue = $Size }
         [PSCustomObject]@{ number = $Number; status = $Status; priority = $Priority; size = $sizeValue; impactClass = $Impact; liveFindings = $Live; rank = $null; decidedBy = $null }
+    }
+
+    # The Get-PfbBacklog fixture: at least one issue per lane, plus a pull request, an
+    # untrusted block, a malformed trusted block and a trusted issue whose findings are gone.
+    function Build-TestBacklogFixture {
+        param([string]$NewLine = "`n")
+        $a = Build-TestFinding -Category 'deadKey' -Endpoint 'DELETE /widgets' -Field 'names' -Severity 'DESTRUCTIVE'
+        $b = Build-TestFinding -Category 'deadKey' -Endpoint 'GET /widgets' -Field 'names' -Severity 'WRONG-RESULTS'
+        $d = Build-TestFinding -Category 'uncoveredEndpoint' -Endpoint 'GET /gadgets'
+        $malformed = "Human text.$NewLine$NewLine<!-- pfb-drift-block:start -->$NewLine<!-- pfb-drift-group: family:widgets -->$NewLine"
+        $issues = @(
+            (Build-TestRestIssue -Number 17 -Label @('priority:P2', 'size:S', 'area:ci', 'source:human') -NewLine $NewLine)
+            (Build-TestRestIssue -Number 11 -Label @('status:design-approved', 'priority:P0', 'size:S', 'area:wire-contract', 'source:drift') -Fingerprint @($b.Fingerprint) -NewLine $NewLine)
+            (Build-TestRestIssue -Number 21 -Label @('status:needs-design', 'priority:P1', 'size:S', 'area:wire-contract', 'source:human') -Fingerprint @($a.Fingerprint) -NewLine $NewLine)
+            (Build-TestRestIssue -Number 10 -Label @('status:agent-ready', 'priority:P0', 'size:S', 'area:wire-contract', 'source:drift', 'needs:live-test') -Fingerprint @($a.Fingerprint) -NewLine $NewLine)
+            (Build-TestRestIssue -Number 18 -Label @('status:agent-ready', 'priority:P0') -NewLine $NewLine -PullRequest)
+            (Build-TestRestIssue -Number 13 -Label @('status:triage', 'area:cmdlet-coverage', 'source:drift') -Fingerprint @($d.Fingerprint) -NewLine $NewLine)
+            (Build-TestRestIssue -Number 19 -Label @('status:agent-ready', 'priority:P1', 'size:S', 'area:wire-contract', 'source:drift') -Fingerprint @('00000000000000a2') -NewLine $NewLine)
+            (Build-TestRestIssue -Number 12 -Label @('status:needs-design', 'priority:P2', 'size:M', 'area:auth', 'source:human') -NewLine $NewLine)
+            (Build-TestRestIssue -Number 14 -Label @('status:in-progress', 'priority:P1', 'size:S', 'area:core-runtime', 'source:human') -NewLine $NewLine)
+            (Build-TestRestIssue -Number 20 -Label @('status:agent-ready', 'priority:P1', 'size:S', 'area:wire-contract', 'source:drift') -Body $malformed)
+            (Build-TestRestIssue -Number 15 -Label @('status:blocked', 'priority:P1', 'size:S', 'area:fusion', 'source:drift') -NewLine $NewLine)
+            (Build-TestRestIssue -Number 16 -Label @('status:resolved-upstream', 'priority:P1', 'size:S', 'area:wire-contract', 'source:drift') -Fingerprint @('00000000000000a1') -NewLine $NewLine)
+        )
+        @{ Issue = $issues; Finding = @($a, $b, $d) }
+    }
+
+    function Get-TestBacklog {
+        param([string]$NewLine = "`n")
+        $fixture = Build-TestBacklogFixture -NewLine $NewLine
+        Get-PfbBacklog -Issue $fixture.Issue -Finding $fixture.Finding -Repo 'example/repo' -SpecVersion '2.28' -GeneratedAt '2026-09-25T18:00:00Z'
+    }
+
+    function Get-TestLaneNumber {
+        param($Backlog, [string]$Lane)
+        @(@(Get-PfbDriftItem -Value $Backlog.lanes.$Lane) | ForEach-Object { $_.number }) -join ','
     }
 }
 
@@ -539,5 +580,192 @@ Describe 'Get-PfbBacklogRankedRow' -Skip:($PSVersionTable.PSVersion.Major -lt 7)
     It 'refuses a non-build status in the build lane' {
         { Get-PfbBacklogRankedRow -Lane 'build' -Row @((Build-TestRow -Number 7 -Priority 'P1' -Status 'needs-design')) } |
             Should -Throw -ExpectedMessage "*has status 'needs-design', which is not a build-lane status."
+    }
+}
+
+Describe 'Get-PfbBacklog (<Eol>)' -ForEach $script:lineEndings -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    BeforeAll {
+        $script:backlog = Get-TestBacklog -NewLine $NewLine
+        $script:lfBacklog = Get-TestBacklog -NewLine "`n"
+    }
+
+    It 'places every open issue in exactly one lane, and drops pull requests' {
+        $numbers = @(foreach ($lane in $script:PfbBacklogLane) { @(Get-PfbDriftItem -Value $script:backlog.lanes.$lane) | ForEach-Object { [int]$_.number } })
+        @($numbers | Sort-Object) -join ',' | Should -BeExactly '10,11,12,13,14,15,16,17,19,20,21'
+    }
+
+    It 'counts every lane, and orders counts and lanes as the lanes are ordered' {
+        @($script:backlog.counts.PSObject.Properties.Name) -join ',' | Should -BeExactly 'build,design,triage,inFlight,parked,confirmClose,labelErrors'
+        @($script:backlog.lanes.PSObject.Properties.Name) -join ',' | Should -BeExactly 'build,design,triage,inFlight,parked,confirmClose,labelErrors'
+        @($script:PfbBacklogLane | ForEach-Object { $script:backlog.counts.$_ }) -join ',' | Should -BeExactly '3,2,1,1,1,1,2'
+    }
+
+    It 'ranks the ranked lanes and names the deciding key' {
+        Get-TestLaneNumber -Backlog $script:backlog -Lane 'build' | Should -BeExactly '10,11,19'
+        @($script:backlog.lanes.build | ForEach-Object { [string]$_.decidedBy }) -join ',' | Should -BeExactly ',readiness,priority'
+        Get-TestLaneNumber -Backlog $script:backlog -Lane 'design' | Should -BeExactly '21,12'
+        $script:backlog.lanes.design[1].decidedBy | Should -BeExactly 'priority'
+    }
+
+    It 'lists unranked lanes by number, with null rank and decidedBy' {
+        Get-TestLaneNumber -Backlog $script:backlog -Lane 'labelErrors' | Should -BeExactly '17,20'
+        foreach ($row in @($script:backlog.lanes.labelErrors) + @($script:backlog.lanes.triage)) {
+            $row.rank | Should -BeNullOrEmpty
+            $row.decidedBy | Should -BeNullOrEmpty
+        }
+    }
+
+    It 'carries a proposal in the triage lane only' {
+        $triage = $script:backlog.lanes.triage[0]
+        $triage.proposed.priority | Should -BeExactly 'P2'
+        $triage.proposed.size | Should -BeExactly 'S'
+        $triage.proposed.differs | Should -BeTrue
+        $triage.proposed.current.priority | Should -BeNullOrEmpty
+        foreach ($row in @($script:backlog.lanes.build) + @($script:backlog.lanes.design)) { $row.proposed | Should -BeNullOrEmpty }
+    }
+
+    It 'ignores a block on an untrusted issue, and ranks it on its labels alone' {
+        $row = @($script:backlog.lanes.design | Where-Object { $_.number -eq 21 })[0]
+        $row.impactClass | Should -BeExactly '-'
+        $row.trackedFindings | Should -Be 0
+        $row.rank | Should -Be 1
+    }
+
+    It 'reports a malformed trusted block under labelErrors and still scores every other issue' {
+        $row = @($script:backlog.lanes.labelErrors | Where-Object { $_.number -eq 20 })[0]
+        @($row.labelProblems)[0] | Should -BeLike 'malformed pfb-drift block: Issue #20: *'
+        $script:backlog.counts.build | Should -Be 3
+    }
+
+    It 'notes a trusted issue with no live finding, unless it is already resolved-upstream' {
+        $open = @($script:backlog.lanes.build | Where-Object { $_.number -eq 19 })[0]
+        @($open.notes) -join '' | Should -BeExactly $script:PfbBacklogResolvedNote
+        $open.impactClass | Should -BeExactly '-'
+        @($script:backlog.lanes.confirmClose[0].notes).Count | Should -Be 0
+    }
+
+    It 'writes the schema-v1 top level' {
+        @($script:backlog.PSObject.Properties.Name) -join ',' | Should -BeExactly 'schemaVersion,generatedAt,repo,specVersion,counts,lanes'
+        $script:backlog.schemaVersion | Should -Be 1
+        $script:backlog.repo | Should -BeExactly 'example/repo'
+        $script:backlog.specVersion | Should -BeExactly '2.28'
+        $script:backlog.generatedAt | Should -BeExactly '2026-09-25T18:00:00Z'
+    }
+
+    It 'gives every row exactly the schema-v1 fields, in order, with the derived values' {
+        $row = $script:backlog.lanes.build[0]
+        @($row.PSObject.Properties.Name) -join ',' |
+            Should -BeExactly 'number,title,url,rank,decidedBy,status,priority,size,sources,needsLiveTest,impactClass,liveFindings,trackedFindings,families,proposed,labelProblems,notes'
+        $row.url | Should -BeExactly 'https://github.com/example/repo/issues/10'
+        $row.status | Should -BeExactly 'agent-ready'
+        @($row.sources) -join ',' | Should -BeExactly 'drift'
+        $row.needsLiveTest | Should -BeTrue
+        $row.impactClass | Should -BeExactly 'A'
+        @($row.families) -join ',' | Should -BeExactly 'widgets'
+    }
+
+    It 'serialises one-element and empty lists as JSON arrays' {
+        $parsed = $script:backlog | ConvertTo-Json -Depth 10 | ConvertFrom-Json
+        $parsed.lanes.triage.GetType().IsArray | Should -BeTrue
+        $parsed.lanes.build[0].sources.GetType().IsArray | Should -BeTrue
+        $parsed.lanes.build[0].families.GetType().IsArray | Should -BeTrue
+        $parsed.lanes.labelErrors[0].labelProblems.GetType().IsArray | Should -BeTrue
+        $parsed.lanes.build[0].labelProblems.GetType().IsArray | Should -BeTrue
+        @($parsed.lanes.build[0].labelProblems).Count | Should -Be 0
+        $parsed.lanes.triage[0].proposed.current.PSObject.Properties.Name -join ',' | Should -BeExactly 'priority,size'
+    }
+
+    It 'gives the same backlog for LF and CRLF bodies' {
+        ($script:backlog | ConvertTo-Json -Depth 10) | Should -BeExactly ($script:lfBacklog | ConvertTo-Json -Depth 10)
+    }
+
+    It 'assembles the whole fixture under Set-StrictMode -Version Latest' {
+        Set-StrictMode -Version Latest
+        $strict = Get-TestBacklog -NewLine $NewLine
+        ($strict | ConvertTo-Json -Depth 10) | Should -BeExactly ($script:backlog | ConvertTo-Json -Depth 10)
+    }
+}
+
+Describe 'Get-PfbBacklog: edge cases' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    It 'gives a complete result with every lane empty when there are no open issues' {
+        $empty = Get-PfbBacklog -Issue @() -Finding @() -Repo 'example/repo' -SpecVersion '2.28' -GeneratedAt '2026-09-25T18:00:00Z'
+        @($script:PfbBacklogLane | ForEach-Object { $empty.counts.$_ }) -join ',' | Should -BeExactly '0,0,0,0,0,0,0'
+        ($empty | ConvertTo-Json -Depth 10) | Should -Match '"build": \[\]'
+    }
+
+    It 'throws on a finding the impact table cannot classify, even when no issue tracks it' {
+        $finding = Build-TestFinding -Category 'uncoveredEndpoint' -Endpoint 'GET /widgets'
+        $finding.Category = 'brandNewCategory'
+        { Get-PfbBacklog -Issue @() -Finding @($finding) -Repo 'example/repo' -SpecVersion '2.28' -GeneratedAt 'x' } |
+            Should -Throw -ExpectedMessage '*brandNewCategory*'
+    }
+}
+
+Describe 'Get-PfbBacklog: the calibration issues assembled together (<Eol>)' -ForEach $script:assembledCalibration -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    It 'reproduces all ten hand triages (10/10)' {
+        $findings = [System.Collections.Generic.List[object]]::new()
+        $issues = [System.Collections.Generic.List[object]]::new()
+        foreach ($case in $Cases) {
+            $mine = @(Get-TestCalibrationFinding -Number $case.Number -Mix $case.Mix)
+            foreach ($f in $mine) { $findings.Add($f) }
+            $labels = @('status:triage', "priority:$($case.Priority)", "size:$($case.Size)", 'source:drift', 'area:wire-contract')
+            $issues.Add((Build-TestRestIssue -Number $case.Number -Label $labels -Fingerprint @($mine | ForEach-Object { $_.Fingerprint }) -NewLine $NewLine))
+        }
+        $backlog = Get-PfbBacklog -Issue $issues.ToArray() -Finding $findings.ToArray() -Repo 'example/repo' -SpecVersion '2.28' -GeneratedAt 'x'
+        $matched = @($backlog.lanes.triage | Where-Object {
+                $_.proposed.priority -ceq $_.priority -and $_.proposed.size -ceq $_.size -and -not $_.proposed.differs
+            })
+        $backlog.counts.triage | Should -Be 10
+        $matched.Count | Should -Be 10
+    }
+}
+
+Describe 'Format-PfbBacklogMarkdown' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    BeforeAll {
+        $script:mdBacklog = Get-TestBacklog
+        $script:md = Format-PfbBacklogMarkdown -Backlog $script:mdBacklog
+        $script:mdLines = @($script:md -split "`n")
+    }
+
+    It 'writes the header, then one section per lane in lane order, with its count' {
+        $script:mdLines[0] | Should -BeExactly '# Backlog: example/repo'
+        $script:mdLines | Should -Contain 'Lanes: build 3, design 2, triage 1, inFlight 1, parked 1, confirmClose 1, labelErrors 2.'
+        @($script:mdLines | Where-Object { $_.StartsWith('## ') }) -join ' / ' |
+            Should -BeExactly '## Build (agent-ready, design-approved): 3 / ## Design (needs-design): 2 / ## Triage (proposals to confirm): 1 / ## In flight (in-progress, needs-review): 1 / ## Parked (blocked, human-only): 1 / ## Confirm close (resolved-upstream): 1 / ## Label errors: 2'
+    }
+
+    It 'shows decidedBy in ranked lanes, the proposal in triage, and the problems in labelErrors' {
+        $script:mdLines | Should -Contain '| Rank | Issue | P | S | Impact | Live | Live test | Decided by |'
+        $script:mdLines | Should -Contain '| 1 | [#10](https://github.com/example/repo/issues/10) Issue 10 | P0 | S | A | 1 | yes | - |'
+        $script:mdLines | Should -Contain '| 2 | [#11](https://github.com/example/repo/issues/11) Issue 11 | P0 | S | B | 1 |  | readiness |'
+        $script:mdLines | Should -Contain '| - | [#13](https://github.com/example/repo/issues/13) Issue 13 | - | - | D | 1 |  | P2 S: net-new coverage | yes |'
+        $script:mdLines | Should -Contain '| - | [#17](https://github.com/example/repo/issues/17) Issue 17 | P2 | S | - | 0 |  | no status: label |'
+    }
+
+    It 'caps each lane at -First rows and says how many more' {
+        $lines = @((Format-PfbBacklogMarkdown -Backlog $script:mdBacklog -First 1) -split "`n")
+        $lines | Should -Contain '_+2 more._'
+        $lines | Should -Not -Contain '| 2 | [#11](https://github.com/example/repo/issues/11) Issue 11 | P0 | S | B | 1 |  | readiness |'
+    }
+
+    It 'lists a shown row''s notes under its table' {
+        $script:mdLines | Should -Contain "- #19: $($script:PfbBacklogResolvedNote)"
+    }
+
+    It 'escapes pipes and flattens newlines in titles' {
+        $raw = Build-TestRestIssue -Number 30 -Title "a | b`r`nc" -Label @('status:in-progress', 'area:ci', 'source:human')
+        $backlog = Get-PfbBacklog -Issue @($raw) -Finding @() -Repo 'example/repo' -SpecVersion '2.28' -GeneratedAt 'x'
+        (Format-PfbBacklogMarkdown -Backlog $backlog) | Should -Match ([regex]::Escape('[#30](https://github.com/example/repo/issues/30) a \| b c |'))
+    }
+
+    It 'restricts sections to -Lane, in lane order whatever order it is given in, case-insensitively' {
+        $lines = @((Format-PfbBacklogMarkdown -Backlog $script:mdBacklog -Lane 'Triage', 'build') -split "`n")
+        @($lines | Where-Object { $_.StartsWith('## ') }) -join ' / ' |
+            Should -BeExactly '## Build (agent-ready, design-approved): 3 / ## Triage (proposals to confirm): 1'
+    }
+
+    It 'says None for an empty lane' {
+        $empty = Get-PfbBacklog -Issue @() -Finding @() -Repo 'example/repo' -SpecVersion '2.28' -GeneratedAt 'x'
+        @((Format-PfbBacklogMarkdown -Backlog $empty) -split "`n" | Where-Object { $_ -ceq '_None._' }).Count | Should -Be 7
     }
 }

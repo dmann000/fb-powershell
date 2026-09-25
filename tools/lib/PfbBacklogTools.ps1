@@ -539,3 +539,233 @@ function Get-PfbBacklogRankedRow {
         $entry.Row
     }
 }
+
+$script:PfbBacklogSchemaVersion = 1
+
+# Markdown section headings, one per lane.
+$script:PfbBacklogLaneTitle = @{
+    'build'        = 'Build (agent-ready, design-approved)'
+    'design'       = 'Design (needs-design)'
+    'triage'       = 'Triage (proposals to confirm)'
+    'inFlight'     = 'In flight (in-progress, needs-review)'
+    'parked'       = 'Parked (blocked, human-only)'
+    'confirmClose' = 'Confirm close (resolved-upstream)'
+    'labelErrors'  = 'Label errors'
+}
+
+function ConvertTo-PfbBacklogRow {
+    <#
+    .SYNOPSIS
+        One schema-v1 row. The only constructor, so every row has one shape.
+    .DESCRIPTION
+        rank and decidedBy start null; Get-PfbBacklogRankedRow sets them in ranked lanes.
+        Every list field is an array even when it holds one item or none, so the JSON never
+        turns a one-element list into a scalar.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]$Issue,
+        [Parameter(Mandatory = $true)]$Placement,
+        [Parameter(Mandatory = $true)]$Impact,
+        [AllowNull()]$Proposal = $null,
+        [AllowEmptyCollection()][string[]]$Note = @()
+    )
+
+    [PSCustomObject]@{
+        number          = [int]$Issue.Number
+        title           = [string]$Issue.Title
+        url             = [string]$Issue.Url
+        rank            = $null
+        decidedBy       = $null
+        status          = $Placement.Status
+        priority        = $Placement.Priority
+        size            = $Placement.Size
+        sources         = @(Get-PfbDriftItem -Value $Placement.Sources)
+        needsLiveTest   = [bool]$Placement.NeedsLiveTest
+        impactClass     = [string]$Impact.ImpactClass
+        liveFindings    = [int]$Impact.LiveFindings
+        trackedFindings = [int]$Impact.TrackedFindings
+        families        = @(Get-PfbDriftItem -Value $Impact.Families)
+        proposed        = $Proposal
+        labelProblems   = @(@(Get-PfbDriftItem -Value $Placement.Errors) + @(Get-PfbDriftItem -Value $Placement.Warnings))
+        notes           = @(Get-PfbDriftItem -Value $Note)
+    }
+}
+
+function Get-PfbBacklog {
+    <#
+    .SYNOPSIS
+        The whole backlog as the schema-v1 object that PfbBacklog.json serialises.
+    .DESCRIPTION
+        Every finding is classified up front, tracked or not, so an unknown category or
+        severity stops the run even before an issue carries it. Each open issue is then
+        normalised, placed in exactly one lane, and given its impact. A triage issue also
+        gets a proposal. A trusted issue with no live finding that is not yet
+        resolved-upstream is noted: the next reconciler run will move it.
+
+        build and design are ranked (Get-PfbBacklogRankedRow); every other lane is listed by
+        issue number, ascending, with rank and decidedBy null.
+
+        -GeneratedAt is passed in rather than read from the clock, so this stays pure; the
+        script supplies the current UTC time.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Issue,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Finding,
+        [Parameter(Mandatory = $true)][string]$Repo,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$SpecVersion,
+        [Parameter(Mandatory = $true)][string]$GeneratedAt
+    )
+
+    $index = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    foreach ($f in @(Get-PfbDriftItem -Value $Finding)) {
+        $null = Get-PfbBacklogFindingClass -Finding $f
+        $index[[string]$f.Fingerprint] = $f
+    }
+
+    $byLane = @{}
+    foreach ($name in $script:PfbBacklogLane) { $byLane[$name] = [System.Collections.Generic.List[object]]::new() }
+
+    foreach ($issue in @(ConvertFrom-PfbBacklogRestIssue -Issue $Issue)) {
+        $placement = Get-PfbBacklogPlacement -Issue $issue
+        $impact = Get-PfbBacklogImpact -Marker $issue.Marker -FindingIndex $index
+        $notes = @()
+        if ($null -ne $issue.Marker -and $impact.LiveFindings -eq 0 -and $placement.Status -cne 'resolved-upstream') {
+            $notes = @($script:PfbBacklogResolvedNote)
+        }
+        $proposal = $null
+        if ($placement.Lane -ceq 'triage') {
+            $proposal = Get-PfbBacklogProposal -ImpactClass $impact.ImpactClass -LiveFindings $impact.LiveFindings `
+                -CurrentPriority $placement.Priority -CurrentSize $placement.Size
+        }
+        $byLane[$placement.Lane].Add((ConvertTo-PfbBacklogRow -Issue $issue -Placement $placement -Impact $impact -Proposal $proposal -Note $notes))
+    }
+
+    $lanes = [ordered]@{}
+    $counts = [ordered]@{}
+    foreach ($name in $script:PfbBacklogLane) {
+        $rows = @($byLane[$name])
+        if ($script:PfbBacklogRankedLane -ccontains $name) { $rows = @(Get-PfbBacklogRankedRow -Row $rows -Lane $name) }
+        else { $rows = @($rows | Sort-Object -Property { [int]$_.number }) }
+        $lanes[$name] = $rows
+        $counts[$name] = $rows.Count
+    }
+
+    [PSCustomObject]@{
+        schemaVersion = $script:PfbBacklogSchemaVersion
+        generatedAt   = $GeneratedAt
+        repo          = $Repo
+        specVersion   = $SpecVersion
+        counts        = [PSCustomObject]$counts
+        lanes         = [PSCustomObject]$lanes
+    }
+}
+
+function Format-PfbBacklogCell {
+    <#
+    .SYNOPSIS
+        Text made safe for one Markdown table cell: line breaks flattened, pipes escaped.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([AllowNull()][AllowEmptyString()][string]$Text)
+
+    if ([string]::IsNullOrEmpty($Text)) { return '' }
+    return (($Text -replace '\r\n|\r|\n', ' ') -replace '\|', '\|')
+}
+
+function Format-PfbBacklogMarkdown {
+    <#
+    .SYNOPSIS
+        PfbBacklog.md: one heading and table per lane, in lane order, each capped at -First rows.
+    .DESCRIPTION
+        -Lane and -First shape this output only; the JSON always holds every lane and every
+        row. -Lane is compared case-insensitively, like the script's ValidateSet.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]$Backlog,
+        [ValidateRange(1, 1000)][int]$First = 10,
+        [string[]]$Lane = $script:PfbBacklogLane
+    )
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines.Add("# Backlog: $($Backlog.repo)")
+    $lines.Add('')
+    $lines.Add("Generated $($Backlog.generatedAt). Findings from the committed drift reports (dead-key report REST $($Backlog.specVersion)). Read-only: no label was written.")
+    $lines.Add('')
+    $lines.Add('Lanes: ' + (@($script:PfbBacklogLane | ForEach-Object { '{0} {1}' -f $_, $Backlog.counts.$_ }) -join ', ') + '.')
+
+    foreach ($name in $script:PfbBacklogLane) {
+        if (@($Lane) -notcontains $name) { continue }
+        $rows = @(Get-PfbDriftItem -Value $Backlog.lanes.$name)
+        $lines.Add('')
+        $lines.Add("## $($script:PfbBacklogLaneTitle[$name]): $($rows.Count)")
+        $lines.Add('')
+        if ($rows.Count -eq 0) {
+            $lines.Add('_None._')
+            continue
+        }
+
+        $header = @('Rank', 'Issue', 'P', 'S', 'Impact', 'Live', 'Live test')
+        $align = @('---:', '---', '---', '---', '---', '---:', '---')
+        if ($script:PfbBacklogRankedLane -ccontains $name) { $header += 'Decided by'; $align += '---' }
+        elseif ($name -ceq 'triage') { $header += @('Proposed', 'Differs'); $align += @('---', '---') }
+        elseif ($name -ceq 'labelErrors') { $header += 'Label problems'; $align += '---' }
+        $lines.Add('| ' + ($header -join ' | ') + ' |')
+        $lines.Add('|' + ($align -join '|') + '|')
+
+        $shown = @($rows | Select-Object -First $First)
+        foreach ($row in $shown) {
+            $rank = '-'
+            if ($null -ne $row.rank) { $rank = [string]$row.rank }
+            $priority = '-'
+            if ($row.priority) { $priority = [string]$row.priority }
+            $size = '-'
+            if ($row.size) { $size = [string]$row.size }
+            $liveTest = ''
+            if ($row.needsLiveTest) { $liveTest = 'yes' }
+            $cells = @(
+                $rank
+                ('[#{0}]({1}) {2}' -f $row.number, $row.url, (Format-PfbBacklogCell -Text $row.title))
+                $priority
+                $size
+                [string]$row.impactClass
+                [string]$row.liveFindings
+                $liveTest
+            )
+            if ($script:PfbBacklogRankedLane -ccontains $name) {
+                $decided = '-'
+                if ($row.decidedBy) { $decided = [string]$row.decidedBy }
+                $cells += $decided
+            }
+            elseif ($name -ceq 'triage') {
+                $proposedText = "none: $($row.proposed.reason)"
+                if ($null -ne $row.proposed.priority) { $proposedText = "$($row.proposed.priority) $($row.proposed.size): $($row.proposed.reason)" }
+                $differs = ''
+                if ($row.proposed.differs) { $differs = 'yes' }
+                $cells += @($proposedText, $differs)
+            }
+            elseif ($name -ceq 'labelErrors') {
+                $cells += (Format-PfbBacklogCell -Text (@($row.labelProblems) -join '; '))
+            }
+            $lines.Add('| ' + ($cells -join ' | ') + ' |')
+        }
+
+        if ($rows.Count -gt $First) {
+            $lines.Add('')
+            $lines.Add("_+$($rows.Count - $First) more._")
+        }
+        $noted = @($shown | Where-Object { @($_.notes).Count -gt 0 })
+        if ($noted.Count -gt 0) {
+            $lines.Add('')
+            foreach ($row in $noted) {
+                foreach ($note in @($row.notes)) { $lines.Add("- #$($row.number): $note") }
+            }
+        }
+    }
+
+    return (($lines -join "`n") + "`n")
+}
