@@ -786,6 +786,21 @@ Describe 'Get-PfbDriftFindingDisposition' {
         $d.Reason | Should -BeExactly 'still reported after #4 closed'
     }
 
+    # A closed issue's vanished list counts as much as its active list: a finding that had
+    # vanished before a maintainer declined the issue is still declined when it comes back.
+    It 'declines a finding recorded only in a closed not-planned issue''s vanished list' {
+        $d = Get-TestDisposition -Issue @(Build-TestIssue -Number 3 -State 'CLOSED' -StateReason 'NOT_PLANNED' -Fingerprints @($script:other) -Vanished @($script:fp))
+        $d.Disposition | Should -BeExactly 'Declined'
+        $d.Reason | Should -BeExactly 'declined #3'
+    }
+
+    It 'files a regression for a finding recorded only in a closed completed issue''s vanished list' {
+        $d = Get-TestDisposition -Issue @(Build-TestIssue -Number 4 -State 'CLOSED' -StateReason 'COMPLETED' -GroupKey 'family:widgets' -Fingerprints @($script:other) -Vanished @($script:fp))
+        $d.Disposition | Should -BeExactly 'Create'
+        $d.GroupKey | Should -BeExactly 'reopen:4'
+        $d.ReopenedFrom | Should -Be 4
+    }
+
     It 'appends a regression to the open reopen issue for the same closed issue' {
         $issues = @(
             Build-TestIssue -Number 4 -State 'CLOSED' -StateReason 'COMPLETED' -GroupKey 'family:widgets' -Fingerprints @($script:fp)
