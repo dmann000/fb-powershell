@@ -763,6 +763,79 @@ catch, and teaching it to tolerate the expected case would also teach it to tole
 typo'd key it was built to find. Do not edit a landed file into agreement with the tree
 either — that leaves 34 rows pre-authorised against *future* movement.
 
+## Drift issue reconciler (`New-PfbDriftIssue.ps1`)
+
+Turns the findings in `Reports/PfbApiDriftReport.json` and `Reports/PfbDeadKeyReport.json`
+into GitHub issues on `dmann000/fb-powershell`, and keeps those issues in step with the
+reports as they change. It is a reconciler, not a creator: GitHub issues are its only
+state, there is no baseline file, and a run over unchanged inputs plans nothing new.
+
+    ./tools/New-PfbDriftIssue.ps1 -GhCommand ghx            # dry run: print the plan
+    ./tools/New-PfbDriftIssue.ps1 -GhCommand ghx -Apply     # make the writes
+
+**Dry run is the default.** Nothing is written without `-Apply`, and nothing ever closes
+an issue. On a workstation pass `-GhCommand ghx`, the wrapper that reads this clone's
+pinned GitHub identity; CI passes `gh`. `-MaxCreate` (default 10, at most 100) caps new
+issues per run, `-PassThru` emits the findings, issues and plan as an object.
+
+**Findings.** One per atomic gap: an uncovered endpoint, one missing parameter on one
+endpoint, one removed or renamed response field, one ValidateSet value, one envelope field,
+one dead key, one cmdlet with no surviving selector. `readOnlyFields` are not findings, and
+`systemicGaps` is not read (every pair in it is already a parameter gap).
+
+**Fingerprints.** `sha256("<category>|<METHOD /path>|<field>")`, first 16 hex characters,
+no version component. The tuple per category is in `Get-PfbDriftFinding`'s help in
+`tools/lib/PfbDriftIssueTools.ps1`. Fingerprints are stamped into issues and are the only
+link between a finding and its issue, so the tuple, the category tokens and the hash are
+frozen; `Tests/PfbDriftIssueTools.Tests.ps1` pins golden values.
+
+**Groups, one issue each.** `family:<first path segment>` by default;
+`systemic:<param>` for a parameter missing in 3 or more families (it then leaves every
+family group); `envelope:<field>`; `validateset:<cmdlet>`; `deadkey:<family>` (the fix is
+remove or relocate); `reopen:<N>` for findings still reported after issue N was closed as
+completed.
+
+**The machine block.** Each drift issue body ends with HTML comments the tool owns:
+
+    <!-- pfb-drift-block:start -->
+    <!-- pfb-drift-group: family:file-systems -->
+    <!-- pfb-drift-fingerprints: 0123456789abcdef,fedcba9876543210 -->
+    <!-- pfb-drift-vanished: 00000000000000a1 -->
+    <!-- pfb-drift-block:end -->
+
+It rewrites only this block, preserving the rest of the body exactly, and comments on
+every change. An issue paired with findings by hand carries
+`<!-- pfb-drift-paired: legacy -->` in place of the group line and is never appended to.
+**A block counts only on an issue labelled `source:drift`**, which only collaborators can
+apply: on anyone else's issue it is ignored, never parsed and never an error, and the run
+names the issue in a warning. On a labelled issue, a malformed block stops the run and
+names the issue, and so does a block below a code fence that is never closed.
+
+**What a run does, per finding (first match wins):** already in an open issue: nothing;
+recorded there as vanished: moved back; matched by a `docs/settled/` Drift key: skipped;
+in an issue closed as not planned: skipped for good; in an issue closed as completed:
+filed under `reopen:<N>`; its group has an open issue: appended; otherwise queued. A
+fingerprint an open issue records but no report still contains is moved to `vanished` and
+announced once; an issue left with none gets `status:resolved-upstream` in place of its
+`status:` label, and an issue with any finding still reported loses it again for
+`status:triage` (checked every run, so a label left wrong is put right). **If more than
+25% of recorded fingerprints would vanish in one run, the
+run aborts before writing** (a spec restructuring looks like a burst of fixes);
+`-AcceptMassVanish` overrides it for one run. New issues are created most severe first --
+dead keys, removed fields, renames, ValidateSet drift, uncovered endpoints, envelope
+fields, parameter gaps, ValidateSet candidates -- and labelled `source:drift`,
+`status:triage`, `needs:live-test` and one `area:`. Every body and comment opens with a
+line saying automation wrote it.
+
+**Declining a finding for good:** close its issue as *not planned*, or add a
+`**Drift keys:**` field to a `docs/settled/` entry (see `docs/settled/README.md`).
+
+**CI:** `.github/workflows/drift-issues.yml`, `workflow_dispatch` only, with an `apply`
+input that defaults to false and the built-in token (`issues: write`). Tests:
+`Tests/PfbDriftIssueTools.Tests.ps1` (the library, against fixtures) and
+`Tests/New-PfbDriftIssue.Tests.ps1` (the script, against a fake gh, plus the workflow's
+safety properties). Both run on both editions.
+
 ## Tests
 
 `Tests/PfbSpecTools.Tests.ps1` and `Tests/Build-PfbCapabilityMap.Tests.ps1` cover the
