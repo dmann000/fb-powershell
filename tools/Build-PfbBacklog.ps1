@@ -27,7 +27,7 @@
     owner/name. Default dmann000/fb-powershell.
 .PARAMETER Token
     Optional. Defaults to GH_TOKEN, then GITHUB_TOKEN, else anonymous. It raises the rate
-    limit from 60 to 1,000 requests an hour and grants nothing else.
+    limit from 60 to 1,000/hour with GITHUB_TOKEN and grants nothing else.
 .PARAMETER OutputPath
     A directory, created if absent. When given, the script writes PfbBacklog.json (every
     lane, every row) and PfbBacklog.md there. When omitted, it prints the Markdown to the
@@ -90,7 +90,7 @@ $findings = @(Get-PfbDriftFinding -DriftReport $driftReport -DeadKeyReport $dead
 $bearer = $Token
 if (-not $bearer) { $bearer = $env:GH_TOKEN }
 if (-not $bearer) { $bearer = $env:GITHUB_TOKEN }
-if ($bearer) { Write-Host "Reading $Repo authenticated (rate limit 1,000/hour)." }
+if ($bearer) { Write-Host "Reading $Repo authenticated (rate limit 1,000/hour with GITHUB_TOKEN)." }
 else { Write-Host "Reading $Repo anonymously (rate limit 60/hour, counted per source IP). Set GH_TOKEN or GITHUB_TOKEN to raise it." }
 
 $issues = @(Invoke-PfbGitHubPagedList -Path "repos/$Repo/issues?state=open&per_page=$script:PfbPageSize" `

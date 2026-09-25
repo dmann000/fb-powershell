@@ -111,8 +111,8 @@ BeforeAll {
         return (ConvertTo-PfbDriftFindingRecord -Category $Category -Endpoint $Endpoint -Field $Field -Detail $detail)
     }
 
-    # Fingerprint -> finding. The leading comma matters: a Dictionary is IEnumerable, and
-    # returning it bare would unroll it into KeyValuePairs.
+    # Fingerprint -> finding. The leading comma is defensive only: PowerShell does not
+    # unroll an IDictionary, so returning it bare would also work.
     function Build-TestFindingIndex {
         param([object[]]$Finding)
         $index = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)

@@ -14,7 +14,7 @@
 
     NO GITHUB CLI, AND NO CREDENTIAL REQUIRED. The repository is public, so every endpoint
     used here answers anonymously. A token only raises the rate limit (60 requests an hour
-    per source IP anonymously, 1,000 with the workflow's GITHUB_TOKEN); it grants nothing.
+    per source IP anonymously, 1,000/hour with GITHUB_TOKEN); it grants nothing.
 
     -UserAgent IS MANDATORY, WITH NO DEFAULT. GitHub rejects a request with no User-Agent,
     and naming the caller is what makes an abuse-detection response traceable to one

@@ -336,7 +336,7 @@ function Get-PfbBacklogFindingClass {
     if ($category -ceq 'deadKey') {
         $severity = [string]$Finding.Detail.ReportSeverity
         if (@($script:PfbBacklogDeadKeySeverityClass.Keys) -cnotcontains $severity) {
-            throw "Dead key $($Finding.Fingerprint) ($($Finding.Endpoint) $($Finding.Field)) has ReportSeverity '$severity'. The impact table knows only DESTRUCTIVE, CREATE and WRONG-RESULTS, the values tools/Build-PfbDeadKeyReport.ps1 emits; add the new one to `$script:PfbBacklogDeadKeySeverityClass deliberately rather than let it land in a guessed class."
+            throw "Dead key $($Finding.Fingerprint) ($($Finding.Endpoint) $($Finding.Field)) has ReportSeverity '$severity'. The impact table knows only $((@(Get-PfbDriftSortedString -Value @($script:PfbBacklogDeadKeySeverityClass.Keys))) -join ', '), the values tools/Build-PfbDeadKeyReport.ps1 emits; add the new one to `$script:PfbBacklogDeadKeySeverityClass deliberately rather than let it land in a guessed class."
         }
         return $script:PfbBacklogDeadKeySeverityClass[$severity]
     }
