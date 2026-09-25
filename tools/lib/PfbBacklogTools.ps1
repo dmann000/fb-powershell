@@ -276,3 +276,172 @@ function Get-PfbBacklogPlacement {
         Warnings      = @($warnings)
     }
 }
+
+# THE IMPACT TABLE. It drives the in-band sort (Rank) and the triage proposal (Priority,
+# Reason). The letters follow docs/TRIAGE-ROLES.md's meanings for priority:.
+#   A  dead key, ReportSeverity DESTRUCTIVE or CREATE         can damage an array         P0
+#   B  dead key, WRONG-RESULTS; no surviving selector         wrong on the wire           P1
+#   C  response field removed or renamed; ValidateSet drift   breaks callers or rejects   P1
+#                                                             legal values
+#   D  uncovered endpoint; unread envelope field; param gap   net-new coverage            P2
+#   E  new ValidateSet candidate                              ergonomic                   P3
+#   -  no trusted block, or no live finding                   needs a person              none
+$script:PfbBacklogImpactClass = [ordered]@{
+    'A' = @{ Rank = 1; Priority = 'P0'; Reason = 'can damage an array' }
+    'B' = @{ Rank = 2; Priority = 'P1'; Reason = 'wrong on the wire' }
+    'C' = @{ Rank = 3; Priority = 'P1'; Reason = 'breaks callers or rejects legal values' }
+    'D' = @{ Rank = 4; Priority = 'P2'; Reason = 'net-new coverage' }
+    'E' = @{ Rank = 5; Priority = 'P3'; Reason = 'ergonomic' }
+    '-' = @{ Rank = 6; Priority = $null; Reason = 'needs a person' }
+}
+
+# Every drift category except deadKey, which is classed by severity below. A category not
+# named here throws in Get-PfbBacklogFindingClass.
+$script:PfbBacklogCategoryClass = @{
+    'noSurvivingSelector'     = 'B'
+    'responseFieldRemoval'    = 'C'
+    'responseFieldRename'     = 'C'
+    'validateSetDrift'        = 'C'
+    'uncoveredEndpoint'       = 'D'
+    'unhandledEnvelopeField'  = 'D'
+    'parameterGap'            = 'D'
+    'newValidateSetCandidate' = 'E'
+}
+
+# The only three ReportSeverity values tools/Build-PfbDeadKeyReport.ps1 emits
+# (Get-PfbDeadKeySeverity). Any other, including a case variant, throws.
+$script:PfbBacklogDeadKeySeverityClass = @{
+    'DESTRUCTIVE'   = 'A'
+    'CREATE'        = 'A'
+    'WRONG-RESULTS' = 'B'
+}
+
+# A proposal is S at or below this many live findings, else M. It is never L: L means
+# "needs a plan" (docs/TRIAGE-ROLES.md), which is a judgement, not a count.
+$script:PfbBacklogSmallFindingLimit = 10
+
+# The note on a trusted issue none of whose findings is still reported (used in Get-PfbBacklog).
+$script:PfbBacklogResolvedNote = 'No finding this issue tracks is still reported; the next reconciler run will label it status:resolved-upstream.'
+
+function Get-PfbBacklogFindingClass {
+    <#
+    .SYNOPSIS
+        The impact class of one drift finding. Throws on a category or severity the table does not name.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([Parameter(Mandatory = $true)]$Finding)
+
+    $category = [string]$Finding.Category
+    if ($category -ceq 'deadKey') {
+        $severity = [string]$Finding.Detail.ReportSeverity
+        if (@($script:PfbBacklogDeadKeySeverityClass.Keys) -cnotcontains $severity) {
+            throw "Dead key $($Finding.Fingerprint) ($($Finding.Endpoint) $($Finding.Field)) has ReportSeverity '$severity'. The impact table knows only DESTRUCTIVE, CREATE and WRONG-RESULTS, the values tools/Build-PfbDeadKeyReport.ps1 emits; add the new one to `$script:PfbBacklogDeadKeySeverityClass deliberately rather than let it land in a guessed class."
+        }
+        return $script:PfbBacklogDeadKeySeverityClass[$severity]
+    }
+    if (@($script:PfbBacklogCategoryClass.Keys) -cnotcontains $category) {
+        throw "Finding $($Finding.Fingerprint) has category '$category', which the impact table does not classify. Add it to `$script:PfbBacklogCategoryClass deliberately rather than let it land in a guessed class."
+    }
+    return $script:PfbBacklogCategoryClass[$category]
+}
+
+function Get-PfbBacklogImpact {
+    <#
+    .SYNOPSIS
+        An issue's impact class and finding counts, from its trusted block and the live findings.
+    .DESCRIPTION
+        An issue's LIVE findings are its trusted block's Fingerprints that match a finding in
+        the current reports. Its impact class is the worst (lowest-ranked) class among them,
+        or '-' when it has no trusted block or no live finding.
+
+        TrackedFindings is Marker.Fingerprints.Count. Fingerprints and Vanished are disjoint
+        (Assert-PfbDriftMarker), so vanished ones are not counted. TrackedFindings minus
+        LiveFindings is how a fingerprint the reports no longer contain shows up; it is not
+        an error.
+
+        Families are the distinct Finding.Family values of the live findings, ordinally
+        sorted. A finding with no endpoint has family '' (Get-PfbDriftFamily), which means
+        "no family" and is left out.
+    .OUTPUTS
+        [PSCustomObject] ImpactClass, LiveFindings, TrackedFindings, Families.
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowNull()]$Marker,
+        [Parameter(Mandatory = $true)]$FindingIndex
+    )
+
+    if ($null -eq $Marker) {
+        return [PSCustomObject]@{ ImpactClass = '-'; LiveFindings = 0; TrackedFindings = 0; Families = @() }
+    }
+
+    $tracked = @(Get-PfbDriftItem -Value $Marker.Fingerprints)
+    $live = @(foreach ($fingerprint in $tracked) {
+            if ($FindingIndex.ContainsKey([string]$fingerprint)) { $FindingIndex[[string]$fingerprint] }
+        })
+
+    $class = '-'
+    $best = [int]$script:PfbBacklogImpactClass['-'].Rank
+    foreach ($finding in $live) {
+        $candidate = Get-PfbBacklogFindingClass -Finding $finding
+        $rank = [int]$script:PfbBacklogImpactClass[$candidate].Rank
+        if ($rank -lt $best) {
+            $best = $rank
+            $class = $candidate
+        }
+    }
+
+    $families = @(Get-PfbDriftSortedString -Value @($live | ForEach-Object { [string]$_.Family } | Where-Object { $_ -ne '' }))
+    [PSCustomObject]@{
+        ImpactClass     = $class
+        LiveFindings    = $live.Count
+        TrackedFindings = $tracked.Count
+        Families        = $families
+    }
+}
+
+function Get-PfbBacklogProposal {
+    <#
+    .SYNOPSIS
+        The proposed priority and size for a status:triage issue, beside its current labels.
+    .DESCRIPTION
+        Priority comes from the impact table. Size is S at or below
+        $script:PfbBacklogSmallFindingLimit live findings, else M, and never L. Class '-'
+        proposes nothing (priority and size null, reason 'needs a person').
+
+        differs is true when a proposal exists and its priority or size disagrees with the
+        current label, so confirming a batch comes down to reading the rows where differs is
+        true. With no proposal there is nothing to disagree with, so differs is false; the
+        reason still says a person is needed.
+    .OUTPUTS
+        [PSCustomObject] priority, size, reason, differs, current { priority, size }.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$ImpactClass,
+        [Parameter(Mandatory = $true)][int]$LiveFindings,
+        [AllowNull()]$CurrentPriority = $null,
+        [AllowNull()]$CurrentSize = $null
+    )
+
+    if (@($script:PfbBacklogImpactClass.Keys) -cnotcontains $ImpactClass) {
+        throw "'$ImpactClass' is not an impact class ($(@($script:PfbBacklogImpactClass.Keys) -join ', '))."
+    }
+    $entry = $script:PfbBacklogImpactClass[$ImpactClass]
+    $priority = $entry.Priority
+    $size = $null
+    if ($null -ne $priority) {
+        $size = 'M'
+        if ($LiveFindings -le $script:PfbBacklogSmallFindingLimit) { $size = 'S' }
+    }
+    $differs = ($null -ne $priority) -and (($priority -cne $CurrentPriority) -or ($size -cne $CurrentSize))
+
+    [PSCustomObject]@{
+        priority = $priority
+        size     = $size
+        reason   = $entry.Reason
+        differs  = [bool]$differs
+        current  = [PSCustomObject]@{ priority = $CurrentPriority; size = $CurrentSize }
+    }
+}

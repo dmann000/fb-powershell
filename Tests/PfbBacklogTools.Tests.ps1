@@ -25,6 +25,21 @@ BeforeDiscovery {
         @{ Eol = 'LF'; NewLine = "`n" }
         @{ Eol = 'CRLF'; NewLine = "`r`n" }
     )
+
+    # The hand triage of #163-#172 (2026-09-25): each issue's hand labels and the mix of its
+    # live findings, keyed by dead-key ReportSeverity (or 'noSurvivingSelector').
+    $script:calibrationCases = @(
+        @{ Number = 163; Priority = 'P1'; Size = 'M'; Mix = @{ 'WRONG-RESULTS' = 21 } }
+        @{ Number = 164; Priority = 'P0'; Size = 'M'; Mix = @{ 'DESTRUCTIVE' = 1; 'WRONG-RESULTS' = 13; 'noSurvivingSelector' = 1 } }
+        @{ Number = 165; Priority = 'P0'; Size = 'S'; Mix = @{ 'DESTRUCTIVE' = 2; 'WRONG-RESULTS' = 4; 'noSurvivingSelector' = 2 } }
+        @{ Number = 166; Priority = 'P1'; Size = 'S'; Mix = @{ 'WRONG-RESULTS' = 6; 'noSurvivingSelector' = 1 } }
+        @{ Number = 167; Priority = 'P1'; Size = 'S'; Mix = @{ 'WRONG-RESULTS' = 5; 'noSurvivingSelector' = 1 } }
+        @{ Number = 168; Priority = 'P0'; Size = 'S'; Mix = @{ 'CREATE' = 1; 'DESTRUCTIVE' = 1; 'WRONG-RESULTS' = 2 } }
+        @{ Number = 169; Priority = 'P1'; Size = 'S'; Mix = @{ 'WRONG-RESULTS' = 4 } }
+        @{ Number = 170; Priority = 'P1'; Size = 'S'; Mix = @{ 'WRONG-RESULTS' = 3 } }
+        @{ Number = 171; Priority = 'P1'; Size = 'S'; Mix = @{ 'WRONG-RESULTS' = 3 } }
+        @{ Number = 172; Priority = 'P1'; Size = 'S'; Mix = @{ 'WRONG-RESULTS' = 3 } }
+    )
 }
 
 BeforeAll {
@@ -78,6 +93,47 @@ BeforeAll {
         $issue = [PSCustomObject]@{ Number = 1; Labels = @($Label); BlockError = $null }
         if ($BlockError) { $issue.BlockError = $BlockError }
         Get-PfbBacklogPlacement -Issue $issue
+    }
+
+    # One finding through the drift library's only constructor, so fingerprints and families
+    # are computed exactly as Get-PfbDriftFinding computes them.
+    function Build-TestFinding {
+        param([string]$Category, [string]$Endpoint = '', [string]$Field = '', [string]$Severity = '')
+        $detail = @{}
+        if ($Category -ceq 'deadKey') {
+            $detail = @{ Cmdlets = @('Get-PfbWidget'); Parameters = @('Get-PfbWidget -Name'); ReportSeverity = $Severity; Classification = 'test' }
+        }
+        return (ConvertTo-PfbDriftFindingRecord -Category $Category -Endpoint $Endpoint -Field $Field -Detail $detail)
+    }
+
+    # Fingerprint -> finding. The leading comma matters: a Dictionary is IEnumerable, and
+    # returning it bare would unroll it into KeyValuePairs.
+    function Build-TestFindingIndex {
+        param([object[]]$Finding)
+        $index = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+        foreach ($f in @($Finding)) { $index[$f.Fingerprint] = $f }
+        return , $index
+    }
+
+    function Build-TestMarker {
+        param([string[]]$Fingerprint, [string[]]$Vanished = @())
+        [PSCustomObject]@{ Kind = 'group'; GroupKey = 'deadkey:widgets'; Fingerprints = @($Fingerprint); Vanished = @($Vanished) }
+    }
+
+    # A calibration issue's findings, from its mix: one dead key per severity count, one
+    # no-surviving-selector finding per count, all in family cal<Number>.
+    function Get-TestCalibrationFinding {
+        param([int]$Number, [hashtable]$Mix)
+        foreach ($kind in @($Mix.Keys)) {
+            for ($i = 1; $i -le [int]$Mix[$kind]; $i++) {
+                if ($kind -ceq 'noSurvivingSelector') {
+                    Build-TestFinding -Category 'noSurvivingSelector' -Endpoint "GET /cal$Number/nss$i"
+                }
+                else {
+                    Build-TestFinding -Category 'deadKey' -Endpoint "GET /cal$Number" -Field ('{0}-{1}' -f $kind.ToLowerInvariant(), $i) -Severity $kind
+                }
+            }
+        }
     }
 }
 
@@ -258,5 +314,145 @@ Describe 'Get-PfbBacklogPlacement' -Skip:($PSVersionTable.PSVersion.Major -lt 7)
         @($placement.Errors) -join ' / ' | Should -BeExactly 'no status: label'
         @($placement.Warnings) -join ' / ' | Should -BeExactly 'no source: label / no area: label'
         $placement.NeedsLiveTest | Should -BeFalse
+    }
+}
+
+Describe 'Get-PfbBacklogFindingClass' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    It 'classes <Category> <Severity> as <Class>' -ForEach @(
+        @{ Category = 'deadKey'; Endpoint = 'DELETE /widgets'; Field = 'names'; Severity = 'DESTRUCTIVE'; Class = 'A' }
+        @{ Category = 'deadKey'; Endpoint = 'POST /widgets'; Field = 'names'; Severity = 'CREATE'; Class = 'A' }
+        @{ Category = 'deadKey'; Endpoint = 'GET /widgets'; Field = 'names'; Severity = 'WRONG-RESULTS'; Class = 'B' }
+        @{ Category = 'noSurvivingSelector'; Endpoint = 'GET /widgets'; Field = ''; Severity = ''; Class = 'B' }
+        @{ Category = 'responseFieldRemoval'; Endpoint = 'GET /widgets'; Field = 'items:name'; Severity = ''; Class = 'C' }
+        @{ Category = 'responseFieldRename'; Endpoint = 'GET /widgets'; Field = 'items:a->b'; Severity = ''; Class = 'C' }
+        @{ Category = 'validateSetDrift'; Endpoint = ''; Field = 'Get-PfbWidget:Type=missing:x'; Severity = ''; Class = 'C' }
+        @{ Category = 'uncoveredEndpoint'; Endpoint = 'GET /widgets'; Field = ''; Severity = ''; Class = 'D' }
+        @{ Category = 'unhandledEnvelopeField'; Endpoint = ''; Field = 'more_items_remaining'; Severity = ''; Class = 'D' }
+        @{ Category = 'parameterGap'; Endpoint = 'PATCH /widgets'; Field = 'query:ids'; Severity = ''; Class = 'D' }
+        @{ Category = 'newValidateSetCandidate'; Endpoint = ''; Field = 'Get-PfbWidget:Type'; Severity = ''; Class = 'E' }
+    ) {
+        $finding = Build-TestFinding -Category $Category -Endpoint $Endpoint -Field $Field -Severity $Severity
+        Get-PfbBacklogFindingClass -Finding $finding | Should -BeExactly $Class
+    }
+
+    It 'throws on a category the impact table does not name' {
+        $finding = Build-TestFinding -Category 'uncoveredEndpoint' -Endpoint 'GET /widgets'
+        $finding.Category = 'brandNewCategory'
+        { Get-PfbBacklogFindingClass -Finding $finding } | Should -Throw -ExpectedMessage '*brandNewCategory*'
+    }
+
+    It 'throws on a dead-key severity the generator does not emit, including a case variant' {
+        $finding = Build-TestFinding -Category 'deadKey' -Endpoint 'GET /widgets' -Field 'names' -Severity 'CATASTROPHIC'
+        { Get-PfbBacklogFindingClass -Finding $finding } | Should -Throw -ExpectedMessage '*CATASTROPHIC*'
+        $finding.Detail.ReportSeverity = 'destructive'
+        { Get-PfbBacklogFindingClass -Finding $finding } | Should -Throw -ExpectedMessage '*destructive*'
+    }
+
+    It 'names every category token the drift library defines' {
+        foreach ($token in $script:PfbDriftCategoryToken) {
+            if ($token -ceq 'deadKey') { continue }
+            (@($script:PfbBacklogCategoryClass.Keys) -ccontains $token) | Should -BeTrue -Because "'$token' needs an impact class"
+        }
+        @($script:PfbBacklogCategoryClass.Keys).Count | Should -Be ($script:PfbDriftCategoryToken.Count - 1)
+    }
+}
+
+Describe 'Get-PfbBacklogImpact' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    It 'gives class - and empty counts to an issue with no trusted block' {
+        $impact = Get-PfbBacklogImpact -Marker $null -FindingIndex (Build-TestFindingIndex -Finding @())
+        $impact.ImpactClass | Should -BeExactly '-'
+        $impact.LiveFindings | Should -Be 0
+        $impact.TrackedFindings | Should -Be 0
+        @($impact.Families).Count | Should -Be 0
+    }
+
+    It 'takes the worst live class, counts only reported fingerprints as live, and every active one as tracked' {
+        $dead = Build-TestFinding -Category 'deadKey' -Endpoint 'GET /widgets' -Field 'names' -Severity 'WRONG-RESULTS'
+        $uncovered = Build-TestFinding -Category 'uncoveredEndpoint' -Endpoint 'GET /widgets'
+        $marker = Build-TestMarker -Fingerprint @($dead.Fingerprint, $uncovered.Fingerprint, '00000000000000a1') -Vanished @('00000000000000b2')
+        $impact = Get-PfbBacklogImpact -Marker $marker -FindingIndex (Build-TestFindingIndex -Finding @($dead, $uncovered))
+        $impact.ImpactClass | Should -BeExactly 'B'
+        $impact.LiveFindings | Should -Be 2
+        $impact.TrackedFindings | Should -Be 3
+    }
+
+    It 'derives families from the live findings, ordinally sorted, leaving out the empty family' {
+        $findings = @(
+            (Build-TestFinding -Category 'uncoveredEndpoint' -Endpoint 'GET /widgets')
+            (Build-TestFinding -Category 'uncoveredEndpoint' -Endpoint 'GET /file-systems')
+            (Build-TestFinding -Category 'uncoveredEndpoint' -Endpoint 'GET /file-system-snapshots')
+            (Build-TestFinding -Category 'unhandledEnvelopeField' -Field 'more_items_remaining')
+        )
+        $marker = Build-TestMarker -Fingerprint @($findings | ForEach-Object { $_.Fingerprint })
+        $impact = Get-PfbBacklogImpact -Marker $marker -FindingIndex (Build-TestFindingIndex -Finding $findings)
+        @($impact.Families) -join ',' | Should -BeExactly 'file-system-snapshots,file-systems,widgets'
+    }
+
+    It 'gives class - to a trusted issue whose findings are all gone, and still counts them as tracked' {
+        $marker = Build-TestMarker -Fingerprint @('00000000000000a1', '00000000000000a2')
+        $impact = Get-PfbBacklogImpact -Marker $marker -FindingIndex (Build-TestFindingIndex -Finding @())
+        $impact.ImpactClass | Should -BeExactly '-'
+        $impact.LiveFindings | Should -Be 0
+        $impact.TrackedFindings | Should -Be 2
+    }
+}
+
+Describe 'Get-PfbBacklogProposal' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    It 'proposes <Priority> for class <Class>, with its reason' -ForEach @(
+        @{ Class = 'A'; Priority = 'P0' }
+        @{ Class = 'B'; Priority = 'P1' }
+        @{ Class = 'C'; Priority = 'P1' }
+        @{ Class = 'D'; Priority = 'P2' }
+        @{ Class = 'E'; Priority = 'P3' }
+    ) {
+        $proposal = Get-PfbBacklogProposal -ImpactClass $Class -LiveFindings 3
+        $proposal.priority | Should -BeExactly $Priority
+        $proposal.size | Should -BeExactly 'S'
+        $proposal.reason | Should -BeExactly $script:PfbBacklogImpactClass[$Class].Reason
+    }
+
+    It 'proposes S at 10 live findings and M at 11, and never L' {
+        (Get-PfbBacklogProposal -ImpactClass 'B' -LiveFindings 10).size | Should -BeExactly 'S'
+        (Get-PfbBacklogProposal -ImpactClass 'B' -LiveFindings 11).size | Should -BeExactly 'M'
+        (Get-PfbBacklogProposal -ImpactClass 'B' -LiveFindings 5000).size | Should -BeExactly 'M'
+    }
+
+    It 'sets differs when the current labels disagree, and clears it when they match' {
+        (Get-PfbBacklogProposal -ImpactClass 'B' -LiveFindings 7 -CurrentPriority 'P1' -CurrentSize 'S').differs | Should -BeFalse
+        (Get-PfbBacklogProposal -ImpactClass 'B' -LiveFindings 7 -CurrentPriority 'P2' -CurrentSize 'S').differs | Should -BeTrue
+        (Get-PfbBacklogProposal -ImpactClass 'B' -LiveFindings 7 -CurrentPriority 'P1' -CurrentSize 'M').differs | Should -BeTrue
+        (Get-PfbBacklogProposal -ImpactClass 'B' -LiveFindings 7).differs | Should -BeTrue
+    }
+
+    It 'proposes nothing for class -: no priority, no size, needs a person, and differs false' {
+        $proposal = Get-PfbBacklogProposal -ImpactClass '-' -LiveFindings 0 -CurrentPriority 'P2' -CurrentSize 'M'
+        $proposal.priority | Should -BeNullOrEmpty
+        $proposal.size | Should -BeNullOrEmpty
+        $proposal.reason | Should -BeExactly 'needs a person'
+        $proposal.differs | Should -BeFalse
+    }
+
+    It 'carries the current values beside the proposal, null when absent' {
+        $proposal = Get-PfbBacklogProposal -ImpactClass 'D' -LiveFindings 1 -CurrentPriority 'P2'
+        $proposal.current.priority | Should -BeExactly 'P2'
+        $proposal.current.size | Should -BeNullOrEmpty
+        @($proposal.PSObject.Properties.Name) -join ',' | Should -BeExactly 'priority,size,reason,differs,current'
+    }
+}
+
+Describe 'Calibration: the hand triage of #163-#172 (<Eol>)' -ForEach $script:lineEndings -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    It 'proposes <Priority> <Size> for #<Number>, matching its hand labels' -ForEach $script:calibrationCases {
+        $findings = @(Get-TestCalibrationFinding -Number $Number -Mix $Mix)
+        $labels = @('status:triage', "priority:$Priority", "size:$Size", 'source:drift', 'area:wire-contract')
+        $raw = Build-TestRestIssue -Number $Number -Label $labels -Fingerprint @($findings | ForEach-Object { $_.Fingerprint }) -NewLine $NewLine
+        $issue = @(ConvertFrom-PfbBacklogRestIssue -Issue @($raw))[0]
+        $placement = Get-PfbBacklogPlacement -Issue $issue
+        $impact = Get-PfbBacklogImpact -Marker $issue.Marker -FindingIndex (Build-TestFindingIndex -Finding $findings)
+        $proposal = Get-PfbBacklogProposal -ImpactClass $impact.ImpactClass -LiveFindings $impact.LiveFindings -CurrentPriority $placement.Priority -CurrentSize $placement.Size
+
+        $impact.LiveFindings | Should -Be $findings.Count
+        $proposal.priority | Should -BeExactly $Priority
+        $proposal.size | Should -BeExactly $Size
+        $proposal.differs | Should -BeFalse
     }
 }
