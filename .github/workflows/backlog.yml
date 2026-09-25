@@ -1,0 +1,83 @@
+name: Backlog
+
+# Ranks this repository's open issues into lanes with tools/Build-PfbBacklog.ps1 and
+# publishes the result: Markdown to the job summary, JSON as a run artifact. A person reads
+# the summary to pick the next unit of work; an unattended worker runs the script itself at
+# pick time and never reads a stored ranking.
+#
+# READ-ONLY. It writes no label and no issue, so it asks for issues: read and nothing
+# writable. A triage issue gets a PROPOSED priority and size in the output; applying one is
+# a person's decision.
+#
+# NOTHING COMMITTED. The output goes to the runner's temp directory and leaves as the job
+# summary and an artifact. Reports/ and the derived-artifact gate are untouched, which is
+# also why generatedAt making the file non-reproducible is acceptable.
+#
+# CHAINED OFF Drift Issues, WHATEVER ITS CONCLUSION: a partial apply still changed the
+# issues, so the ranking is stale either way. workflow_run only fires for a workflow file on
+# the default branch, so the chain starts working once this file is on main.
+#
+# NO SECRETS. GITHUB_TOKEN is passed only to raise the REST rate limit (60 to 1,000 an hour).
+# The repository is public and the script reads it anonymously otherwise.
+#
+# No Pester here: Tests/PfbBacklogTools.Tests.ps1, Tests/PfbGitHubRead.Tests.ps1 and
+# Tests/Build-PfbBacklog.Tests.ps1 already run on every pull request in
+# cross-platform-tests.yml.
+
+on:
+  workflow_dispatch:
+    inputs:
+      first:
+        description: 'Rows per lane in the job summary. The JSON artifact always holds every row.'
+        required: false
+        type: number
+        default: 10
+  workflow_run:
+    workflows: ['Drift Issues']
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: backlog
+  cancel-in-progress: true
+
+jobs:
+  score:
+    name: Score the open issues
+    runs-on: ubuntu-latest
+    # One paged GET and some sorting. The timeout is a stuck-network guard, not a budget.
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      # -First only when the input is non-empty. On a workflow_run event there are no
+      # inputs, and -First '' would fail [int] binding. The input arrives through env rather
+      # than being interpolated into the script text.
+      - name: Score the backlog
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BACKLOG_REPO: ${{ github.repository }}
+          BACKLOG_FIRST: ${{ inputs.first }}
+        run: |
+          $params = @{ Repo = $env:BACKLOG_REPO; OutputPath = (Join-Path $env:RUNNER_TEMP 'backlog') }
+          if ($env:BACKLOG_FIRST) { $params['First'] = [int]$env:BACKLOG_FIRST }
+          ./tools/Build-PfbBacklog.ps1 @params
+
+      - name: Publish the Markdown to the job summary
+        shell: pwsh
+        run: |
+          Get-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'backlog/PfbBacklog.md') -Raw |
+              Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      - name: Upload the JSON
+        uses: actions/upload-artifact@v5
+        with:
+          name: backlog
+          path: ${{ runner.temp }}/backlog/PfbBacklog.json
+          retention-days: 90
+          if-no-files-found: error
