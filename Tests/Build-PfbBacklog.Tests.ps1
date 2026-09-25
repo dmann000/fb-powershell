@@ -37,7 +37,7 @@ BeforeAll {
 
     $script:driftJson = @'
 {
-  "schemaVersion": 1, "analysedVersions": [ "2.28" ],
+  "schemaVersion": 1, "analysedVersions": [ "2.27" ],
   "uncoveredEndpoints": [ { "endpoint": "GET /widgets", "minVersion": "2.3" } ],
   "parameterGaps": [], "systemicGaps": [], "conventionStrength": [], "validateSetDrift": [], "newValidateSetCandidates": [],
   "responseFieldRemovals": [], "responseFieldRenameCandidates": [], "unhandledResponseEnvelopeFields": []

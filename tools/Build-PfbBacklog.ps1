@@ -91,7 +91,7 @@ $bearer = $Token
 if (-not $bearer) { $bearer = $env:GH_TOKEN }
 if (-not $bearer) { $bearer = $env:GITHUB_TOKEN }
 if ($bearer) { Write-Host "Reading $Repo authenticated (rate limit 1,000/hour)." }
-else { Write-Host "Reading $Repo anonymously (rate limit 60/hour, counted per source IP). Set GITHUB_TOKEN to raise it." }
+else { Write-Host "Reading $Repo anonymously (rate limit 60/hour, counted per source IP). Set GH_TOKEN or GITHUB_TOKEN to raise it." }
 
 $issues = @(Invoke-PfbGitHubPagedList -Path "repos/$Repo/issues?state=open&per_page=$script:PfbPageSize" `
         -UserAgent $userAgent -BearerToken $bearer -Description "The open-issue list for $Repo")
