@@ -37,7 +37,7 @@
     # the granularity RequiredDescribes can reach), no UNDECLARED file may skip, and a declared
     # file that stops running at all is a violation rather than a stale entry to delete.
     #
-    # Only files that actually skip appear here -- 19 of 199 on 5.1, 2 on pwsh 7 -- so this is
+    # Only files that actually skip appear here -- 22 of 213 on 5.1, 2 on pwsh 7 -- so this is
     # a short list, not a per-file census. Attribution is by leaf file name, which is sound
     # because Tests/ is flat and no two *.Tests.ps1 files share a leaf; the gate fails loudly
     # if that ever stops being true.
@@ -232,6 +232,12 @@
         # exact failure the paragraph below describes, committed by the same mechanism one
         # revision later. Recomputed from the map, not incremented by hand: 19 entries, 322.
         #
+        # Three entries were then ADDED, not moved, for the backlog scorer
+        # (tools/Build-PfbBacklog.ps1): PfbGitHubRead.Tests.ps1 18, PfbBacklogTools.Tests.ps1
+        # 147 and Build-PfbBacklog.Tests.ps1 16 -- new files, each gated wholesale because the
+        # code under test is `#Requires -Version 7.0`. 322 + 18 + 147 + 16 = 503. Recomputed
+        # from the map, not incremented by hand: 22 entries, 503.
+        #
         # Recompute this total from the map itself rather than adjusting it by the delta in
         # hand -- an earlier revision of this note said "one entry has moved ... sum to 307",
         # which was wrong in both halves because it was written against the #141 change alone
@@ -260,6 +266,17 @@
             'Update-PfbTestModuleImport.Tests.ps1'               = 34
             'PfbPipelineSelectorTools.Tests.ps1'                 = 33
             'PfbSelectorProbeHarness.Tests.ps1'                  = 16
+            # The backlog scorer (tools/Build-PfbBacklog.ps1). Three new files, each gated
+            # wholesale: the code under test is `#Requires -Version 7.0`, so every Describe
+            # carries -Skip:($PSVersionTable.PSVersion.Major -lt 7) and the file-level
+            # BeforeAll guards its dot-source. No #Requires in the test files themselves --
+            # that would drop them from the count and trip the empty-container rail. Each pin
+            # is the file's whole test count, one per -ForEach case, and moves with every
+            # test added. Measured on Windows PowerShell 5.1 for these three files alone:
+            # 0 passed / 0 failed, container ok.
+            'PfbGitHubRead.Tests.ps1'                            = 18
+            'PfbBacklogTools.Tests.ps1'                          = 147
+            'Build-PfbBacklog.Tests.ps1'                         = 16
             # 15 -> 26 for issue #141 Task 4: two new Describes (the five-bucket partition
             # reconciliation and the unknown-Surface refusal) exercise
             # tools/Build-PfbFieldCmdletMap.ps1 itself, which carries `#Requires -Version 7.0`,
