@@ -569,6 +569,40 @@ function Format-PfbDriftMarker {
     return ($lines -join $NewLine)
 }
 
+function Update-PfbDriftFenceState {
+    <#
+    .SYNOPSIS
+        Advances CommonMark fenced-code-block state by one line.
+    .DESCRIPTION
+        State is $null outside a fence, or [PSCustomObject] Char (backtick or tilde) and
+        Length (the opener's run length) inside one. Up to 3 leading spaces are stripped.
+        Outside a fence, a run of 3+ backticks or 3+ tildes opens one. Inside, only a run of
+        the SAME character, at least as long as the opener, followed by nothing but
+        whitespace closes it. Every other line leaves the state unchanged.
+    #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'Pure function: returns a new state value and changes nothing.')]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Line,
+        [AllowNull()]$State
+    )
+
+    $tick = [string][char]0x60
+    $match = [regex]::Match($Line, '^ {0,3}(?<run>' + $tick + '{3,}|~{3,})(?<rest>.*)$')
+    if ($null -eq $State) {
+        if (-not $match.Success) { return $null }
+        $run = $match.Groups['run'].Value
+        return [PSCustomObject]@{ Char = $run.Substring(0, 1); Length = $run.Length }
+    }
+    if ($match.Success) {
+        $run = $match.Groups['run'].Value
+        if ($run.Substring(0, 1) -ceq $State.Char -and $run.Length -ge $State.Length -and $match.Groups['rest'].Value.Trim() -eq '') {
+            return $null
+        }
+    }
+    return $State
+}
+
 function Get-PfbDriftBlockSpan {
     <#
     .SYNOPSIS
@@ -592,7 +626,7 @@ function Get-PfbDriftBlockSpan {
     [CmdletBinding()]
     param([Parameter(Mandatory = $true)][AllowEmptyCollection()][AllowEmptyString()][string[]]$Line)
 
-    $inFence = $false
+    $fence = $null
     $fenceLine = -1
     $fenceHidesStart = $false
     $start = -1
@@ -601,15 +635,16 @@ function Get-PfbDriftBlockSpan {
     $ends = 0
     for ($i = 0; $i -lt $Line.Count; $i++) {
         $text = $Line[$i].Trim()
-        if ($text.StartsWith($script:PfbDriftFence) -or $text.StartsWith('~~~')) {
-            $inFence = -not $inFence
-            if ($inFence) {
+        $wasInFence = ($null -ne $fence)
+        $fence = Update-PfbDriftFenceState -Line $Line[$i] -State $fence
+        if ($wasInFence -ne ($null -ne $fence)) {
+            if ($null -ne $fence) {
                 $fenceLine = $i
                 $fenceHidesStart = $false
             }
             continue
         }
-        if ($inFence) {
+        if ($null -ne $fence) {
             if ($text -cmatch '^<!--\s*pfb-drift-block:start\s*-->$') { $fenceHidesStart = $true }
             continue
         }
@@ -621,7 +656,7 @@ function Get-PfbDriftBlockSpan {
         }
     }
 
-    if ($inFence -and $fenceHidesStart) {
+    if (($null -ne $fence) -and $fenceHidesStart) {
         throw "A pfb-drift block start marker sits inside an unterminated code fence (opened on line $($fenceLine + 1)), so it cannot be told apart from a quoted example. Close the fence, or move the block out of it."
     }
     if ($starts -eq 0 -and $ends -eq 0) { return $null }

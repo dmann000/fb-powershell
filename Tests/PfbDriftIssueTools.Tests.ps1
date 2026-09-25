@@ -507,4 +507,19 @@ Describe 'machine block markers' {
         $issues[3].IgnoredBlock | Should -BeFalse
         ($issues[3].Marker.Fingerprints -join ',') | Should -BeExactly $script:fpA
     }
+
+    It 'closes a tilde fence only on a tilde line, so a backtick line inside it does not hide a later block' {
+        $block = Format-PfbDriftMarker -Marker ([PSCustomObject]@{ Kind = 'group'; GroupKey = 'family:widgets'; Fingerprints = @($script:fpA); Vanished = @() })
+        $body = "Example:`n~~~`n$($script:fence)`n~~~`n`n$block`n`nMore:`n$($script:fence)`nx`n$($script:fence)`n"
+        $raw = [PSCustomObject]@{ number = 88; title = 'T'; body = $body; state = 'OPEN'; stateReason = ''; labels = @('source:drift') }
+        $issue = @(ConvertFrom-PfbDriftIssue -Issue @($raw))[0]
+        $issue.Marker | Should -Not -BeNullOrEmpty
+        $issue.Marker.GroupKey | Should -BeExactly 'family:widgets'
+    }
+
+    It 'treats a tilde line inside an unclosed backtick fence as content, and throws on the hidden start marker' {
+        $body = "Output:`n$($script:fence)`n~~~`nmore`n<!-- pfb-drift-block:start -->`n<!-- pfb-drift-group: family:a -->`n<!-- pfb-drift-fingerprints: 0123456789abcdef -->`n<!-- pfb-drift-block:end -->"
+        $raw = [PSCustomObject]@{ number = 89; title = 'T'; body = $body; state = 'OPEN'; stateReason = ''; labels = @('source:drift') }
+        { ConvertFrom-PfbDriftIssue -Issue @($raw) } | Should -Throw -ExpectedMessage '*Issue #89: *inside an unterminated code fence (opened on line 2)*'
+    }
 }
