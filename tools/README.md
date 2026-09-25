@@ -836,6 +836,48 @@ input that defaults to false and the built-in token (`issues: write`). Tests:
 `Tests/New-PfbDriftIssue.Tests.ps1` (the script, against a fake gh, plus the workflow's
 safety properties). Both run on both editions.
 
+## Backlog scorer (`Build-PfbBacklog.ps1`)
+
+Ranks the open issues on `dmann000/fb-powershell` into lanes, so the next unit of work is
+read off a list rather than chosen by reading every issue. Read-only: it writes no label,
+needs no token, and commits nothing.
+
+    ./tools/Build-PfbBacklog.ps1                          # top 10 of each lane, to the console
+    ./tools/Build-PfbBacklog.ps1 -Lane build -First 1     # the next thing to build
+    ./tools/Build-PfbBacklog.ps1 -OutputPath ./backlog    # PfbBacklog.json + PfbBacklog.md
+
+**Lanes** follow the one `status:` label (`docs/TRIAGE-ROLES.md`): `build` (agent-ready,
+design-approved), `design` (needs-design), `triage`, `inFlight` (in-progress,
+needs-review), `parked` (blocked, human-only), `confirmClose` (resolved-upstream), and
+`labelErrors` for an issue that cannot be placed. Only `build` and `design` are ranked.
+
+**Ranking** is by the human `priority:` label first, then readiness (agent-ready first),
+impact class, size (S, M, L, missing), live finding count (more first) and issue number.
+There are no weights. Each row's `decidedBy` names the key that put it below the row above.
+
+**Impact class** is the worst live finding an issue's trusted machine block tracks:
+
+| Class | Findings | Proposed priority |
+|---|---|---|
+| A | dead key on a write | P0 |
+| B | dead key on a GET, or no surviving selector | P1 |
+| C | removed or renamed response field, or ValidateSet drift | P1 |
+| D | uncovered endpoint, envelope field or parameter gap | P2 |
+| E | ValidateSet candidate | P3 |
+| `-` | none | none |
+
+A `triage` issue gets that as a *proposed* priority, with size S up to 10 live findings and
+M above, and never L. `differs` marks the rows whose current labels disagree.
+
+**Output:** `-OutputPath` writes the two files. `-Lane` and `-First` shape the Markdown and
+console output only; the JSON always holds every lane and every row.
+
+**CI:** `.github/workflows/backlog.yml` runs on `workflow_dispatch` and after every Drift
+Issues run. It publishes the Markdown to the job summary and the JSON as a 90-day artifact,
+with `issues: read` only. Tests: `Tests/PfbBacklogTools.Tests.ps1`,
+`Tests/PfbGitHubRead.Tests.ps1` and `Tests/Build-PfbBacklog.Tests.ps1` (PowerShell 7;
+skipped, and pinned, on 5.1).
+
 ## Tests
 
 `Tests/PfbSpecTools.Tests.ps1` and `Tests/Build-PfbCapabilityMap.Tests.ps1` cover the
