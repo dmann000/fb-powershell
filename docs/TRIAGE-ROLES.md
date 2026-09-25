@@ -135,7 +135,12 @@ itself.
 
 `source:drift` is also a trust anchor. `tools/New-PfbDriftIssue.ps1` reads the machine
 block at the end of an issue body only on an issue carrying this label, because anyone
-can write an issue body but only collaborators can apply labels. Do not remove the label
+can write an issue body but only collaborators can apply labels. The label does not cover
+the issue's author, though: an author can always edit their own issue's body and close it,
+with or without collaborator rights, and so could rewrite the block or decline its findings.
+Apply `source:drift` only to an issue a collaborator (or the reconciler's own token)
+authored, and check the author first, whether you apply it by hand or through the
+post-merge stamper. Do not remove the label
 from an issue that carries such a block: the reconciler would stop seeing the issue, and
 file its findings again as new.
 
