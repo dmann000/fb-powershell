@@ -79,6 +79,26 @@ BeforeAll {
   "noSurvivingSelector": [ { "cmdlet": "Get-PfbWidgetPart", "method": "GET", "endpoint": "widgets/parts" } ]
 }
 '@
+    $script:gapDetail = @{ Location = 'query'; Cmdlets = @('Get-PfbWidget'); Confidence = 'high'; Caveat = ''; Annotations = @() }
+    $script:deadDetail = @{ Cmdlets = @('Get-PfbWidget'); Parameters = @('Get-PfbWidget -Flavour'); ReportSeverity = 'WRONG-RESULTS'; Classification = 'UNDECLARED' }
+
+    # A finding built directly, for tests that are about formatting or planning rather than
+    # about reading a report. GroupKey defaults to what Get-PfbDriftGroup gives it alone.
+    function Build-TestFinding {
+        param(
+            [string]$Category = 'uncoveredEndpoint',
+            [string]$Endpoint = 'GET /widgets',
+            [string]$Field = '',
+            [string]$Parameter = '',
+            [string]$Cmdlet = '',
+            [hashtable]$Detail = @{ MinVersion = '2.0' },
+            [string]$GroupKey = ''
+        )
+        $finding = ConvertTo-PfbDriftFindingRecord -Category $Category -Endpoint $Endpoint -Field $Field -Parameter $Parameter -Cmdlet $Cmdlet -Detail $Detail
+        if ($GroupKey -eq '') { $null = Get-PfbDriftGroup -Finding @($finding) }
+        else { $finding.GroupKey = $GroupKey }
+        return $finding
+    }
 }
 
 Describe 'Get-PfbDriftFingerprint' {
@@ -521,5 +541,93 @@ Describe 'machine block markers' {
         $body = "Output:`n$($script:fence)`n~~~`nmore`n<!-- pfb-drift-block:start -->`n<!-- pfb-drift-group: family:a -->`n<!-- pfb-drift-fingerprints: 0123456789abcdef -->`n<!-- pfb-drift-block:end -->"
         $raw = [PSCustomObject]@{ number = 89; title = 'T'; body = $body; state = 'OPEN'; stateReason = ''; labels = @('source:drift') }
         { ConvertFrom-PfbDriftIssue -Issue @($raw) } | Should -Throw -ExpectedMessage '*Issue #89: *inside an unterminated code fence (opened on line 2)*'
+    }
+}
+
+Describe 'issue and comment formatting' {
+    BeforeAll {
+        $script:gammaFindings = @(
+            Build-TestFinding -Category 'uncoveredEndpoint' -Endpoint 'GET /gamma' -Detail @{ MinVersion = '2.4' }
+            Build-TestFinding -Category 'parameterGap' -Endpoint 'PATCH /gamma' -Field 'query:ids' -Parameter 'ids' -Detail @{ Location = 'query'; Cmdlets = @('Update-PfbGamma'); Confidence = 'partial'; Caveat = 'typed coverage only'; Annotations = @('designDecision: a|b') }
+        )
+    }
+
+    It 'titles group kind <GroupKey>' -ForEach @(
+        @{ GroupKey = 'family:file-systems'; Expected = "Drift: API gaps in the 'file-systems' endpoint family" }
+        @{ GroupKey = 'systemic:allow_errors'; Expected = "Drift: parameter 'allow_errors' is missing across endpoint families" }
+        @{ GroupKey = 'envelope:errors'; Expected = "Drift: response envelope field 'errors' is not surfaced" }
+        @{ GroupKey = 'validateset:Get-PfbPolicyAllMember'; Expected = 'Drift: ValidateSet review for Get-PfbPolicyAllMember' }
+        @{ GroupKey = 'deadkey:arrays'; Expected = "Drift: dead or unreachable request keys in the 'arrays' family" }
+        @{ GroupKey = 'reopen:42'; Expected = 'Drift: findings still reported after #42 was closed' }
+    ) {
+        Format-PfbDriftIssueTitle -GroupKey $GroupKey | Should -BeExactly $Expected
+    }
+
+    It 'refuses an unknown group kind, and a title a command line could misread' {
+        { Format-PfbDriftIssueTitle -GroupKey 'bogus:x' } | Should -Throw -ExpectedMessage '*Unknown drift group kind*'
+        { Format-PfbDriftIssueTitle -GroupKey 'family:a&b' } | Should -Throw -ExpectedMessage '*unsafe*'
+    }
+
+    It 'labels source:drift, status:triage, needs:live-test and exactly one area, never a priority' {
+        $labels = @(Get-PfbDriftIssueLabel -Finding $script:gammaFindings)
+        ($labels -join ',') | Should -BeExactly 'source:drift,status:triage,needs:live-test,area:cmdlet-coverage'
+        @($labels | Where-Object { $_.StartsWith('priority:') }).Count | Should -Be 0
+    }
+
+    It 'takes the area from the most severe finding' {
+        $removal = Build-TestFinding -Category 'responseFieldRemoval' -Endpoint 'GET /gamma' -Field 'items:x' -Detail @{ IntroducedVersion = '2.0'; LastSeenVersion = '2.9' }
+        @(Get-PfbDriftIssueLabel -Finding (@($script:gammaFindings) + @($removal)))[3] | Should -BeExactly 'area:wire-contract'
+        @(Get-PfbDriftIssueLabel -Finding @($script:gammaFindings[1]))[3] | Should -BeExactly 'area:wire-contract'
+    }
+
+    It 'opens the body with the disclaimer and ends it with a machine block holding every fingerprint' {
+        $body = Format-PfbDriftIssueBody -GroupKey 'family:gamma' -Finding $script:gammaFindings -SourceNote 'fixture'
+        ($body -split "`n")[0] | Should -BeExactly $script:PfbDriftDisclaimer
+        $body.EndsWith('<!-- pfb-drift-block:end -->') | Should -BeTrue
+        $marker = ConvertFrom-PfbDriftMarker -Body $body
+        $marker.GroupKey | Should -BeExactly 'family:gamma'
+        ($marker.Fingerprints -join ',') | Should -BeExactly (@(Get-PfbDriftSortedString -Value @($script:gammaFindings | ForEach-Object { $_.Fingerprint })) -join ',')
+        foreach ($f in $script:gammaFindings) { $body.Contains('| `' + $f.Fingerprint + '` |') | Should -BeTrue }
+    }
+
+    It 'flags partial-confidence rows and escapes a pipe in detail text' {
+        $body = Format-PfbDriftIssueBody -GroupKey 'family:gamma' -Finding $script:gammaFindings
+        $body | Should -Match '\*\*Partial confidence:\*\* 1 row'
+        $body.Contains('designDecision: a\|b') | Should -BeTrue
+        Format-PfbDriftIssueBody -GroupKey 'family:gamma' -Finding @($script:gammaFindings[0]) | Should -Not -Match 'Partial confidence'
+    }
+
+    It 'stays under the body limit for a very large group and still records every fingerprint' {
+        $many = @(for ($i = 0; $i -lt 3000; $i++) {
+                Build-TestFinding -Category 'parameterGap' -Endpoint 'GET /widgets' -Field ('query:p{0:D4}' -f $i) -Parameter ('p{0:D4}' -f $i) -Detail $script:gapDetail -GroupKey 'systemic:p'
+            })
+        $body = Format-PfbDriftIssueBody -GroupKey 'systemic:p' -Finding $many
+        $body.Length | Should -BeLessOrEqual $script:PfbDriftBodyLimit
+        @((ConvertFrom-PfbDriftMarker -Body $body).Fingerprints).Count | Should -Be 3000
+        $body | Should -Match 'more finding\(s\) not listed'
+    }
+
+    It 'writes only ASCII' {
+        Format-PfbDriftIssueBody -GroupKey 'family:gamma' -Finding $script:gammaFindings | Should -Not -Match '[^\x00-\x7F]'
+        Format-PfbDriftComment -Added $script:gammaFindings | Should -Not -Match '[^\x00-\x7F]'
+    }
+
+    It 'opens a comment with the disclaimer and reports additions, vanishings and resolution' {
+        $comment = Format-PfbDriftComment -Added @($script:gammaFindings[0]) -Vanished @('00000000000000aa') -Resolved -ReplacedStatus @('status:triage')
+        ($comment -split "`n")[0] | Should -BeExactly $script:PfbDriftDisclaimer
+        $comment.Contains($script:gammaFindings[0].Fingerprint) | Should -BeTrue
+        $comment.Contains('00000000000000aa') | Should -BeTrue
+        $comment | Should -Match 'status:resolved-upstream'
+        $comment | Should -Match 'replacing .status:triage.'
+        $comment | Should -Match 'never closes issues'
+    }
+
+    It 'says why status:resolved-upstream was lifted, in words true of an append and of a reappearance' {
+        Format-PfbDriftComment -Reappeared @($script:gammaFindings[0]) -Unresolved | Should -Match 'still reported, so .status:resolved-upstream. was replaced with .status:triage.'
+        Format-PfbDriftComment -Added @($script:gammaFindings[0]) -Unresolved | Should -Match 'still reported, so .status:resolved-upstream. was replaced with .status:triage.'
+    }
+
+    It 'refuses to write a comment that reports nothing' {
+        { Format-PfbDriftComment } | Should -Throw -ExpectedMessage '*at least one change*'
     }
 }

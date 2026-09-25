@@ -831,3 +831,281 @@ function ConvertFrom-PfbDriftIssue {
         }
     }
 }
+
+function Format-PfbDriftIssueTitle {
+    <#
+    .SYNOPSIS
+        The title of the issue that carries a group.
+    .DESCRIPTION
+        Titles are restricted to a character set that survives every hop to gh: ghx is a
+        .cmd shim, so cmd.exe would reinterpret & | < > ^ % in an argument, and Windows
+        PowerShell 5.1 does not escape an embedded double quote for a native command.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([Parameter(Mandatory = $true)][string]$GroupKey)
+
+    $kind, $value = $GroupKey -split ':', 2
+    switch -CaseSensitive ($kind) {
+        'family' { $title = "Drift: API gaps in the '$value' endpoint family" }
+        'systemic' { $title = "Drift: parameter '$value' is missing across endpoint families" }
+        'envelope' { $title = "Drift: response envelope field '$value' is not surfaced" }
+        'validateset' { $title = "Drift: ValidateSet review for $value" }
+        'deadkey' { $title = "Drift: dead or unreachable request keys in the '$value' family" }
+        'reopen' { $title = "Drift: findings still reported after #$value was closed" }
+        default { throw "Unknown drift group kind in '$GroupKey'." }
+    }
+    if ([string]::IsNullOrEmpty($value) -or $title -cnotmatch "^[A-Za-z0-9 _:'#.,()/-]+$") {
+        throw "The title for '$GroupKey' would carry characters that are unsafe on a command line: $title"
+    }
+    return $title
+}
+
+function Get-PfbDriftIssueLabel {
+    <#
+    .SYNOPSIS
+        The labels a new drift issue is created with.
+    .DESCRIPTION
+        source:drift, status:triage, needs:live-test, and exactly one area: label --
+        docs/TRIAGE-ROLES.md makes area: single-valued, and a family group can mix
+        uncovered endpoints with wire-contract gaps. The area follows the group's most
+        severe finding: area:cmdlet-coverage when that is an uncovered endpoint, else
+        area:wire-contract. Never a priority: label -- status:triage means unassessed.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([Parameter(Mandatory = $true)][object[]]$Finding)
+
+    $items = @(Get-PfbDriftItem $Finding)
+    $minimum = ($items | Measure-Object -Property Severity -Minimum).Minimum
+    $area = $script:PfbDriftLabel.Wire
+    if (@($items | Where-Object { $_.Severity -eq $minimum -and $_.Category -ceq 'uncoveredEndpoint' }).Count -gt 0) {
+        $area = $script:PfbDriftLabel.Coverage
+    }
+    $script:PfbDriftLabel.Source
+    $script:PfbDriftLabel.Triage
+    $script:PfbDriftLabel.LiveTest
+    $area
+}
+
+function Format-PfbDriftFindingDetail {
+    <#
+    .SYNOPSIS
+        One table cell describing a finding, with pipes escaped and newlines flattened.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([Parameter(Mandatory = $true)]$Finding)
+
+    $d = $Finding.Detail
+    switch -CaseSensitive ($Finding.Category) {
+        'uncoveredEndpoint' { $text = "no cmdlet; in the spec since REST $($d.MinVersion)" }
+        'parameterGap' {
+            $text = "$($d.Location) parameter; cmdlets: $(@($d.Cmdlets) -join ', ')"
+            if ($d.Confidence -eq 'partial') { $text += '; confidence: partial' }
+            if (@($d.Annotations).Count -gt 0) { $text += "; note: $(@($d.Annotations) -join '; ')" }
+        }
+        'responseFieldRemoval' { $text = "removed from the response; present REST $($d.IntroducedVersion) to $($d.LastSeenVersion)" }
+        'responseFieldRename' { $text = "renamed $($d.From) -> $($d.To) at REST $($d.Version)" }
+        'validateSetDrift' { $text = "-$($d.Parameter): ValidateSet $($d.Kind) value '$($d.Value)'" }
+        'newValidateSetCandidate' { $text = "-$($d.Parameter) ($($d.WireName)): $($d.Recommendation); spec values: $(@($d.SpecValues) -join ', ')" }
+        'unhandledEnvelopeField' { $text = "not read by Invoke-PfbApiRequest; on $($d.EndpointCount) endpoint(s)" }
+        'deadKey' { $text = "$($d.ReportSeverity) / $($d.Classification); $(@($d.Parameters) -join ', ')" }
+        'noSurvivingSelector' { $text = "no selector survives; cmdlets: $(@($d.Cmdlets) -join ', ')" }
+        default { throw "Unknown drift category '$($Finding.Category)'." }
+    }
+    return (($text -replace '\|', '\|') -replace "[`r`n]+", ' ')
+}
+
+function Format-PfbDriftFindingTable {
+    <#
+    .SYNOPSIS
+        A markdown table of findings: header, separator, one row each, most severe first.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([Parameter(Mandatory = $true)][object[]]$Finding)
+
+    $tick = [string][char]0x60
+    $rows = [System.Collections.Generic.List[object]]::new()
+    foreach ($f in @(Get-PfbDriftItem $Finding)) { $rows.Add($f) }
+    $rows.Sort([System.Comparison[object]] {
+            param($a, $b)
+            $c = ([int]$a.Severity).CompareTo([int]$b.Severity)
+            if ($c -ne 0) { return $c }
+            $c = [string]::CompareOrdinal($a.Endpoint, $b.Endpoint)
+            if ($c -ne 0) { return $c }
+            $c = [string]::CompareOrdinal($a.Field, $b.Field)
+            if ($c -ne 0) { return $c }
+            return [string]::CompareOrdinal($a.Fingerprint, $b.Fingerprint)
+        })
+
+    '| Category | Endpoint | Field | Detail | Fingerprint |'
+    '|---|---|---|---|---|'
+    foreach ($f in $rows) {
+        $endpoint = '-'
+        if ($f.Endpoint -ne '') { $endpoint = $tick + $f.Endpoint + $tick }
+        $field = '-'
+        if ($f.Field -ne '') { $field = $tick + $f.Field + $tick }
+        '| {0} | {1} | {2} | {3} | {4} |' -f $f.Category, $endpoint, $field, (Format-PfbDriftFindingDetail -Finding $f), ($tick + $f.Fingerprint + $tick)
+    }
+}
+
+function Format-PfbDriftIssueBody {
+    <#
+    .SYNOPSIS
+        The body of a new drift issue: disclaimer, summary, findings table, maintenance
+        notes, and the machine block last.
+    .DESCRIPTION
+        The findings table is truncated, with a note, if the body would pass
+        $script:PfbDriftBodyLimit; the machine block always carries every fingerprint.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)][string]$GroupKey,
+        [Parameter(Mandatory = $true)][object[]]$Finding,
+        [AllowEmptyString()][string]$SourceNote = ''
+    )
+
+    $tick = [string][char]0x60
+    $items = @(Get-PfbDriftItem $Finding)
+    $kind, $value = $GroupKey -split ':', 2
+    $families = @(Get-PfbDriftSortedString -Value @($items | ForEach-Object { $_.Family } | Where-Object { $_ -ne '' }))
+    switch -CaseSensitive ($kind) {
+        'family' { $summary = "Gaps between the module and the published REST spec in the $tick$value$tick endpoint family: every endpoint whose path starts $tick/$value$tick." }
+        'systemic' { $summary = "The parameter $tick$value$tick is missing from cmdlets in $($families.Count) endpoint families. A parameter missing from 3 or more families is filed once, here, and kept out of the per-family issues." }
+        'envelope' { $summary = "The response envelope field $tick$value$tick is not read by ${tick}Invoke-PfbApiRequest$tick, so callers never see it." }
+        'validateset' { $summary = "ValidateSet findings for ${tick}$value${tick}: a declared set that disagrees with the spec, or a parameter the spec gives a fixed list of values." }
+        'deadkey' { $summary = "Request keys in the $tick$value$tick family that the spec does not accept where the cmdlet sends them, and cmdlets left with no working selector. The fix is to remove or relocate, not to add." }
+        'reopen' { $summary = "These findings are still reported after #$value was closed as completed: the fix was partial, or the finding came back." }
+        default { throw "Unknown drift group kind in '$GroupKey'." }
+    }
+
+    $categoryNames = @(Get-PfbDriftSortedString -Value @($items | ForEach-Object { $_.Category }))
+    $counts = @(foreach ($name in $categoryNames) {
+            '{0} {1}' -f $name, @($items | Where-Object { $_.Category -ceq $name }).Count
+        })
+    $partial = @($items | Where-Object { $_.Category -ceq 'parameterGap' -and $_.Detail.Confidence -eq 'partial' }).Count
+    $marker = Format-PfbDriftMarker -Marker ([PSCustomObject]@{
+            Kind         = 'group'
+            GroupKey     = $GroupKey
+            Fingerprints = @($items | ForEach-Object { $_.Fingerprint })
+            Vanished     = @()
+        })
+
+    $head = [System.Collections.Generic.List[string]]::new()
+    $head.Add($script:PfbDriftDisclaimer)
+    $head.Add('')
+    $head.Add('## Summary')
+    $head.Add('')
+    $head.Add($summary)
+    $head.Add('')
+    $head.Add("**Findings:** $($items.Count) ($($counts -join ', '))")
+    if ($SourceNote -ne '') {
+        $head.Add('')
+        $head.Add("**Source:** $SourceNote")
+    }
+    if ($partial -gt 0) {
+        $head.Add('')
+        $head.Add("**Partial confidence:** $partial row(s) come from endpoints the drift report marks ${tick}partial${tick}. Read 'How to read this report' in ${tick}Reports/PfbApiDriftReport.md$tick before acting on them.")
+    }
+    $head.Add('')
+    $head.Add('## Findings')
+    $head.Add('')
+
+    $foot = @(
+        ''
+        '## How this issue is maintained'
+        ''
+        "${tick}tools/New-PfbDriftIssue.ps1$tick reconciles this issue against the committed drift reports. It rewrites only the machine block at the end of this body, and comments whenever findings are added, stop being reported, or come back. It never closes an issue."
+        ''
+        "- Close as **not planned** to decline these findings for good; they will not be filed again. Record the reasoning in ${tick}docs/settled/$tick."
+        '- Close as **completed** when the work is done. A finding still reported after that is filed again, in a new issue that links here.'
+        ''
+        $marker
+    )
+
+    $nl = "`n"
+    $table = @(Format-PfbDriftFindingTable -Finding $items)
+    $fixedLength = ($head -join $nl).Length + ($foot -join $nl).Length + 2
+    $budget = $script:PfbDriftBodyLimit - $fixedLength - 300
+    if ($budget -lt ($table[0].Length + $table[1].Length + 2)) {
+        throw "Group '$GroupKey' has too many findings ($($items.Count)) for one issue body even with its table omitted."
+    }
+    $used = 0
+    $kept = 0
+    foreach ($line in $table) {
+        if ($used + $line.Length + 1 -gt $budget) { break }
+        $used += $line.Length + 1
+        $kept++
+    }
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    foreach ($line in $head) { $lines.Add($line) }
+    for ($i = 0; $i -lt $kept; $i++) { $lines.Add($table[$i]) }
+    if ($kept -lt $table.Count) {
+        $lines.Add('')
+        $lines.Add("_$($table.Count - $kept) more finding(s) not listed, to stay under GitHub's body limit. Every fingerprint is in the machine block below._")
+    }
+    foreach ($line in $foot) { $lines.Add($line) }
+    return ($lines -join $nl)
+}
+
+function Format-PfbDriftComment {
+    <#
+    .SYNOPSIS
+        The visible comment posted whenever the reconciler changes an issue's machine block.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [AllowEmptyCollection()][object[]]$Added = @(),
+        [AllowEmptyCollection()][object[]]$Reappeared = @(),
+        [AllowEmptyCollection()][string[]]$Vanished = @(),
+        [switch]$Resolved,
+        [AllowEmptyCollection()][string[]]$ReplacedStatus = @(),
+        [switch]$Unresolved
+    )
+
+    $tick = [string][char]0x60
+    $added = @(Get-PfbDriftItem $Added)
+    $back = @(Get-PfbDriftItem $Reappeared)
+    $gone = @(Get-PfbDriftSortedString -Value @(Get-PfbDriftItem $Vanished))
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines.Add($script:PfbDriftDisclaimer)
+    if ($added.Count -gt 0) {
+        $lines.Add('')
+        $lines.Add("**Added ($($added.Count)):** newly reported findings in this issue's group.")
+        $lines.Add('')
+        foreach ($line in @(Format-PfbDriftFindingTable -Finding $added)) { $lines.Add($line) }
+    }
+    if ($back.Count -gt 0) {
+        $lines.Add('')
+        $lines.Add("**Reported again ($($back.Count)):** findings this issue had recorded as no longer reported.")
+        $lines.Add('')
+        foreach ($line in @(Format-PfbDriftFindingTable -Finding $back)) { $lines.Add($line) }
+    }
+    if ($gone.Count -gt 0) {
+        $lines.Add('')
+        $lines.Add("**No longer reported ($($gone.Count)):** " + (@($gone | ForEach-Object { $tick + $_ + $tick }) -join ', '))
+        $lines.Add('')
+        $lines.Add("They stay in the machine block as vanished, so this is said once. This issue's findings table shows what each fingerprint was.")
+    }
+    if ($Resolved) {
+        $replaced = ''
+        $statuses = @(Get-PfbDriftItem $ReplacedStatus)
+        if ($statuses.Count -gt 0) {
+            $replaced = ' (replacing ' + (@($statuses | ForEach-Object { $tick + $_ + $tick }) -join ', ') + ')'
+        }
+        $lines.Add('')
+        $lines.Add("None of this issue's findings are reported any more, so it is now labelled ${tick}status:resolved-upstream$tick$replaced. A person should confirm and close it; this tool never closes issues.")
+    }
+    if ($Unresolved) {
+        $lines.Add('')
+        $lines.Add("This issue has findings that are still reported, so ${tick}status:resolved-upstream$tick was replaced with ${tick}status:triage$tick.")
+    }
+    if ($lines.Count -eq 1) { throw 'A drift comment needs at least one change to report.' }
+    return ($lines -join "`n")
+}
