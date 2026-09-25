@@ -85,7 +85,7 @@ Describe 'ConvertFrom-PfbBacklogRestIssue (<Eol>)' -ForEach $script:lineEndings 
     It 'control: the raw REST row would throw inside ConvertFrom-PfbDriftIssue under StrictMode' {
         Set-StrictMode -Version Latest
         $raw = Build-TestRestIssue -Number 3 -Label @('source:drift') -Fingerprint @('0123456789abcdef') -NewLine $NewLine
-        { ConvertFrom-PfbDriftIssue -Issue @($raw) } | Should -Throw
+        { ConvertFrom-PfbDriftIssue -Issue @($raw) } | Should -Throw -ExpectedMessage '*stateReason*'
     }
 
     It 'normalises a REST row carrying state_reason and html_url under Set-StrictMode -Version Latest' {
@@ -122,6 +122,17 @@ Describe 'ConvertFrom-PfbBacklogRestIssue (<Eol>)' -ForEach $script:lineEndings 
         $rows[0].BlockError | Should -BeLike 'Issue #7: Expected exactly one pfb-drift block*'
         $rows[0].Marker | Should -BeNullOrEmpty
         $rows[1].BlockError | Should -BeNullOrEmpty
+    }
+
+    It 'ignores a malformed block on an untrusted issue, so a public user cannot force labelErrors' {
+        $bad = "Human text.$NewLine$NewLine<!-- pfb-drift-block:start -->$NewLine<!-- pfb-drift-group: family:widgets -->$NewLine"
+        $row = @(ConvertFrom-PfbBacklogRestIssue -Issue @(
+                (Build-TestRestIssue -Number 10 -Label @('status:triage', 'source:human') -Body $bad)
+            ))[0]
+        $row.BlockError | Should -BeNullOrEmpty
+        $row.Marker | Should -BeNullOrEmpty
+        $row.IgnoredBlock | Should -BeTrue
+        $row.Trusted | Should -BeFalse
     }
 
     It 'normalises an issue with a null body and no labels' {
