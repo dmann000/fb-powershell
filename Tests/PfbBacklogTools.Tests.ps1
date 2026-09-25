@@ -135,6 +135,14 @@ BeforeAll {
             }
         }
     }
+
+    # A ranked-lane row carrying only the members the sort reads (and the two it writes).
+    function Build-TestRow {
+        param([int]$Number, [string]$Priority, [string]$Status = 'agent-ready', [string]$Impact = 'B', [AllowNull()][string]$Size = 'S', [int]$Live = 1)
+        $sizeValue = $null
+        if ($Size) { $sizeValue = $Size }
+        [PSCustomObject]@{ number = $Number; status = $Status; priority = $Priority; size = $sizeValue; impactClass = $Impact; liveFindings = $Live; rank = $null; decidedBy = $null }
+    }
 }
 
 Describe 'ConvertFrom-PfbBacklogRestIssue (<Eol>)' -ForEach $script:lineEndings -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
@@ -454,5 +462,70 @@ Describe 'Calibration: the hand triage of #163-#172 (<Eol>)' -ForEach $script:li
         $proposal.priority | Should -BeExactly $Priority
         $proposal.size | Should -BeExactly $Size
         $proposal.differs | Should -BeFalse
+    }
+}
+
+Describe 'Get-PfbBacklogRankedRow' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    It 'orders by every key in turn, and names the key that placed each row' {
+        $rows = @(
+            (Build-TestRow -Number 13 -Priority 'P1' -Status 'design-approved' -Impact 'B' -Size 'M' -Live 4)
+            (Build-TestRow -Number 50 -Priority 'P0' -Status 'agent-ready' -Impact 'A' -Size 'S' -Live 1)
+            (Build-TestRow -Number 20 -Priority 'P1' -Status 'design-approved' -Impact 'B' -Size 'S' -Live 1)
+            (Build-TestRow -Number 12 -Priority 'P1' -Status 'design-approved' -Impact 'B' -Size 'M' -Live 4)
+            (Build-TestRow -Number 40 -Priority 'P1' -Status 'agent-ready' -Impact 'A' -Size 'S' -Live 1)
+            (Build-TestRow -Number 15 -Priority 'P1' -Status 'design-approved' -Impact 'B' -Size 'M' -Live 5)
+            (Build-TestRow -Number 30 -Priority 'P1' -Status 'design-approved' -Impact 'A' -Size 'S' -Live 1)
+        )
+        $ranked = @(Get-PfbBacklogRankedRow -Row $rows -Lane 'build')
+        @($ranked | ForEach-Object { $_.number }) -join ',' | Should -BeExactly '50,40,30,20,15,12,13'
+        @($ranked | ForEach-Object { $_.rank }) -join ',' | Should -BeExactly '1,2,3,4,5,6,7'
+        $ranked[0].decidedBy | Should -BeNullOrEmpty
+        @($ranked | Select-Object -Skip 1 | ForEach-Object { $_.decidedBy }) -join ',' |
+            Should -BeExactly 'priority,readiness,impact,size,liveFindings,number'
+    }
+
+    It 'does not use readiness in the design lane' {
+        $ranked = @(Get-PfbBacklogRankedRow -Lane 'design' -Row @(
+                (Build-TestRow -Number 1 -Priority 'P1' -Status 'needs-design' -Impact 'B')
+                (Build-TestRow -Number 2 -Priority 'P1' -Status 'needs-design' -Impact 'A')
+            ))
+        @($ranked | ForEach-Object { $_.number }) -join ',' | Should -BeExactly '2,1'
+        $ranked[1].decidedBy | Should -BeExactly 'impact'
+    }
+
+    It 'sorts a missing size after L' {
+        $ranked = @(Get-PfbBacklogRankedRow -Lane 'build' -Row @(
+                (Build-TestRow -Number 1 -Priority 'P1' -Size '')
+                (Build-TestRow -Number 2 -Priority 'P1' -Size 'L')
+            ))
+        @($ranked | ForEach-Object { $_.number }) -join ',' | Should -BeExactly '2,1'
+        $ranked[1].decidedBy | Should -BeExactly 'size'
+    }
+
+    It 'sorts impact - after E' {
+        $ranked = @(Get-PfbBacklogRankedRow -Lane 'build' -Row @(
+                (Build-TestRow -Number 1 -Priority 'P2' -Impact '-')
+                (Build-TestRow -Number 2 -Priority 'P2' -Impact 'E')
+            ))
+        @($ranked | ForEach-Object { $_.number }) -join ',' | Should -BeExactly '2,1'
+    }
+
+    It 'orders the four priority bands P0 to P3' {
+        $ranked = @(Get-PfbBacklogRankedRow -Lane 'design' -Row @(
+                (Build-TestRow -Number 1 -Priority 'P3' -Status 'needs-design')
+                (Build-TestRow -Number 2 -Priority 'P1' -Status 'needs-design')
+                (Build-TestRow -Number 3 -Priority 'P0' -Status 'needs-design')
+                (Build-TestRow -Number 4 -Priority 'P2' -Status 'needs-design')
+            ))
+        @($ranked | ForEach-Object { $_.priority }) -join ',' | Should -BeExactly 'P0,P1,P2,P3'
+    }
+
+    It 'returns nothing for an empty lane' {
+        @(Get-PfbBacklogRankedRow -Row @() -Lane 'build').Count | Should -Be 0
+    }
+
+    It 'refuses to rank a row with no single known priority' {
+        { Get-PfbBacklogRankedRow -Lane 'build' -Row @((Build-TestRow -Number 9 -Priority '')) } |
+            Should -Throw -ExpectedMessage 'Issue #9 has no single known priority*'
     }
 }

@@ -445,3 +445,94 @@ function Get-PfbBacklogProposal {
         current  = [PSCustomObject]@{ priority = $CurrentPriority; size = $CurrentSize }
     }
 }
+
+# Build lane only: an issue with a brief is ready before one whose approach is merely decided.
+$script:PfbBacklogReadiness = @{ 'agent-ready' = 0; 'design-approved' = 1 }
+
+# The in-band sort keys, in the order they apply; decidedBy reports one of these names.
+$script:PfbBacklogSortKeyName = @('priority', 'readiness', 'impact', 'size', 'liveFindings', 'number')
+
+function Get-PfbBacklogSortKey {
+    <#
+    .SYNOPSIS
+        A ranked row's six sort keys as integers, each compared ascending, in the order they apply.
+    .DESCRIPTION
+        1 priority band, P0 to P3. 2 readiness (build lane only: agent-ready before
+        design-approved; always 0 in design). 3 impact class, A to E, then '-'. 4 size S, M,
+        L, then missing. 5 live finding count, negated so that more sorts first. 6 issue
+        number. No weights: a later key only orders rows the earlier keys tie.
+    .OUTPUTS
+        [int] six values; wrap the call in @().
+    #>
+    [CmdletBinding()]
+    [OutputType([int])]
+    param(
+        [Parameter(Mandatory = $true)]$Row,
+        [Parameter(Mandatory = $true)][ValidateSet('build', 'design')][string]$Lane
+    )
+
+    $priority = [array]::IndexOf($script:PfbBacklogPriority, [string]$Row.priority)
+    if ($priority -lt 0) {
+        throw "Issue #$($Row.number) has no single known priority: label, so it cannot be ranked. Get-PfbBacklogPlacement sends such an issue to labelErrors; ranking it means a caller skipped placement."
+    }
+    $readiness = 0
+    if ($Lane -ceq 'build') {
+        if (@($script:PfbBacklogReadiness.Keys) -cnotcontains [string]$Row.status) {
+            throw "Issue #$($Row.number) has status '$($Row.status)', which is not a build-lane status."
+        }
+        $readiness = [int]$script:PfbBacklogReadiness[[string]$Row.status]
+    }
+    $size = [array]::IndexOf($script:PfbBacklogSize, [string]$Row.size)
+    if ($size -lt 0) { $size = $script:PfbBacklogSize.Count }
+    $impact = [int]$script:PfbBacklogImpactClass[[string]$Row.impactClass].Rank
+
+    $priority
+    $readiness
+    $impact
+    $size
+    (-1 * [int]$Row.liveFindings)
+    [int]$Row.number
+}
+
+function Get-PfbBacklogRankedRow {
+    <#
+    .SYNOPSIS
+        Sorts a ranked lane, and sets each row's rank and decidedBy.
+    .DESCRIPTION
+        decidedBy is the name of the first sort key whose value differs from the row directly
+        above; it is null on rank 1. Issue numbers are unique, so every row after the first
+        is decided by some key. The order is fully deterministic.
+
+        Sets rank and decidedBy on the rows it is given, and emits them in rank order.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Row,
+        [Parameter(Mandatory = $true)][ValidateSet('build', 'design')][string]$Lane
+    )
+
+    $keyed = @(foreach ($item in @(Get-PfbDriftItem -Value $Row)) {
+            [PSCustomObject]@{ Row = $item; Key = @(Get-PfbBacklogSortKey -Row $item -Lane $Lane) }
+        })
+    $sorted = @($keyed | Sort-Object -Property @{ Expression = { $_.Key[0] } }, @{ Expression = { $_.Key[1] } },
+        @{ Expression = { $_.Key[2] } }, @{ Expression = { $_.Key[3] } }, @{ Expression = { $_.Key[4] } },
+        @{ Expression = { $_.Key[5] } })
+
+    $previous = $null
+    $rank = 0
+    foreach ($entry in $sorted) {
+        $rank++
+        $entry.Row.rank = $rank
+        $entry.Row.decidedBy = $null
+        if ($null -ne $previous) {
+            for ($k = 0; $k -lt $script:PfbBacklogSortKeyName.Count; $k++) {
+                if ($entry.Key[$k] -ne $previous.Key[$k]) {
+                    $entry.Row.decidedBy = $script:PfbBacklogSortKeyName[$k]
+                    break
+                }
+            }
+        }
+        $previous = $entry
+        $entry.Row
+    }
+}
