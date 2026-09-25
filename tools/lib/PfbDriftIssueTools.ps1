@@ -442,8 +442,66 @@ function Get-PfbDriftFinding {
         }
     }
 
-    $findings = @($byFingerprint.Values)
+    $findings = @(Get-PfbDriftGroup -Finding @($byFingerprint.Values))
     $index = @{}
     foreach ($finding in $findings) { $index[$finding.Fingerprint] = $finding }
     foreach ($fingerprint in @(Get-PfbDriftSortedString -Value @($index.Keys))) { $index[$fingerprint] }
+}
+
+function Get-PfbDriftGroup {
+    <#
+    .SYNOPSIS
+        Sets each finding's GroupKey: the one issue it belongs in.
+    .DESCRIPTION
+        family:<segment>     uncovered endpoints, response-field removals and renames, and
+                             parameter gaps whose parameter is not systemic
+        systemic:<param>     parameter gaps for a wire name missing in at least
+                             -SystemicFamilyThreshold (3) distinct families, query and body
+                             counted together; such a parameter leaves every family group
+        envelope:<field>     unhandled response envelope fields
+        validateset:<cmdlet> ValidateSet drift and new ValidateSet candidates
+        deadkey:<segment>    dead keys and cmdlets with no surviving selector, kept apart
+                             from family issues because the fix is remove or relocate
+
+        Grouping decides only where a NEW finding goes. A finding already recorded in an
+        open issue stays there even if a later report moves its parameter across the
+        systemic threshold -- Get-PfbDriftFindingDisposition checks recorded issues first.
+
+        Mutates GroupKey on the objects it is given, and emits them.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Finding,
+        [ValidateRange(1, 1000)][int]$SystemicFamilyThreshold = $script:PfbDriftSystemicFamilyThreshold
+    )
+
+    $items = @(Get-PfbDriftItem $Finding)
+    $familiesByParameter = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    foreach ($f in $items) {
+        if ($f.Category -cne 'parameterGap') { continue }
+        if (-not $familiesByParameter.ContainsKey($f.Parameter)) {
+            $familiesByParameter[$f.Parameter] = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+        }
+        [void]$familiesByParameter[$f.Parameter].Add($f.Family)
+    }
+
+    foreach ($f in $items) {
+        switch -CaseSensitive ($f.Category) {
+            'parameterGap' {
+                if ($familiesByParameter[$f.Parameter].Count -ge $SystemicFamilyThreshold) { $key = 'systemic:' + $f.Parameter }
+                else { $key = 'family:' + $f.Family }
+            }
+            'unhandledEnvelopeField' { $key = 'envelope:' + $f.Field }
+            'validateSetDrift' { $key = 'validateset:' + $f.Cmdlet }
+            'newValidateSetCandidate' { $key = 'validateset:' + $f.Cmdlet }
+            'deadKey' { $key = 'deadkey:' + $f.Family }
+            'noSurvivingSelector' { $key = 'deadkey:' + $f.Family }
+            default { $key = 'family:' + $f.Family }
+        }
+        if ($key -cnotmatch $script:PfbDriftGroupKeyPattern) {
+            throw "Finding $($f.Fingerprint) ($($f.Category) $($f.Endpoint) $($f.Field)) produced group key '$key', which the machine block cannot carry."
+        }
+        $f.GroupKey = $key
+        $f
+    }
 }

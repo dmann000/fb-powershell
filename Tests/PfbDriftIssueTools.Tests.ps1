@@ -296,3 +296,61 @@ Describe 'Get-PfbDriftFinding' {
         { Get-PfbDriftFinding -DriftReport $nested -DeadKeyReport (Build-TestDeadKeyReport) } | Should -Throw -ExpectedMessage '*stringified object*'
     }
 }
+
+Describe 'Get-PfbDriftGroup' {
+    BeforeAll {
+        $script:groupJson = @'
+{ "parameterGaps": [
+  { "endpoint": "GET /alpha", "cmdlets": [ "Get-PfbAlpha" ], "missingQueryParameters": [ "sort", "ids" ], "missingBodyProperties": [], "readOnlyFields": [], "confidence": { "level": "high", "caveat": "" }, "annotations": [] },
+  { "endpoint": "GET /alpha/things", "cmdlets": [ "Get-PfbAlphaThing" ], "missingQueryParameters": [ "ids" ], "missingBodyProperties": [], "readOnlyFields": [], "confidence": { "level": "high", "caveat": "" }, "annotations": [] },
+  { "endpoint": "GET /beta/items", "cmdlets": [ "Get-PfbBetaItem" ], "missingQueryParameters": [ "sort" ], "missingBodyProperties": [], "readOnlyFields": [], "confidence": { "level": "high", "caveat": "" }, "annotations": [] },
+  { "endpoint": "PATCH /gamma", "cmdlets": [ "Update-PfbGamma" ], "missingQueryParameters": [], "missingBodyProperties": [ { "name": "sort" } ], "readOnlyFields": [], "confidence": { "level": "high", "caveat": "" }, "annotations": [] }
+] }
+'@
+        function Get-TestGroupKey {
+            param([object[]]$Finding, [string]$Field, [string]$Endpoint)
+            @($Finding | Where-Object { $_.Field -ceq $Field -and $_.Endpoint -ceq $Endpoint })[0].GroupKey
+        }
+        $script:grouped = @(Get-PfbDriftFinding -DriftReport (Build-TestDriftReport -Json $script:groupJson) -DeadKeyReport (Build-TestDeadKeyReport))
+    }
+
+    It 'files a parameter missing in three families once, as systemic, counting query and body together' {
+        Get-TestGroupKey -Finding $script:grouped -Field 'query:sort' -Endpoint 'GET /alpha' | Should -BeExactly 'systemic:sort'
+        Get-TestGroupKey -Finding $script:grouped -Field 'query:sort' -Endpoint 'GET /beta/items' | Should -BeExactly 'systemic:sort'
+        Get-TestGroupKey -Finding $script:grouped -Field 'body:sort' -Endpoint 'PATCH /gamma' | Should -BeExactly 'systemic:sort'
+        @($script:grouped | Where-Object { $_.GroupKey -like 'family:*' -and $_.Parameter -ceq 'sort' }).Count | Should -Be 0
+    }
+
+    It 'counts families, not endpoints: two endpoints in one family stay in the family group' {
+        Get-TestGroupKey -Finding $script:grouped -Field 'query:ids' -Endpoint 'GET /alpha' | Should -BeExactly 'family:alpha'
+        Get-TestGroupKey -Finding $script:grouped -Field 'query:ids' -Endpoint 'GET /alpha/things' | Should -BeExactly 'family:alpha'
+    }
+
+    It 'keeps a parameter missing in only two families in its family groups' {
+        $report = Build-TestDriftReport -Json $script:groupJson
+        $report.parameterGaps = @($report.parameterGaps | Where-Object { $_.endpoint -cne 'PATCH /gamma' })
+        $two = @(Get-PfbDriftFinding -DriftReport $report -DeadKeyReport (Build-TestDeadKeyReport))
+        Get-TestGroupKey -Finding $two -Field 'query:sort' -Endpoint 'GET /alpha' | Should -BeExactly 'family:alpha'
+        Get-TestGroupKey -Finding $two -Field 'query:sort' -Endpoint 'GET /beta/items' | Should -BeExactly 'family:beta'
+    }
+
+    It 'honours -SystemicFamilyThreshold' {
+        $regrouped = @(Get-PfbDriftGroup -Finding $script:grouped -SystemicFamilyThreshold 4)
+        Get-TestGroupKey -Finding $regrouped -Field 'query:sort' -Endpoint 'GET /alpha' | Should -BeExactly 'family:alpha'
+    }
+
+    It 'gives every other category its own group kind' {
+        $all = @(Get-PfbDriftFinding -DriftReport (Build-TestDriftReport -Json $script:fullDriftJson) -DeadKeyReport (Build-TestDeadKeyReport -Json $script:fullDeadKeyJson))
+        $byKey = @{}
+        foreach ($f in $all) { $byKey[$f.Category + '|' + $f.Field] = $f.GroupKey }
+        $byKey['uncoveredEndpoint|'] | Should -BeExactly 'family:widgets'
+        $byKey['parameterGap|query:ids'] | Should -BeExactly 'family:widgets'
+        $byKey['responseFieldRemoval|items:colour'] | Should -BeExactly 'family:widgets'
+        $byKey['responseFieldRename|items:server->attached_servers'] | Should -BeExactly 'family:widgets'
+        $byKey['unhandledEnvelopeField|errors'] | Should -BeExactly 'envelope:errors'
+        $byKey['validateSetDrift|Get-PfbWidget:Mode=missing:fast'] | Should -BeExactly 'validateset:Get-PfbWidget'
+        $byKey['newValidateSetCandidate|Get-PfbWidget:Kind'] | Should -BeExactly 'validateset:Get-PfbWidget'
+        $byKey['deadKey|flavour'] | Should -BeExactly 'deadkey:widgets'
+        $byKey['noSurvivingSelector|'] | Should -BeExactly 'deadkey:widgets'
+    }
+}
