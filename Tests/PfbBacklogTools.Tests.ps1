@@ -71,6 +71,14 @@ BeforeAll {
         if ($PullRequest) { $row['pull_request'] = [ordered]@{ url = "https://api.github.com/repos/example/repo/pulls/$Number" } }
         return ($row | ConvertTo-Json -Depth 5 | ConvertFrom-Json)
     }
+
+    # Placement reads only Labels and BlockError, so a two-member object is a complete fixture.
+    function Get-TestPlacement {
+        param([string[]]$Label = @(), [string]$BlockError)
+        $issue = [PSCustomObject]@{ Number = 1; Labels = @($Label); BlockError = $null }
+        if ($BlockError) { $issue.BlockError = $BlockError }
+        Get-PfbBacklogPlacement -Issue $issue
+    }
 }
 
 Describe 'ConvertFrom-PfbBacklogRestIssue (<Eol>)' -ForEach $script:lineEndings -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
@@ -146,5 +154,100 @@ Describe 'ConvertFrom-PfbBacklogRestIssue (<Eol>)' -ForEach $script:lineEndings 
 
     It 'returns nothing for no issues' {
         @(ConvertFrom-PfbBacklogRestIssue -Issue @()).Count | Should -Be 0
+    }
+}
+
+Describe 'Get-PfbBacklogPlacement' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    It 'maps status:<Status> to the <Lane> lane' -ForEach @(
+        @{ Status = 'agent-ready'; Lane = 'build' }
+        @{ Status = 'design-approved'; Lane = 'build' }
+        @{ Status = 'needs-design'; Lane = 'design' }
+        @{ Status = 'triage'; Lane = 'triage' }
+        @{ Status = 'in-progress'; Lane = 'inFlight' }
+        @{ Status = 'needs-review'; Lane = 'inFlight' }
+        @{ Status = 'blocked'; Lane = 'parked' }
+        @{ Status = 'human-only'; Lane = 'parked' }
+        @{ Status = 'resolved-upstream'; Lane = 'confirmClose' }
+    ) {
+        $placement = Get-TestPlacement -Label @("status:$Status", 'priority:P1', 'size:S', 'area:ci', 'source:human')
+        $placement.Lane | Should -BeExactly $Lane
+        $placement.Status | Should -BeExactly $Status
+        @($placement.Errors).Count | Should -Be 0
+        @($placement.Warnings).Count | Should -Be 0
+    }
+
+    It 'sends <Name> to labelErrors' -ForEach @(
+        @{ Name = 'no status: label'; Label = @('priority:P1', 'size:S', 'area:ci', 'source:human'); Expected = 'no status: label' }
+        @{ Name = 'two status: labels'; Label = @('status:triage', 'status:blocked', 'priority:P1', 'size:S', 'area:ci', 'source:human'); Expected = 'more than one status: label (status:blocked, status:triage)' }
+        @{ Name = 'an unknown status:'; Label = @('status:wontfix', 'priority:P1', 'size:S', 'area:ci', 'source:human'); Expected = 'unknown status: label (status:wontfix)' }
+        @{ Name = 'a build issue with no priority:'; Label = @('status:agent-ready', 'size:S', 'area:ci', 'source:human'); Expected = 'no priority: label on a ranked lane' }
+        @{ Name = 'a design issue with two priority: labels'; Label = @('status:needs-design', 'priority:P0', 'priority:P1', 'size:S', 'area:ci', 'source:human'); Expected = 'more than one priority: label (priority:P0, priority:P1)' }
+        @{ Name = 'a design issue with an unknown priority:'; Label = @('status:needs-design', 'priority:P9', 'size:S', 'area:ci', 'source:human'); Expected = 'unknown priority: label (priority:P9)' }
+    ) {
+        $placement = Get-TestPlacement -Label $Label
+        $placement.Lane | Should -BeExactly 'labelErrors'
+        @($placement.Errors) -join ' / ' | Should -BeExactly $Expected
+        @($placement.Warnings).Count | Should -Be 0
+    }
+
+    It 'sends a trusted issue with a malformed block to labelErrors, with the parser message' {
+        $placement = Get-TestPlacement -Label @('status:agent-ready', 'priority:P1', 'size:S', 'area:wire-contract', 'source:drift') -BlockError 'Issue #7: boom'
+        $placement.Lane | Should -BeExactly 'labelErrors'
+        @($placement.Errors) -join ' / ' | Should -BeExactly 'malformed pfb-drift block: Issue #7: boom'
+    }
+
+    It 'keeps <Name> in the <Lane> lane with a warning' -ForEach @(
+        @{ Name = 'two size: labels'; Lane = 'build'; Label = @('status:agent-ready', 'priority:P1', 'size:S', 'size:M', 'area:wire-contract', 'source:drift'); Expected = 'more than one size: label (size:M, size:S); treated as missing' }
+        @{ Name = 'an unknown size:'; Lane = 'build'; Label = @('status:agent-ready', 'priority:P1', 'size:XL', 'area:wire-contract', 'source:drift'); Expected = 'unknown size: label (size:XL); treated as missing' }
+        @{ Name = 'a triage issue with two priority: labels'; Lane = 'triage'; Label = @('status:triage', 'priority:P1', 'priority:P2', 'size:S', 'area:wire-contract', 'source:drift'); Expected = 'more than one priority: label (priority:P1, priority:P2); treated as missing' }
+        @{ Name = 'a triage issue with an unknown priority:'; Lane = 'triage'; Label = @('status:triage', 'priority:urgent', 'size:S', 'area:ci', 'source:human'); Expected = 'unknown priority: label (priority:urgent); treated as missing' }
+        @{ Name = 'two origin source: labels'; Lane = 'design'; Label = @('status:needs-design', 'priority:P2', 'size:M', 'area:fusion', 'source:human', 'source:livetest'); Expected = 'two source: labels and neither is source:drift (source:human, source:livetest)' }
+        @{ Name = 'three source: labels'; Lane = 'parked'; Label = @('status:blocked', 'priority:P1', 'size:S', 'area:ci', 'source:drift', 'source:human', 'source:livetest'); Expected = 'three or more source: labels (source:drift, source:human, source:livetest)' }
+        @{ Name = 'no area: label'; Lane = 'inFlight'; Label = @('status:in-progress', 'priority:P1', 'size:S', 'source:human'); Expected = 'no area: label' }
+        @{ Name = 'two area: labels'; Lane = 'build'; Label = @('status:agent-ready', 'priority:P0', 'size:S', 'area:ci', 'area:fusion', 'source:drift'); Expected = 'more than one area: label (area:ci, area:fusion)' }
+        @{ Name = 'no source: label'; Lane = 'confirmClose'; Label = @('status:resolved-upstream', 'priority:P2', 'size:S', 'area:wire-contract'); Expected = 'no source: label' }
+    ) {
+        $placement = Get-TestPlacement -Label $Label
+        $placement.Lane | Should -BeExactly $Lane
+        @($placement.Errors).Count | Should -Be 0
+        @($placement.Warnings) -join ' / ' | Should -BeExactly $Expected
+    }
+
+    It 'accepts source:drift beside the origin label without a warning (the paired legacy exception)' {
+        $placement = Get-TestPlacement -Label @('status:triage', 'priority:P2', 'size:M', 'area:cmdlet-coverage', 'source:drift', 'source:human')
+        @($placement.Warnings).Count | Should -Be 0
+        @($placement.Sources) -join ',' | Should -BeExactly 'drift,human'
+    }
+
+    It 'does not check priority: on an unranked lane' {
+        $placement = Get-TestPlacement -Label @('status:blocked', 'priority:P0', 'priority:P1', 'size:S', 'area:ci', 'source:human')
+        $placement.Lane | Should -BeExactly 'parked'
+        @($placement.Errors).Count | Should -Be 0
+        @($placement.Warnings).Count | Should -Be 0
+        $placement.Priority | Should -BeNullOrEmpty
+    }
+
+    It 'reports the values a clean build issue is scored on' {
+        $placement = Get-TestPlacement -Label @('status:agent-ready', 'priority:P1', 'size:S', 'area:wire-contract', 'source:drift', 'needs:live-test')
+        $placement.Lane | Should -BeExactly 'build'
+        $placement.Priority | Should -BeExactly 'P1'
+        $placement.Size | Should -BeExactly 'S'
+        $placement.NeedsLiveTest | Should -BeTrue
+        @($placement.Errors).Count + @($placement.Warnings).Count | Should -Be 0
+    }
+
+    It 'ignores labels on no axis, and a prefix in the wrong case is not a status' {
+        $placement = Get-TestPlacement -Label @('bug', 'Status:triage', 'priority:P1', 'size:S', 'area:ci', 'source:human')
+        $placement.Lane | Should -BeExactly 'labelErrors'
+        @($placement.Errors) -join ' / ' | Should -BeExactly 'no status: label'
+        @($placement.Warnings).Count | Should -Be 0
+    }
+
+    It 'an issue with no labels at all lands in labelErrors, with its warnings' {
+        $placement = Get-TestPlacement -Label @()
+        $placement.Lane | Should -BeExactly 'labelErrors'
+        @($placement.Errors) -join ' / ' | Should -BeExactly 'no status: label'
+        @($placement.Warnings) -join ' / ' | Should -BeExactly 'no source: label / no area: label'
+        $placement.NeedsLiveTest | Should -BeFalse
     }
 }

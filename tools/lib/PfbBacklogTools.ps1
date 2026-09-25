@@ -137,3 +137,142 @@ function ConvertFrom-PfbBacklogRestIssue {
         }
     }
 }
+
+$script:PfbBacklogPriority = @('P0', 'P1', 'P2', 'P3')
+$script:PfbBacklogSize = @('S', 'M', 'L')
+
+function Get-PfbBacklogLabelSet {
+    <#
+    .SYNOPSIS
+        An issue's labels split by axis: the values after 'status:', 'priority:', and so on.
+    .DESCRIPTION
+        Prefixes match case-sensitively, the way docs/TRIAGE-ROLES.md spells them. Any other
+        label (bug, enhancement, Status:triage) is on no axis and is ignored.
+    .OUTPUTS
+        [PSCustomObject] Status, Priority, Size, Area, Source (string arrays of values) and
+        NeedsLiveTest (bool).
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Label)
+
+    $prefix = [ordered]@{ Status = 'status:'; Priority = 'priority:'; Size = 'size:'; Area = 'area:'; Source = 'source:' }
+    $values = @{}
+    foreach ($axis in $prefix.Keys) { $values[$axis] = [System.Collections.Generic.List[string]]::new() }
+    foreach ($text in @($Label)) {
+        foreach ($axis in $prefix.Keys) {
+            if ($text.StartsWith($prefix[$axis], [System.StringComparison]::Ordinal)) {
+                $values[$axis].Add($text.Substring($prefix[$axis].Length))
+            }
+        }
+    }
+    [PSCustomObject]@{
+        Status        = @($values['Status'])
+        Priority      = @($values['Priority'])
+        Size          = @($values['Size'])
+        Area          = @($values['Area'])
+        Source        = @($values['Source'])
+        NeedsLiveTest = (@($Label) -ccontains $script:PfbDriftLabel.LiveTest)
+    }
+}
+
+function Format-PfbBacklogLabelList {
+    <#
+    .SYNOPSIS
+        'prefix:a, prefix:b' for a label problem message, ordinally sorted.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)][string]$Prefix,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Value
+    )
+
+    return (@(Get-PfbDriftSortedString -Value $Value | ForEach-Object { $Prefix + $_ }) -join ', ')
+}
+
+function Get-PfbBacklogPlacement {
+    <#
+    .SYNOPSIS
+        The lane an issue belongs in, the label values it is scored on, and its label problems.
+    .DESCRIPTION
+        The lane follows from the single status: label (docs/TRIAGE-ROLES.md). Problems come
+        in two tiers.
+
+        ERRORS move the issue to labelErrors, because the scorer cannot place it:
+          no status: label, more than one, or an unknown value;
+          a build or design issue with no priority:, more than one, or an unknown value
+          (the band is the primary sort key);
+          a malformed block on a trusted issue.
+
+        WARNINGS leave the issue in its lane and are listed beside it:
+          more than one size:, or an unknown value -- treated as missing, so it sorts after L;
+          on a triage issue, more than one priority:, or an unknown value -- current is null;
+          two source: labels where neither is source:drift, or three or more. The paired
+          legacy issue (source:drift beside its origin label) is legal and never warned on.
+          It is a warning rather than an error here only because it does not affect placement;
+          no area:, or more than one;
+          no source:.
+
+        priority: is not checked on inFlight, parked or confirmClose: nothing there is ranked.
+    .OUTPUTS
+        [PSCustomObject] Lane, Status, Priority, Size, Sources, NeedsLiveTest, Errors, Warnings.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)]$Issue)
+
+    $set = Get-PfbBacklogLabelSet -Label @($Issue.Labels)
+    $errors = [System.Collections.Generic.List[string]]::new()
+    $warnings = [System.Collections.Generic.List[string]]::new()
+
+    $status = $null
+    $lane = $null
+    if ($set.Status.Count -eq 0) { $errors.Add('no status: label') }
+    elseif ($set.Status.Count -gt 1) { $errors.Add("more than one status: label ($(Format-PfbBacklogLabelList -Prefix 'status:' -Value $set.Status))") }
+    else {
+        $status = $set.Status[0]
+        if (@($script:PfbBacklogStatusLane.Keys) -ccontains $status) { $lane = $script:PfbBacklogStatusLane[$status] }
+        else { $errors.Add("unknown status: label (status:$status)") }
+    }
+
+    if ($null -ne $Issue.BlockError) { $errors.Add("malformed pfb-drift block: $($Issue.BlockError)") }
+
+    $priority = $null
+    if ($set.Priority.Count -eq 1 -and $script:PfbBacklogPriority -ccontains $set.Priority[0]) { $priority = $set.Priority[0] }
+    if ($script:PfbBacklogRankedLane -ccontains $lane) {
+        if ($set.Priority.Count -eq 0) { $errors.Add('no priority: label on a ranked lane') }
+        elseif ($set.Priority.Count -gt 1) { $errors.Add("more than one priority: label ($(Format-PfbBacklogLabelList -Prefix 'priority:' -Value $set.Priority))") }
+        elseif ($null -eq $priority) { $errors.Add("unknown priority: label (priority:$($set.Priority[0]))") }
+    }
+    elseif ($lane -ceq 'triage') {
+        if ($set.Priority.Count -gt 1) { $warnings.Add("more than one priority: label ($(Format-PfbBacklogLabelList -Prefix 'priority:' -Value $set.Priority)); treated as missing") }
+        elseif ($set.Priority.Count -eq 1 -and $null -eq $priority) { $warnings.Add("unknown priority: label (priority:$($set.Priority[0])); treated as missing") }
+    }
+
+    $size = $null
+    if ($set.Size.Count -gt 1) { $warnings.Add("more than one size: label ($(Format-PfbBacklogLabelList -Prefix 'size:' -Value $set.Size)); treated as missing") }
+    elseif ($set.Size.Count -eq 1) {
+        if ($script:PfbBacklogSize -ccontains $set.Size[0]) { $size = $set.Size[0] }
+        else { $warnings.Add("unknown size: label (size:$($set.Size[0])); treated as missing") }
+    }
+
+    $origin = @($set.Source | Where-Object { $_ -cne 'drift' })
+    if ($set.Source.Count -eq 0) { $warnings.Add('no source: label') }
+    elseif ($set.Source.Count -ge 3) { $warnings.Add("three or more source: labels ($(Format-PfbBacklogLabelList -Prefix 'source:' -Value $set.Source))") }
+    elseif ($set.Source.Count -eq 2 -and $origin.Count -eq 2) { $warnings.Add("two source: labels and neither is source:drift ($(Format-PfbBacklogLabelList -Prefix 'source:' -Value $set.Source))") }
+
+    if ($set.Area.Count -eq 0) { $warnings.Add('no area: label') }
+    elseif ($set.Area.Count -gt 1) { $warnings.Add("more than one area: label ($(Format-PfbBacklogLabelList -Prefix 'area:' -Value $set.Area))") }
+
+    if ($errors.Count -gt 0) { $lane = 'labelErrors' }
+
+    [PSCustomObject]@{
+        Lane          = $lane
+        Status        = $status
+        Priority      = $priority
+        Size          = $size
+        Sources       = @(Get-PfbDriftSortedString -Value @($set.Source))
+        NeedsLiveTest = $set.NeedsLiveTest
+        Errors        = @($errors)
+        Warnings      = @($warnings)
+    }
+}
