@@ -218,3 +218,50 @@ Describe 'Build-PfbBacklog.ps1' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
         @($json.counts.PSObject.Properties | ForEach-Object { $_.Value }) -join ',' | Should -BeExactly '0,0,0,0,0,0,0'
     }
 }
+
+Describe 'backlog workflow' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    BeforeAll {
+        $script:workflow = [System.IO.File]::ReadAllText((Join-Path $script:workflowDir 'backlog.yml'))
+        $drift = [System.IO.File]::ReadAllText((Join-Path $script:workflowDir 'drift-issues.yml'))
+        $script:driftWorkflowName = [regex]::Match($drift, '(?m)^name:\s*(.+?)\s*$').Groups[1].Value
+    }
+
+    It 'runs on dispatch and after every Drift Issues run, whatever its conclusion' {
+        # Only the on: block, up to the next top-level key.
+        $on = [regex]::Match($script:workflow, '(?ms)^on:\r?\n(.*?)(?=^\S)').Groups[1].Value
+        @([regex]::Matches($on, '(?m)^  ([a-z_]+):') | ForEach-Object { $_.Groups[1].Value }) -join ',' | Should -BeExactly 'workflow_dispatch,workflow_run'
+        # Chained by NAME: renaming drift-issues.yml's name: would silently break the chain.
+        $script:driftWorkflowName | Should -BeExactly 'Drift Issues'
+        $on | Should -Match ("(?m)^    workflows: \['" + [regex]::Escape($script:driftWorkflowName) + "'\]\s*$")
+        $on | Should -Match '(?m)^    types: \[completed\]\s*$'
+        $script:workflow | Should -Not -Match 'workflow_run\.conclusion'
+    }
+
+    It 'reads contents and issues only, with no secret but the built-in token' {
+        $script:workflow | Should -Match '(?m)^  contents: read\s*$'
+        $script:workflow | Should -Match '(?m)^  issues: read\s*$'
+        @([regex]::Matches($script:workflow, '(?m)^\s+[a-z-]+: write\s*$')).Count | Should -Be 0
+        @([regex]::Matches($script:workflow, 'secrets\.([A-Za-z_]+)') | ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -cne 'GITHUB_TOKEN' }).Count | Should -Be 0
+    }
+
+    It 'lets the latest run win, since it only reads' {
+        $script:workflow | Should -Match '(?m)^  group: backlog\s*$'
+        $script:workflow | Should -Match '(?m)^  cancel-in-progress: true\s*$'
+    }
+
+    It 'passes -First only when the input is non-empty, which it is not on workflow_run' {
+        $script:workflow | Should -Match ([regex]::Escape('BACKLOG_FIRST: ${{ inputs.first }}'))
+        $script:workflow | Should -Match ([regex]::Escape("if (`$env:BACKLOG_FIRST) { `$params['First'] = [int]`$env:BACKLOG_FIRST }"))
+        $script:workflow | Should -Not -Match '-First \$\{\{'
+    }
+
+    It 'publishes the Markdown to the job summary and the JSON as a 90-day artifact, on the pinned actions' {
+        @([regex]::Matches($script:workflow, '(?m)^\s+uses: (\S+)') | ForEach-Object { $_.Groups[1].Value }) -join ',' |
+            Should -BeExactly 'actions/checkout@v7,actions/upload-artifact@v5'
+        $script:workflow | Should -Match ([regex]::Escape("OutputPath = (Join-Path `$env:RUNNER_TEMP 'backlog')"))
+        $script:workflow | Should -Match 'PfbBacklog\.md'
+        $script:workflow | Should -Match '\$env:GITHUB_STEP_SUMMARY'
+        $script:workflow | Should -Match '(?m)^\s+path: \$\{\{ runner\.temp \}\}/backlog/PfbBacklog\.json\s*$'
+        $script:workflow | Should -Match '(?m)^\s+retention-days: 90\s*$'
+    }
+}
