@@ -1306,3 +1306,278 @@ function Get-PfbDriftFindingDisposition {
         }
     }
 }
+
+function ConvertTo-PfbDriftAction {
+    <#
+    .SYNOPSIS
+        Builds one plan action. The only constructor, so every action has one shape.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][ValidateSet('Create', 'Comment', 'MarkResolved', 'Skip')][string]$Action,
+        [Parameter(Mandatory = $true)][string]$GroupKey,
+        [Parameter(Mandatory = $true)][string]$Reason,
+        [AllowEmptyCollection()][string[]]$Fingerprints = @(),
+        $IssueNumber = $null,
+        [int]$Severity = 0,
+        [AllowNull()][string]$Title = $null,
+        [AllowNull()][string]$Body = $null,
+        [AllowNull()][string]$Comment = $null,
+        [AllowEmptyCollection()][string[]]$AddLabels = @(),
+        [AllowEmptyCollection()][string[]]$RemoveLabels = @()
+    )
+
+    [PSCustomObject]@{
+        Action       = $Action
+        GroupKey     = $GroupKey
+        IssueNumber  = $IssueNumber
+        Reason       = $Reason
+        Fingerprints = @(Get-PfbDriftSortedString -Value $Fingerprints)
+        Severity     = $Severity
+        Title        = $Title
+        Body         = $Body
+        Comment      = $Comment
+        AddLabels    = @($AddLabels)
+        RemoveLabels = @($RemoveLabels)
+    }
+}
+
+function Get-PfbDriftPlan {
+    <#
+    .SYNOPSIS
+        Plans every write that reconciles the findings with the issues. Writes nothing.
+    .DESCRIPTION
+        Order of work:
+          1. Vanish. An OPEN issue's recorded fingerprint that no report still contains is
+             newly vanished. If more than -VanishThreshold (25%) of the distinct
+             fingerprints recorded in open issues would vanish in this one run, the plan is
+             ABORTED with no actions at all -- that shape is a spec or generator
+             restructuring far more often than a burst of fixes. -AcceptMassVanish, a
+             per-run human decision, lets a real one through.
+          2. Dispositions (Get-PfbDriftFindingDisposition), per finding.
+          3. One Comment per open issue that changed: appended findings, reappeared ones and
+             newly vanished ones in a single machine-block rewrite and a single comment. The
+             status: label follows the resulting block, checked on every run: an issue with
+             no active fingerprint becomes MarkResolved, its status: label REPLACED by
+             status:resolved-upstream (status: is single-valued); an issue with any active
+             fingerprint loses status:resolved-upstream for status:triage. An issue whose
+             block is unchanged but whose label disagrees gets the label fix and a comment,
+             with no body rewrite.
+          4. Creation: queued groups sorted by severity (most severe first), then by
+             finding count (larger first), then by group key; the first -MaxCreate become
+             Create actions and the rest are Skip rows that a later run files.
+          5. Skip rows for settled and declined findings, one per group and reason.
+        Nothing here closes an issue; no action type can.
+    .OUTPUTS
+        [PSCustomObject] Aborted, AbortReason, Actions, FindingCount, TrackedCount.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Finding,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Issue,
+        [AllowEmptyCollection()][object[]]$SettledKey = @(),
+        [int]$MaxCreate = 10,
+        [double]$VanishThreshold = $script:PfbDriftVanishThreshold,
+        [switch]$AcceptMassVanish,
+        [AllowEmptyString()][string]$SourceNote = ''
+    )
+
+    if ($MaxCreate -lt 0) { throw "-MaxCreate cannot be negative (got $MaxCreate)." }
+    $findings = @(Get-PfbDriftItem $Finding)
+    $issues = @(Get-PfbDriftItem $Issue)
+
+    $reported = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($f in $findings) { [void]$reported.Add($f.Fingerprint) }
+
+    # --- 1. vanish, and the restructure guard, before anything else is planned ---
+    $open = @($issues | Where-Object { $_.State -ceq 'OPEN' -and $null -ne $_.Marker } | Sort-Object -Property Number)
+    $recorded = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $vanishing = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    $newlyVanished = @{}
+    foreach ($item in $open) {
+        $active = @(Get-PfbDriftItem $item.Marker.Fingerprints)
+        $gone = @($active | Where-Object { -not $reported.Contains($_) })
+        foreach ($fp in $active) { [void]$recorded.Add($fp) }
+        foreach ($fp in $gone) { [void]$vanishing.Add($fp) }
+        $newlyVanished[$item.Number] = $gone
+    }
+    if ($recorded.Count -gt 0 -and -not $AcceptMassVanish) {
+        $ratio = $vanishing.Count / $recorded.Count
+        if ($ratio -gt $VanishThreshold) {
+            $percent = [int][math]::Round($ratio * 100)
+            $limit = [int][math]::Round($VanishThreshold * 100)
+            return [PSCustomObject]@{
+                Aborted      = $true
+                AbortReason  = "$($vanishing.Count) of $($recorded.Count) recorded fingerprints ($percent%) would stop being reported in this one run, above the $limit% restructure guard. That shape usually means a spec restructuring or a report-generator change, not $($vanishing.Count) fixed gaps. Nothing was written. Check the reports; if the vanishing is real, re-run with -AcceptMassVanish."
+                Actions      = @()
+                FindingCount = $findings.Count
+                TrackedCount = 0
+            }
+        }
+    }
+
+    # --- 2. dispositions ---
+    $pending = @{}
+    foreach ($item in $open) {
+        $pending[$item.Number] = @{
+            Added      = [System.Collections.Generic.List[object]]::new()
+            Reappeared = [System.Collections.Generic.List[object]]::new()
+        }
+    }
+    $createGroups = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    $skipGroups = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::Ordinal)
+    $tracked = 0
+    foreach ($d in @(Get-PfbDriftFindingDisposition -Finding $findings -Issue $issues -SettledKey $SettledKey)) {
+        switch -CaseSensitive ($d.Disposition) {
+            'Tracked' { $tracked++ }
+            'Reappeared' { $pending[$d.IssueNumber].Reappeared.Add($d.Finding) }
+            'Append' { $pending[$d.IssueNumber].Added.Add($d.Finding) }
+            'Create' {
+                if (-not $createGroups.ContainsKey($d.GroupKey)) {
+                    $createGroups[$d.GroupKey] = @{
+                        Findings     = [System.Collections.Generic.List[object]]::new()
+                        ReopenedFrom = $d.ReopenedFrom
+                    }
+                }
+                $createGroups[$d.GroupKey].Findings.Add($d.Finding)
+            }
+            default {
+                $skipKey = $d.GroupKey + [char]11 + $d.Reason
+                if (-not $skipGroups.ContainsKey($skipKey)) {
+                    $skipGroups[$skipKey] = @{
+                        GroupKey = $d.GroupKey
+                        Reason   = $d.Reason
+                        Findings = [System.Collections.Generic.List[object]]::new()
+                    }
+                }
+                $skipGroups[$skipKey].Findings.Add($d.Finding)
+            }
+        }
+    }
+
+    # --- 3. one rewrite and one comment per open issue that changed, or whose status: disagrees ---
+    $issueActions = [System.Collections.Generic.List[object]]::new()
+    foreach ($item in $open) {
+        $p = $pending[$item.Number]
+        $goneFp = @($newlyVanished[$item.Number])
+        $marker = $item.Marker
+        $addedFp = @($p.Added | ForEach-Object { $_.Fingerprint })
+        $backFp = @($p.Reappeared | ForEach-Object { $_.Fingerprint })
+        $keptFp = @(@(Get-PfbDriftItem $marker.Fingerprints) | Where-Object { $goneFp -cnotcontains $_ })
+        $active = @(Get-PfbDriftSortedString -Value ($keptFp + $addedFp + $backFp))
+        $stillVanished = @(@(Get-PfbDriftItem $marker.Vanished) | Where-Object { $backFp -cnotcontains $_ })
+        $vanished = @(Get-PfbDriftSortedString -Value ($stillVanished + $goneFp))
+        $blockChanged = ($addedFp.Count + $backFp.Count + $goneFp.Count) -gt 0
+
+        # The status: label is DERIVED from the resulting block on every run, not set on a
+        # transition. Nothing active and something vanished means resolved-upstream; anything
+        # active means not resolved-upstream, whether it arrived by an append or a
+        # reappearance. So a label call that failed after the block was written converges on
+        # the next run, instead of the block saying one thing and the label another for good.
+        $statusLabels = @(@(Get-PfbDriftItem $item.Labels) | Where-Object { $_.StartsWith('status:') })
+        $add = @()
+        $remove = @()
+        $resolved = $false
+        $unresolved = $false
+        if ($active.Count -eq 0 -and $vanished.Count -gt 0) {
+            $remove = @($statusLabels | Where-Object { $_ -cne $script:PfbDriftLabel.Resolved })
+            if ($statusLabels -cnotcontains $script:PfbDriftLabel.Resolved) { $add = @($script:PfbDriftLabel.Resolved) }
+            $resolved = ($goneFp.Count -gt 0) -or (($add.Count + $remove.Count) -gt 0)
+        }
+        elseif ($active.Count -gt 0 -and $statusLabels -ccontains $script:PfbDriftLabel.Resolved) {
+            $remove = @($script:PfbDriftLabel.Resolved)
+            if ($statusLabels -cnotcontains $script:PfbDriftLabel.Triage) { $add = @($script:PfbDriftLabel.Triage) }
+            $unresolved = $true
+        }
+        if (-not $blockChanged -and -not $resolved -and -not $unresolved) { continue }
+
+        $reasonParts = @()
+        if ($addedFp.Count -gt 0) { $reasonParts += "append $($addedFp.Count)" }
+        if ($backFp.Count -gt 0) { $reasonParts += "reported again $($backFp.Count)" }
+        if ($goneFp.Count -gt 0) { $reasonParts += "no longer reported $($goneFp.Count)" }
+        if ($resolved) { $reasonParts += 'none left: status:resolved-upstream' }
+        if ($unresolved) { $reasonParts += 'still reported: status:triage' }
+
+        $label = "paired #$($item.Number)"
+        if ($marker.Kind -ceq 'group') { $label = $marker.GroupKey }
+        $action = 'Comment'
+        $replaced = @()
+        if ($resolved) {
+            $action = 'MarkResolved'
+            $replaced = $remove
+        }
+        # No Body when only the label is wrong: the block already says the right thing, and
+        # the script skips the body edit for an empty Body.
+        $body = ''
+        if ($blockChanged) {
+            $newMarker = [PSCustomObject]@{ Kind = $marker.Kind; GroupKey = $marker.GroupKey; Fingerprints = $active; Vanished = $vanished }
+            $body = ConvertTo-PfbDriftIssueBody -Body $item.Body -Marker $newMarker
+        }
+        $issueActions.Add((ConvertTo-PfbDriftAction -Action $action -GroupKey $label -IssueNumber $item.Number `
+                    -Reason ($reasonParts -join '; ') -Fingerprints ($addedFp + $backFp + $goneFp) -Body $body `
+                    -Comment (Format-PfbDriftComment -Added @($p.Added) -Reappeared @($p.Reappeared) -Vanished $goneFp `
+                        -Resolved:$resolved -ReplacedStatus $replaced -Unresolved:$unresolved) `
+                    -AddLabels $add -RemoveLabels $remove))
+    }
+
+    # --- 4. creation, most severe first, capped ---
+    $groups = [System.Collections.Generic.List[object]]::new()
+    foreach ($key in $createGroups.Keys) {
+        $members = @($createGroups[$key].Findings)
+        $groups.Add([PSCustomObject]@{
+                GroupKey     = $key
+                Findings     = $members
+                ReopenedFrom = [int]$createGroups[$key].ReopenedFrom
+                Severity     = [int](($members | Measure-Object -Property Severity -Minimum).Minimum)
+                Count        = $members.Count
+            })
+    }
+    $groups.Sort([System.Comparison[object]] {
+            param($a, $b)
+            $c = $a.Severity.CompareTo($b.Severity)
+            if ($c -ne 0) { return $c }
+            $c = $b.Count.CompareTo($a.Count)
+            if ($c -ne 0) { return $c }
+            return [string]::CompareOrdinal($a.GroupKey, $b.GroupKey)
+        })
+
+    $creates = [System.Collections.Generic.List[object]]::new()
+    $queued = [System.Collections.Generic.List[object]]::new()
+    foreach ($g in $groups) {
+        $fps = @($g.Findings | ForEach-Object { $_.Fingerprint })
+        if ($creates.Count -lt $MaxCreate) {
+            $reason = 'new group'
+            if ($g.ReopenedFrom -gt 0) { $reason = "still reported after #$($g.ReopenedFrom) closed" }
+            $creates.Add((ConvertTo-PfbDriftAction -Action 'Create' -GroupKey $g.GroupKey -Reason $reason `
+                        -Fingerprints $fps -Severity $g.Severity -Title (Format-PfbDriftIssueTitle -GroupKey $g.GroupKey) `
+                        -Body (Format-PfbDriftIssueBody -GroupKey $g.GroupKey -Finding $g.Findings -SourceNote $SourceNote) `
+                        -AddLabels @(Get-PfbDriftIssueLabel -Finding $g.Findings)))
+        }
+        else {
+            $queued.Add((ConvertTo-PfbDriftAction -Action 'Skip' -GroupKey $g.GroupKey -Severity $g.Severity `
+                        -Reason "queued: over -MaxCreate $MaxCreate; a later run files it" -Fingerprints $fps))
+        }
+    }
+
+    # --- 5. settled and declined, one row per group and reason ---
+    $skips = [System.Collections.Generic.List[object]]::new()
+    foreach ($skipKey in @(Get-PfbDriftSortedString -Value @($skipGroups.Keys))) {
+        $s = $skipGroups[$skipKey]
+        $members = @($s.Findings)
+        $skips.Add((ConvertTo-PfbDriftAction -Action 'Skip' -GroupKey $s.GroupKey -Reason $s.Reason `
+                    -Severity ([int](($members | Measure-Object -Property Severity -Minimum).Minimum)) `
+                    -Fingerprints @($members | ForEach-Object { $_.Fingerprint })))
+    }
+
+    $actions = [System.Collections.Generic.List[object]]::new()
+    foreach ($list in $creates, $issueActions, $queued, $skips) {
+        foreach ($a in $list) { $actions.Add($a) }
+    }
+    return [PSCustomObject]@{
+        Aborted      = $false
+        AbortReason  = ''
+        Actions      = $actions.ToArray()
+        FindingCount = $findings.Count
+        TrackedCount = $tracked
+    }
+}

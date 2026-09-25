@@ -850,3 +850,188 @@ Describe 'Get-PfbDriftFindingDisposition' {
         }
     }
 }
+
+Describe 'Get-PfbDriftPlan' {
+    BeforeAll {
+        $script:a = Build-TestFinding -Endpoint 'GET /alpha'
+        $script:b = Build-TestFinding -Endpoint 'POST /alpha'
+        $script:c = Build-TestFinding -Endpoint 'DELETE /alpha'
+        $script:gone1 = '00000000000000a1'
+        $script:gone2 = '00000000000000a2'
+        function Get-TestAction {
+            param($Plan, [string]$Action, $IssueNumber = $null)
+            @($Plan.Actions | Where-Object { $_.Action -ceq $Action -and ($null -eq $IssueNumber -or $_.IssueNumber -eq $IssueNumber) })
+        }
+
+        $script:dead = Build-TestFinding -Category 'deadKey' -Endpoint 'GET /alpha' -Field 'k' -Detail $script:deadDetail
+        $script:removal = Build-TestFinding -Category 'responseFieldRemoval' -Endpoint 'GET /beta' -Field 'items:x' -Detail @{ IntroducedVersion = '2.0'; LastSeenVersion = '2.9' }
+        $script:uncovered = @(foreach ($method in 'GET', 'POST', 'DELETE') { Build-TestFinding -Endpoint "$method /gamma" })
+        $script:systemic = @(foreach ($n in 1..4) { Build-TestFinding -Category 'parameterGap' -Endpoint "GET /s$n" -Field 'query:sort' -Parameter 'sort' -Detail $script:gapDetail -GroupKey 'systemic:sort' })
+        $script:lone = Build-TestFinding -Category 'parameterGap' -Endpoint 'GET /delta' -Field 'query:ids' -Parameter 'ids' -Detail $script:gapDetail
+        $script:capFindings = @($script:dead, $script:removal) + $script:uncovered + $script:systemic + @($script:lone)
+    }
+
+    It 'comments once when some of an open issue''s fingerprints stop being reported' {
+        $issue = Build-TestIssue -Number 10 -GroupKey 'family:alpha' -Fingerprints @($script:a.Fingerprint, $script:b.Fingerprint, $script:c.Fingerprint, $script:gone1)
+        $plan = Get-PfbDriftPlan -Finding @($script:a, $script:b, $script:c) -Issue @($issue)
+        $plan.Aborted | Should -BeFalse
+        $act = @(Get-TestAction -Plan $plan -Action 'Comment' -IssueNumber 10)
+        $act.Count | Should -Be 1
+        ($act[0].Fingerprints -join ',') | Should -BeExactly $script:gone1
+        $marker = ConvertFrom-PfbDriftMarker -Body $act[0].Body
+        ($marker.Vanished -join ',') | Should -BeExactly $script:gone1
+        @($marker.Fingerprints).Count | Should -Be 3
+        $act[0].Comment.Contains($script:gone1) | Should -BeTrue
+        (@($act[0].AddLabels).Count + @($act[0].RemoveLabels).Count) | Should -Be 0
+        $act[0].Body.StartsWith('Human text.') | Should -BeTrue
+    }
+
+    It 'marks an issue resolved-upstream, replacing its status label, when all its fingerprints vanish' {
+        $keep = Build-TestIssue -Number 10 -GroupKey 'family:alpha' -Fingerprints @($script:a.Fingerprint, $script:b.Fingerprint, $script:c.Fingerprint)
+        $done = Build-TestIssue -Number 11 -Fingerprints @($script:gone1) -Labels @('source:drift', 'status:in-progress')
+        $plan = Get-PfbDriftPlan -Finding @($script:a, $script:b, $script:c) -Issue @($keep, $done)
+        $act = @(Get-TestAction -Plan $plan -Action 'MarkResolved' -IssueNumber 11)
+        $act.Count | Should -Be 1
+        ($act[0].AddLabels -join ',') | Should -BeExactly 'status:resolved-upstream'
+        ($act[0].RemoveLabels -join ',') | Should -BeExactly 'status:in-progress'
+        $act[0].Comment | Should -Match 'replacing .status:in-progress.'
+        @($plan.Actions | Where-Object { $_.IssueNumber -eq 10 }).Count | Should -Be 0
+    }
+
+    It 'says a vanishing once: a fingerprint already recorded as vanished is not announced again' {
+        $keep = Build-TestIssue -Number 10 -GroupKey 'family:alpha' -Fingerprints @($script:a.Fingerprint)
+        $quiet = Build-TestIssue -Number 11 -GroupKey 'family:beta' -Vanished @($script:gone1) -Labels @('source:drift', 'status:resolved-upstream')
+        $plan = Get-PfbDriftPlan -Finding @($script:a) -Issue @($keep, $quiet)
+        @($plan.Actions | Where-Object { $_.IssueNumber -eq 11 }).Count | Should -Be 0
+    }
+
+    It 'moves a reappearing fingerprint back and lifts status:resolved-upstream' {
+        $issue = Build-TestIssue -Number 12 -GroupKey 'family:alpha' -Vanished @($script:a.Fingerprint) -Labels @('source:drift', 'status:resolved-upstream')
+        $plan = Get-PfbDriftPlan -Finding @($script:a) -Issue @($issue)
+        $act = @(Get-TestAction -Plan $plan -Action 'Comment' -IssueNumber 12)[0]
+        $marker = ConvertFrom-PfbDriftMarker -Body $act.Body
+        ($marker.Fingerprints -join ',') | Should -BeExactly $script:a.Fingerprint
+        @($marker.Vanished).Count | Should -Be 0
+        ($act.RemoveLabels -join ',') | Should -BeExactly 'status:resolved-upstream'
+        ($act.AddLabels -join ',') | Should -BeExactly 'status:triage'
+    }
+
+    It 'lifts status:resolved-upstream when a new finding is appended to a resolved issue' {
+        $issue = Build-TestIssue -Number 30 -GroupKey 'family:alpha' -Vanished @($script:gone1) -Labels @('source:drift', 'status:resolved-upstream')
+        $plan = Get-PfbDriftPlan -Finding @($script:a) -Issue @($issue)
+        $act = @(Get-TestAction -Plan $plan -Action 'Comment' -IssueNumber 30)
+        $act.Count | Should -Be 1
+        ($act[0].RemoveLabels -join ',') | Should -BeExactly 'status:resolved-upstream'
+        ($act[0].AddLabels -join ',') | Should -BeExactly 'status:triage'
+        ((ConvertFrom-PfbDriftMarker -Body $act[0].Body).Fingerprints -join ',') | Should -BeExactly $script:a.Fingerprint
+        $act[0].Comment | Should -Match 'still reported, so .status:resolved-upstream. was replaced'
+    }
+
+    It 'corrects a status label that disagrees with an unchanged block, without rewriting the body' {
+        # What a run leaves behind when its label call failed after the block was written.
+        $stillActive = Build-TestIssue -Number 31 -GroupKey 'family:alpha' -Fingerprints @($script:a.Fingerprint) -Labels @('source:drift', 'status:resolved-upstream')
+        $allGone = Build-TestIssue -Number 32 -GroupKey 'family:beta' -Vanished @($script:gone1) -Labels @('source:drift', 'status:triage')
+        $plan = Get-PfbDriftPlan -Finding @($script:a) -Issue @($stillActive, $allGone)
+        $lift = @(Get-TestAction -Plan $plan -Action 'Comment' -IssueNumber 31)
+        $lift.Count | Should -Be 1
+        $lift[0].Body | Should -BeNullOrEmpty
+        ($lift[0].RemoveLabels -join ',') | Should -BeExactly 'status:resolved-upstream'
+        ($lift[0].AddLabels -join ',') | Should -BeExactly 'status:triage'
+        $mark = @(Get-TestAction -Plan $plan -Action 'MarkResolved' -IssueNumber 32)
+        $mark.Count | Should -Be 1
+        $mark[0].Body | Should -BeNullOrEmpty
+        ($mark[0].AddLabels -join ',') | Should -BeExactly 'status:resolved-upstream'
+        ($mark[0].RemoveLabels -join ',') | Should -BeExactly 'status:triage'
+        $plan.TrackedCount | Should -Be 1
+    }
+
+    It 'appends new findings to the open group issue, rewriting only its machine block' {
+        $prefix = "Human text $([char]0x2014) kept."
+        $issue = Build-TestIssue -Number 20 -GroupKey 'family:alpha' -Fingerprints @($script:a.Fingerprint) -Prefix $prefix
+        $plan = Get-PfbDriftPlan -Finding @($script:a, $script:b, $script:c) -Issue @($issue)
+        $act = @(Get-TestAction -Plan $plan -Action 'Comment' -IssueNumber 20)[0]
+        ($act.Fingerprints -join ',') | Should -BeExactly (@(Get-PfbDriftSortedString -Value @($script:b.Fingerprint, $script:c.Fingerprint)) -join ',')
+        @((ConvertFrom-PfbDriftMarker -Body $act.Body).Fingerprints).Count | Should -Be 3
+        $act.Body.StartsWith($prefix) | Should -BeTrue
+        $act.Comment.Contains($script:b.Fingerprint) | Should -BeTrue
+        @(Get-TestAction -Plan $plan -Action 'Create').Count | Should -Be 0
+    }
+
+    It 'aborts the whole run, planning nothing, when more than 25% of recorded fingerprints would vanish' {
+        $issue = Build-TestIssue -Number 10 -GroupKey 'family:alpha' -Fingerprints @($script:a.Fingerprint, $script:b.Fingerprint, $script:gone1, $script:gone2)
+        $plan = Get-PfbDriftPlan -Finding @($script:a, $script:b, $script:c) -Issue @($issue)
+        $plan.Aborted | Should -BeTrue
+        @($plan.Actions).Count | Should -Be 0
+        $plan.AbortReason | Should -Match '2 of 4'
+        $plan.AbortReason | Should -Match 'AcceptMassVanish'
+    }
+
+    It 'lets exactly 25% through, and anything past the guard with -AcceptMassVanish' {
+        $quarter = Build-TestIssue -Number 10 -GroupKey 'family:alpha' -Fingerprints @($script:a.Fingerprint, $script:b.Fingerprint, $script:c.Fingerprint, $script:gone1)
+        (Get-PfbDriftPlan -Finding @($script:a, $script:b, $script:c) -Issue @($quarter)).Aborted | Should -BeFalse
+        $half = Build-TestIssue -Number 10 -GroupKey 'family:alpha' -Fingerprints @($script:a.Fingerprint, $script:b.Fingerprint, $script:gone1, $script:gone2)
+        $plan = Get-PfbDriftPlan -Finding @($script:a, $script:b, $script:c) -Issue @($half) -AcceptMassVanish
+        $plan.Aborted | Should -BeFalse
+        ((ConvertFrom-PfbDriftMarker -Body (Get-TestAction -Plan $plan -Action 'Comment' -IssueNumber 10)[0].Body).Vanished -join ',') | Should -BeExactly "$($script:gone1),$($script:gone2)"
+    }
+
+    It 'aborts when a report reads as empty while issues record findings, and applies no guard when none do' {
+        $issue = Build-TestIssue -Number 10 -GroupKey 'family:alpha' -Fingerprints @($script:a.Fingerprint, $script:b.Fingerprint)
+        (Get-PfbDriftPlan -Finding @() -Issue @($issue)).Aborted | Should -BeTrue
+        (Get-PfbDriftPlan -Finding @($script:a) -Issue @()).Aborted | Should -BeFalse
+    }
+
+    It 'creates the most severe groups first, larger groups first within a severity, and queues the rest' {
+        $plan = Get-PfbDriftPlan -Finding $script:capFindings -Issue @() -MaxCreate 3
+        (@(Get-TestAction -Plan $plan -Action 'Create') | ForEach-Object { $_.GroupKey }) -join ',' | Should -BeExactly 'deadkey:alpha,family:beta,family:gamma'
+        $queued = @($plan.Actions | Where-Object { $_.Action -ceq 'Skip' -and $_.Reason.StartsWith('queued') })
+        ($queued | ForEach-Object { $_.GroupKey }) -join ',' | Should -BeExactly 'systemic:sort,family:delta'
+        $wide = Get-PfbDriftPlan -Finding $script:capFindings -Issue @() -MaxCreate 10
+        (@(Get-TestAction -Plan $wide -Action 'Create') | ForEach-Object { $_.GroupKey }) -join ',' | Should -BeExactly 'deadkey:alpha,family:beta,family:gamma,systemic:sort,family:delta'
+    }
+
+    It 'creates nothing at -MaxCreate 0 and refuses a negative cap' {
+        @(Get-TestAction -Plan (Get-PfbDriftPlan -Finding $script:capFindings -Issue @() -MaxCreate 0) -Action 'Create').Count | Should -Be 0
+        { Get-PfbDriftPlan -Finding $script:capFindings -Issue @() -MaxCreate -1 } | Should -Throw -ExpectedMessage '*-MaxCreate cannot be negative*'
+    }
+
+    It 'builds a create action with its title, labels and a body recording exactly the group''s fingerprints' {
+        $plan = Get-PfbDriftPlan -Finding $script:uncovered -Issue @() -SourceNote 'fixture'
+        $create = @(Get-TestAction -Plan $plan -Action 'Create')
+        $create.Count | Should -Be 1
+        $create[0].Title | Should -BeExactly "Drift: API gaps in the 'gamma' endpoint family"
+        ($create[0].AddLabels -join ',') | Should -BeExactly 'source:drift,status:triage,needs:live-test,area:cmdlet-coverage'
+        @((ConvertFrom-PfbDriftMarker -Body $create[0].Body).Fingerprints).Count | Should -Be 3
+        $create[0].IssueNumber | Should -BeNullOrEmpty
+    }
+
+    It 'aggregates skipped findings into one row per group and reason' {
+        $closed = Build-TestIssue -Number 3 -State 'CLOSED' -StateReason 'NOT_PLANNED' -Fingerprints @($script:a.Fingerprint, $script:b.Fingerprint)
+        $skip = @((Get-PfbDriftPlan -Finding @($script:a, $script:b) -Issue @($closed)).Actions | Where-Object { $_.Action -ceq 'Skip' })
+        $skip.Count | Should -Be 1
+        $skip[0].Reason | Should -BeExactly 'declined #3'
+        @($skip[0].Fingerprints).Count | Should -Be 2
+    }
+
+    It 'counts findings already tracked without planning anything for them' {
+        $issue = Build-TestIssue -Number 10 -GroupKey 'family:alpha' -Fingerprints @($script:a.Fingerprint, $script:b.Fingerprint, $script:c.Fingerprint)
+        $plan = Get-PfbDriftPlan -Finding @($script:a, $script:b, $script:c) -Issue @($issue)
+        $plan.TrackedCount | Should -Be 3
+        @($plan.Actions).Count | Should -Be 0
+    }
+
+    It 'uses only the four action names, and plans identically when run twice' {
+        $issues = @(
+            Build-TestIssue -Number 10 -GroupKey 'family:alpha' -Fingerprints @($script:a.Fingerprint, $script:b.Fingerprint, $script:c.Fingerprint, $script:gone1)
+            Build-TestIssue -Number 3 -State 'CLOSED' -StateReason 'NOT_PLANNED' -Fingerprints @($script:removal.Fingerprint)
+        )
+        $findings = $script:capFindings + @($script:a, $script:b, $script:c)
+        $first = Get-PfbDriftPlan -Finding $findings -Issue $issues -MaxCreate 2
+        $second = Get-PfbDriftPlan -Finding $findings -Issue $issues -MaxCreate 2
+        $first.Aborted | Should -BeFalse
+        # A control: every action kind but MarkResolved is present, so the name check below is not vacuous.
+        @($first.Actions | ForEach-Object { $_.Action } | Sort-Object -Unique) -join ',' | Should -BeExactly 'Comment,Create,Skip'
+        @($first.Actions | Where-Object { @('Create', 'Comment', 'MarkResolved', 'Skip') -cnotcontains $_.Action }).Count | Should -Be 0
+        ($first.Actions | ConvertTo-Json -Depth 6 -Compress) | Should -BeExactly ($second.Actions | ConvertTo-Json -Depth 6 -Compress)
+    }
+}
