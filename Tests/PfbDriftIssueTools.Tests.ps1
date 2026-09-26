@@ -1091,6 +1091,7 @@ Describe 'Get-PfbCapabilityMapMergeVerdict' {
         # One element of GET repos/{repo}/commits/{sha}/pulls, with only the fields the gate
         # reads, round-tripped through ConvertFrom-Json so it has the real response's shape.
         function New-TestPull {
+            [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'Test helper building an in-memory fixture object; nothing to confirm.')]
             param(
                 [int]$Number = 201,
                 [string]$MergedAt = '2026-09-25T00:00:00Z',
