@@ -830,11 +830,30 @@ line saying automation wrote it.
 **Declining a finding for good:** close its issue as *not planned*, or add a
 `**Drift keys:**` field to a `docs/settled/` entry (see `docs/settled/README.md`).
 
-**CI:** `.github/workflows/drift-issues.yml`, `workflow_dispatch` only, with an `apply`
-input that defaults to false and the built-in token (`issues: write`). Tests:
-`Tests/PfbDriftIssueTools.Tests.ps1` (the library, against fixtures) and
-`Tests/New-PfbDriftIssue.Tests.ps1` (the script, against a fake gh, plus the workflow's
-safety properties). Both run on both editions.
+**CI:** `.github/workflows/drift-issues.yml`, with the built-in token only
+(`issues: write`, `pull-requests: read`). Two ways in:
+
+- **`workflow_dispatch`**: its `apply` input defaults to false, so a dispatch is a dry run
+  unless it is ticked.
+- **A push to `main` changing either drift report**: this is the spec-release event, and it
+  **applies**. It reconciles only when the pushed commit merged the automated
+  capability-map PR (from `automated/update-api-capability-map`, in this repository, into
+  `main`); any other push leaves the reconcile step skipped.
+
+`tools/Test-PfbCapabilityMapMerge.ps1` makes that call. It asks GitHub for the commit's
+pull requests, which resolves for merge and squash merges alike, retries an empty answer,
+and prints `true` or `false`:
+
+    ./tools/Test-PfbCapabilityMapMerge.ps1 -Repo dmann000/fb-powershell -Sha (git rev-parse HEAD) -GhCommand ghx
+
+Tests:
+- `Tests/PfbDriftIssueTools.Tests.ps1`: the library, including the gate's verdict,
+  against fixtures.
+- `Tests/New-PfbDriftIssue.Tests.ps1`: the script against a fake gh, plus the workflow's
+  safety properties.
+- `Tests/Test-PfbCapabilityMapMerge.Tests.ps1`: the gate script against a fake gh.
+
+All three run on both editions.
 
 ## Backlog scorer (`Build-PfbBacklog.ps1`)
 
