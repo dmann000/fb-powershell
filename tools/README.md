@@ -937,6 +937,10 @@ pull requests. The `SSOT_API_KEY`/`SSOT_BASE_URI`/`SSOT_TOPIC_ID` secrets are op
 when any are absent, the version-map step is skipped gracefully and only the capability
 map updates (see item 3 above).
 
+Merging that PR is the spec-release event: `.github/workflows/drift-issues.yml` sees the
+changed drift reports, confirms the push is that PR's merge, and reconciles the reports into
+issues with `-Apply` (see **Drift issue reconciler**, **CI**); Backlog re-ranks after it.
+
 `Build-PfbValueEnumMap.ps1`, `Build-PfbFieldCmdletMap.ps1`, `Build-PfbResponseShapeMap.ps1`,
 and `Build-PfbApiDriftReport.ps1` all run as part of the same weekly/dispatch job, right
 after the capability map is rebuilt, so `Reports/PfbValueEnumMap.json`,

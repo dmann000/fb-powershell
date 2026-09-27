@@ -1,7 +1,8 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    The pure half of the drift -> GitHub issue reconciler (tools/New-PfbDriftIssue.ps1).
+    The pure half of the drift -> GitHub issue reconciler (tools/New-PfbDriftIssue.ps1)
+    and of the capability-map merge gate (tools/Test-PfbCapabilityMapMerge.ps1).
 .DESCRIPTION
     Turns Reports/PfbApiDriftReport.json and Reports/PfbDeadKeyReport.json into one
     fingerprinted finding per atomic gap, groups the findings into issue-sized units, and
