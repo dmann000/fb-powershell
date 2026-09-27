@@ -219,29 +219,66 @@ Describe 'New-PfbDriftIssue.ps1' {
 Describe 'drift-issues workflow' {
     BeforeAll {
         $script:workflow = [System.IO.File]::ReadAllText((Join-Path (Join-Path (Join-Path $script:repoRoot '.github') 'workflows') 'drift-issues.yml'))
-    }
-
-    It 'runs only when dispatched by hand' {
         # Only the on: block, up to the next top-level key -- `issues: write` under
         # permissions: is not a trigger.
-        $on = [regex]::Match($script:workflow, '(?ms)^on:\r?\n(.*?)(?=^\S)').Groups[1].Value
-        $on | Should -Match '(?m)^  workflow_dispatch:'
-        @([regex]::Matches($on, '(?m)^  ([a-z_]+):') | ForEach-Object { $_.Groups[1].Value }) -join ',' | Should -BeExactly 'workflow_dispatch'
+        $script:on = [regex]::Match($script:workflow, '(?ms)^on:\r?\n(.*?)(?=^\S)').Groups[1].Value
     }
 
-    It 'defaults the apply input to false and passes -Apply only when it is true' {
+    It 'runs on dispatch, and on a push to main that changes a drift report' {
+        @([regex]::Matches($script:on, '(?m)^  ([a-z_]+):') | ForEach-Object { $_.Groups[1].Value }) -join ',' | Should -BeExactly 'workflow_dispatch,push'
+        $push = [regex]::Match($script:on, '(?ms)^  push:\r?\n(.*)').Groups[1].Value
+        $push | Should -Match '(?m)^    branches: \[main\]\s*$'
+        @([regex]::Matches($push, "(?m)^      - '([^']+)'\s*$") | ForEach-Object { $_.Groups[1].Value }) -join ',' |
+            Should -BeExactly 'Reports/PfbApiDriftReport.json,Reports/PfbDeadKeyReport.json'
+    }
+
+    It 'keeps a dispatch a dry run unless apply is ticked' {
         $script:workflow | Should -Match '(?s)apply:.*?type: boolean.*?default: false'
-        $script:workflow | Should -Match ([regex]::Escape("if ('`${{ inputs.apply }}' -eq 'true') { `$params['Apply'] = `$true }"))
+    }
+
+    It 'applies on the push path and on a dispatch with apply ticked, reading both through env' {
+        $script:workflow | Should -Match ([regex]::Escape('DRIFT_APPLY: ${{ inputs.apply }}'))
+        $script:workflow | Should -Match ([regex]::Escape('DRIFT_EVENT: ${{ github.event_name }}'))
+        $script:workflow | Should -Match ([regex]::Escape("if (`$env:DRIFT_EVENT -eq 'push' -or `$env:DRIFT_APPLY -eq 'true') { `$params['Apply'] = `$true }"))
+        # A spec restructuring must stop for a human, never be waved through automatically.
+        # Comment lines may mention it (the header explains why it is never passed); code may not.
+        @([regex]::Matches($script:workflow, '(?m)^[ \t]*[^#\s].*AcceptMassVanish')).Count | Should -Be 0
+    }
+
+    It 'reconciles a push only when the gate says it merged the capability-map PR' {
+        $script:workflow | Should -Match '(?m)^\s+id: gate\s*$'
+        $script:workflow | Should -Match ([regex]::Escape("if: github.event_name == 'push'"))
+        $script:workflow | Should -Match ([regex]::Escape('DRIFT_SHA: ${{ github.sha }}'))
+        $script:workflow | Should -Match ([regex]::Escape('./tools/Test-PfbCapabilityMapMerge.ps1 -Repo $env:DRIFT_REPO -Sha $env:DRIFT_SHA -GhCommand gh'))
+        $script:workflow | Should -Match ([regex]::Escape("if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.is_capability_map_merge == 'true'"))
+        # The gate runs before the reconciler.
+        $script:workflow.IndexOf('id: gate') | Should -BeLessThan $script:workflow.IndexOf('./tools/New-PfbDriftIssue.ps1')
+    }
+
+    It 'never files issues from a push to a fork' {
+        $script:workflow | Should -Match ([regex]::Escape("if: github.event_name == 'workflow_dispatch' || github.repository == 'dmann000/fb-powershell'"))
     }
 
     It 'asks for issues: write and nothing else writable, using only the built-in token' {
-        $script:workflow | Should -Match '(?m)^  issues: write\s*$'
-        $script:workflow | Should -Match '(?m)^  contents: read\s*$'
-        @([regex]::Matches($script:workflow, '(?m)^  [a-z-]+: write')).Count | Should -Be 1
+        $permissions = [regex]::Match($script:workflow, '(?ms)^permissions:[ \t]*\r?\n(.*?)(?=^\S)').Groups[1].Value
+        @([regex]::Matches($permissions, '(?m)^  ([a-z-]+: \S+)') | ForEach-Object { $_.Groups[1].Value }) -join ',' |
+            Should -BeExactly 'contents: read,issues: write,pull-requests: read'
+        $script:workflow | Should -Not -Match 'write-all'
+        @([regex]::Matches($script:workflow, '(?m)^\s+[a-z-]+: write\s*$')).Count | Should -Be 1
         @([regex]::Matches($script:workflow, 'secrets\.([A-Za-z_]+)') | ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -cne 'GITHUB_TOKEN' }).Count | Should -Be 0
     }
 
     It 'never cancels a run in progress, which could leave half its writes made' {
+        $script:workflow | Should -Match '(?m)^  group: drift-issues\s*$'
         $script:workflow | Should -Match '(?m)^  cancel-in-progress: false\s*$'
+    }
+
+    It 'interpolates nothing into a run block' {
+        # Every run: | block (its more-indented lines, blank lines included).
+        $runBlocks = @([regex]::Matches($script:workflow, '(?m)^([ \t]+)(?:- )?run: \|[ \t]*\r?\n((?:(?:\1[ \t]+\S[^\r\n]*|[ \t]*)(?:\r?\n|$))+)') | ForEach-Object { $_.Groups[2].Value })
+        $runBlocks.Count | Should -Be 2
+        @($runBlocks | Where-Object { $_.Contains('${{') }).Count | Should -Be 0
+        # And no single-line run: either.
+        @([regex]::Matches($script:workflow, '(?m)^[ \t]+(?:- )?run: (?!\|)(.*)$') | Where-Object { $_.Groups[1].Value.Contains('${{') }).Count | Should -Be 0
     }
 }

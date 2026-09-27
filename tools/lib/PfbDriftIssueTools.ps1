@@ -1,7 +1,8 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    The pure half of the drift -> GitHub issue reconciler (tools/New-PfbDriftIssue.ps1).
+    The pure half of the drift -> GitHub issue reconciler (tools/New-PfbDriftIssue.ps1)
+    and of the capability-map merge gate (tools/Test-PfbCapabilityMapMerge.ps1).
 .DESCRIPTION
     Turns Reports/PfbApiDriftReport.json and Reports/PfbDeadKeyReport.json into one
     fingerprinted finding per atomic gap, groups the findings into issue-sized units, and
@@ -1645,5 +1646,89 @@ function Get-PfbDriftPlan {
         Actions      = $actions.ToArray()
         FindingCount = $findings.Count
         TrackedCount = $tracked
+    }
+}
+
+function Get-PfbMergeGateField {
+    <#
+        One nested property of a parsed API object, or $null when any step of -Path is
+        missing or null. The commits/{sha}/pulls response nulls head.repo once a fork is
+        deleted, and a direct $p.head.repo.full_name would then throw under StrictMode.
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowNull()][object]$InputObject,
+        [Parameter(Mandatory = $true)][string[]]$Path
+    )
+    $current = $InputObject
+    foreach ($name in $Path) {
+        if ($null -eq $current) { return $null }
+        $property = $current.PSObject.Properties[$name]
+        if ($null -eq $property) { return $null }
+        $current = $property.Value
+    }
+    return $current
+}
+
+function Get-PfbCapabilityMapMergeVerdict {
+    <#
+    .SYNOPSIS
+        Decides whether a pushed commit is the merge of the automated capability-map PR.
+    .DESCRIPTION
+        The spec-release event (G3). update-api-capability-map.yml opens its PR from
+        -Branch; once that PR merges, the Drift Issues workflow reconciles with -Apply. A
+        feature merge that also regenerates Reports/ is deliberately not the event.
+
+        -Pull is the parsed response of GET repos/{repo}/commits/{sha}/pulls. GitHub
+        associates a commit with its pull request for merge, squash and rebase merges
+        alike (measured 2026-09-25 on a merge commit and a squash commit), which a
+        commit-message match does not survive.
+
+        A pull qualifies only when all four hold, checked in this order and compared
+        case-exactly: it is merged; its head branch is -Branch; its head repository is
+        -Repo (a fork can open a PR from a branch of the same name, and only the upstream
+        workflow creates the real one); its base is -Base.
+
+        Pure: tools/Test-PfbCapabilityMapMerge.ps1 makes the API call.
+    .OUTPUTS
+        [pscustomobject] IsCapabilityMapMerge [bool]; Number, the first qualifying pull's
+        number or $null; Reason, one verdict per pull joined by '; ', or
+        'no associated pull request'.
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowNull()][AllowEmptyCollection()][object[]]$Pull = @(),
+        [Parameter(Mandatory = $true)][string]$Repo,
+        [ValidateNotNullOrEmpty()][string]$Branch = 'automated/update-api-capability-map',
+        [ValidateNotNullOrEmpty()][string]$Base = 'main'
+    )
+
+    $pulls = @($Pull | Where-Object { $null -ne $_ })
+    if ($pulls.Count -eq 0) {
+        return [PSCustomObject]@{ IsCapabilityMapMerge = $false; Number = $null; Reason = 'no associated pull request' }
+    }
+
+    $reasons = [System.Collections.Generic.List[string]]::new()
+    $matched = $null
+    foreach ($p in $pulls) {
+        $number = [string](Get-PfbMergeGateField -InputObject $p -Path 'number')
+        $mergedAt = [string](Get-PfbMergeGateField -InputObject $p -Path 'merged_at')
+        $headRef = [string](Get-PfbMergeGateField -InputObject $p -Path 'head', 'ref')
+        $headRepo = [string](Get-PfbMergeGateField -InputObject $p -Path 'head', 'repo', 'full_name')
+        $baseRef = [string](Get-PfbMergeGateField -InputObject $p -Path 'base', 'ref')
+
+        if ($mergedAt -eq '') { $reasons.Add("PR #$number is not merged"); continue }
+        if ($headRef -cne $Branch) { $reasons.Add("PR #$number head branch '$headRef' is not '$Branch'"); continue }
+        if ($headRepo -cne $Repo) { $reasons.Add("PR #$number head repository '$headRepo' is not '$Repo'"); continue }
+        if ($baseRef -cne $Base) { $reasons.Add("PR #$number base branch '$baseRef' is not '$Base'"); continue }
+
+        $reasons.Add("PR #$number merged from ${Repo}:$Branch into $Base")
+        if ($null -eq $matched) { $matched = [int]$number }
+    }
+
+    return [PSCustomObject]@{
+        IsCapabilityMapMerge = ($null -ne $matched)
+        Number               = $matched
+        Reason               = ($reasons -join '; ')
     }
 }

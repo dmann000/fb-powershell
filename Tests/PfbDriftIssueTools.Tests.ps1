@@ -1085,3 +1085,94 @@ Describe 'Get-PfbDriftPlan' {
         ($first.Actions | ConvertTo-Json -Depth 6 -Compress) | Should -BeExactly ($second.Actions | ConvertTo-Json -Depth 6 -Compress)
     }
 }
+
+Describe 'Get-PfbCapabilityMapMergeVerdict' {
+    BeforeAll {
+        # One element of GET repos/{repo}/commits/{sha}/pulls, with only the fields the gate
+        # reads, round-tripped through ConvertFrom-Json so it has the real response's shape.
+        function New-TestPull {
+            [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'Test helper building an in-memory fixture object; nothing to confirm.')]
+            param(
+                [int]$Number = 201,
+                [string]$MergedAt = '2026-09-25T00:00:00Z',
+                [string]$HeadRef = 'automated/update-api-capability-map',
+                [string]$HeadRepo = 'example/repo',
+                [string]$BaseRef = 'main',
+                [switch]$NoHeadRepo
+            )
+            $repo = '{ "full_name": "' + $HeadRepo + '" }'
+            if ($NoHeadRepo) { $repo = 'null' }
+            $merged = 'null'
+            if ($MergedAt) { $merged = '"' + $MergedAt + '"' }
+            return ('{ "number": ' + $Number + ', "merged_at": ' + $merged + ', "head": { "ref": "' + $HeadRef + '", "repo": ' + $repo + ' }, "base": { "ref": "' + $BaseRef + '" } }' | ConvertFrom-Json)
+        }
+        $script:capBranch = 'automated/update-api-capability-map'
+    }
+
+    It 'accepts a merged pull from the capability-map branch of this repository into main' {
+        $verdict = Get-PfbCapabilityMapMergeVerdict -Pull @(New-TestPull) -Repo 'example/repo'
+        $verdict.IsCapabilityMapMerge | Should -BeTrue
+        $verdict.Number | Should -Be 201
+        $verdict.Reason | Should -BeExactly "PR #201 merged from example/repo:$($script:capBranch) into main"
+    }
+
+    It 'rejects an empty association, which is what a direct push to main returns' {
+        $verdict = Get-PfbCapabilityMapMergeVerdict -Pull @() -Repo 'example/repo'
+        $verdict.IsCapabilityMapMerge | Should -BeFalse
+        $verdict.Number | Should -BeNullOrEmpty
+        $verdict.Reason | Should -BeExactly 'no associated pull request'
+    }
+
+    It 'treats a null -Pull like an empty one' {
+        $verdict = Get-PfbCapabilityMapMergeVerdict -Pull $null -Repo 'example/repo'
+        $verdict.IsCapabilityMapMerge | Should -BeFalse
+        $verdict.Reason | Should -BeExactly 'no associated pull request'
+    }
+
+    It 'rejects a pull that is not merged' {
+        $verdict = Get-PfbCapabilityMapMergeVerdict -Pull @(New-TestPull -MergedAt '') -Repo 'example/repo'
+        $verdict.IsCapabilityMapMerge | Should -BeFalse
+        $verdict.Reason | Should -BeExactly 'PR #201 is not merged'
+    }
+
+    It 'rejects another branch' {
+        $verdict = Get-PfbCapabilityMapMergeVerdict -Pull @(New-TestPull -HeadRef 'feat/x') -Repo 'example/repo'
+        $verdict.IsCapabilityMapMerge | Should -BeFalse
+        $verdict.Reason | Should -BeExactly "PR #201 head branch 'feat/x' is not '$($script:capBranch)'"
+    }
+
+    It 'rejects the same branch name on a fork' {
+        $verdict = Get-PfbCapabilityMapMergeVerdict -Pull @(New-TestPull -HeadRepo 'someone/repo') -Repo 'example/repo'
+        $verdict.IsCapabilityMapMerge | Should -BeFalse
+        $verdict.Reason | Should -BeExactly "PR #201 head repository 'someone/repo' is not 'example/repo'"
+    }
+
+    It 'rejects a pull whose head repository has been deleted, without throwing' {
+        $verdict = Get-PfbCapabilityMapMergeVerdict -Pull @(New-TestPull -NoHeadRepo) -Repo 'example/repo'
+        $verdict.IsCapabilityMapMerge | Should -BeFalse
+        $verdict.Reason | Should -BeExactly "PR #201 head repository '' is not 'example/repo'"
+    }
+
+    It 'rejects a base other than main' {
+        $verdict = Get-PfbCapabilityMapMergeVerdict -Pull @(New-TestPull -BaseRef 'release') -Repo 'example/repo'
+        $verdict.IsCapabilityMapMerge | Should -BeFalse
+        $verdict.Reason | Should -BeExactly "PR #201 base branch 'release' is not 'main'"
+    }
+
+    It 'compares the branch and the repository case-exactly' {
+        (Get-PfbCapabilityMapMergeVerdict -Pull @(New-TestPull -HeadRef 'Automated/Update-API-Capability-Map') -Repo 'example/repo').IsCapabilityMapMerge | Should -BeFalse
+        (Get-PfbCapabilityMapMergeVerdict -Pull @(New-TestPull -HeadRepo 'Example/Repo') -Repo 'example/repo').IsCapabilityMapMerge | Should -BeFalse
+    }
+
+    It 'accepts when the matching pull is not the first, and reports every pull' {
+        $verdict = Get-PfbCapabilityMapMergeVerdict -Pull @((New-TestPull -Number 150 -HeadRef 'feat/x'), (New-TestPull)) -Repo 'example/repo'
+        $verdict.IsCapabilityMapMerge | Should -BeTrue
+        $verdict.Number | Should -Be 201
+        $verdict.Reason | Should -BeExactly "PR #150 head branch 'feat/x' is not '$($script:capBranch)'; PR #201 merged from example/repo:$($script:capBranch) into main"
+    }
+
+    It 'honours -Branch and -Base' {
+        $verdict = Get-PfbCapabilityMapMergeVerdict -Pull @(New-TestPull -HeadRef 'integration/x' -BaseRef 'next') -Repo 'example/repo' -Branch 'integration/x' -Base 'next'
+        $verdict.IsCapabilityMapMerge | Should -BeTrue
+    }
+}
