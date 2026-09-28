@@ -16,10 +16,16 @@
         # Hook quirks: the hook flags, the script may not.
         'A version gate on the finding''s own line: the hook looks only at the 6 lines BEFORE it (ps51-compat-check.mjs, the LOOKBACK loop in suppressed()).'
         'A finding after a Describe block closes: the hook walks back to the nearest opener line, not the enclosing block (ps51-compat-check.mjs, inSkippedBlock()).'
+        'A command name that is mentioned but not invoked (Get-Command Test-Json, a polyfill `function Test-Json { }`, Join-String as a bareword argument): the hook''s PATTERNS regexes run over stripInert text, where the name alone matches; the script matches only CommandAst invocations.'
         # The script is stricter: the hook is silent, the script reports.
         'The % alias of ForEach-Object (-Parallel, -ThrottleLimit): the hook''s \b(?:ForEach-Object|%)\b cannot match a % between spaces, so the hook never flags it. The script is stricter.'
         'A variable or subexpression inside an expandable string ("$PSStyle", "$(Split-Path x -LeafBase)"): the hook blanks the whole double-quoted string, the AST sees the nested expression. The script is stricter.'
         'A quoted -Encoding value (-Encoding ''utf8NoBOM'', -Encoding ''UTF8''): the hook blanks the quoted value before its quote group is tried, the AST reads the constant. The script is stricter.'
+        'A parameter on a backtick-continuation line (ConvertFrom-Json `, then -Depth 5 on the next line): the hook''s PATTERNS regexes test one stripped line at a time in scanFile(), so the command and the parameter never meet; the script reports at the command''s FIRST line, so a # ps51-ok must sit on or above that line. The script is stricter.'
+        'A # ps51-ok inside a string on the finding''s line or the 6 before it: the hook''s suppressed() tests the RAW lines, strings included; the script honours only Comment tokens. The script is stricter.'
+        'A # ps51-ok inside a block comment that starts more than 6 lines above the finding: the hook''s suppressed() tests each RAW line in the window, so an inner comment line counts; the script dates a Comment token by its start line. The script is stricter.'
+        'A -PSEdition parameter or a $PSEdition variable in the 6 lines before the finding: the hook''s RE_GATE \bPSEdition\b counts either as a version gate; the script counts only a bare PSEdition token (the .PSEdition member). The script is stricter.'
+        'Two findings for one rule on one line (two ConvertFrom-Json -Depth commands joined by ;): the hook''s scanFile() reports once per line per PATTERNS entry; the script reports once per command. The script is stricter.'
         'A 5.1 parse error that matches none of the hook''s RE_CLASS1 patterns (an unbalanced brace, say): ps51-compat-check.mjs calls the 5.1 parser only after an RE_CLASS1 match (in scanFile()), so it never adjudicates one, and ps-parse-check.mjs reports it only if PowerShell 7 fails to parse it too. The script parses every in-scope file under 5.1 and reports it. The script is stricter.'
     )
     # One case per construct. FlagsPath and SuppressedPath are the repo-relative paths at
