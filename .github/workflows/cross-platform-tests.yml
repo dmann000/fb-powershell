@@ -350,6 +350,8 @@ jobs:
       # edition-divergence traps. A parse error fails here with its file and line; runtime
       # and divergence findings are warnings. Run directly, not through a nested
       # `powershell.exe` child: this step's shell already IS Windows PowerShell 5.1.
+      # The script exits 2 when it cannot run, but this shell reports any non-zero exit as
+      # 1, so the step fails either way and the log says which it was.
       - name: Check Windows PowerShell 5.1 compatibility
         shell: powershell
         run: ./tools/Test-PfbPs51Compat.ps1 -All

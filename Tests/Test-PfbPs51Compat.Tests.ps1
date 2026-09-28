@@ -161,6 +161,8 @@ Describe 'Test-PfbPs51Compat against every fixture case' -Skip:($PSVersionTable.
     }
     It '<Id>: the suppressed sample is not reported under <Rule> (<Suppression>)' -ForEach $script:cases {
         $out = @(& $script:compat -Path (New-TestCaseRepo -RelativePath $SuppressedPath -SampleFile $SuppressedFile) 6>$null)
+        # Exit 2 (could not run) also reports nothing, so rule it out before trusting the zero.
+        $LASTEXITCODE | Should -Not -Be 2
         @($out | Where-Object Rule -eq $Rule).Count | Should -Be 0 -Because ($out | Out-String)
     }
 }
@@ -266,6 +268,7 @@ Describe 'x' `
 '@ }
     ) {
         $out = @(& $script:compat -Path (New-TestInlineSample -Text $Text) 6>$null)
+        $LASTEXITCODE | Should -Not -Be 2
         @($out | Where-Object Rule -eq $Rule).Count | Should -Be 0 -Because ($out | Out-String)
     }
 }
@@ -323,6 +326,7 @@ Describe 'cross-platform-tests.yml runs the 5.1 compatibility check on the 5.1 l
         $script:job = [regex]::Match($script:xp, '(?ms)^  test-windows-powershell-5-1:\r?\n(.*?)(?=^  \S|\z)').Groups[1].Value
     }
     It 'runs ./tools/Test-PfbPs51Compat.ps1 -All directly, under shell: powershell, straight after checkout' {
+        $script:job | Should -Not -BeNullOrEmpty -Because 'the 5.1 job must be found before its text is checked'
         $script:job | Should -Match '(?ms)- name: Checkout\s*\r?\n\s+uses: actions/checkout@\S+[^\r\n]*\r?\n\s*\r?\n(?:\s*#[^\r\n]*\r?\n)*\s+- name: Check Windows PowerShell 5\.1 compatibility\s*\r?\n\s+shell: powershell\s*\r?\n\s+run: \./tools/Test-PfbPs51Compat\.ps1 -All\s*$'
         $script:job | Should -Not -Match 'powershell(\.exe)? -File'
     }
