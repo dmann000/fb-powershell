@@ -53,6 +53,15 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# Exit 1 means class-1 findings, and a gate reads it that way. An uncaught terminating error
+# would also exit 1, so a malfunction (an unreadable file, a parser exception) would read as
+# a real finding. Every failure to run exits 2 instead: the named cases below exit 2 with
+# their own message, and this trap is the backstop for anything unexpected.
+trap {
+    Write-Host "Test-PfbPs51Compat.ps1 could not run: $_" -ForegroundColor Red
+    exit 2
+}
+
 $script:Manifest = 'PureStorageFlashBladePowerShell.psd1'
 $script:ReReq7 = '(?im)^\s*#Requires\s+-Version\s+([7-9]|\d{2,})'
 $script:ReReq5 = '(?im)^\s*#Requires\s+-Version\s+5'
@@ -127,12 +136,32 @@ $targets = @()
 if ($All) {
     $root = Find-PfbRepoRoot -StartDirectory (Get-Location).ProviderPath
     if (-not $root) { Write-Host "No $script:Manifest above $((Get-Location).ProviderPath)." -ForegroundColor Red; exit 2 }
-    $listed = & git -C $root ls-files -- '*.ps1' '*.psm1' '*.psd1' 2>&1
-    if ($LASTEXITCODE -ne 0) { Write-Host "git ls-files failed: $listed" -ForegroundColor Red; exit 2 }
+    if (-not (Get-Command -Name git -CommandType Application -ErrorAction SilentlyContinue)) {
+        Write-Host 'git was not found on PATH; -All needs it to list the tracked files.' -ForegroundColor Red
+        exit 2
+    }
+    # Under 'Stop', Windows PowerShell 5.1 turns any redirected stderr line from a native
+    # command into a terminating error, so git's own exit code would never be read and a
+    # harmless warning would abort the run. Relax it for this one call, keep stderr apart
+    # from the file list, and decide on $LASTEXITCODE alone.
+    $ErrorActionPreference = 'Continue'
+    $gitOutput = @(& git -C $root ls-files -- '*.ps1' '*.psm1' '*.psd1' 2>&1)
+    $gitExit = $LASTEXITCODE
+    $ErrorActionPreference = 'Stop'
+    $gitErrors = @($gitOutput | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] })
+    if ($gitExit -ne 0) {
+        Write-Host ("git ls-files failed (exit {0}) in {1}: {2}" -f $gitExit, $root, (($gitErrors | ForEach-Object { "$_" }) -join ' ')) -ForegroundColor Red
+        exit 2
+    }
+    $listed = @($gitOutput | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] })
     $targets = @($listed | ForEach-Object { [pscustomobject]@{ Full = (Join-Path $root $_); Root = $root } })
 } else {
     foreach ($p in @($Path)) {
         if (-not $p) { continue }
+        if (-not (Test-Path -LiteralPath $p -PathType Leaf)) {
+            Write-Host "No such file: $p" -ForegroundColor Red
+            exit 2
+        }
         $full = (Resolve-Path -LiteralPath $p).ProviderPath
         $root = Find-PfbRepoRoot -StartDirectory (Split-Path -Parent $full)
         if ($root) { $targets += [pscustomobject]@{ Full = $full; Root = $root } }

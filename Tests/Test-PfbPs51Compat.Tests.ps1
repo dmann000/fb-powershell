@@ -34,6 +34,17 @@ Describe 'Ps51Compat fixture table covers the hook it replaces' -Skip:($PSVersio
         $covered = @($script:manifest.Cases | ForEach-Object { $_.Construct; $_.Suppression }) | Sort-Object -Unique
         @($script:manifest.HookConstructs | Where-Object { $covered -notcontains $_ }) -join ', ' | Should -BeNullOrEmpty
     }
+    It 'names only hook constructs in every case''s Construct and Suppression' {
+        $known = @($script:manifest.HookConstructs)
+        $unknown = foreach ($c in $script:manifest.Cases) {
+            if (-not $c.Construct -or $known -notcontains $c.Construct) { "$($c.Id): Construct '$($c.Construct)'" }
+            if ($c.Suppression -and $known -notcontains $c.Suppression) { "$($c.Id): Suppression '$($c.Suppression)'" }
+        }
+        @($unknown) -join ', ' | Should -BeNullOrEmpty
+    }
+    It 'gives every case a unique Id' {
+        @($script:manifest.Cases | ForEach-Object { $_.Id } | Group-Object | Where-Object Count -gt 1 | ForEach-Object Name) -join ', ' | Should -BeNullOrEmpty
+    }
     It 'every case has both samples on disk' {
         $missing = foreach ($c in $script:manifest.Cases) {
             foreach ($f in $c.FlagsFile, $c.SuppressedFile) { if (-not (Test-Path -LiteralPath (Join-Path $script:fixtureDir $f))) { "$($c.Id): $f" } }
@@ -87,6 +98,7 @@ Describe 'Test-PfbPs51Compat scope and class 1' -Skip:($PSVersionTable.PSEdition
     It 'ignores a #Requires -Version 7 file entirely' {
         $root = New-TestFakeRepo
         @(& $script:compat -Path (Set-TestSample $root 'Tests/B.Tests.ps1' "#Requires -Version 7.0`n`$v = `$c ? 1 : 2`n") 6>$null).Count | Should -Be 0
+        $LASTEXITCODE | Should -Be 0
     }
     It 'gives no findings for a file under no manifest' {
         $f = Join-Path $TestDrive 'loose.ps1'
@@ -103,5 +115,27 @@ Describe 'Test-PfbPs51Compat scope and class 1' -Skip:($PSVersionTable.PSEdition
         $f = Set-TestSample $root 'Tests/C.Tests.ps1' "'ok'`n"
         & pwsh -NoProfile -NonInteractive -File $script:compat -Path $f *> $null
         $LASTEXITCODE | Should -Be 2
+    }
+    Context 'when it cannot run' {
+        # Exit 1 means class-1 findings, so a malfunction must never exit 1. Each It runs the
+        # script in a child powershell.exe, as CI does, so the exit code is the process's own.
+        It 'exits 2 for -All under a manifest that is not a git work tree' {
+            $root = New-TestFakeRepo
+            $savedCeiling = $env:GIT_CEILING_DIRECTORIES
+            # Stops git searching above the fake repo, so the answer cannot depend on where
+            # the test drive happens to live.
+            $env:GIT_CEILING_DIRECTORIES = Split-Path -Parent $root
+            try {
+                & powershell.exe -NoProfile -NonInteractive -Command "Set-Location -LiteralPath '$root'; & '$($script:compat)' -All; exit `$LASTEXITCODE" *> $null
+                $LASTEXITCODE | Should -Be 2
+            } finally {
+                $env:GIT_CEILING_DIRECTORIES = $savedCeiling
+            }
+        }
+        It 'exits 2 for a -Path that does not exist' {
+            $missing = Join-Path (New-TestFakeRepo) 'Public/Missing.ps1'
+            & powershell.exe -NoProfile -NonInteractive -File $script:compat -Path $missing *> $null
+            $LASTEXITCODE | Should -Be 2
+        }
     }
 }
