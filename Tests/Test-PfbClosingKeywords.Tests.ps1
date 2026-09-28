@@ -110,3 +110,36 @@ Describe 'Test-PfbClosingKeywords: letters are ASCII, as in the JavaScript origi
         (Get-TestFinding "Fixes #1 plu$([char]0x017F) #2").Count | Should -Be 0
     }
 }
+
+Describe 'verify-closing-keywords.yml' {
+    BeforeAll {
+        $script:ck = [System.IO.File]::ReadAllText((Join-Path $script:repoRoot '.github/workflows/verify-closing-keywords.yml'))
+        $script:ckRun = @([regex]::Matches($script:ck, '(?m)^([ \t]+)(?:- )?run: \|[ \t]*\r?\n((?:(?:\1[ \t]+\S[^\r\n]*|[ \t]*)(?:\r?\n|$))+)') | ForEach-Object { $_.Groups[2].Value })
+    }
+    It 'runs on opened, edited, synchronize and reopened, on ubuntu (a body can exceed the Windows env-var cap)' {
+        $script:ck | Should -Match '(?m)^    types: \[opened, edited, synchronize, reopened\]\s*$'
+        $script:ck | Should -Match '(?m)^    runs-on: ubuntu-latest\s*$'
+    }
+    It 'reads contents only, with no secret' {
+        $permissions = [regex]::Match($script:ck, '(?ms)^permissions:[ \t]*\r?\n(.*?)(?=^\S)').Groups[1].Value
+        @([regex]::Matches($permissions, '(?m)^  ([a-z-]+: \S+)') | ForEach-Object { $_.Groups[1].Value }) -join ',' | Should -BeExactly 'contents: read'
+        $script:ck | Should -Not -Match 'secrets\.'
+    }
+    It 'passes the body as an env VALUE and interpolates nothing into a run block' {
+        $script:ck | Should -Match ([regex]::Escape('PR_BODY: ${{ github.event.pull_request.body }}'))
+        $script:ck | Should -Match ([regex]::Escape('-Text $env:PR_BODY'))
+        $script:ckRun.Count | Should -BeGreaterThan 0
+        @($script:ckRun | Where-Object { $_.Contains('${{') }).Count | Should -Be 0
+    }
+    It 'reads commits from a full-depth checkout, without merges, excluding what is already on the base branch' {
+        $script:ck | Should -Match '(?m)^\s+fetch-depth: 0\s*$'
+        $script:ck | Should -Match ([regex]::Escape('git merge-base $env:BASE_SHA $env:HEAD_SHA'))
+        $script:ck | Should -Match 'git rev-list --no-merges \$env:HEAD_SHA --not'
+        $script:ck | Should -Match ([regex]::Escape('"origin/$($env:BASE_REF)"'))
+    }
+    It 'annotates each finding with the bare ::error:: form and fails the job' {
+        $script:ck | Should -Match '::error::'
+        $script:ck | Should -Not -Match '::error file='
+        $script:ck | Should -Match '(?m)^\s+if \(\$failures -gt 0\) \{ exit 1 \}'
+    }
+}

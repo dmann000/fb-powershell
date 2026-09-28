@@ -1,0 +1,81 @@
+name: Verify Closing Keywords
+
+# Fails a pull request whose body or commit messages list issue references after ONE
+# closing keyword -- `Fixes #100, #101` closes #100 only. GitHub reads closing keywords AT
+# MERGE TIME, so editing a merged PR's body fixes nothing; this is the only point at which
+# the mistake can be caught. tools/Test-PfbClosingKeywords.ps1 holds the rule and its scope
+# notes. To quote the wrong form on purpose, put it in backticks.
+#
+# It does NOT read the PR title or comments, and it does not check that a referenced issue
+# exists or is the right one -- only that every reference meant to close has its own keyword.
+#
+# ubuntu-latest because a PR body can be 65,536 characters and Windows caps an environment
+# variable at 32,767. The body reaches the script as an environment VALUE, never as text
+# built into a command line.
+#
+# COMMITS: those on the PR head that are not merges and not already on the base branch.
+# `--not origin/<base>` as well as the merge-base, because pull_request.base.sha can be
+# stale: after the branch is updated from main, merge-base(stale base, head) is the stale
+# base, and main's own commits since then would otherwise be read as the PR's.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-closing-keywords-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Each issue has its own closing keyword
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Check the PR body and commit messages
+        shell: pwsh
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $check = './tools/Test-PfbClosingKeywords.ps1'
+          $failures = 0
+          # Workflow-command values must escape %, CR and LF, or text from the PR could
+          # shape the annotation.
+          function Format-Annotation { param([string]$s) ($s -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A') }
+
+          foreach ($f in @(& $check -Text $env:PR_BODY)) {
+              $failures++
+              Write-Host ("::error::PR body, line {0}: '{1}' closes only its first reference. Write: {2}" -f $f.Line, (Format-Annotation $f.Fragment), (Format-Annotation $f.Corrected))
+          }
+
+          $mergeBase = ([string](git merge-base $env:BASE_SHA $env:HEAD_SHA)).Trim()
+          if ($LASTEXITCODE -ne 0 -or -not $mergeBase) { throw 'git merge-base failed' }
+          $exclude = @($mergeBase)
+          git rev-parse --verify --quiet "origin/$($env:BASE_REF)" | Out-Null
+          if ($LASTEXITCODE -eq 0) { $exclude += "origin/$($env:BASE_REF)" }
+          else { Write-Host "::warning::origin/$($env:BASE_REF) is not in the checkout; reading commits from the merge-base only." }
+
+          $commits = @(git rev-list --no-merges $env:HEAD_SHA --not @exclude)
+          if ($LASTEXITCODE -ne 0) { throw 'git rev-list failed' }
+          foreach ($sha in $commits) {
+              $message = (git log -1 --format=%B $sha) -join "`n"
+              foreach ($f in @(& $check -Text $message)) {
+                  $failures++
+                  Write-Host ("::error::Commit {0}, line {1}: '{2}' closes only its first reference. Write: {3}" -f $sha.Substring(0, 10), $f.Line, (Format-Annotation $f.Fragment), (Format-Annotation $f.Corrected))
+              }
+          }
+
+          Write-Host "Checked the PR body and $($commits.Count) commit message(s): $failures finding(s)."
+          if ($failures -gt 0) { exit 1 }
