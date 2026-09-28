@@ -245,3 +245,39 @@ Describe 'Test-PfbWireExemption is publishable as written' -Skip:($PSVersionTabl
         (Get-Help $script:checker).Synopsis | Should -Not -Match ([regex]::Escape('Test-PfbWireExemption.ps1'))
     }
 }
+
+Describe 'verify-wire-exemption.yml (informational only)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    BeforeAll {
+        $script:wx = [System.IO.File]::ReadAllText((Join-Path $script:repoRoot '.github/workflows/verify-wire-exemption.yml'))
+        $script:wxRun = @([regex]::Matches($script:wx, '(?m)^([ \t]+)(?:- )?run: \|[ \t]*\r?\n((?:(?:\1[ \t]+\S[^\r\n]*|[ \t]*)(?:\r?\n|$))+)') | ForEach-Object { $_.Groups[2].Value })
+    }
+    It 'runs on pull_request opened, synchronize and reopened' {
+        $script:wx | Should -Match '(?m)^    types: \[opened, synchronize, reopened\]\s*$'
+    }
+    It 'reads contents only, with no secret' {
+        $permissions = [regex]::Match($script:wx, '(?ms)^permissions:[ \t]*\r?\n(.*?)(?=^\S)').Groups[1].Value
+        @([regex]::Matches($permissions, '(?m)^  ([a-z-]+: \S+)') | ForEach-Object { $_.Groups[1].Value }) -join ',' | Should -BeExactly 'contents: read'
+        $script:wx | Should -Not -Match 'secrets\.'
+    }
+    It 'checks out full history and runs the BASE revision''s copy of the classifier, never the PR''s' {
+        $script:wx | Should -Match '(?m)^\s+fetch-depth: 0\s*$'
+        $script:wx | Should -Match ([regex]::Escape('git show "$($env:BASE_SHA):tools/Test-PfbWireExemption.ps1"'))
+        $script:wx | Should -Match ([regex]::Escape('-BaseRef $env:BASE_SHA -HeadRef $env:HEAD_SHA'))
+        $script:wx | Should -Not -Match '\./tools/Test-PfbWireExemption\.ps1'
+    }
+    It 'passes the SHAs through env only, and interpolates nothing into a run block' {
+        $script:wx | Should -Match ([regex]::Escape('BASE_SHA: ${{ github.event.pull_request.base.sha }}'))
+        $script:wx | Should -Match ([regex]::Escape('HEAD_SHA: ${{ github.event.pull_request.head.sha }}'))
+        $script:wxRun.Count | Should -BeGreaterThan 0
+        @($script:wxRun | Where-Object { $_.Contains('${{') }).Count | Should -Be 0
+    }
+    It 'never fails on the verdict: NotExempt exits 0, Undecided warns, a missing base script is a notice' {
+        $script:wx | Should -Match '::warning::'
+        $script:wx | Should -Match '::notice::'
+        $script:wx | Should -Not -Match '(?m)^\s+continue-on-error:'
+        @($script:wxRun | Where-Object { $_ -match '(?m)^\s*exit 1\b' }).Count | Should -Be 0
+    }
+    It 'writes an Undecided verdict''s Reason to the job summary' {
+        @($script:wxRun | Where-Object { $_ -match '(?m)^[^\r\n]*Decision -eq ''Undecided''[^\r\n]*\$lines \+= [^\r\n]*\$verdict\.Reason' }).Count | Should -Be 1
+    }
+}

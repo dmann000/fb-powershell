@@ -1,0 +1,74 @@
+name: Verify Wire Exemption
+
+# INFORMATIONAL ONLY. Classifies this pull request's diff with
+# tools/Test-PfbWireExemption.ps1 -- can it change a request the module sends or a response
+# it parses? -- and writes the verdict to the job summary.
+#
+# NOTHING MAY GATE ON THIS JOB. A pull_request run executes the workflow file from the PR's
+# own merge commit, so a PR that edits this file controls what it prints. The job therefore
+# never fails on the verdict: NotExempt still exits 0, Undecided is a warning. It fails only
+# when it malfunctions. A gate that needs the verdict recomputes it outside the PR's control
+# (see "TRUSTING THE VERDICT" in the script's help).
+#
+# It runs the BASE revision's copy of the classifier, never the PR's. The classifier only
+# reads git blobs and tokenises them; it never executes code from the diff.
+#
+# On the PR that introduces the classifier the base has no copy yet, so the job says so and
+# skips.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-wire-exemption-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  classify:
+    name: Classify the diff (informational)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Classify with the base revision's classifier
+        shell: pwsh
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git cat-file -e "$($env:BASE_SHA):tools/Test-PfbWireExemption.ps1" 2>$null
+          if ($LASTEXITCODE -ne 0) {
+              Write-Host '::notice::The base revision has no tools/Test-PfbWireExemption.ps1 (this is the PR that adds it), so there is no trusted copy to run. Skipped.'
+              exit 0
+          }
+          $copy = Join-Path $env:RUNNER_TEMP 'Test-PfbWireExemption.ps1'
+          git show "$($env:BASE_SHA):tools/Test-PfbWireExemption.ps1" > $copy
+          if ($LASTEXITCODE -ne 0) { throw "git show failed with exit $LASTEXITCODE" }
+
+          $verdict = @(& $copy -RepoPath $env:GITHUB_WORKSPACE -BaseRef $env:BASE_SHA -HeadRef $env:HEAD_SHA)[-1]
+          $code = $LASTEXITCODE
+          if ($null -eq $verdict -or -not $verdict.PSObject.Properties['Decision']) { throw "The classifier returned no verdict (exit $code)." }
+
+          $lines = @('## Wire exemption (informational)', '', "Decision: **$($verdict.Decision)** (exit $code)", '')
+          if ($verdict.Decision -eq 'Undecided' -and $verdict.Reason) { $lines += "Reason: $($verdict.Reason)"; $lines += '' }
+          if (@($verdict.Files).Count -gt 0) {
+              $lines += '| File | Verdict | First executable line |'
+              $lines += '|---|---|---|'
+              foreach ($f in $verdict.Files) { $lines += ('| {0} | {1} | {2} |' -f ($f.Path -replace '\|', '\|'), $f.Verdict, $f.FirstExecutableLine) }
+              $lines += ''
+          }
+          if ($verdict.Basis) { $lines += "Basis: $($verdict.Basis)"; $lines += '' }
+          $lines += 'This job is informational. Nothing gates on its result.'
+          [System.IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, ($lines -join "`n") + "`n")
+
+          if ($verdict.Decision -eq 'Undecided') { Write-Host '::warning::The wire-exemption classifier could not decide (treat as not exempt). The reason is in the job summary.' }
+          exit 0
