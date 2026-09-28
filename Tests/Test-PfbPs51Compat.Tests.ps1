@@ -164,3 +164,108 @@ Describe 'Test-PfbPs51Compat against every fixture case' -Skip:($PSVersionTable.
         @($out | Where-Object Rule -eq $Rule).Count | Should -Be 0 -Because ($out | Out-String)
     }
 }
+
+Describe 'Test-PfbPs51Compat on shapes outside the hook''s fixture table' -Skip:($PSVersionTable.PSEdition -ne 'Desktop') {
+    # Not hook constructs, so not in Cases.psd1: these pin where the script must NOT be laxer
+    # than the hook (a string or comment never suppresses; a lookalike gate is not a gate) and
+    # the AST shapes the script reports although the hook's line regexes cannot see them.
+    # Samples sit under Public/, in class 2/3 scope with no #Requires line needed.
+    BeforeAll {
+        function New-TestInlineSample {
+            [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'Test helper writing one sample under $TestDrive; nothing to confirm.')]
+            param([string]$Text)
+            $root = Join-Path (Join-Path (Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))) 'worktrees') 'pr-x'
+            $null = New-Item -ItemType Directory -Path (Join-Path $root 'Public') -Force
+            [System.IO.File]::WriteAllText((Join-Path $root 'PureStorageFlashBladePowerShell.psd1'), "@{ ModuleVersion = '0.0.1' }`n")
+            $full = Join-Path (Join-Path $root 'Public') 'X.ps1'
+            [System.IO.File]::WriteAllText($full, $Text)
+            return $full
+        }
+    }
+    It '<Id>: reported under <Rule> at line <Line>' -ForEach @(
+        @{ Id = 'skip-guard-psversion-in-string'; Rule = 'c2-convertfrom-json-depth'; Line = 3; Text = @'
+Describe 'x' -Skip:('PSVersion' -eq 'nope') {
+    It 'y' {
+        $null = '{}' | ConvertFrom-Json -Depth 5
+    }
+}
+'@ }
+        @{ Id = 'skip-guard-psversion-in-comment'; Rule = 'c2-convertfrom-json-depth'; Line = 3; Text = @'
+Describe 'x' -Skip:(<# PSVersion #> $false) {
+    It 'y' {
+        $null = '{}' | ConvertFrom-Json -Depth 5
+    }
+}
+'@ }
+        @{ Id = 'skip-bare-switch-is-not-a-guard'; Rule = 'c2-convertfrom-json-depth'; Line = 3; Text = @'
+Describe 'x' -Skip {
+    It 'y' {
+        $null = '{}' | ConvertFrom-Json -Depth 5
+        $m = $PSVersionTable
+    }
+}
+'@ }
+        @{ Id = 'pragma-on-a-later-line-of-a-block-comment'; Rule = 'c2-convertfrom-json-depth'; Line = 1; Text = @'
+$o = '{}' | ConvertFrom-Json -Depth 5 <#
+# ps51-ok
+#>
+'@ }
+        @{ Id = 'scope-qualified-psversiontable-is-not-a-gate'; Rule = 'c2-convertfrom-json-depth'; Line = 2; Text = @'
+if ($script:PSVersionTable.PSVersion.Major -ge 6) {
+    '{}' | ConvertFrom-Json -Depth 5
+}
+'@ }
+        @{ Id = 'module-qualified-command'; Rule = 'c2-convertfrom-json-depth'; Line = 1; Text = "Microsoft.PowerShell.Utility\ConvertFrom-Json -Depth 5 -InputObject '{}'`n" }
+        @{ Id = 'string-constant-command-name'; Rule = 'c2-convertfrom-json-depth'; Line = 1; Text = "& 'ConvertFrom-Json' '{}' -Depth 5`n" }
+        @{ Id = 'encoding-colon-utf8nobom'; Rule = 'c2-encoding-utf8nobom'; Line = 1; Text = "Set-Content x -Encoding:utf8NoBOM`n" }
+        @{ Id = 'encoding-colon-utf8'; Rule = 'c3-utf8-bom-write'; Line = 1; Text = "Set-Content x -Encoding:UTF8`n" }
+        @{ Id = 'braced-iswindows'; Rule = 'c3-is-platform-variable'; Line = 1; Text = "if (`${IsWindows}) { 1 }`n" }
+        @{ Id = 'braced-psstyle'; Rule = 'c2-psstyle'; Line = 1; Text = "`${PSStyle}.Reset`n" }
+        @{ Id = 'parameter-after-paren-continuation'; Rule = 'c2-convertfrom-json-depth'; Line = 1; Text = @'
+ConvertFrom-Json -InputObject (
+    '{}'
+) -Depth 5
+'@ }
+        @{ Id = 'parameter-after-backtick-continuation'; Rule = 'c2-convertfrom-json-depth'; Line = 1; Text = @'
+'{}' | ConvertFrom-Json `
+    -Depth 5
+'@ }
+    ) {
+        $out = @(& $script:compat -Path (New-TestInlineSample -Text $Text) 6>$null)
+        @($out | Where-Object { $_.Rule -eq $Rule -and $_.Line -eq $Line }).Count | Should -BeGreaterThan 0 -Because ($out | Out-String)
+    }
+    It '<Id>: not reported under <Rule>' -ForEach @(
+        @{ Id = 'pragma-on-an-inner-block-comment-line-in-the-window'; Rule = 'c2-convertfrom-json-depth'; Text = @'
+<#
+ a
+ b
+ c
+ d
+ e
+ f
+ g
+ # ps51-ok
+#>
+'{}' | ConvertFrom-Json -Depth 5
+'@ }
+        @{ Id = 'skip-guard-on-the-fourth-line-of-a-wrapped-opener'; Rule = 'c2-convertfrom-json-depth'; Text = @'
+Describe 'x' `
+    -Tag 'a' `
+    -AllowNullOrEmptyForEach `
+    -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    It 'y' {
+        # filler: keeps the finding more than 6 lines below the guard's line
+        # filler
+        # filler
+        # filler
+        # filler
+        # filler
+        $null = '{}' | ConvertFrom-Json -Depth 5
+    }
+}
+'@ }
+    ) {
+        $out = @(& $script:compat -Path (New-TestInlineSample -Text $Text) 6>$null)
+        @($out | Where-Object Rule -eq $Rule).Count | Should -Be 0 -Because ($out | Out-String)
+    }
+}

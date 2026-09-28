@@ -182,11 +182,22 @@ function Test-PfbHasParameter {
 $script:InertKinds = @('Comment', 'StringLiteral', 'StringExpandable', 'HereStringLiteral', 'HereStringExpandable')
 
 function Test-PfbSuppressedByPragma {
-    # `# ps51-ok` on the finding's line or on any of the 6 lines before it.
+    # `# ps51-ok` in a comment on the finding's line or on any of the 6 lines before it. Read
+    # per LINE, as the hook reads its raw lines: each line of a multi-line block comment is
+    # dated by its own line number, so a block comment opened inside the window counts only
+    # if its pragma line is inside it too, and one opened above the window counts if it is.
     param([object[]]$Tokens, [int]$Line)
-    return (@($Tokens | Where-Object {
-                $_.Kind.ToString() -eq 'Comment' -and $_.Extent.StartLineNumber -ge ($Line - 6) -and
-                $_.Extent.StartLineNumber -le $Line -and $_.Text -match '#\s*ps51-ok' }).Count -gt 0)
+    $first = $Line - 6
+    foreach ($t in $Tokens) {
+        if ($t.Kind.ToString() -ne 'Comment') { continue }
+        if ($t.Extent.StartLineNumber -gt $Line -or $t.Extent.EndLineNumber -lt $first) { continue }
+        $parts = $t.Text -split '\r\n|\r|\n'
+        for ($k = 0; $k -lt $parts.Count; $k++) {
+            $n = $t.Extent.StartLineNumber + $k
+            if ($n -ge $first -and $n -le $Line -and $parts[$k] -match '#\s*ps51-ok') { return $true }
+        }
+    }
+    return $false
 }
 
 function Test-PfbSuppressedByVersionGate {
@@ -204,13 +215,20 @@ function Test-PfbSuppressedByVersionGate {
 }
 
 function Test-PfbPesterSkipGuard {
-    # -Skip:<expr> reading PSVersion. Only the colon form carries a value: -Skip is a switch,
-    # so in `Describe 'x' -Skip { ... }` the next element is the block body, not a guard, and
-    # a body that merely mentions PSVersion must not read as one.
-    param([System.Management.Automation.Language.CommandAst]$Block)
+    # -Skip:<expr> reading PSVersion in real code. Only the colon form carries a value: -Skip
+    # is a switch, so in `Describe 'x' -Skip { ... }` the next element is the block body, not
+    # a guard, and a body that merely mentions PSVersion must not read as one. Within the
+    # argument only non-inert tokens count -- the hook reads it after stripInert -- so a
+    # 'PSVersion' string or a comment never makes a block skipped.
+    param([System.Management.Automation.Language.CommandAst]$Block, [object[]]$Tokens)
     foreach ($e in $Block.CommandElements) {
-        if ($e -is [System.Management.Automation.Language.CommandParameterAst] -and $e.ParameterName -eq 'Skip' -and
-            $e.Argument -and $e.Argument.Extent.Text -match 'PSVersion') { return $true }
+        if ($e -isnot [System.Management.Automation.Language.CommandParameterAst] -or $e.ParameterName -ne 'Skip' -or -not $e.Argument) { continue }
+        $from = $e.Argument.Extent.StartOffset
+        $to = $e.Argument.Extent.EndOffset
+        $code = @($Tokens | Where-Object {
+                $_.Extent.StartOffset -ge $from -and $_.Extent.EndOffset -le $to -and
+                ($script:InertKinds -notcontains $_.Kind.ToString()) -and $_.Text -match 'PSVersion' })
+        if ($code.Count -gt 0) { return $true }
     }
     return $false
 }
@@ -218,17 +236,17 @@ function Test-PfbPesterSkipGuard {
 function Test-PfbInSkippedBlock {
     # Class 2 only: inside the nearest enclosing Describe/Context whose -Skip reads PSVersion;
     # with no enclosing block, every Describe in the file must be so skipped.
-    param([System.Management.Automation.Language.Ast]$Node, [System.Management.Automation.Language.Ast]$Root)
+    param([System.Management.Automation.Language.Ast]$Node, [System.Management.Automation.Language.Ast]$Root, [object[]]$Tokens)
     for ($p = $Node.Parent; $null -ne $p; $p = $p.Parent) {
         if ($p -is [System.Management.Automation.Language.ScriptBlockExpressionAst] -and
             $p.Parent -is [System.Management.Automation.Language.CommandAst] -and
             (Get-PfbCommandName -Command $p.Parent) -in 'Describe', 'Context') {
-            return (Test-PfbPesterSkipGuard -Block $p.Parent)
+            return (Test-PfbPesterSkipGuard -Block $p.Parent -Tokens $Tokens)
         }
     }
     $describes = @($Root.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] -and (Get-PfbCommandName -Command $n) -eq 'Describe' }, $true))
     if ($describes.Count -eq 0) { return $false }
-    return (@($describes | Where-Object { -not (Test-PfbPesterSkipGuard -Block $_) }).Count -eq 0)
+    return (@($describes | Where-Object { -not (Test-PfbPesterSkipGuard -Block $_ -Tokens $Tokens) }).Count -eq 0)
 }
 
 function Test-PfbCompatFile {
@@ -274,7 +292,7 @@ function Test-PfbCompatFile {
             $class = ($script:Rules | Where-Object { $_.Id -eq $h.Id } | Select-Object -First 1).Class
             if (Test-PfbSuppressedByPragma -Tokens $tokens -Line $line) { continue }
             if (Test-PfbSuppressedByVersionGate -Tokens $tokens -Line $line) { continue }
-            if ($class -eq 2 -and (Test-PfbInSkippedBlock -Node $h.Node -Root $ast)) { continue }
+            if ($class -eq 2 -and (Test-PfbInSkippedBlock -Node $h.Node -Root $ast -Tokens $tokens)) { continue }
             New-PfbCompatFinding -RelativePath $rel -Line $line -RuleId $h.Id
         }
     }
