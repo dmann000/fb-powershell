@@ -37,7 +37,7 @@
     # the granularity RequiredDescribes can reach), no UNDECLARED file may skip, and a declared
     # file that stops running at all is a violation rather than a stale entry to delete.
     #
-    # Only files that actually skip appear here -- 24 of 220 on 5.1, 3 on pwsh 7 -- so this is
+    # Only files that actually skip appear here -- 24 of 221 on 5.1, 3 on pwsh 7 -- so this is
     # a short list, not a per-file census. Attribution is by leaf file name, which is sound
     # because Tests/ is flat and no two *.Tests.ps1 files share a leaf; the gate fails loudly
     # if that ever stops being true.
@@ -162,6 +162,9 @@
             # The 5.1 compatibility check's workflow-text Describe: ungated, so it executes on
             # every leg. Its Desktop-only siblings are listed under winps51 alone.
             'cross-platform-tests.yml runs the 5.1 compatibility check on the 5.1 leg'
+            # AST convention sweeps: ungated, parse only, every leg.
+            'Convention: no $PSBoundParameters inside a -ParameterFilter'
+            'Convention: no backtick or [ in a -like pattern literal'
         )
     }
     winps51 = @{
@@ -430,6 +433,9 @@
             'Test-PfbPs51Compat on shapes outside the hook''s fixture table'
             'Test-PfbPs51Compat -All'
             'cross-platform-tests.yml runs the 5.1 compatibility check on the 5.1 leg'
+            # AST convention sweeps: ungated, parse only, every leg.
+            'Convention: no $PSBoundParameters inside a -ParameterFilter'
+            'Convention: no backtick or [ in a -like pattern literal'
         )
     }
 }
