@@ -1,3 +1,5 @@
+#Requires -Version 5.1
+
 <#
 .SYNOPSIS
     Produces the Everpure-branded 'EverpureFBModule' package from the built module and
