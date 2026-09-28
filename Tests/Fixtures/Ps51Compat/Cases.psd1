@@ -20,6 +20,7 @@
         'The % alias of ForEach-Object (-Parallel, -ThrottleLimit): the hook''s \b(?:ForEach-Object|%)\b cannot match a % between spaces, so the hook never flags it. The script is stricter.'
         'A variable or subexpression inside an expandable string ("$PSStyle", "$(Split-Path x -LeafBase)"): the hook blanks the whole double-quoted string, the AST sees the nested expression. The script is stricter.'
         'A quoted -Encoding value (-Encoding ''utf8NoBOM'', -Encoding ''UTF8''): the hook blanks the quoted value before its quote group is tried, the AST reads the constant. The script is stricter.'
+        'A 5.1 parse error that matches none of the hook''s RE_CLASS1 patterns (an unbalanced brace, say): ps51-compat-check.mjs calls the 5.1 parser only after an RE_CLASS1 match (scanFile(), :307), so it never adjudicates one, and ps-parse-check.mjs reports it only if PowerShell 7 fails to parse it too. The script parses every in-scope file under 5.1 and reports it. The script is stricter.'
     )
     # One case per construct. FlagsPath and SuppressedPath are the repo-relative paths at
     # which the test materializes each sample, which is what decides its scope. A case whose
