@@ -9,8 +9,8 @@
     check gets wrong (#Requires, a comment on a code line, '<#' or '#' inside a here-string).
 
     Setup that must NOT be part of the diff is committed on main BEFORE the feature branch is
-    cut (the -Base scriptblock). The original harness committed it on the feature branch,
-    which made its here-string case NOT EXEMPT for the wrong reason.
+    cut (the -Base scriptblock). A harness that committed setup on the feature branch would
+    make the here-string case NOT EXEMPT for the wrong reason.
 
     EDITION-GATED: -Skip:($PSVersionTable.PSVersion.Major -lt 7) on every Describe; the 5.1
     skip count is pinned in Tests/coverage-baseline.psd1.
@@ -106,9 +106,9 @@ BeforeDiscovery {
     $script:hereStringHash = { param($r) Edit-TestFile $r $script:cmdlet "Invoke-PfbApiRequest -Uri `$uri -Body `$body   # trailing comment here`n}" ("Invoke-PfbApiRequest -Uri `$uri -Body `$body   # trailing comment here`n}`nfunction Get-PfbNote {`n    `$t = @`"`n# not a comment, just data`n`"@`n    `$t`n}") }
 }
 
-Describe 'Test-PfbWireExemption exit codes (ported from the original negative-control harness, plus additions)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+Describe 'Test-PfbWireExemption exit codes (negative-control pairs)' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
     It '<Name> -> exit <Code>' -ForEach @(
-        # --- the 13 original cases --------------------------------------------------------
+        # --- help blocks, deletions, scope, and code-line comments ------------------------
         @{ Name = 'comment-only edit in a help block'; Code = 0; Base = $null; Mutate = { param($r) Edit-TestFile $r $script:cmdlet 'Original description.' 'Rewritten description.' } }
         @{ Name = 'whole help block added above the function'; Code = 0; Base = $null; Mutate = { param($r) Edit-TestFile $r $script:cmdlet 'function Get-PfbThing {' "<#`n.NOTES`n    Added block.`n#>`nfunction Get-PfbThing {" } }
         @{ Name = 'Tests/ only (nothing in scope)'; Code = 0; Base = $null; Mutate = { param($r) Write-TestFile $r 'Tests/Some.Tests.ps1' "Describe 'x' { It 'y' { 1 | Should -Be 1 } }`n# more`n" } }
@@ -122,7 +122,7 @@ Describe 'Test-PfbWireExemption exit codes (ported from the original negative-co
         @{ Name = 'manifest changed'; Code = 1; Base = $null; Mutate = { param($r) Edit-TestFile $r 'PureStorageFlashBladePowerShell.psd1' '1.0.0' '1.0.1' } }
         @{ Name = 'one executable line alongside a comment-only edit'; Code = 1; Base = $null; Mutate = { param($r) Edit-TestFile $r $script:cmdlet 'Original description.' 'Reworded.'; Edit-TestFile $r $script:cmdlet '/api/2.0/' '/api/2.9/' } }
         @{ Name = "'<#' inside an edited here-string (setup on main)"; Code = 1; Base = $script:hereStringLt; Mutate = { param($r) Edit-TestFile $r $script:cmdlet 'this is data' 'this is payload' } }
-        # --- additions: rename, #Requires edited, '#' in a here-string, root module ----------
+        # --- rename, #Requires edited, '#' in a here-string, root module -------------------
         @{ Name = "'#' inside an edited here-string (setup on main)"; Code = 1; Base = $script:hereStringHash; Mutate = { param($r) Edit-TestFile $r $script:cmdlet 'just data' 'just payload' } }
         @{ Name = '#Requires edited (setup on main)'; Code = 1; Base = { param($r) Edit-TestFile $r $script:cmdlet '<#' "#Requires -Version 5.1`n<#" }; Mutate = { param($r) Edit-TestFile $r $script:cmdlet '#Requires -Version 5.1' '#Requires -Version 7.0' } }
         @{ Name = 'cmdlet file renamed in Public/'; Code = 1; Base = $null; Mutate = { param($r) Invoke-TestGit $r @('mv', $script:cmdlet, 'Public/Things/Get-PfbThing2.ps1') | Out-Null } }
@@ -173,6 +173,51 @@ Describe 'Test-PfbWireExemption verdict object' -Skip:($PSVersionTable.PSVersion
         $atFeature = @(& $script:checker -RepoPath $case.Repo -BaseRef main -HeadRef feature 6>$null)
         $atFeature[0].Decision | Should -BeExactly 'NotExempt'
     }
+    It 'nothing in scope -> Exempt with its own Basis, no Files and no Reason' {
+        $case = Invoke-TestCase -Mutate { param($r) Write-TestFile $r 'Tests/Some.Tests.ps1' "Describe 'x' { It 'y' { 1 | Should -Be 1 } }`n# more`n" }
+        $case.Output.Count | Should -Be 1
+        $case.Output[0].Decision | Should -BeExactly 'Exempt'
+        $case.Output[0].Basis | Should -Match 'entirely untouched'
+        @($case.Output[0].Files).Count | Should -Be 0
+        $case.Output[0].Reason | Should -BeNullOrEmpty
+    }
+    It 'an inert file record has no executable line and says comment-only' {
+        $v = (Invoke-TestCase -Mutate { param($r) Edit-TestFile $r $script:cmdlet 'Original description.' 'Rewritten.' }).Output[0]
+        @($v.Files).Count | Should -Be 1
+        $v.Files[0].Verdict | Should -BeExactly 'Inert'
+        $v.Files[0].FirstExecutableLine | Should -BeNullOrEmpty
+        $v.Files[0].Reason | Should -BeExactly 'comment-only'
+    }
+    It 'a deletion-only change reports the base-side line as FirstExecutableLine' {
+        $v = (Invoke-TestCase -Mutate { param($r) Edit-TestFile $r $script:cmdlet "    `$body = @{ name = `$Name }`n" '' }).Output[0]
+        $v.Decision | Should -BeExactly 'NotExempt'
+        $v.Files[0].Verdict | Should -BeExactly 'Executable'
+        $v.Files[0].FirstExecutableLine | Should -Be 12
+    }
+    # A failure AFTER revision resolution: the head blob is corrupted, so rev-parse,
+    # merge-base and --name-status (which compare object ids only) still succeed and the
+    # per-file 'git diff -U0' is what fails. Without the catch the error escapes the script.
+    It 'a git failure after revision resolution -> one Undecided object naming it, exit 2' {
+        $case = Invoke-TestCase -Mutate { param($r) Edit-TestFile $r $script:cmdlet '/api/2.0/' '/api/2.1/' }
+        $case.Output[0].Decision | Should -BeExactly 'NotExempt' -Because 'control: the same repo classifies cleanly before the corruption'
+
+        $sha = ([string](Invoke-TestGit $case.Repo @('rev-parse', "feature:$($script:cmdlet)"))).Trim()
+        $object = Join-Path (Join-Path (Join-Path (Join-Path $case.Repo '.git') 'objects') $sha.Substring(0, 2)) $sha.Substring(2)
+        Test-Path -LiteralPath $object | Should -BeTrue -Because 'a fresh repo stores the blob loose'
+        [System.IO.File]::SetAttributes($object, [System.IO.FileAttributes]::Normal)
+        [System.IO.File]::WriteAllBytes($object, [byte[]](1..20))
+
+        $out = @(& $script:checker -RepoPath $case.Repo -BaseRef main 6>$null)
+        $code = $LASTEXITCODE
+        $out.Count | Should -Be 1
+        $out[0].Decision | Should -BeExactly 'Undecided'
+        $out[0].Reason | Should -Match 'could not classify the diff'
+        $out[0].Reason | Should -Match $sha -Because 'the reason names the failure, here the unreadable object'
+        $out[0].Reason | Should -Not -Match '(?<![A-Za-z])[A-Za-z]:[\\/]' -Because 'no absolute path may leak into the verdict'
+        $out[0].Reason.Contains($case.Repo.Replace('\', '/')) | Should -BeFalse
+        $out[0].Reason.Contains($case.Repo) | Should -BeFalse
+        $code | Should -Be 2
+    }
 }
 
 Describe 'Test-PfbWireExemption is publishable as written' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
@@ -181,7 +226,7 @@ Describe 'Test-PfbWireExemption is publishable as written' -Skip:($PSVersionTabl
         $script:src | Should -Not -Match '(?i)private (development )?rule'
         $script:src | Should -Not -Match '(?i)does not belong|not belong in'
     }
-    # Any drive root, not just 'X:\<letter>': an elided 'C:\...\worktrees' must fail too.
+    # Any drive root, not just 'X:\<letter>': an elided 'C:\...\repo' must fail too.
     It 'carries no absolute Windows path' {
         $script:src | Should -Not -Match '(?<![A-Za-z])[A-Za-z]:\\'
     }

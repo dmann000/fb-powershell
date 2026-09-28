@@ -55,8 +55,9 @@
 .OUTPUTS
     Exactly one object: Decision ('Exempt' | 'NotExempt' | 'Undecided'); Files, one record
     per in-scope file (Path, Verdict 'Inert' | 'Executable', FirstExecutableLine, Reason);
-    Basis, a line ready to paste into the PR body, or $null unless exempt. Everything
-    human-readable goes to Write-Host.
+    Basis, a line ready to paste into the PR body, or $null unless exempt; Reason, one line
+    naming what went wrong (absolute paths replaced by placeholders), or $null unless
+    undecided. Everything human-readable goes to Write-Host.
 
     Exit code 0 = exempt, 1 = not exempt, 2 = could not decide (treat as not exempt).
 .EXAMPLE
@@ -75,7 +76,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# The four in-scope locations, verbatim from the rule.
+# The in-scope locations: the module source and its manifest (see .DESCRIPTION).
 $script:ScopePrefixes = @('Public/', 'Private/')
 $script:ScopeExact = @(
     'PureStorageFlashBladePowerShell.psd1',
@@ -173,10 +174,30 @@ function Get-Blob {
 # branch on $v.Decision without filtering text out of it.
 function New-PfbWireVerdict {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'Constructs an in-memory object; changes no state.')]
-    param([string]$Decision, [object[]]$Files = @(), [string]$Basis = '')
+    param([string]$Decision, [object[]]$Files = @(), [string]$Basis = '', [string]$Reason = '')
     $b = $null
     if ($Basis) { $b = $Basis }
-    [pscustomobject]@{ Decision = $Decision; Files = @($Files); Basis = $b }
+    $r = $null
+    if ($Reason) { $r = $Reason }
+    [pscustomobject]@{ Decision = $Decision; Files = @($Files); Basis = $b; Reason = $r }
+}
+
+# A failure message fit for a verdict object that may be posted publicly: one line, with
+# the repository path and any other absolute path replaced by a placeholder. git's own
+# errors can name the object store by absolute path.
+function Get-PfbFailureText {
+    param([string]$Message)
+    $text = ($Message -replace '\s+', ' ').Trim()
+    $root = $null
+    try { $root = (Resolve-Path -LiteralPath $RepoPath -ErrorAction Stop).ProviderPath } catch { $root = $null }
+    if ($root) {
+        foreach ($form in @($root, $root.Replace('\', '/'))) {
+            $text = $text -replace ('(?i)' + [regex]::Escape($form.TrimEnd('\', '/'))), '<repo>'
+        }
+    }
+    $text = $text -replace '(?i)(?<![A-Za-z])[A-Z]:[\\/][^\s''"()]*', '<path>'
+    $text = $text -replace '(?<![\w.~>-])/(?:[^\s''"()/]+/)+[^\s''"()]*', '<path>'
+    return $text
 }
 
 # --- resolve revisions -------------------------------------------------------
@@ -185,8 +206,9 @@ try {
     $head = ([string](Invoke-Git @('rev-parse', '--verify', "$HeadRef^{commit}"))).Trim()
     $mergeBase = ([string](Invoke-Git @('merge-base', $BaseRef, $head))).Trim()
 } catch {
-    Write-Host "Could not resolve revisions: $_" -ForegroundColor Red
-    New-PfbWireVerdict -Decision 'Undecided'
+    $why = Get-PfbFailureText "could not resolve revisions: $_"
+    Write-Host $why -ForegroundColor Red
+    New-PfbWireVerdict -Decision 'Undecided' -Reason $why
     exit 2
 }
 
@@ -195,101 +217,111 @@ Write-Host "base  $BaseRef @ $($mergeBase.Substring(0,10))"
 Write-Host "head  $HeadRef @ $($head.Substring(0,10))"
 Write-Host ""
 
-# --- collect in-scope changes ------------------------------------------------
+# Everything from here to the report runs inside one try. An unplanned failure (git refusing
+# a diff, an unreadable object) is a malfunction, not a verdict: it must reach the caller as
+# Undecided/exit 2, never as an uncaught error that exits 1 and reads as NotExempt.
+try {
+    # --- collect in-scope changes --------------------------------------------
 
-$nameStatus = Invoke-Git @('diff', '--name-status', '--no-color', "$mergeBase..$head")
+    $nameStatus = Invoke-Git @('diff', '--name-status', '--no-color', "$mergeBase..$head")
 
-$inScope = @()
-foreach ($line in $nameStatus) {
-    if ([string]::IsNullOrWhiteSpace($line)) { continue }
-    $parts = $line -split "`t"
-    $status = $parts[0]
-    $path = $parts[-1]
-    if (-not (Test-InScope $path)) { continue }
-    $inScope += [pscustomobject]@{ Status = $status; Path = $path }
-}
+    $inScope = @()
+    foreach ($line in $nameStatus) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $parts = $line -split "`t"
+        $status = $parts[0]
+        $path = $parts[-1]
+        if (-not (Test-InScope $path)) { continue }
+        $inScope += [pscustomobject]@{ Status = $status; Path = $path }
+    }
 
-if ($inScope.Count -eq 0) {
-    Write-Host "No in-scope file changed." -ForegroundColor Green
-    Write-Host ""
-    Write-Host "VERDICT: EXEMPT" -ForegroundColor Green
-    Write-Host ""
-    # States what the diff does not touch; names no tooling, so it reads correctly in any PR body.
-    Write-Host "Basis for the PR body:"
-    Write-Host "  The diff leaves the module source and the manifest entirely untouched,"
-    Write-Host "  so nothing here can alter a request the module sends or a response it"
-    Write-Host "  parses."
-    New-PfbWireVerdict -Decision 'Exempt' -Basis 'The diff leaves the module source and the manifest entirely untouched, so nothing here can alter a request the module sends or a response it parses.'
-    exit 0
-}
+    if ($inScope.Count -eq 0) {
+        Write-Host "No in-scope file changed." -ForegroundColor Green
+        Write-Host ""
+        Write-Host "VERDICT: EXEMPT" -ForegroundColor Green
+        Write-Host ""
+        # States what the diff does not touch; names no tooling, so it reads correctly in any PR body.
+        Write-Host "Basis for the PR body:"
+        Write-Host "  The diff leaves the module source and the manifest entirely untouched,"
+        Write-Host "  so nothing here can alter a request the module sends or a response it"
+        Write-Host "  parses."
+        New-PfbWireVerdict -Decision 'Exempt' -Basis 'The diff leaves the module source and the manifest entirely untouched, so nothing here can alter a request the module sends or a response it parses.'
+        exit 0
+    }
 
-# --- classify ----------------------------------------------------------------
+    # --- classify ------------------------------------------------------------
 
-$verdicts = @()
-$failed = $false
+    $verdicts = @()
+    $failed = $false
 
-foreach ($file in $inScope) {
-    $path = $file.Path
-    $reasons = @()
-    # First executable changed line: head side if any, else base side. $null when the file
-    # is inert or was rejected as a whole (added, deleted, renamed).
-    $firstLine = $null
+    foreach ($file in $inScope) {
+        $path = $file.Path
+        $reasons = @()
+        # First executable changed line: head side if any, else base side. $null when the file
+        # is inert or was rejected as a whole (added, deleted, renamed).
+        $firstLine = $null
 
-    # An added or deleted file changes the exported surface. Never inert.
-    if ($file.Status -eq 'A') { $reasons += 'file added' }
-    elseif ($file.Status -eq 'D') { $reasons += 'file deleted' }
-    elseif ($file.Status -like 'R*') { $reasons += "file renamed ($($file.Status))" }
-    else {
-        $changed = Get-ChangedLine -Path $path -Base $mergeBase -Head $head
+        # An added or deleted file changes the exported surface. Never inert.
+        if ($file.Status -eq 'A') { $reasons += 'file added' }
+        elseif ($file.Status -eq 'D') { $reasons += 'file deleted' }
+        elseif ($file.Status -like 'R*') { $reasons += "file renamed ($($file.Status))" }
+        else {
+            $changed = Get-ChangedLine -Path $path -Base $mergeBase -Head $head
 
-        if ($changed.Added.Count -gt 0) {
-            $headSource = Get-Blob -Rev $head -Path $path
-            if ($null -eq $headSource) {
-                $reasons += 'could not read head blob'
-            } else {
-                try {
-                    $exec = Get-ExecutableLine -Source $headSource
-                    $hits = @($changed.Added | Where-Object { $exec.Contains($_) } | Sort-Object -Unique)
-                    if ($hits.Count -gt 0) { $firstLine = [int]$hits[0] }
-                    if ($hits.Count -gt 0) {
-                        $shown = ($hits | Select-Object -First 6) -join ', '
-                        $suffix = ''
-                        if ($hits.Count -gt 6) { $suffix = " (+$($hits.Count - 6) more)" }
-                        $reasons += "executable line(s) added: $shown$suffix"
-                    }
-                } catch { $reasons += "head side: $_" }
+            if ($changed.Added.Count -gt 0) {
+                $headSource = Get-Blob -Rev $head -Path $path
+                if ($null -eq $headSource) {
+                    $reasons += 'could not read head blob'
+                } else {
+                    try {
+                        $exec = Get-ExecutableLine -Source $headSource
+                        $hits = @($changed.Added | Where-Object { $exec.Contains($_) } | Sort-Object -Unique)
+                        if ($hits.Count -gt 0) { $firstLine = [int]$hits[0] }
+                        if ($hits.Count -gt 0) {
+                            $shown = ($hits | Select-Object -First 6) -join ', '
+                            $suffix = ''
+                            if ($hits.Count -gt 6) { $suffix = " (+$($hits.Count - 6) more)" }
+                            $reasons += "executable line(s) added: $shown$suffix"
+                        }
+                    } catch { $reasons += "head side: $_" }
+                }
+            }
+
+            if ($changed.Removed.Count -gt 0) {
+                $baseSource = Get-Blob -Rev $mergeBase -Path $path
+                if ($null -eq $baseSource) {
+                    $reasons += 'could not read base blob'
+                } else {
+                    try {
+                        $exec = Get-ExecutableLine -Source $baseSource
+                        $hits = @($changed.Removed | Where-Object { $exec.Contains($_) } | Sort-Object -Unique)
+                        if ($hits.Count -gt 0 -and $null -eq $firstLine) { $firstLine = [int]$hits[0] }
+                        if ($hits.Count -gt 0) {
+                            $shown = ($hits | Select-Object -First 6) -join ', '
+                            $suffix = ''
+                            if ($hits.Count -gt 6) { $suffix = " (+$($hits.Count - 6) more)" }
+                            $reasons += "executable line(s) removed: $shown$suffix"
+                        }
+                    } catch { $reasons += "base side: $_" }
+                }
             }
         }
 
-        if ($changed.Removed.Count -gt 0) {
-            $baseSource = Get-Blob -Rev $mergeBase -Path $path
-            if ($null -eq $baseSource) {
-                $reasons += 'could not read base blob'
-            } else {
-                try {
-                    $exec = Get-ExecutableLine -Source $baseSource
-                    $hits = @($changed.Removed | Where-Object { $exec.Contains($_) } | Sort-Object -Unique)
-                    if ($hits.Count -gt 0 -and $null -eq $firstLine) { $firstLine = [int]$hits[0] }
-                    if ($hits.Count -gt 0) {
-                        $shown = ($hits | Select-Object -First 6) -join ', '
-                        $suffix = ''
-                        if ($hits.Count -gt 6) { $suffix = " (+$($hits.Count - 6) more)" }
-                        $reasons += "executable line(s) removed: $shown$suffix"
-                    }
-                } catch { $reasons += "base side: $_" }
-            }
+        $isInert = ($reasons.Count -eq 0)
+        if (-not $isInert) { $failed = $true }
+
+        $verdicts += [pscustomobject]@{
+            Path                = $path
+            Verdict             = $(if ($isInert) { 'Inert' } else { 'Executable' })
+            FirstExecutableLine = $firstLine
+            Reason              = $(if ($isInert) { 'comment-only' } else { $reasons -join '; ' })
         }
     }
-
-    $isInert = ($reasons.Count -eq 0)
-    if (-not $isInert) { $failed = $true }
-
-    $verdicts += [pscustomobject]@{
-        Path                = $path
-        Verdict             = $(if ($isInert) { 'Inert' } else { 'Executable' })
-        FirstExecutableLine = $firstLine
-        Reason              = $(if ($isInert) { 'comment-only' } else { $reasons -join '; ' })
-    }
+} catch {
+    $why = Get-PfbFailureText "could not classify the diff: $_"
+    Write-Host $why -ForegroundColor Red
+    New-PfbWireVerdict -Decision 'Undecided' -Reason $why
+    exit 2
 }
 
 # --- report ------------------------------------------------------------------
