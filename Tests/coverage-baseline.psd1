@@ -37,7 +37,7 @@
     # the granularity RequiredDescribes can reach), no UNDECLARED file may skip, and a declared
     # file that stops running at all is a violation rather than a stale entry to delete.
     #
-    # Only files that actually skip appear here -- 24 of 218 on 5.1, 2 on pwsh 7 -- so this is
+    # Only files that actually skip appear here -- 24 of 219 on 5.1, 2 on pwsh 7 -- so this is
     # a short list, not a per-file census. Attribution is by leaf file name, which is sound
     # because Tests/ is flat and no two *.Tests.ps1 files share a leaf; the gate fails loudly
     # if that ever stops being true.
@@ -138,6 +138,17 @@
             'verify-workflows.yml (actionlint)'
             'report-action-pins.yml (weekly, report-only)'
             'GitHub issue forms and PR template'
+            # PR gates: the closing-keyword checker and its workflow, ungated text checks, every leg.
+            'Test-PfbClosingKeywords: the PR #108 incident'
+            'Test-PfbClosingKeywords: what is flagged'
+            'Test-PfbClosingKeywords: what is not flagged'
+            'Test-PfbClosingKeywords: letters are ASCII, as in the JavaScript original'
+            'verify-closing-keywords.yml'
+            # The wire-exemption classifier and its workflow: PS7-gated, so pwsh 7 only.
+            'Test-PfbWireExemption exit codes (negative-control pairs)'
+            'Test-PfbWireExemption verdict object'
+            'Test-PfbWireExemption is publishable as written'
+            'verify-wire-exemption.yml (informational only)'
         )
     }
     winps51 = @{
@@ -390,6 +401,12 @@
             'verify-workflows.yml (actionlint)'
             'report-action-pins.yml (weekly, report-only)'
             'GitHub issue forms and PR template'
+            # PR gates: the closing-keyword checker and its workflow, ungated text checks, every leg.
+            'Test-PfbClosingKeywords: the PR #108 incident'
+            'Test-PfbClosingKeywords: what is flagged'
+            'Test-PfbClosingKeywords: what is not flagged'
+            'Test-PfbClosingKeywords: letters are ASCII, as in the JavaScript original'
+            'verify-closing-keywords.yml'
         )
     }
 }
