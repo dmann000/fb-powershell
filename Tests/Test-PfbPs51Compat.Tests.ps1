@@ -269,3 +269,47 @@ Describe 'x' `
         @($out | Where-Object Rule -eq $Rule).Count | Should -Be 0 -Because ($out | Out-String)
     }
 }
+
+Describe 'Test-PfbPs51Compat -All' -Skip:($PSVersionTable.PSEdition -ne 'Desktop') {
+    It 'reads tracked files only: an untracked .psmodules/ copy is never scanned' {
+        $root = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $null = New-Item -ItemType Directory -Path (Join-Path $root 'Public'), (Join-Path $root '.psmodules') -Force
+        [System.IO.File]::WriteAllText((Join-Path $root 'PureStorageFlashBladePowerShell.psd1'), "@{}`n")
+        [System.IO.File]::WriteAllText((Join-Path $root 'Public/A.ps1'), "`$v = `$c ? 1 : 2`n")
+        # Both untracked samples are IN scope, so only the tracked-files rule can keep them out:
+        # a .psmodules/ path alone is outside every class, and would pass even if scanned.
+        [System.IO.File]::WriteAllText((Join-Path $root '.psmodules/Foo.ps1'), "#Requires -Version 5.1`n`$v = `$c ? 1 : 2`n")
+        [System.IO.File]::WriteAllText((Join-Path $root 'Public/Untracked.ps1'), "`$v = `$c ? 1 : 2`n")
+        # Under a caller's $ErrorActionPreference = 'Stop', Windows PowerShell 5.1 turns git's
+        # stderr (an autocrlf "LF will be replaced by CRLF" warning) into a terminating error,
+        # so relax it for the setup calls and decide on git's exit code instead.
+        $ErrorActionPreference = 'Continue'
+        & git -C $root init -q 2>&1 | Out-Null
+        $LASTEXITCODE | Should -Be 0 -Because 'git init must succeed for the fixture'
+        & git -C $root add -- PureStorageFlashBladePowerShell.psd1 Public/A.ps1 2>&1 | Out-Null
+        $LASTEXITCODE | Should -Be 0 -Because 'git add must succeed for the fixture'
+        Push-Location $root
+        try { $out = @(& $script:compat -All 6>$null); $code = $LASTEXITCODE } finally { Pop-Location }
+        @($out | ForEach-Object Path | Sort-Object -Unique) -join ',' | Should -BeExactly 'Public/A.ps1'
+        $code | Should -Be 1
+    }
+    It 'emits ::error file=,line= for class 1 under GitHub Actions' {
+        $root = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $null = New-Item -ItemType Directory -Path (Join-Path $root 'Tests') -Force
+        [System.IO.File]::WriteAllText((Join-Path $root 'PureStorageFlashBladePowerShell.psd1'), "@{}`n")
+        $f = Join-Path $root 'Tests/A.Tests.ps1'
+        [System.IO.File]::WriteAllText($f, "`n`$v = `$c ? 1 : 2`n")
+        $had = Test-Path Env:GITHUB_ACTIONS
+        $saved = $env:GITHUB_ACTIONS
+        try {
+            $env:GITHUB_ACTIONS = 'true'
+            $info = @(& $script:compat -Path $f 6>&1 | Where-Object { $_ -is [System.Management.Automation.InformationRecord] } | ForEach-Object { [string]$_.MessageData })
+        } finally { if ($had) { $env:GITHUB_ACTIONS = $saved } else { Remove-Item Env:GITHUB_ACTIONS } }
+        @($info | Where-Object { $_ -like '::error file=Tests/A.Tests.ps1,line=2::*' }).Count | Should -Be 1
+    }
+    It 'the real tree has no class-1 finding (measured 0 on main when this landed)' {
+        Push-Location $script:repoRoot
+        try { $out = @(& $script:compat -All 6>$null) } finally { Pop-Location }
+        @($out | Where-Object Class -eq 1 | ForEach-Object { '{0}:{1} {2}' -f $_.Path, $_.Line, $_.Message }) -join "`n" | Should -BeNullOrEmpty
+    }
+}
