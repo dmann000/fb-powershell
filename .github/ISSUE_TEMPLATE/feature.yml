@@ -1,0 +1,17 @@
+name: Feature request
+description: A FlashBlade endpoint or cmdlet behaviour the module does not cover yet.
+body:
+  - type: input
+    id: endpoint-or-cmdlet
+    attributes:
+      label: Endpoint or cmdlet
+      description: The REST endpoint (for example `GET /file-systems`) or the cmdlet name.
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: What you are trying to do, and what is missing or awkward today.
+    validations:
+      required: true
