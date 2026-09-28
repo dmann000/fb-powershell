@@ -67,7 +67,45 @@ $script:ReReq7 = '(?im)^\s*#Requires\s+-Version\s+([7-9]|\d{2,})'
 $script:ReReq5 = '(?im)^\s*#Requires\s+-Version\s+5'
 $script:Rules = @(
     [pscustomobject]@{ Id = 'c1-parse'; Class = 1; Message = 'Does not parse on Windows PowerShell 5.1. In Tests/ this fails every test in the file; a -Skip: guard cannot help.' }
-    # Class 2 and 3 rules are appended here.
+)
+$script:Rules += @(
+    [pscustomobject]@{ Id = 'c2-convertfrom-json-depth'; Class = 2; Message = 'ConvertFrom-Json -Depth (PS 6.2+). 5.1 throws "A parameter cannot be found that matches parameter name ''Depth''". ConvertTo-Json -Depth is fine.' }
+    [pscustomobject]@{ Id = 'c2-convertfrom-json-ashashtable'; Class = 2; Message = 'ConvertFrom-Json -AsHashtable (PS 6+).' }
+    [pscustomobject]@{ Id = 'c2-foreach-parallel'; Class = 2; Message = 'ForEach-Object -Parallel (PS 7+).' }
+    [pscustomobject]@{ Id = 'c2-foreach-throttlelimit'; Class = 2; Message = 'ForEach-Object -ThrottleLimit (PS 7+).' }
+    [pscustomobject]@{ Id = 'c2-content-asbytestream'; Class = 2; Message = '-AsByteStream (PS 6+). On 5.1 use -Encoding Byte.' }
+    [pscustomobject]@{ Id = 'c2-test-json'; Class = 2; Message = 'Test-Json (PS 6+).' }
+    [pscustomobject]@{ Id = 'c2-join-string'; Class = 2; Message = 'Join-String (PS 6.2+).' }
+    [pscustomobject]@{ Id = 'c2-split-path-leafbase'; Class = 2; Message = 'Split-Path -LeafBase (PS 6+).' }
+    [pscustomobject]@{ Id = 'c2-skipcertificatecheck'; Class = 2; Message = '-SkipCertificateCheck (PS 6+).' }
+    [pscustomobject]@{ Id = 'c2-encoding-utf8nobom'; Class = 2; Message = '-Encoding utf8NoBOM/utf8BOM (PS 6+ encoding names; 5.1 accepts only UTF8).' }
+    [pscustomobject]@{ Id = 'c2-psstyle'; Class = 2; Message = '$PSStyle (PS 7.2+).' }
+    [pscustomobject]@{ Id = 'c3-sort-object-culture'; Class = 3; Message = 'Sort-Object -Culture: 5.1 (.NET Framework) and 7 (.NET/ICU) disagree on invariant linguistic order. Sort ordinally instead.' }
+    [pscustomobject]@{ Id = 'c3-utf8-bom-write'; Class = 3; Message = 'Set-Content/Add-Content/Out-File -Encoding UTF8 writes a BOM on 5.1 and none on 7. Use [System.IO.File]::WriteAllText with UTF8Encoding($false).' }
+    [pscustomobject]@{ Id = 'c3-is-platform-variable'; Class = 3; Message = '$IsWindows/$IsLinux/$IsMacOS/$IsCoreCLR are undefined on 5.1, so they read as $null and the branch silently takes the wrong path.' }
+)
+
+# Anchored to the COMMAND as well as the parameter: that is what keeps ConvertTo-Json -Depth
+# out of the ConvertFrom-Json -Depth finding. Exact names only: a parameter abbreviation
+# (-Dep) and the `foreach` alias are not matched, as in the hook. ONE deliberate difference:
+# the `%` alias IS matched here, while the hook's \b(?:ForEach-Object|%)\b can never match a
+# `%` between spaces. That makes the script stricter, and Cases.psd1 lists it under
+# KnownDivergences.
+$script:CommandRules = @(
+    @{ Id = 'c2-convertfrom-json-depth'; Commands = @('ConvertFrom-Json'); Parameter = 'Depth' }
+    @{ Id = 'c2-convertfrom-json-ashashtable'; Commands = @('ConvertFrom-Json'); Parameter = 'AsHashtable' }
+    @{ Id = 'c2-foreach-parallel'; Commands = @('ForEach-Object', '%'); Parameter = 'Parallel' }
+    @{ Id = 'c2-foreach-throttlelimit'; Commands = @('ForEach-Object', '%'); Parameter = 'ThrottleLimit' }
+    @{ Id = 'c2-content-asbytestream'; Commands = @('Get-Content', 'Set-Content', 'Add-Content'); Parameter = 'AsByteStream' }
+    @{ Id = 'c2-test-json'; Commands = @('Test-Json'); Parameter = $null }
+    @{ Id = 'c2-join-string'; Commands = @('Join-String'); Parameter = $null }
+    @{ Id = 'c2-split-path-leafbase'; Commands = @('Split-Path'); Parameter = 'LeafBase' }
+    @{ Id = 'c2-skipcertificatecheck'; Commands = @('Invoke-RestMethod', 'Invoke-WebRequest'); Parameter = 'SkipCertificateCheck' }
+    @{ Id = 'c3-sort-object-culture'; Commands = @('Sort-Object'); Parameter = 'Culture' }
+)
+$script:VariableRules = @(
+    @{ Id = 'c2-psstyle'; Names = @('PSStyle') }
+    @{ Id = 'c3-is-platform-variable'; Names = @('IsWindows', 'IsLinux', 'IsMacOS', 'IsCoreCLR') }
 )
 
 if ($ListRules) { $script:Rules; exit 0 }
@@ -111,6 +149,88 @@ function New-PfbCompatFinding {
     [pscustomobject]@{ Path = $RelativePath; Line = $Line; Class = $rule.Class; Rule = $RuleId; Severity = $severity; Message = $message }
 }
 
+function Get-PfbCommandName {
+    # GetCommandName() without a module qualifier, so Microsoft.PowerShell.Utility\ConvertFrom-Json
+    # is read as ConvertFrom-Json -- as the hook's \b-anchored pattern also reads it.
+    param([System.Management.Automation.Language.CommandAst]$Command)
+    $name = $Command.GetCommandName()
+    if (-not $name) { return $null }
+    return ($name -replace '^.*\\', '')
+}
+
+function Get-PfbParameterArgument {
+    # The value bound to -Name on a command: -Name:value (Argument) or -Name value (the next element).
+    param([System.Management.Automation.Language.CommandAst]$Command, [string]$Name)
+    $els = $Command.CommandElements
+    for ($i = 0; $i -lt $els.Count; $i++) {
+        $e = $els[$i]
+        if ($e -isnot [System.Management.Automation.Language.CommandParameterAst] -or $e.ParameterName -ne $Name) { continue }
+        if ($e.Argument) { return $e.Argument }
+        if ($i + 1 -lt $els.Count -and $els[$i + 1] -isnot [System.Management.Automation.Language.CommandParameterAst]) { return $els[$i + 1] }
+        return $null
+    }
+    return $null
+}
+
+function Test-PfbHasParameter {
+    param([System.Management.Automation.Language.CommandAst]$Command, [string]$Name)
+    return (@($Command.CommandElements | Where-Object { $_ -is [System.Management.Automation.Language.CommandParameterAst] -and $_.ParameterName -eq $Name }).Count -gt 0)
+}
+
+# Tokens that are real code: comments and strings excluded, exactly what the hook's
+# stripInert blanks.
+$script:InertKinds = @('Comment', 'StringLiteral', 'StringExpandable', 'HereStringLiteral', 'HereStringExpandable')
+
+function Test-PfbSuppressedByPragma {
+    # `# ps51-ok` on the finding's line or on any of the 6 lines before it.
+    param([object[]]$Tokens, [int]$Line)
+    return (@($Tokens | Where-Object {
+                $_.Kind.ToString() -eq 'Comment' -and $_.Extent.StartLineNumber -ge ($Line - 6) -and
+                $_.Extent.StartLineNumber -le $Line -and $_.Text -match '#\s*ps51-ok' }).Count -gt 0)
+}
+
+function Test-PfbSuppressedByVersionGate {
+    # A $PSVersionTable / $PSVersion / PSEdition reference in the 6 lines BEFORE the finding
+    # (not the finding's own line -- the hook's window, kept identical for parity). Matched on
+    # the token TEXT, as the hook's \$PSVersionTable|\$PSVersion\b does: a variable token's
+    # Name drops a scope qualifier, so $script:PSVersionTable -- a different, possibly unset
+    # variable -- would otherwise count as a gate.
+    param([object[]]$Tokens, [int]$Line)
+    return (@($Tokens | Where-Object {
+                $kind = $_.Kind.ToString()
+                $_.Extent.StartLineNumber -ge ($Line - 6) -and $_.Extent.StartLineNumber -le ($Line - 1) -and
+                ($script:InertKinds -notcontains $kind) -and
+                (($kind -eq 'Variable' -and $_.Text -in '$PSVersionTable', '$PSVersion') -or $_.Text -eq 'PSEdition') }).Count -gt 0)
+}
+
+function Test-PfbPesterSkipGuard {
+    # -Skip:<expr> reading PSVersion. Only the colon form carries a value: -Skip is a switch,
+    # so in `Describe 'x' -Skip { ... }` the next element is the block body, not a guard, and
+    # a body that merely mentions PSVersion must not read as one.
+    param([System.Management.Automation.Language.CommandAst]$Block)
+    foreach ($e in $Block.CommandElements) {
+        if ($e -is [System.Management.Automation.Language.CommandParameterAst] -and $e.ParameterName -eq 'Skip' -and
+            $e.Argument -and $e.Argument.Extent.Text -match 'PSVersion') { return $true }
+    }
+    return $false
+}
+
+function Test-PfbInSkippedBlock {
+    # Class 2 only: inside the nearest enclosing Describe/Context whose -Skip reads PSVersion;
+    # with no enclosing block, every Describe in the file must be so skipped.
+    param([System.Management.Automation.Language.Ast]$Node, [System.Management.Automation.Language.Ast]$Root)
+    for ($p = $Node.Parent; $null -ne $p; $p = $p.Parent) {
+        if ($p -is [System.Management.Automation.Language.ScriptBlockExpressionAst] -and
+            $p.Parent -is [System.Management.Automation.Language.CommandAst] -and
+            (Get-PfbCommandName -Command $p.Parent) -in 'Describe', 'Context') {
+            return (Test-PfbPesterSkipGuard -Block $p.Parent)
+        }
+    }
+    $describes = @($Root.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] -and (Get-PfbCommandName -Command $n) -eq 'Describe' }, $true))
+    if ($describes.Count -eq 0) { return $false }
+    return (@($describes | Where-Object { -not (Test-PfbPesterSkipGuard -Block $_) }).Count -eq 0)
+}
+
 function Test-PfbCompatFile {
     param([string]$FullPath, [string]$Root)
     $rel = $FullPath.Substring($Root.Length).TrimStart('\', '/') -replace '\\', '/'
@@ -126,8 +246,37 @@ function Test-PfbCompatFile {
         }
     }
     if ($scope.C23 -and @($errors).Count -eq 0) {
-        # Class 2 and 3 AST checks go here, reading $ast and $tokens.
-        $null = $ast
+        $isTest = $rel -match '^Tests/'
+        $hits = New-Object System.Collections.Generic.List[object]
+        foreach ($cmd in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] }, $true)) {
+            $name = Get-PfbCommandName -Command $cmd
+            if (-not $name) { continue }
+            foreach ($rule in $script:CommandRules) {
+                if ($rule.Commands -notcontains $name) { continue }
+                if ($rule.Parameter -and -not (Test-PfbHasParameter -Command $cmd -Name $rule.Parameter)) { continue }
+                $hits.Add(@{ Id = $rule.Id; Node = $cmd })
+            }
+            $enc = Get-PfbParameterArgument -Command $cmd -Name 'Encoding'
+            if ($enc -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
+                if ($enc.Value -in 'utf8NoBOM', 'utf8BOM') { $hits.Add(@{ Id = 'c2-encoding-utf8nobom'; Node = $cmd }) }
+                if ($enc.Value -eq 'UTF8' -and $name -in 'Set-Content', 'Add-Content', 'Out-File' -and -not $isTest) {
+                    $hits.Add(@{ Id = 'c3-utf8-bom-write'; Node = $cmd })
+                }
+            }
+        }
+        foreach ($var in $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.VariableExpressionAst] }, $true)) {
+            foreach ($rule in $script:VariableRules) {
+                if ($rule.Names -contains $var.VariablePath.UserPath) { $hits.Add(@{ Id = $rule.Id; Node = $var }) }
+            }
+        }
+        foreach ($h in $hits) {
+            $line = $h.Node.Extent.StartLineNumber
+            $class = ($script:Rules | Where-Object { $_.Id -eq $h.Id } | Select-Object -First 1).Class
+            if (Test-PfbSuppressedByPragma -Tokens $tokens -Line $line) { continue }
+            if (Test-PfbSuppressedByVersionGate -Tokens $tokens -Line $line) { continue }
+            if ($class -eq 2 -and (Test-PfbInSkippedBlock -Node $h.Node -Root $ast)) { continue }
+            New-PfbCompatFinding -RelativePath $rel -Line $line -RuleId $h.Id
+        }
     }
 }
 

@@ -139,3 +139,28 @@ Describe 'Test-PfbPs51Compat scope and class 1' -Skip:($PSVersionTable.PSEdition
         }
     }
 }
+
+Describe 'Test-PfbPs51Compat against every fixture case' -Skip:($PSVersionTable.PSEdition -ne 'Desktop') {
+    BeforeAll {
+        function New-TestCaseRepo {
+            [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'Test helper materializing one fixture under $TestDrive; nothing to confirm.')]
+            param([string]$RelativePath, [string]$SampleFile)
+            $root = Join-Path (Join-Path (Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))) 'worktrees') 'pr-x'
+            $null = New-Item -ItemType Directory -Path $root -Force
+            [System.IO.File]::WriteAllText((Join-Path $root 'PureStorageFlashBladePowerShell.psd1'), "@{ ModuleVersion = '0.0.1' }`n")
+            $full = Join-Path $root $RelativePath
+            $dir = Split-Path -Parent $full
+            if (-not (Test-Path -LiteralPath $dir)) { $null = New-Item -ItemType Directory -Path $dir -Force }
+            Copy-Item -LiteralPath (Join-Path $script:fixtureDir $SampleFile) -Destination $full
+            return $full
+        }
+    }
+    It '<Id>: the flags sample is reported under <Rule>' -ForEach $script:cases {
+        $out = @(& $script:compat -Path (New-TestCaseRepo -RelativePath $FlagsPath -SampleFile $FlagsFile) 6>$null)
+        @($out | Where-Object Rule -eq $Rule).Count | Should -BeGreaterThan 0 -Because ($out | Out-String)
+    }
+    It '<Id>: the suppressed sample is not reported under <Rule> (<Suppression>)' -ForEach $script:cases {
+        $out = @(& $script:compat -Path (New-TestCaseRepo -RelativePath $SuppressedPath -SampleFile $SuppressedFile) 6>$null)
+        @($out | Where-Object Rule -eq $Rule).Count | Should -Be 0 -Because ($out | Out-String)
+    }
+}
