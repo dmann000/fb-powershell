@@ -262,7 +262,7 @@ Describe 'backlog workflow' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
 
     It 'publishes the Markdown to the job summary and the JSON as a 90-day artifact, on the pinned actions' {
         @([regex]::Matches($script:workflow, '(?m)^\s+uses: (\S+)') | ForEach-Object { $_.Groups[1].Value }) -join ',' |
-            Should -BeExactly 'actions/checkout@v7,actions/upload-artifact@v5'
+            Should -Match '^actions/checkout@[0-9a-f]{40},actions/upload-artifact@[0-9a-f]{40}$'
         $script:workflow | Should -Match ([regex]::Escape("OutputPath = (Join-Path `$env:RUNNER_TEMP 'backlog')"))
         $script:workflow | Should -Match "(?m)Get-Content -LiteralPath \(Join-Path \`$env:RUNNER_TEMP 'backlog/PfbBacklog\.md'\) -Raw \|[ \t]*\r?\n[ \t]+Out-File -FilePath \`$env:GITHUB_STEP_SUMMARY -Append\b"
         $script:workflow | Should -Match '(?m)^\s+path: \$\{\{ runner\.temp \}\}/backlog/PfbBacklog\.json\s*$'

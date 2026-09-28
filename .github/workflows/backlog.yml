@@ -52,7 +52,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # -First only when the input is non-empty. On a workflow_run event there are no
       # inputs, and -First '' would fail [int] binding. The input arrives through env rather
@@ -75,7 +75,7 @@ jobs:
               Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
 
       - name: Upload the JSON
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: backlog
           path: ${{ runner.temp }}/backlog/PfbBacklog.json

@@ -78,13 +78,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Same key and restore-keys as cross-platform-tests.yml's prepare-specs job and
       # update-api-capability-map.yml: the prefix is shared on purpose so a warm cache
       # written by any workflow serves all of them.
       - name: Restore cached spec files
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: tools/specs
           key: pfb-specs-${{ github.run_id }}
@@ -136,7 +136,7 @@ jobs:
       # Diff a downloaded file against the committed one to see the actual drift.
       - name: Upload the regenerated artifacts for diffing
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: pfb-regenerated-artifacts
           path: ${{ runner.temp }}/pfb-derived/out

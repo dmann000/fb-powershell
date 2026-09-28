@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Issue #63 follow-up: no CI job has ever compared a regenerated artifact against the
       # committed one, so a generator change committed without regenerating passes silently.
@@ -57,7 +57,7 @@ jobs:
           "versions=$($versions -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Restore cached spec files
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: tools/specs
           key: pfb-specs-${{ github.run_id }}
@@ -69,7 +69,7 @@ jobs:
         run: ./tools/Update-PfbApiSpecs.ps1
 
       - name: Save spec cache
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: always()
         with:
           path: tools/specs
@@ -195,7 +195,7 @@ jobs:
         # warning). Safe jump despite skipping a major: v7's only breaking changes were
         # renaming the `git-token` input to `branch-token` and removing the deprecated
         # PULL_REQUEST_NUMBER output env var, neither of which this step uses.
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           commit-message: 'Update API capability map'
           title: "Update API capability map${{ steps.summary.outputs.new_versions && format(' (new REST versions: {0})', steps.summary.outputs.new_versions) || '' }}"
