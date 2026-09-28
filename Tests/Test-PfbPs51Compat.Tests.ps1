@@ -309,8 +309,11 @@ Describe 'Test-PfbPs51Compat -All' -Skip:($PSVersionTable.PSEdition -ne 'Desktop
     }
     It 'the real tree has no class-1 finding (measured 0 on main when this landed)' {
         Push-Location $script:repoRoot
-        try { $out = @(& $script:compat -All 6>$null) } finally { Pop-Location }
+        try { $out = @(& $script:compat -All 6>$null); $code = $LASTEXITCODE } finally { Pop-Location }
         @($out | Where-Object Class -eq 1 | ForEach-Object { '{0}:{1} {2}' -f $_.Path, $_.Line, $_.Message }) -join "`n" | Should -BeNullOrEmpty
+        # An exit 2 (could not run) also returns no class-1 finding, so the exit code is what
+        # proves the tree was actually scanned.
+        $code | Should -Be 0
     }
 }
 
@@ -322,5 +325,8 @@ Describe 'cross-platform-tests.yml runs the 5.1 compatibility check on the 5.1 l
     It 'runs ./tools/Test-PfbPs51Compat.ps1 -All directly, under shell: powershell, straight after checkout' {
         $script:job | Should -Match '(?ms)- name: Checkout\s*\r?\n\s+uses: actions/checkout@\S+[^\r\n]*\r?\n\s*\r?\n(?:\s*#[^\r\n]*\r?\n)*\s+- name: Check Windows PowerShell 5\.1 compatibility\s*\r?\n\s+shell: powershell\s*\r?\n\s+run: \./tools/Test-PfbPs51Compat\.ps1 -All\s*$'
         $script:job | Should -Not -Match 'powershell(\.exe)? -File'
+    }
+    It 'lets a finding fail the job: nothing in the 5.1 job sets continue-on-error' {
+        $script:job | Should -Not -Match 'continue-on-error'
     }
 }
