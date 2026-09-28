@@ -135,3 +135,27 @@ Describe 'verify-workflows.yml (actionlint)' {
         @([regex]::Matches($script:wf, '(?m)^[ \t]+(?:- )?run: (?!\|)(.*)$') | Where-Object { $_.Groups[1].Value.Contains('${{') }).Count | Should -Be 0
     }
 }
+
+Describe 'report-action-pins.yml (weekly, report-only)' {
+    BeforeAll {
+        $script:rp = [System.IO.File]::ReadAllText((Join-Path $script:repoRoot '.github/workflows/report-action-pins.yml'))
+    }
+    It 'runs weekly and on dispatch, and on nothing else' {
+        $on = [regex]::Match($script:rp, '(?ms)^on:\r?\n(.*?)(?=^\S)').Groups[1].Value
+        @([regex]::Matches($on, '(?m)^  ([a-z_]+):') | ForEach-Object { $_.Groups[1].Value }) -join ',' | Should -BeExactly 'schedule,workflow_dispatch'
+    }
+    It 'reads contents only and writes nothing' {
+        $permissions = [regex]::Match($script:rp, '(?ms)^permissions:[ \t]*\r?\n(.*?)(?=^\S)').Groups[1].Value
+        @([regex]::Matches($permissions, '(?m)^  ([a-z-]+: \S+)') | ForEach-Object { $_.Groups[1].Value }) -join ',' | Should -BeExactly 'contents: read'
+        @([regex]::Matches($script:rp, '(?m)^\s+[a-z-]+: write\s*$')).Count | Should -Be 0
+        @([regex]::Matches($script:rp, 'secrets\.([A-Za-z_]+)') | ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -cne 'GITHUB_TOKEN' }).Count | Should -Be 0
+    }
+    It 'interpolates nothing into a run block' {
+        $blocks = @([regex]::Matches($script:rp, '(?m)^([ \t]+)(?:- )?run: \|[ \t]*\r?\n((?:(?:\1[ \t]+\S[^\r\n]*|[ \t]*)(?:\r?\n|$))+)') | ForEach-Object { $_.Groups[2].Value })
+        $blocks.Count | Should -Be 1
+        @($blocks | Where-Object { $_.Contains('${{') }).Count | Should -Be 0
+    }
+    It 'runs the report script with the job summary as its output' {
+        $script:rp | Should -Match ([regex]::Escape('./tools/Get-PfbActionPinStatus.ps1 -SummaryPath $env:GITHUB_STEP_SUMMARY'))
+    }
+}
