@@ -14,7 +14,7 @@ detailed rules live in three files:
 
 | Workflow | What it checks | Fails the PR? |
 |---|---|---|
-| `cross-platform-tests.yml` | Pester on Windows PowerShell 5.1 and on PowerShell 7 (Windows, Linux, macOS), the coverage baseline, and PSScriptAnalyzer | Yes |
+| `cross-platform-tests.yml` | Pester on Windows PowerShell 5.1 and on PowerShell 7 (Windows, Linux, macOS), the coverage baseline, and PSScriptAnalyzer; on the 5.1 leg, a Windows PowerShell 5.1 parse and compatibility check (`tools/Test-PfbPs51Compat.ps1`) | Yes |
 | `verify-derived-artifacts.yml` | Every committed artifact in `Data/` and `Reports/` matches a regeneration from the branch (runs when an input changes) | Yes |
 | `verify-workflows.yml` | actionlint over `.github/workflows/` (runs when `.github/` changes) | Yes |
 | `verify-closing-keywords.yml` | Every issue the PR body or a commit references after a closing keyword has its own keyword | Yes |
@@ -36,3 +36,5 @@ Under PowerShell 7 (`pwsh`); only the module itself has to run on Windows PowerS
   body when exempt.
 - `tools/Test-PfbClosingKeywords.ps1 -Text <your PR body>` -- the closing-keyword check, with
   the corrected form for each finding.
+- `powershell.exe -File tools/Test-PfbPs51Compat.ps1 -All` -- the Windows PowerShell 5.1
+  parse and compatibility check. Run it under Windows PowerShell 5.1, not pwsh.
