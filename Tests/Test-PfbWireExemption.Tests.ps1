@@ -137,3 +137,66 @@ Describe 'Test-PfbWireExemption exit codes (ported from the original negative-co
         $case.ExitCode | Should -Be 2
     }
 }
+
+Describe 'Test-PfbWireExemption verdict object' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    It 'emits exactly one object, whose Decision agrees with the exit code (<Decision>)' -ForEach @(
+        @{ Decision = 'Exempt'; Code = 0; Mutate = { param($r) Edit-TestFile $r $script:cmdlet 'Original description.' 'Rewritten.' }; Extra = @{} }
+        @{ Decision = 'NotExempt'; Code = 1; Mutate = { param($r) Edit-TestFile $r $script:cmdlet '/api/2.0/' '/api/2.1/' }; Extra = @{} }
+        @{ Decision = 'Undecided'; Code = 2; Mutate = { param($r) Edit-TestFile $r $script:cmdlet '/api/2.0/' '/api/2.1/' }; Extra = @{ BaseRef = 'no-such-ref' } }
+    ) {
+        $case = Invoke-TestCase -Mutate $Mutate -Extra $Extra
+        $case.Output.Count | Should -Be 1 -Because 'human-readable text goes to Write-Host, never the success stream'
+        $case.Output[0].Decision | Should -BeExactly $Decision
+        $case.ExitCode | Should -Be $Code
+    }
+    It 'carries a paste-ready Basis only when exempt' {
+        (Invoke-TestCase -Mutate { param($r) Edit-TestFile $r $script:cmdlet 'Original description.' 'Rewritten.' }).Output[0].Basis | Should -Match '\S'
+        (Invoke-TestCase -Mutate { param($r) Edit-TestFile $r $script:cmdlet '/api/2.0/' '/api/2.1/' }).Output[0].Basis | Should -BeNullOrEmpty
+    }
+    It 'names the file, its verdict and the first executable line changed' {
+        $v = (Invoke-TestCase -Mutate { param($r) Edit-TestFile $r $script:cmdlet '/api/2.0/' '/api/2.1/' }).Output[0]
+        @($v.Files).Count | Should -Be 1
+        $v.Files[0].Path | Should -BeExactly $script:cmdlet
+        $v.Files[0].Verdict | Should -BeExactly 'Executable'
+        $v.Files[0].FirstExecutableLine | Should -Be 11
+    }
+    It 'an unreachable -HeadRef cannot be decided -> Undecided, exit 2' {
+        $case = Invoke-TestCase -Mutate { param($r) Edit-TestFile $r $script:cmdlet '/api/2.0/' '/api/2.1/' } -Extra @{ HeadRef = 'no-such-ref' }
+        $case.Output[0].Decision | Should -BeExactly 'Undecided'
+        $case.ExitCode | Should -Be 2
+    }
+    It 'classifies -HeadRef, not whatever is checked out (control pair)' {
+        $case = Invoke-TestCase -Mutate { param($r) Edit-TestFile $r $script:cmdlet '/api/2.0/' '/api/2.1/' }
+        Invoke-TestGit $case.Repo @('checkout', '-q', 'main') | Out-Null
+        $atHead = @(& $script:checker -RepoPath $case.Repo -BaseRef main 6>$null)
+        $atHead[0].Decision | Should -BeExactly 'Exempt' -Because 'HEAD is main, so the diff is empty'
+        $atFeature = @(& $script:checker -RepoPath $case.Repo -BaseRef main -HeadRef feature 6>$null)
+        $atFeature[0].Decision | Should -BeExactly 'NotExempt'
+    }
+}
+
+Describe 'Test-PfbWireExemption is publishable as written' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    BeforeAll { $script:src = [System.IO.File]::ReadAllText($script:checker) }
+    It 'names no private rule and no local tooling' {
+        $script:src | Should -Not -Match '(?i)private (development )?rule'
+        $script:src | Should -Not -Match '(?i)does not belong|not belong in'
+    }
+    # Any drive root, not just 'X:\<letter>': an elided 'C:\...\worktrees' must fail too.
+    It 'carries no absolute Windows path' {
+        $script:src | Should -Not -Match '(?<![A-Za-z])[A-Za-z]:\\'
+    }
+    It 'documents how a gate must recompute the verdict rather than trust a CI result' {
+        $script:src | Should -Match ([regex]::Escape('git show origin/main:tools/Test-PfbWireExemption.ps1'))
+        $script:src | Should -Match '(?i)never read'
+    }
+    It 'documents -HeadRef and the verdict object' {
+        $script:src | Should -Match '\.PARAMETER HeadRef'
+        $script:src | Should -Match '(?s)\.OUTPUTS.*Decision.*Files.*Basis'
+    }
+    # '#Requires' directly above '<#' makes Get-Help lose the synopsis, so the blank line
+    # between them is load-bearing.
+    It 'keeps its comment help discoverable by Get-Help' {
+        (Get-Help $script:checker).Synopsis | Should -Match '\S'
+        (Get-Help $script:checker).Synopsis | Should -Not -Match ([regex]::Escape('Test-PfbWireExemption.ps1'))
+    }
+}
