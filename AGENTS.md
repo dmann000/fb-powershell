@@ -28,6 +28,8 @@ Scheduled, not on pull requests: `update-api-capability-map.yml`,
 
 ## Scripts you can run locally
 
+Under PowerShell 7 (`pwsh`); only the module itself has to run on Windows PowerShell 5.1.
+
 - `scripts/Assert-PfbDerivedArtifacts.ps1` -- the derived-artifact check CI runs.
 - `tools/Test-PfbWireExemption.ps1 -BaseRef origin/main` -- whether your branch can change
   what goes on the wire. Exit 0 exempt, 1 not, 2 undecided. Prints a basis line for the PR

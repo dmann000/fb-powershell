@@ -126,6 +126,7 @@ Describe 'Test-PfbWireExemption exit codes (negative-control pairs)' -Skip:($PSV
         @{ Name = "'#' inside an edited here-string (setup on main)"; Code = 1; Base = $script:hereStringHash; Mutate = { param($r) Edit-TestFile $r $script:cmdlet 'just data' 'just payload' } }
         @{ Name = '#Requires edited (setup on main)'; Code = 1; Base = { param($r) Edit-TestFile $r $script:cmdlet '<#' "#Requires -Version 5.1`n<#" }; Mutate = { param($r) Edit-TestFile $r $script:cmdlet '#Requires -Version 5.1' '#Requires -Version 7.0' } }
         @{ Name = 'cmdlet file renamed in Public/'; Code = 1; Base = $null; Mutate = { param($r) Invoke-TestGit $r @('mv', $script:cmdlet, 'Public/Things/Get-PfbThing2.ps1') | Out-Null } }
+        @{ Name = 'cmdlet file moved out of Public/ (rename out of scope)'; Code = 1; Base = $null; Mutate = { param($r) New-Item -ItemType Directory -Force (Join-Path $r 'tools') | Out-Null; Invoke-TestGit $r @('mv', $script:cmdlet, 'tools/Get-PfbThing.ps1') | Out-Null } }
         @{ Name = 'comment-only edit in the root module (in scope, inert)'; Code = 0; Base = $null; Mutate = { param($r) Edit-TestFile $r 'PureStorageFlashBladePowerShell.psm1' '# module loader' '# module loader, reworded' } }
     ) {
         $case = Invoke-TestCase -Mutate $Mutate -Base $Base

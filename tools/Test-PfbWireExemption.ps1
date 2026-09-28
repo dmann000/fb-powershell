@@ -223,7 +223,10 @@ Write-Host ""
 try {
     # --- collect in-scope changes --------------------------------------------
 
-    $nameStatus = Invoke-Git @('diff', '--name-status', '--no-color', "$mergeBase..$head")
+    # --no-renames: a rename is reported as a delete of the old path plus an add of the new
+    # one, so a file moved OUT of scope still counts as an in-scope deletion. With rename
+    # detection on, only the new path would be seen and the move would read as exempt.
+    $nameStatus = Invoke-Git @('diff', '--name-status', '--no-renames', '--no-color', "$mergeBase..$head")
 
     $inScope = @()
     foreach ($line in $nameStatus) {
@@ -258,13 +261,12 @@ try {
         $path = $file.Path
         $reasons = @()
         # First executable changed line: head side if any, else base side. $null when the file
-        # is inert or was rejected as a whole (added, deleted, renamed).
+        # is inert or was rejected as a whole (added or deleted; a rename arrives as both).
         $firstLine = $null
 
         # An added or deleted file changes the exported surface. Never inert.
         if ($file.Status -eq 'A') { $reasons += 'file added' }
         elseif ($file.Status -eq 'D') { $reasons += 'file deleted' }
-        elseif ($file.Status -like 'R*') { $reasons += "file renamed ($($file.Status))" }
         else {
             $changed = Get-ChangedLine -Path $path -Base $mergeBase -Head $head
 

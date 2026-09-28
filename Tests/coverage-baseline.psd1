@@ -260,9 +260,9 @@
         # gated wholesale because the script under test is `#Requires -Version 7.0`.
         # 503 + 6 = 509. Recomputed from the map, not incremented by hand: 23 entries, 509.
         # One more entry was then ADDED for the wire-exemption classifier
-        # (tools/Test-PfbWireExemption.ps1): Test-PfbWireExemption.Tests.ps1 40, a new file
-        # gated wholesale for the same reason. 509 + 40 = 549. Recomputed from the map, not
-        # incremented by hand: 24 entries, 549.
+        # (tools/Test-PfbWireExemption.ps1): Test-PfbWireExemption.Tests.ps1 41, a new file
+        # gated wholesale for the same reason. 509 + 41 = 550. Recomputed from the map, not
+        # incremented by hand: 24 entries, 550.
         #
         # Recompute this total from the map itself rather than adjusting it by the delta in
         # hand -- an earlier revision of this note said "one entry has moved ... sum to 307",
@@ -310,8 +310,8 @@
             # The wire-exemption classifier (tools/Test-PfbWireExemption.ps1, `#Requires -Version
             # 7.0`). Gated wholesale: every Describe builds scratch git repos and calls the
             # PS7-only script, or reads the workflow that runs it. Measured on Windows
-            # PowerShell 5.1 for this file alone: 0 passed / 0 failed / 40 skipped, container ok.
-            'Test-PfbWireExemption.Tests.ps1'                    = 40
+            # PowerShell 5.1 for this file alone: 0 passed / 0 failed / 41 skipped, container ok.
+            'Test-PfbWireExemption.Tests.ps1'                    = 41
             # 15 -> 26 for issue #141 Task 4: two new Describes (the five-bucket partition
             # reconciliation and the unknown-Surface refusal) exercise
             # tools/Build-PfbFieldCmdletMap.ps1 itself, which carries `#Requires -Version 7.0`,
