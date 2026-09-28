@@ -1,0 +1,3 @@
+if ($PSVersionTable.PSVersion.Major -ge 6) {
+    Invoke-RestMethod -Uri u -SkipCertificateCheck
+}

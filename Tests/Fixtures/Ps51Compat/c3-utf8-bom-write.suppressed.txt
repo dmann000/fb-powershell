@@ -1,0 +1,2 @@
+#Requires -Version 5.1
+Set-Content x -Encoding UTF8

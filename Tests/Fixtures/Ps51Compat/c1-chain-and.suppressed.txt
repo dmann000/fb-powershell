@@ -1,0 +1,3 @@
+$s = @'
+Get-Item . && Get-Item .
+'@
