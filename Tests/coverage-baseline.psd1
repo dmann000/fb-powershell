@@ -132,6 +132,12 @@
             # both editions.
             'contextScope stability across every cached REST version (issue #112)'
             'Get-PfbContextScopeVersionFinding, against synthetic declarations'
+            # Action pins, workflow hygiene and GitHub templates: ungated text checks, every leg.
+            'Action pin matcher (control pairs)'
+            'Workflow action pins (every remote uses: under .github is SHA-pinned)'
+            'verify-workflows.yml (actionlint)'
+            'report-action-pins.yml (weekly, report-only)'
+            'GitHub issue forms and PR template'
         )
     }
     winps51 = @{
@@ -369,6 +375,12 @@
             # comparison can produce a finding at all -- the real-spec half it guards is
             # vacuously green and is PS7-gated, so it appears under pwsh7 alone.
             'Get-PfbContextScopeVersionFinding, against synthetic declarations'
+            # Action pins, workflow hygiene and GitHub templates: ungated text checks, every leg.
+            'Action pin matcher (control pairs)'
+            'Workflow action pins (every remote uses: under .github is SHA-pinned)'
+            'verify-workflows.yml (actionlint)'
+            'report-action-pins.yml (weekly, report-only)'
+            'GitHub issue forms and PR template'
         )
     }
 }
