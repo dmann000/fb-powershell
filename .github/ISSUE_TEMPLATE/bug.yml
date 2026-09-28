@@ -10,7 +10,7 @@ body:
     id: module-version
     attributes:
       label: Module version
-      description: Output of `(Get-Module PureStorageFlashBladePowerShell -ListAvailable).Version`, or the Gallery package version.
+      description: Output of `Get-Module EverpureFBModule, PureStorageFlashBladePowerShell -ListAvailable | Select-Object Name, Version` (the Gallery package is EverpureFBModule; a build from source is PureStorageFlashBladePowerShell).
     validations:
       required: true
   - type: dropdown
