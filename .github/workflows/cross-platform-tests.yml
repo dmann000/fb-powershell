@@ -345,6 +345,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Parses everything this leg parses (Public/, Private/, the root module, Tests/,
+      # scripts/) with the 5.1 parser, and checks shipped code for 5.1 runtime and
+      # edition-divergence traps. A parse error fails here with its file and line; runtime
+      # and divergence findings are warnings. Run directly, not through a nested
+      # `powershell.exe` child: this step's shell already IS Windows PowerShell 5.1.
+      - name: Check Windows PowerShell 5.1 compatibility
+        shell: powershell
+        run: ./tools/Test-PfbPs51Compat.ps1 -All
+
       # Wired here too, for symmetry with the pwsh job. The tools/specs-gated Describes are
       # additionally PS7-gated so they still skip on this leg, but a future spec-dependent
       # test that does NOT carry the PS7 guard then works with no workflow change.

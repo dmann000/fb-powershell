@@ -165,7 +165,7 @@ Describe 'Test-PfbPs51Compat against every fixture case' -Skip:($PSVersionTable.
     }
 }
 
-Describe 'Test-PfbPs51Compat on shapes outside the hook''s fixture table' -Skip:($PSVersionTable.PSEdition -ne 'Desktop') {
+Describe "Test-PfbPs51Compat on shapes outside the hook's fixture table" -Skip:($PSVersionTable.PSEdition -ne 'Desktop') {
     # Not hook constructs, so not in Cases.psd1: these pin where the script must NOT be laxer
     # than the hook (a string or comment never suppresses; a lookalike gate is not a gate) and
     # the AST shapes the script reports although the hook's line regexes cannot see them.
@@ -311,5 +311,16 @@ Describe 'Test-PfbPs51Compat -All' -Skip:($PSVersionTable.PSEdition -ne 'Desktop
         Push-Location $script:repoRoot
         try { $out = @(& $script:compat -All 6>$null) } finally { Pop-Location }
         @($out | Where-Object Class -eq 1 | ForEach-Object { '{0}:{1} {2}' -f $_.Path, $_.Line, $_.Message }) -join "`n" | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'cross-platform-tests.yml runs the 5.1 compatibility check on the 5.1 leg' {
+    BeforeAll {
+        $script:xp = [System.IO.File]::ReadAllText((Join-Path $script:repoRoot '.github/workflows/cross-platform-tests.yml'))
+        $script:job = [regex]::Match($script:xp, '(?ms)^  test-windows-powershell-5-1:\r?\n(.*?)(?=^  \S|\z)').Groups[1].Value
+    }
+    It 'runs ./tools/Test-PfbPs51Compat.ps1 -All directly, under shell: powershell, straight after checkout' {
+        $script:job | Should -Match '(?ms)- name: Checkout\s*\r?\n\s+uses: actions/checkout@\S+[^\r\n]*\r?\n\s*\r?\n(?:\s*#[^\r\n]*\r?\n)*\s+- name: Check Windows PowerShell 5\.1 compatibility\s*\r?\n\s+shell: powershell\s*\r?\n\s+run: \./tools/Test-PfbPs51Compat\.ps1 -All\s*$'
+        $script:job | Should -Not -Match 'powershell(\.exe)? -File'
     }
 }

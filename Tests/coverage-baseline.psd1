@@ -37,7 +37,7 @@
     # the granularity RequiredDescribes can reach), no UNDECLARED file may skip, and a declared
     # file that stops running at all is a violation rather than a stale entry to delete.
     #
-    # Only files that actually skip appear here -- 24 of 219 on 5.1, 2 on pwsh 7 -- so this is
+    # Only files that actually skip appear here -- 24 of 220 on 5.1, 3 on pwsh 7 -- so this is
     # a short list, not a per-file census. Attribution is by leaf file name, which is sound
     # because Tests/ is flat and no two *.Tests.ps1 files share a leaf; the gate fails loudly
     # if that ever stops being true.
@@ -53,10 +53,20 @@
         # map correct rather than a windows-only measurement generalised.
         #
         # These two are ordinary per-test -Skip: guards on platform-specific behaviour, not
-        # the PS7 gating that dominates the winps51 block. Total: 2.
+        # the PS7 gating that dominates the winps51 block.
+        #
+        # One entry was then ADDED, not moved: Test-PfbPs51Compat.Tests.ps1 81, the inverse of
+        # the winps51 block's PS7 gating -- Desktop-only by design (see its entry below), with
+        # 0 skips on winps51 and so no entry there. 1 + 1 + 81 = 83. Recomputed from the
+        # map, not incremented by hand: 3 entries, 83.
         ExpectedSkips     = @{
             'New-PfbJwtToken.Tests.ps1'    = 1
             'Set-PfbTlsProtocol.Tests.ps1' = 1
+            # The 5.1 compatibility check runs only under Windows PowerShell 5.1 (it IS the 5.1
+            # parser's verdict), so every Describe but the workflow-text one skips on pwsh 7 --
+            # identically on ubuntu, windows and macos, since the gate is the edition and not
+            # the OS. Measured: 81.
+            'Test-PfbPs51Compat.Tests.ps1' = 81
         }
         RequiredDescribes = @(
             # Ungated -- these run on every leg and are the #63 regression guards themselves.
@@ -149,6 +159,9 @@
             'Test-PfbWireExemption verdict object'
             'Test-PfbWireExemption is publishable as written'
             'verify-wire-exemption.yml (informational only)'
+            # The 5.1 compatibility check's workflow-text Describe: ungated, so it executes on
+            # every leg. Its Desktop-only siblings are listed under winps51 alone.
+            'cross-platform-tests.yml runs the 5.1 compatibility check on the 5.1 leg'
         )
     }
     winps51 = @{
@@ -277,8 +290,9 @@
         # Every entry is the same cause: a Describe carrying
         # -Skip:($PSVersionTable.PSVersion.Major -lt 7), or a whole tooling file gated that way,
         # because the generator or spec-walking code under test needs pwsh 7. They RUN on 7 --
-        # that leg skips 2 in total -- so these are the PS7 gate working as designed, not lost
-        # coverage. That is why the two editions need separate maps.
+        # none of these PS7-gated files appears in the pwsh7 map -- so these are the PS7 gate
+        # working as designed, not lost coverage. That is why the two editions need separate
+        # maps.
         #
         # When one of these numbers moves, the gate names the file and the delta. Update the
         # line and say why in the commit message. Do NOT pad it.
@@ -407,6 +421,15 @@
             'Test-PfbClosingKeywords: what is not flagged'
             'Test-PfbClosingKeywords: letters are ASCII, as in the JavaScript original'
             'verify-closing-keywords.yml'
+            # The 5.1 compatibility check. Every Describe but the last is Desktop-only by
+            # design, so this leg is the only one where they execute; the last is the ungated
+            # workflow-text check, also listed under pwsh7.
+            'Ps51Compat fixture table covers the hook it replaces'
+            'Test-PfbPs51Compat scope and class 1'
+            'Test-PfbPs51Compat against every fixture case'
+            'Test-PfbPs51Compat on shapes outside the hook''s fixture table'
+            'Test-PfbPs51Compat -All'
+            'cross-platform-tests.yml runs the 5.1 compatibility check on the 5.1 leg'
         )
     }
 }
