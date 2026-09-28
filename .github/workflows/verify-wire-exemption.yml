@@ -34,7 +34,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -47,7 +47,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           git cat-file -e "$($env:BASE_SHA):tools/Test-PfbWireExemption.ps1" 2>$null
           if ($LASTEXITCODE -ne 0) {
-              Write-Host '::notice::The base revision has no tools/Test-PfbWireExemption.ps1 (this is the PR that adds it), so there is no trusted copy to run. Skipped.'
+              Write-Host '::notice::The base revision has no tools/Test-PfbWireExemption.ps1 (for example, the PR that adds it), so there is no trusted copy to run. Skipped.'
               exit 0
           }
           $copy = Join-Path $env:RUNNER_TEMP 'Test-PfbWireExemption.ps1'
