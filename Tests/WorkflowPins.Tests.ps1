@@ -104,3 +104,34 @@ Describe 'Workflow action pins (every remote uses: under .github is SHA-pinned)'
         $split -join ', ' | Should -BeNullOrEmpty
     }
 }
+
+Describe 'verify-workflows.yml (actionlint)' {
+    BeforeAll {
+        $script:wf = [System.IO.File]::ReadAllText((Join-Path $script:repoRoot '.github/workflows/verify-workflows.yml'))
+        $script:runBlocks = @([regex]::Matches($script:wf, '(?m)^([ \t]+)(?:- )?run: \|[ \t]*\r?\n((?:(?:\1[ \t]+\S[^\r\n]*|[ \t]*)(?:\r?\n|$))+)') | ForEach-Object { $_.Groups[2].Value })
+    }
+    It 'runs on pull requests that touch .github/, and on dispatch' {
+        $script:wf | Should -Match "(?m)^  pull_request:\s*\r?\n    paths:\s*\r?\n      - '\.github/\*\*'"
+        $script:wf | Should -Match '(?m)^  workflow_dispatch:'
+    }
+    It 'asks for contents: read and nothing else' {
+        $permissions = [regex]::Match($script:wf, '(?ms)^permissions:[ \t]*\r?\n(.*?)(?=^\S)').Groups[1].Value
+        @([regex]::Matches($permissions, '(?m)^  ([a-z-]+: \S+)') | ForEach-Object { $_.Groups[1].Value }) -join ',' | Should -BeExactly 'contents: read'
+        $script:wf | Should -Not -Match 'secrets\.'
+    }
+    It 'verifies the downloaded binary against a pinned sha256 before running it' {
+        $script:wf | Should -Match '(?m)^\s+ACTIONLINT_SHA256: ''[0-9a-f]{64}''\s*$'
+        $script:wf | Should -Match '(?m)^\s+ACTIONLINT_VERSION: ''\d+\.\d+\.\d+''\s*$'
+        $script:wf | Should -Match 'Get-FileHash -Algorithm SHA256'
+        $script:wf.IndexOf('Get-FileHash') | Should -BeLessThan $script:wf.IndexOf('-config-file .github/actionlint.yaml')
+    }
+    It 'uses no third-party action' {
+        @([regex]::Matches($script:wf, '(?m)^\s+(?:- )?uses: (\S+)') | ForEach-Object { $_.Groups[1].Value } |
+                Where-Object { $_ -notmatch '^actions/checkout@' }).Count | Should -Be 0
+    }
+    It 'interpolates nothing into a run block' {
+        $script:runBlocks.Count | Should -BeGreaterThan 0
+        @($script:runBlocks | Where-Object { $_.Contains('${{') }).Count | Should -Be 0
+        @([regex]::Matches($script:wf, '(?m)^[ \t]+(?:- )?run: (?!\|)(.*)$') | Where-Object { $_.Groups[1].Value.Contains('${{') }).Count | Should -Be 0
+    }
+}

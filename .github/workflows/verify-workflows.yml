@@ -1,0 +1,74 @@
+name: Verify Workflows
+
+# Lints every workflow under .github/workflows/ with actionlint on any pull request that
+# touches .github/. Catches expression typos, unknown contexts, bad `needs:` edges and
+# shell-step mistakes before they surface as a "workflow file issue" with no detail.
+#
+# NO THIRD-PARTY ACTION. The actionlint release binary is downloaded directly and its sha256
+# is checked against the constant below BEFORE it runs; a mismatch fails closed. Bumping
+# actionlint means changing both constants in one reviewed diff.
+#
+# Known limit, accepted: actionlint checks `with:` inputs of popular actions from a database
+# keyed by tag, so SHA-pinned references lose that one check.
+
+on:
+  pull_request:
+    paths:
+      - '.github/**'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-workflows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download and verify actionlint
+        shell: pwsh
+        env:
+          ACTIONLINT_VERSION: '1.7.12'
+          ACTIONLINT_SHA256: '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $name = "actionlint_$($env:ACTIONLINT_VERSION)_linux_amd64.tar.gz"
+          $url = "https://github.com/rhysd/actionlint/releases/download/v$($env:ACTIONLINT_VERSION)/$name"
+          $archive = Join-Path $env:RUNNER_TEMP $name
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()
+          if ($actual -ne $env:ACTIONLINT_SHA256) {
+              throw "actionlint archive sha256 mismatch: expected $($env:ACTIONLINT_SHA256), got $actual. Refusing to run it."
+          }
+          $dest = Join-Path $env:RUNNER_TEMP 'actionlint'
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          tar -xzf $archive -C $dest actionlint
+          if ($LASTEXITCODE -ne 0) { throw "tar failed with exit $LASTEXITCODE" }
+
+      # Exit 1 is "findings", which fails the job with one annotation per finding. Any other
+      # non-zero exit is actionlint itself failing, which must not read as a clean run.
+      - name: Run actionlint
+        shell: pwsh
+        run: |
+          $exe = Join-Path (Join-Path $env:RUNNER_TEMP 'actionlint') 'actionlint'
+          $raw = & $exe -config-file .github/actionlint.yaml -format '{{json .}}'
+          $code = $LASTEXITCODE
+          if ($code -gt 1) { throw "actionlint failed to run (exit $code): $raw" }
+          # A clean run prints `[]`, but guard against empty output anyway: ConvertFrom-Json on
+          # an empty string yields one $null element, which would count as a bogus finding.
+          $findings = @()
+          if (($raw -join '') -match '\S') { $findings = @(($raw -join "`n") | ConvertFrom-Json) }
+          foreach ($f in $findings) {
+              $msg = ($f.message -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A')
+              Write-Host "::error file=$($f.filepath),line=$($f.line),col=$($f.column)::[$($f.kind)] $msg"
+          }
+          Write-Host "actionlint: $($findings.Count) finding(s)"
+          if ($findings.Count -gt 0) { exit 1 }
