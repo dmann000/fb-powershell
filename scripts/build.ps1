@@ -1,3 +1,5 @@
+#Requires -Version 5.1
+
 <#
 .SYNOPSIS
     Builds the PureStorageFlashBladePowerShell module for release.

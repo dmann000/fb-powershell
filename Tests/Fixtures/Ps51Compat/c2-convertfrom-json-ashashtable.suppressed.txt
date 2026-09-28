@@ -1,0 +1,4 @@
+if ($PSVersionTable.PSVersion.Major -ge 6) {
+    $j = '{}'
+    $j | ConvertFrom-Json -AsHashtable
+}

@@ -1,0 +1,1 @@
+$s = 'ForEach-Object -Parallel { 1 }'

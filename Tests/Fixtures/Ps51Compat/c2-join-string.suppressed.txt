@@ -1,0 +1,2 @@
+# ps51-ok
+'a','b' | Join-String

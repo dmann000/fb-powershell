@@ -1,0 +1,12 @@
+#Requires -Version 5.1
+BeforeAll {
+    $script:data = '{}' | ConvertFrom-Json -Depth 5
+}
+
+Describe 'a' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    It 'b' { $script:data | Should -Not -BeNullOrEmpty }
+}
+
+Describe 'c' -Skip:($PSVersionTable.PSVersion.Major -lt 7) {
+    It 'd' { $script:data | Should -Not -BeNullOrEmpty }
+}

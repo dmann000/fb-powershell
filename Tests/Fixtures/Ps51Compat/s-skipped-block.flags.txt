@@ -1,0 +1,13 @@
+#Requires -Version 5.1
+Describe 'x' {
+    It 'y' {
+        # filler: keeps the finding more than 6 lines below the Describe line,
+        # so a version gate on that line cannot reach it through the lookback
+        # filler
+        # filler
+        # filler
+        # filler
+        # filler
+        $null = '{}' | ConvertFrom-Json -Depth 5
+    }
+}
