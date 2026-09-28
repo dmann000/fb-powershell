@@ -1,0 +1,61 @@
+name: Bug report
+description: A cmdlet did something wrong against a FlashBlade.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. This repository is public: do not paste credentials, API tokens,
+        certificates, or your array's hostname or IP address. Replace them with placeholders.
+  - type: input
+    id: module-version
+    attributes:
+      label: Module version
+      description: Output of `Get-Module EverpureFBModule, PureStorageFlashBladePowerShell -ListAvailable | Select-Object Name, Version` (the Gallery package is EverpureFBModule; a build from source is PureStorageFlashBladePowerShell).
+    validations:
+      required: true
+  - type: dropdown
+    id: powershell-edition
+    attributes:
+      label: PowerShell edition
+      options:
+        - Windows PowerShell 5.1
+        - PowerShell 7 on Windows
+        - PowerShell 7 on Linux
+        - PowerShell 7 on macOS
+    validations:
+      required: true
+  - type: input
+    id: powershell-version
+    attributes:
+      label: PowerShell version
+      description: Output of `$PSVersionTable.PSVersion`.
+    validations:
+      required: true
+  - type: input
+    id: rest-version
+    attributes:
+      label: FlashBlade REST API version
+      description: For example 2.26. `Get-PfbApiVersion` reports what the array supports.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The exact commands, with secrets and hostnames replaced.
+      render: powershell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: Include the full error text, with `-Verbose` output if you have it.
+    validations:
+      required: true

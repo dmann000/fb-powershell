@@ -63,10 +63,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Restore cached spec files
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: tools/specs
           key: pfb-specs-${{ github.run_id }}
@@ -84,14 +84,14 @@ jobs:
         run: ./scripts/Assert-PfbSpecCache.ps1
 
       - name: Save spec cache
-        uses: actions/cache/save@v6
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: always()
         with:
           path: tools/specs
           key: pfb-specs-${{ github.run_id }}
 
       - name: Publish specs to the test jobs
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: pfb-specs
           path: tools/specs
@@ -107,11 +107,11 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Issue #63: without this, every tools/specs-gated test skips and the job still passes.
       - name: Download API spec cache
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           name: pfb-specs
           path: tools/specs
@@ -158,7 +158,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Pinned and cached for the same reason Pester and Posh-SSH are pinned in
       # .github/actions/install-test-modules: an unpinned MinimumVersion is how this
@@ -172,7 +172,7 @@ jobs:
       # run for a job that needs it once.
       - name: Restore cached PSScriptAnalyzer
         id: pssa-cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .psmodules
           key: pssa-${{ runner.os }}-1.25.0
@@ -343,13 +343,13 @@ jobs:
     needs: prepare-specs
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Wired here too, for symmetry with the pwsh job. The tools/specs-gated Describes are
       # additionally PS7-gated so they still skip on this leg, but a future spec-dependent
       # test that does NOT carry the PS7 guard then works with no workflow change.
       - name: Download API spec cache
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
         with:
           name: pfb-specs
           path: tools/specs

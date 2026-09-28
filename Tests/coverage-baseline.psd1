@@ -37,7 +37,7 @@
     # the granularity RequiredDescribes can reach), no UNDECLARED file may skip, and a declared
     # file that stops running at all is a violation rather than a stale entry to delete.
     #
-    # Only files that actually skip appear here -- 22 of 213 on 5.1, 2 on pwsh 7 -- so this is
+    # Only files that actually skip appear here -- 23 of 217 on 5.1, 2 on pwsh 7 -- so this is
     # a short list, not a per-file census. Attribution is by leaf file name, which is sound
     # because Tests/ is flat and no two *.Tests.ps1 files share a leaf; the gate fails loudly
     # if that ever stops being true.
@@ -132,6 +132,12 @@
             # both editions.
             'contextScope stability across every cached REST version (issue #112)'
             'Get-PfbContextScopeVersionFinding, against synthetic declarations'
+            # Action pins, workflow hygiene and GitHub templates: ungated text checks, every leg.
+            'Action pin matcher (control pairs)'
+            'Workflow action pins (every remote uses: under .github is SHA-pinned)'
+            'verify-workflows.yml (actionlint)'
+            'report-action-pins.yml (weekly, report-only)'
+            'GitHub issue forms and PR template'
         )
     }
     winps51 = @{
@@ -238,6 +244,11 @@
         # code under test is `#Requires -Version 7.0`. 322 + 18 + 147 + 16 = 503. Recomputed
         # from the map, not incremented by hand: 22 entries, 503.
         #
+        # One entry was then ADDED, not moved, for the action pin report
+        # (tools/Get-PfbActionPinStatus.ps1): Get-PfbActionPinStatus.Tests.ps1 6 -- a new file,
+        # gated wholesale because the script under test is `#Requires -Version 7.0`.
+        # 503 + 6 = 509. Recomputed from the map, not incremented by hand: 23 entries, 509.
+        #
         # Recompute this total from the map itself rather than adjusting it by the delta in
         # hand -- an earlier revision of this note said "one entry has moved ... sum to 307",
         # which was wrong in both halves because it was written against the #141 change alone
@@ -277,6 +288,10 @@
             'PfbGitHubRead.Tests.ps1'                            = 18
             'PfbBacklogTools.Tests.ps1'                          = 147
             'Build-PfbBacklog.Tests.ps1'                         = 16
+            # The action pin report (tools/Get-PfbActionPinStatus.ps1), `#Requires -Version 7.0`
+            # because it reads through tools/lib/PfbGitHubRead.ps1. Gated wholesale; measured
+            # on Windows PowerShell 5.1 for this file alone: 0 passed / 0 failed / 6 skipped.
+            'Get-PfbActionPinStatus.Tests.ps1'                   = 6
             # 15 -> 26 for issue #141 Task 4: two new Describes (the five-bucket partition
             # reconciliation and the unknown-Surface refusal) exercise
             # tools/Build-PfbFieldCmdletMap.ps1 itself, which carries `#Requires -Version 7.0`,
@@ -360,6 +375,12 @@
             # comparison can produce a finding at all -- the real-spec half it guards is
             # vacuously green and is PS7-gated, so it appears under pwsh7 alone.
             'Get-PfbContextScopeVersionFinding, against synthetic declarations'
+            # Action pins, workflow hygiene and GitHub templates: ungated text checks, every leg.
+            'Action pin matcher (control pairs)'
+            'Workflow action pins (every remote uses: under .github is SHA-pinned)'
+            'verify-workflows.yml (actionlint)'
+            'report-action-pins.yml (weekly, report-only)'
+            'GitHub issue forms and PR template'
         )
     }
 }

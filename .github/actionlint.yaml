@@ -1,0 +1,8 @@
+# actionlint configuration, read by .github/workflows/verify-workflows.yml.
+#
+# Empty on purpose. Add an ignore only for a finding that is understood and deliberate,
+# scoped to one file and one message pattern, with a comment saying why -- never a blanket
+# ignore. Known, accepted limit: actionlint validates `with:` inputs of popular actions from
+# a database keyed by TAG, so SHA-pinned `uses:` lose that input check.
+self-hosted-runner:
+  labels: []

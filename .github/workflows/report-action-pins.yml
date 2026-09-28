@@ -1,0 +1,39 @@
+name: Report Action Pins
+
+# Weekly and report-only: for every SHA-pinned action under .github/, is a newer release
+# out? tools/Get-PfbActionPinStatus.ps1 writes a table to the job summary. This workflow
+# OPENS NOTHING -- no issue, no pull request, no Dependabot. Bumping a pin is a person's
+# decision, made in an ordinary PR.
+#
+# It fails only if the GitHub API itself fails, never because a pin is behind.
+#
+# GitHub disables a schedule after 60 days without repository activity; workflow_dispatch
+# is the way to run it by hand, or to bring it back.
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: report-action-pins
+  cancel-in-progress: true
+
+jobs:
+  report:
+    name: Report stale action pins
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Report pin status
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./tools/Get-PfbActionPinStatus.ps1 -SummaryPath $env:GITHUB_STEP_SUMMARY | Format-Table -AutoSize | Out-String | Write-Host

@@ -31,10 +31,34 @@ action** (`.github/actions/*/action.yml`) -- this is how one composite action
 can serve both PowerShell editions across a matrix. Still not `matrix`
 directly, only `inputs.*`.
 
-## Action version pins are not uniform across actions
+## Every remote action is pinned to a commit SHA
+
+A tag such as `actions/checkout@v7` is a moving pointer: whoever controls the
+tag controls what runs here. So every remote `uses:` under `.github/` names a
+40-hex, lower-case commit SHA followed by the release it came from:
+
+```yaml
+uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+```
+
+- `Tests/WorkflowPins.Tests.ps1` enforces it on every leg: a tag ref, a SHA
+  with no `# vX.Y.Z` comment, or one action pinned to two different SHAs or
+  versions in different files all fail. Local `./` references are exempt.
+- **Choosing a pin:** take the newest non-draft, non-prerelease release
+  **within the major already in use**, and resolve its tag to a commit
+  (`gh api repos/<owner>/<repo>/git/ref/tags/<tag>`; dereference it if the
+  object is an annotated `tag`, not a `commit`). Bumping a major is a
+  behaviour change and gets its own PR.
+- **Staleness:** `report-action-pins.yml` runs weekly and writes pinned vs.
+  latest per action to its job summary. It is report-only: it opens nothing,
+  and a "behind" row is a prompt to decide, not a failure.
+- `verify-workflows.yml` runs actionlint (config `.github/actionlint.yaml`) on
+  any pull request touching `.github/`.
+
+## Action major versions are not uniform across actions
 
 Don't assume every action's latest major version lines up -- check each one
-individually. Examples seen in this repo: `actions/checkout@v7` exists, but
+individually. Examples seen in this repo: `actions/checkout` has a v7, but
 `actions/cache` has no v7 (v6 is its latest major); `create-pull-request` v6
 and v7 are both Node 20, so v8 was required to actually clear the Node 20
 deprecation warning, not merely optional.
@@ -48,7 +72,7 @@ Two consequences that look like flaky CI and are not:
   test `main` just added -- the next run reds on a commit nobody touched.
 - **A manual re-run cannot re-measure a moved base.** Re-running replays the
   recorded `GITHUB_SHA` against that run's workflow definition, so
-  `actions/checkout@v7` with no `ref:` override checks out the same old merge
+  `actions/checkout` with no `ref:` override checks out the same old merge
   commit. The re-run looks fresh while testing the same stale tree.
 
 To genuinely re-measure against a moved `main`: `gh pr update-branch` (adds a
